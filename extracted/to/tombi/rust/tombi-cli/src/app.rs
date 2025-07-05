@@ -27,6 +27,10 @@ pub struct Args {
     #[clap(long, global = true)]
     offline: bool,
 
+    /// Do not use cache
+    #[clap(long, global = true, env("TOMBI_NO_CACHE"))]
+    no_cache: bool,
+
     #[command(flatten)]
     verbose: Verbosity<InfoLevel>,
 }
@@ -57,7 +61,15 @@ fn convert_log_level_filter(level: log::LevelFilter) -> filter::LevelFilter {
 pub fn run(args: impl Into<Args>) -> Result<(), crate::Error> {
     let args: Args = args.into();
     tracing_subscriber::registry()
-        .with(convert_log_level_filter(args.verbose.log_level_filter()))
+        .with(
+            // Filter out all logs from other crates
+            filter::Targets::new()
+                .with_target(
+                    "tombi",
+                    convert_log_level_filter(args.verbose.log_level_filter()),
+                )
+                .with_default(filter::LevelFilter::OFF),
+        )
         .with(
             tracing_subscriber::fmt::layer()
                 .event_format(TombiFormatter::from(args.verbose.log_level_filter()))
@@ -66,10 +78,11 @@ pub fn run(args: impl Into<Args>) -> Result<(), crate::Error> {
         .init();
 
     let offline = args.offline;
+    let no_cache = args.no_cache;
     match args.subcommand {
-        command::TomlCommand::Format(args) => command::format::run(args, offline),
-        command::TomlCommand::Lint(args) => command::lint::run(args, offline),
-        command::TomlCommand::Lsp(args) => command::lsp::run(args, offline),
+        command::TomlCommand::Format(args) => command::format::run(args, offline, no_cache),
+        command::TomlCommand::Lint(args) => command::lint::run(args, offline, no_cache),
+        command::TomlCommand::Lsp(args) => command::lsp::run(args, offline, no_cache),
     }
 }
 

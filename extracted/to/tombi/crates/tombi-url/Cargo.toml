@@ -9,8 +9,3 @@ readme = "README.md"
 
 [dependencies]
 url.workspace = true
-
-[features]
-default = ["native"]
-native = []
-wasm = []

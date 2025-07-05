@@ -1,10 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pook
-Version: 2.1.3
+Version: 2.1.4
 Summary: HTTP traffic mocking and expectations made easy
 Project-URL: Homepage, https://github.com/h2non/pook
 Author-email: Tomas Aparicio <tomas@aparicio.me>, Sara Marcondes <git@sarayourfriend.pictures>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators

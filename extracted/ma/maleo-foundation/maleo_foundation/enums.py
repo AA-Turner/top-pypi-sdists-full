@@ -126,17 +126,14 @@ class BaseEnums:
                 BaseEnums.RESTControllerResponseType.FILE: responses.FileResponse,
             }.get(self, responses.Response)
 
-    class ServiceLoggerType(StrEnum):
-        REPOSITORY = "repository"
-        DATABASE = "database"
-        APPLICATION = "application"
-
     class LoggerType(StrEnum):
+        APPLICATION = "application"
+        CACHE = "cache"
+        CLIENT = "client"
+        DATABASE = "database"
         MIDDLEWARE = "middleware"
         REPOSITORY = "repository"
-        DATABASE = "database"
-        APPLICATION = "application"
-        CLIENT = "client"
+        SERVICE = "service"
 
     class LoggerLevel(IntEnum):
         CRITICAL = logging.CRITICAL
@@ -148,26 +145,10 @@ class BaseEnums:
         DEBUG = logging.DEBUG
         NOTSET = logging.NOTSET
 
-    class CacheType(StrEnum):
+    class CacheLayer(StrEnum):
+        CLIENT = "client"
         REPOSITORY = "repository"
         ROUTER = "router"
-        CLIENT = "client"
-
-    class CacheTTL(IntEnum):
-        TTL_15SC = int(15)
-        TTL_30SC = int(30)
-        TTL_1MN = int(1*60)
-        TTL_5MN = int(5*60)
-        TTL_10MN = int(10*60)
-        TTL_30MN = int(30*60)
-        TTL_1HR = int(1*60*60)
-        TTL_6HR = int(6*60*60)
-        TTL_12HR = int(12*60*60)
-        TTL_1DY = int(1*24*60*60)
-        TTL_3DY = int(3*24*60*60)
-        TTL_1WK = int(1*7*24*60*60)
-        TTL_2WK = int(2*7*24*60*60)
-        TTL_1MO = int(1*30*24*60*60)
 
     class Expiration(IntEnum):
         EXP_15SC = int(15)

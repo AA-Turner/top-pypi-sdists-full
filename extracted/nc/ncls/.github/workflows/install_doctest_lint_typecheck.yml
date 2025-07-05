@@ -35,7 +35,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install isort
-      - run: isort --profile black -l 120 --check --diff .
+      - run: isort --profile black -l 120 --check --diff ncls tests
 
   black:
     runs-on: ubuntu-latest

@@ -409,6 +409,9 @@ async def integracao_contabil_generica(
             ).wrapper_object()
 
             botao_integrar.click_input()
+            
+            await worker_sleep(5)
+            
             assets_int_cont = "assets\\integracao_contabil\\"
             err_dict = {
                 assets_int_cont
@@ -417,13 +420,11 @@ async def integracao_contabil_generica(
                 + "conta_indefinida_error.png": "Conta contábil indefinida no sistema.",
                 assets_int_cont
                 + "lote_sem_complemento_error.png": "Lote encontrado sem complemento obrigatório.",
+                assets_int_cont
+                + "diferenca_cred_deb.png": "Existem diferença em lotes consistentes, por favor verificar."
             }
             # Aguardar finalizar
             while True:
-                mensagem_mapeada = get_text_from_window(
-                    main_window, (830, 509, 998, 524)
-                )
-                print("mensagem_mapeada:", mensagem_mapeada)
                 try:
                     app = Application(backend="win32").connect(
                         class_name="TMsgBox", found_index=0
@@ -432,7 +433,10 @@ async def integracao_contabil_generica(
 
                     # Antes de qualquer coisa, verifica por imagem de erro
                     for img_path, mensagem in err_dict.items():
-                        err = pyautogui.locateOnScreen(img_path, confidence=0.86)
+                        try:
+                            err = pyautogui.locateOnScreen(img_path, confidence=0.86)
+                        except:
+                            continue
                         if err:
                             console.print(f"[red]Erro encontrado:[/red] {mensagem}")
 
@@ -448,18 +452,28 @@ async def integracao_contabil_generica(
                                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
                             )
 
-                    # Se não for erro por imagem, assume que é confirmação final
-                    msg_box.child_window(
-                        class_name="TBitBtn", found_index=0
-                    ).click_input()
-                    break
+                    await worker_sleep(1)
+
+                    try:
+                        app = Application(backend="win32").connect(
+                            class_name="TMsgBox", found_index=0
+                        )
+                        main_window = app["TMsgBox"]
+                        main_window.child_window(
+                            class_name="TBitBtn", found_index=0
+                        ).click_input()
+                        break
+                    except ElementNotFoundError:
+                        console.print("[yellow]Janela TMsgBox ainda não visível.[/yellow]")
+                        break
+                        
 
                 except ElementNotFoundError:
                     console.print("[yellow]Janela TMsgBox ainda não visível.[/yellow]")
                 except Exception as e:
-                    console.print(
-                        f"[red]Erro inesperado ao verificar janela de confirmação: {e}"
-                    )
+                    print(f"Erro inesperado ao verificar janela de confirmação: {e}")
+                    break
+                    
 
                 await worker_sleep(1)
 

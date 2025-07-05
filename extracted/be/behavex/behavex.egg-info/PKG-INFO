@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: behavex
-Version: 4.2.3
+Version: 4.2.4
 Summary: Agile testing framework on top of Behave (BDD).
 Home-page: https://github.com/hrcorval/behavex
 Author: Hernan Rey
@@ -29,7 +29,7 @@ Requires-Python: >=3.5
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: behave==1.2.6
-Requires-Dist: behavex-images>=3.0.10
+Requires-Dist: behavex-images>=3.2.1
 Requires-Dist: allure-python-commons
 Requires-Dist: jinja2
 Requires-Dist: configobj

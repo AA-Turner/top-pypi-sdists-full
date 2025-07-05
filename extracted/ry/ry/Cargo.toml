@@ -52,13 +52,13 @@ lto = "fat"
 
 
 [workspace.package]
-version = "0.0.48"
+version = "0.0.49"
 authors = [
   "Jesse K. Rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
 ]
 documentation = "https://github.com/jessekrubin/ry"
-edition = "2021"
+edition = "2024"
 homepage = "https://github.com/jessekrubin/ry"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jessekrubin/ry"
@@ -144,6 +144,7 @@ same-file = "1.0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.17"
 serde_json = { version = "1.0.140", features = ["std"] }
+serde-transcode = "1.1.1"
 shlex = "1.3.0"
 size = "0.5.0"
 sqlformat = "0.3.5"

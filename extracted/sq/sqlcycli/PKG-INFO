@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlcycli
-Version: 1.4.6
+Version: 1.5.0
 Summary: Fast MySQL driver build in Cython (Sync and Async).
 Home-page: https://github.com/AresJef/SQLCyCli
 Author: Jiefu Chen

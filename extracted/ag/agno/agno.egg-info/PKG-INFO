@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.0
+Version: 1.7.1
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -523,6 +523,8 @@ Provides-Extra: opencv
 Requires-Dist: opencv-python; extra == "opencv"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
+Provides-Extra: valyu
+Requires-Dist: valyu; extra == "valyu"
 Provides-Extra: webex
 Requires-Dist: webexpythonsdk; extra == "webex"
 Provides-Extra: yfinance
@@ -531,6 +533,8 @@ Provides-Extra: youtube
 Requires-Dist: youtube_transcript_api; extra == "youtube"
 Provides-Extra: zep
 Requires-Dist: zep-cloud; extra == "zep"
+Provides-Extra: oxylabs
+Requires-Dist: oxylabs; extra == "oxylabs"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: postgres
@@ -634,7 +638,9 @@ Requires-Dist: agno[mcp]; extra == "tools"
 Requires-Dist: agno[browserbase]; extra == "tools"
 Requires-Dist: agno[agentql]; extra == "tools"
 Requires-Dist: agno[opencv]; extra == "tools"
+Requires-Dist: agno[valyu]; extra == "tools"
 Requires-Dist: agno[confluence]; extra == "tools"
+Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
@@ -909,13 +915,19 @@ Agno agents are designed for performance and while we do share some benchmarks a
 
 Given that each framework is different and we won't be able to tune their performance like we do with Agno, for future benchmarks we'll only be comparing against ourselves.
 
-## Cursor Setup
+## Complete Documentation Index
+
+For LLMs and AI assistants to understand and navigate Agno's complete documentation, we provide an [LLMs.txt](https://docs.agno.com/llms.txt) or [LLMs-Full.txt](https://docs.agno.com/llms-full.txt) file.
+
+This file is specifically formatted for AI systems to efficiently parse and reference our documentation.
+
+### Cursor Setup
 
 When building Agno agents, using Agno documentation as a source in Cursor is a great way to speed up your development.
 
-1. In Cursor, go to the settings or preferences section.
-2. Find the section to manage documentation sources.
-3. Add `https://docs.agno.com` to the list of documentation URLs.
+1. In Cursor, go to the "Cursor Settings" menu.
+2. Find the "Indexing & Docs" section.
+3. Add `https://docs.agno.com/llms-full.txt` to the list of documentation URLs.
 4. Save the changes.
 
 Now, Cursor will have access to the Agno documentation.

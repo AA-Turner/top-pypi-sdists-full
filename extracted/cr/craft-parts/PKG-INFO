@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: craft-parts
-Version: 2.15.0
+Version: 2.16.0
 Summary: Craft parts tooling
 Author-email: "Canonical Ltd." <snapcraft@lists.snapcraft.io>
 Project-URL: Homepage, https://github.com/canonical/craft-parts
@@ -33,6 +33,7 @@ Provides-Extra: apt-questing
 Requires-Dist: python-apt~=3.0.0; sys_platform == "linux" and extra == "apt-questing"
 Provides-Extra: docs
 Requires-Dist: canonical-sphinx; extra == "docs"
+Requires-Dist: pydantic-kitbash==0.0.6; extra == "docs"
 Requires-Dist: setuptools; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"

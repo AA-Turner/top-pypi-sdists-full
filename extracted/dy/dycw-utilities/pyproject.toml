@@ -19,7 +19,7 @@ cachetools = ["cachetools >= 6.1.0, < 6.2"]
 click = ["click >= 8.2.1, < 8.3"]
 core = [
   "atomicwrites >= 1.4.1, < 1.5",
-  "typing-extensions >= 4.14.0, < 4.15",
+  "typing-extensions >= 4.14.1, < 4.15",
   "tzlocal >= 5.3.1, < 5.4",
   "whenever >= 0.8.6, < 0.9",
 ]
@@ -72,9 +72,10 @@ pytest = [
   "pytest >= 8.4.1, < 8.5",
   "pytest-asyncio >= 1.0.0, < 1.1",
   "pytest-randomly >= 3.16.0, < 3.17",
+  "pytest-timeout >= 2.4.0, < 2.5",
   "pytest-xdist >= 3.8.0, < 3.9",
 ]
-pytest-regressions = ["pytest-regressions >= 2.8.0, < 2.9"]
+pytest-regressions = ["pytest-regressions >= 2.8.1, < 2.9"]
 pytest-regressions-test = ["orjson", "polars-lts-cpu"]
 pytest-test = ["orjson", "pytest-rng", "pytest-rerunfailures"]
 python-dotenv = ["python-dotenv >= 1.1.1, < 1.2"]
@@ -106,7 +107,7 @@ dependencies = [
 name = "dycw-utilities"
 readme = "README.md"
 requires-python = ">= 3.12"
-version = "0.139.9"
+version = "0.139.11"
 
 [project.entry-points.pytest11]
 pytest-randomly = "utilities.pytest_plugins.pytest_randomly"
@@ -126,7 +127,7 @@ test = [
   "pytest-instafail >= 0.5.0, < 0.6",
   "pytest-lazy-fixtures >= 1.1.4, < 1.2",
   "pytest-randomly >= 3.16.0, < 3.17",
-  "pytest-regressions >= 2.8.0, < 2.9",
+  "pytest-regressions >= 2.8.1, < 2.9",
   "pytest-repeat >= 0.9.4, < 0.10",
   "pytest-rerunfailures >= 15.1, < 16",
   "pytest-rng >= 1.0.0, < 1.1",
@@ -139,7 +140,7 @@ test = [
 # bump-my-version
 [tool.bumpversion]
 allow_dirty = true
-current_version = "0.139.9"
+current_version = "0.139.11"
 
 [[tool.bumpversion.files]]
 filename = "src/utilities/__init__.py"
@@ -239,16 +240,13 @@ addopts = [
   "-ra",
   "-vv",
   "--color=auto",
-  "--cov=utilities",
-  "--cov-config=pyproject.toml",
-  "--cov-report=html",
   "--durations=10",
   "--durations-min=10",
   "--pdbcls=pudb.debugger:Debugger",
   "--strict-markers",
   "--timeout=600",
 ]
-# asyncio_default_fixture_loop_scope = "function"
+asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 filterwarnings = [
   "error",
@@ -312,6 +310,7 @@ ignore = [
   "PLR0913",  # too-many-arguments
   "PLR0915",  # too-many-statements
   "PLR2004",  # magic-value-comparison
+  "PT012",  # pytest-raises-with-multiple-statements
   "PT013",  # pytest-incorrect-pytest-import
   "S311",  # suspicious-non-cryptographic-random-usage
   "S603",  # subprocess-without-shell-equals-true

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-docker
-Version: 3.2.2
+Version: 3.2.3
 Summary: Simple pytest fixtures for Docker and Docker Compose based tests
 Home-page: https://github.com/avast/pytest-docker
 Author: Max K., Andre Caron

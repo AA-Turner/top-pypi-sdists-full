@@ -13,7 +13,7 @@
             "-Wno-unreachable-code"
         ],
         "include_dirs": [
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "sqlcycli._auth",
         "sources": [
@@ -38,6 +38,11 @@ END: Cython Metadata */
 #endif
 
 #include "Python.h"
+
+    #if PY_MAJOR_VERSION <= 2
+    #define PyDict_GetItemWithError _PyDict_GetItemWithError
+    #endif
+    
 #ifndef Py_PYTHON_H
     #error Python headers needed to compile C extensions, please install development version of Python.
 #elif PY_VERSION_HEX < 0x02070000 || (0x03000000 <= PY_VERSION_HEX && PY_VERSION_HEX < 0x03030000)
@@ -1532,10 +1537,11 @@ struct __pyx_obj_8sqlcycli_7charset_Charset {
   PyObject *_encoding;
   char *_encoding_c;
   int _is_default;
+  Py_ssize_t _hashcode;
 };
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1557,11 +1563,12 @@ struct __pyx_obj_8sqlcycli_7charset_Charsets {
  * # Auth Plugin
  * cdef class AuthPlugin:             # <<<<<<<<<<<<<<
  *     cdef:
- *         object _mysql_native_password
+ *         # . plugins registry
  */
 struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin {
   PyObject_HEAD
   struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *__pyx_vtab;
+  PyObject *_plugins;
   PyObject *_mysql_native_password;
   PyObject *_caching_sha2_password;
   PyObject *_sha256_password;
@@ -1569,14 +1576,13 @@ struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin {
   PyObject *_mysql_old_password;
   PyObject *_mysql_clear_password;
   PyObject *_dialog;
-  PyObject *_plugins;
 };
 
 
-/* "sqlcycli/_auth.py":215
- *             return "<%s(\n  %s)>" % (
+/* "sqlcycli/_auth.py":282
+ *             return "<%s (\n\t%s\n)>" % (
  *                 self.__class__.__name__,
- *                 ",\n  ".join("%s=%s" % (k, v) for k, v in self._plugins.items()),             # <<<<<<<<<<<<<<
+ *                 ",\n\t".join("%s=%s" % (k, v) for k, v in self._plugins.items()),             # <<<<<<<<<<<<<<
  *             )
  * 
  */
@@ -1603,7 +1609,7 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charset {
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcycli_7charset_Charset;
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1613,10 +1619,10 @@ static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcyc
 
 struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
   int (*add)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *, int __pyx_skip_dispatch);
-  int (*_add_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
   PyObject *(*_gen_charset_n_collate_key)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
@@ -1626,18 +1632,23 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *__pyx_vtabptr_8sqlcycli_7charset_Charsets;
 
 
-/* "sqlcycli/_auth.py":53
+/* "sqlcycli/_auth.py":57
  * # Auth Plugin ---------------------------------------------------------------------------------
  * @cython.cclass
  * class AuthPlugin:             # <<<<<<<<<<<<<<
- *     """Represents the authentication pluging handlers for MySQL."""
+ *     """Registry and manager for MySQL authentication plugin handlers.
  * 
  */
 
 struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin {
   PyObject *(*get)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, int __pyx_skip_dispatch);
+  int (*set)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *, int __pyx_skip_dispatch);
+  PyObject *(*_validete_plugin_name)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *);
+  PyObject *(*_validate_plugin_handler)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *);
 };
 static struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *__pyx_vtabptr_8sqlcycli_5_auth_AuthPlugin;
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *);
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validate_plugin_handler(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *);
 /* #### Code section: utility_code_proto ### */
 
 /* --- Runtime support code (head) --- */
@@ -2084,12 +2095,6 @@ static CYTHON_INLINE PyObject *__Pyx_CallUnboundCMethod2(__Pyx_CachedCFunction *
 #define __Pyx_CallUnboundCMethod2(cfunc, self, arg1, arg2)  __Pyx__CallUnboundCMethod2(cfunc, self, arg1, arg2)
 #endif
 
-/* ArgTypeTest.proto */
-#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
-    ((likely(__Pyx_IS_TYPE(obj, type) | (none_allowed && (obj == Py_None)))) ? 1 :\
-        __Pyx__ArgTypeTest(obj, type, name, exact))
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
-
 /* RaiseUnboundLocalError.proto */
 static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname);
 
@@ -2117,11 +2122,40 @@ static CYTHON_INLINE int __Pyx_ListComp_Append(PyObject* list, PyObject* x) {
 /* pep479.proto */
 static void __Pyx_Generator_Replace_StopIteration(int in_async_gen);
 
+/* py_dict_values.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyDict_Values(PyObject* d);
+
+/* CallUnboundCMethod0.proto */
+static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObject* self);
+#if CYTHON_COMPILING_IN_CPYTHON
+#define __Pyx_CallUnboundCMethod0(cfunc, self)\
+    (likely((cfunc)->func) ?\
+        (likely((cfunc)->flag == METH_NOARGS) ?  (*((cfunc)->func))(self, NULL) :\
+         (PY_VERSION_HEX >= 0x030600B1 && likely((cfunc)->flag == METH_FASTCALL) ?\
+            (PY_VERSION_HEX >= 0x030700A0 ?\
+                (*(__Pyx_PyCFunctionFast)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0) :\
+                (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0, NULL)) :\
+          (PY_VERSION_HEX >= 0x030700A0 && (cfunc)->flag == (METH_FASTCALL | METH_KEYWORDS) ?\
+            (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0, NULL) :\
+            (likely((cfunc)->flag == (METH_VARARGS | METH_KEYWORDS)) ?  ((*(PyCFunctionWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, __pyx_empty_tuple, NULL)) :\
+               ((cfunc)->flag == METH_VARARGS ?  (*((cfunc)->func))(self, __pyx_empty_tuple) :\
+               __Pyx__CallUnboundCMethod0(cfunc, self)))))) :\
+        __Pyx__CallUnboundCMethod0(cfunc, self))
+#else
+#define __Pyx_CallUnboundCMethod0(cfunc, self)  __Pyx__CallUnboundCMethod0(cfunc, self)
+#endif
+
 /* KeywordStringCheck.proto */
 static int __Pyx_CheckKeywordStrings(PyObject *kw, const char* function_name, int kw_allowed);
 
 /* GetAttr3.proto */
 static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
+
+/* ArgTypeTest.proto */
+#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
+    ((likely(__Pyx_IS_TYPE(obj, type) | (none_allowed && (obj == Py_None)))) ? 1 :\
+        __Pyx__ArgTypeTest(obj, type, name, exact))
+static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
 
 /* ModInt[Py_ssize_t].proto */
 static CYTHON_INLINE Py_ssize_t __Pyx_mod_Py_ssize_t(Py_ssize_t, Py_ssize_t);
@@ -2385,9 +2419,6 @@ static void __Pyx_AddTraceback(const char *funcname, int c_line,
 /* CIntFromPy.proto */
 static CYTHON_INLINE long __Pyx_PyInt_As_long(PyObject *);
 
-/* CIntFromPy.proto */
-static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *);
-
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value);
 
@@ -2406,6 +2437,9 @@ typedef const char *__Pyx_TypeName;
 #define __Pyx_PyType_GetName(tp) ((tp)->tp_name)
 #define __Pyx_DECREF_TypeName(obj)
 #endif
+
+/* CIntFromPy.proto */
+static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *);
 
 /* FastTypeChecks.proto */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -2533,6 +2567,9 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
 /* #### Code section: module_declarations ### */
 static PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name, int __pyx_skip_dispatch); /* proto*/
+static int __pyx_f_8sqlcycli_5_auth_10AuthPlugin_set(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name, PyObject *__pyx_v_handler, int __pyx_skip_dispatch); /* proto*/
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name); /* proto*/
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validate_plugin_handler(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_pluging_name, PyObject *__pyx_v_handler); /* proto*/
 
 /* Module declarations from "cython" */
 
@@ -2547,6 +2584,10 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(struct __pyx_obj_8sql
 /* Module declarations from "cpython" */
 
 /* Module declarations from "cpython.object" */
+
+/* Module declarations from "cpython.pyport" */
+
+/* Module declarations from "cpython.dict" */
 
 /* Module declarations from "cpython.bytes" */
 
@@ -2621,24 +2662,29 @@ int __pyx_module_is_main_sqlcycli___auth = 0;
 /* Implementation of "sqlcycli._auth" */
 /* #### Code section: global_var ### */
 static PyObject *__pyx_builtin_ImportError;
+static PyObject *__pyx_builtin_KeyError;
 static PyObject *__pyx_builtin_range;
 static PyObject *__pyx_builtin_RuntimeError;
 /* #### Code section: string_decls ### */
 static const char __pyx_k_[] = "<'";
-static const char __pyx_k__2[] = "=";
-static const char __pyx_k__3[] = "<";
-static const char __pyx_k__4[] = "(\n  ";
-static const char __pyx_k__5[] = ",\n  ";
-static const char __pyx_k__6[] = ")>";
-static const char __pyx_k__7[] = "";
-static const char __pyx_k__9[] = "\000";
+static const char __pyx_k_s[] = "<%s ()>";
+static const char __pyx_k__2[] = " ";
+static const char __pyx_k__3[] = "' (";
+static const char __pyx_k__4[] = "=";
+static const char __pyx_k__5[] = "<";
+static const char __pyx_k__6[] = " (\n\t";
+static const char __pyx_k__7[] = ",\n\t";
+static const char __pyx_k__8[] = "\n)>";
+static const char __pyx_k__9[] = "";
 static const char __pyx_k_gc[] = "gc";
-static const char __pyx_k__12[] = ".";
-static const char __pyx_k__28[] = "?";
+static const char __pyx_k__11[] = "\000";
+static const char __pyx_k__14[] = ".";
+static const char __pyx_k__32[] = "?";
 static const char __pyx_k_all[] = "__all__";
 static const char __pyx_k_get[] = "get";
 static const char __pyx_k_mgf[] = "mgf";
 static const char __pyx_k_new[] = "__new__";
+static const char __pyx_k_set[] = "set";
 static const char __pyx_k_MGF1[] = "MGF1";
 static const char __pyx_k_None[] = "None";
 static const char __pyx_k_OAEP[] = "OAEP";
@@ -2671,17 +2717,23 @@ static const char __pyx_k_enable[] = "enable";
 static const char __pyx_k_errors[] = "errors";
 static const char __pyx_k_hashes[] = "hashes";
 static const char __pyx_k_import[] = "__import__";
+static const char __pyx_k_object[] = "object";
 static const char __pyx_k_pickle[] = "pickle";
 static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_sha256[] = "sha256";
 static const char __pyx_k_sha512[] = "sha512";
+static const char __pyx_k_typing[] = "typing";
 static const char __pyx_k_update[] = "update";
+static const char __pyx_k_values[] = "values";
 static const char __pyx_k_disable[] = "disable";
 static const char __pyx_k_encrypt[] = "encrypt";
 static const char __pyx_k_genexpr[] = "genexpr";
+static const char __pyx_k_handler[] = "handler";
 static const char __pyx_k_hashlib[] = "hashlib";
 static const char __pyx_k_padding[] = "padding";
 static const char __pyx_k_plugins[] = "plugins";
+static const char __pyx_k_Iterator[] = "Iterator";
+static const char __pyx_k_KeyError[] = "KeyError";
 static const char __pyx_k_bindings[] = "bindings";
 static const char __pyx_k_getstate[] = "__getstate__";
 static const char __pyx_k_password[] = "password";
@@ -2695,10 +2747,12 @@ static const char __pyx_k_arguments[] = " arguments:\n";
 static const char __pyx_k_isenabled[] = "isenabled";
 static const char __pyx_k_pyx_state[] = "__pyx_state";
 static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
+static const char __pyx_k_str_bytes[] = "str | bytes";
 static const char __pyx_k_AuthPlugin[] = "AuthPlugin";
 static const char __pyx_k_public_key[] = "public_key";
 static const char __pyx_k_pyx_result[] = "__pyx_result";
 static const char __pyx_k_pyx_vtable[] = "__pyx_vtable__";
+static const char __pyx_k_Auth_plugin[] = "'>\nAuth plugin '";
 static const char __pyx_k_ImportError[] = "ImportError";
 static const char __pyx_k_PickleError[] = "PickleError";
 static const char __pyx_k_plugin_name[] = "plugin_name";
@@ -2709,9 +2763,9 @@ static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_stringsource[] = "<stringsource>";
 static const char __pyx_k_use_setstate[] = "use_setstate";
 static const char __pyx_k_reduce_cython[] = "__reduce_cython__";
-static const char __pyx_k_s_No_Handlers[] = "<%s(No Handlers)>";
 static const char __pyx_k_serialization[] = "serialization";
 static const char __pyx_k_AuthPlugin_get[] = "AuthPlugin.get";
+static const char __pyx_k_AuthPlugin_set[] = "AuthPlugin.set";
 static const char __pyx_k_NACL_AVAILABLE[] = "NACL_AVAILABLE";
 static const char __pyx_k_client_ed25519[] = "client_ed25519";
 static const char __pyx_k_hashlib_sha256[] = "_hashlib_sha256";
@@ -2722,11 +2776,12 @@ static const char __pyx_k_default_backend[] = "_default_backend";
 static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
 static const char __pyx_k_sha256_password[] = "sha256_password";
-static const char __pyx_k_Auth_plugin_name[] = "'>\nAuth plugin name '";
+static const char __pyx_k_Auth_plugin_name[] = "'>\nAuth plugin name (";
 static const char __pyx_k_NACL_AVAILABLE_C[] = "NACL_AVAILABLE_C";
 static const char __pyx_k_ed25519_password[] = "ed25519_password";
 static const char __pyx_k_sha2_rsa_encrypt[] = "sha2_rsa_encrypt";
 static const char __pyx_k_default_backend_2[] = "default_backend";
+static const char __pyx_k_is_not_registered[] = "' is not registered.";
 static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_mysql_old_password[] = "mysql_old_password";
@@ -2748,40 +2803,45 @@ static const char __pyx_k_scramble_native_password[] = "scramble_native_password
 static const char __pyx_k_AuthPlugin___reduce_cython[] = "AuthPlugin.__reduce_cython__";
 static const char __pyx_k_AuthPlugin___setstate_cython[] = "AuthPlugin.__setstate_cython__";
 static const char __pyx_k_cryptography_hazmat_backends[] = "cryptography.hazmat.backends";
-static const char __pyx_k_must_be_class_type_instead_of[] = "' must be <class 'type'>, instead of: ";
+static const char __pyx_k_is_invalid_must_be_class_type[] = ") is invalid, must be <class 'type'>.";
 static const char __pyx_k_crypto_core_ed25519_scalar_add[] = "crypto_core_ed25519_scalar_add";
 static const char __pyx_k_crypto_core_ed25519_scalar_mul[] = "crypto_core_ed25519_scalar_mul";
 static const char __pyx_k_cryptography_hazmat_primitives[] = "cryptography.hazmat.primitives";
 static const char __pyx_k_Auth_plugins_must_be_type_of_di[] = "'>\nAuth 'plugins' must be type of <'dict'>, instead of: ";
-static const char __pyx_k_must_be_type_of_str_bytes_inste[] = "' must be type of <'str/bytes'>, instead of: ";
+static const char __pyx_k_is_invalid_must_be_str_or_bytes[] = ") is invalid, must be <'str'> or <'bytes'>.";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x2b3a939, 0x4483f57, 0xd0cbb49) = (_caching_sha2_password, _client_ed25519, _dialog, _mysql_clear_password, _mysql_native_password, _mysql_old_password, _plugins, _sha256_password))";
-static const char __pyx_k_The_cryptography_package_is_requ[] = "The 'cryptography' package is required for 'sha256_password' or 'caching_sha2_password' authentication.";
-static const char __pyx_k_The_nacl_pynacl_package_is_requi[] = "The 'nacl (pynacl)' package is required for 'client_ed25519' authentication.";
+static const char __pyx_k_The_cryptography_libarary_is_req[] = "The 'cryptography' libarary is required for 'sha256_password' or 'caching_sha2_password' authentication.";
+static const char __pyx_k_The_nacl_pynacl_library_is_requi[] = "The 'nacl (pynacl)' library is required for 'client_ed25519' authentication.";
 static const char __pyx_k_crypto_core_ed25519_scalar_reduc[] = "crypto_core_ed25519_scalar_reduce";
 static const char __pyx_k_crypto_scalarmult_ed25519_base_n[] = "crypto_scalarmult_ed25519_base_noclamp";
 static const char __pyx_k_cryptography_hazmat_primitives_a[] = "cryptography.hazmat.primitives.asymmetric";
 /* #### Code section: decls ### */
 static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin___init__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugins); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog___get__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_2get(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4set(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name, PyObject *__pyx_v_handler); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__repr___genexpr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_genexpr_arg_0); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4__repr__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__bool__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__reduce_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__setstate_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__repr__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__getitem__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_key); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__contains__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_12__iter__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14__bool__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
+static Py_ssize_t __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_16__len__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18__reduce_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20__setstate_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_scramble_native_password(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_password, PyObject *__pyx_v_salt); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_2scramble_caching_sha2(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_password, PyObject *__pyx_v_salt); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_5_auth_4sha2_rsa_encrypt(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_password, PyObject *__pyx_v_salt, PyObject *__pyx_v_public_key); /* proto */
@@ -2790,6 +2850,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_8__pyx_unpickle_AuthPlugin(CYTHON_UNU
 static PyObject *__pyx_tp_new_8sqlcycli_5_auth_AuthPlugin(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_8sqlcycli_5_auth___pyx_scope_struct__genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_get = {0, 0, 0, 0, 0};
+static __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values = {0, 0, 0, 0, 0};
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
 typedef struct {
@@ -2844,6 +2905,10 @@ typedef struct {
   #endif
   #if CYTHON_USE_MODULE_STATE
   #endif
+  #if CYTHON_USE_MODULE_STATE
+  #endif
+  #if CYTHON_USE_MODULE_STATE
+  #endif
   PyTypeObject *__pyx_ptype_8sqlcycli_7charset_Charset;
   PyTypeObject *__pyx_ptype_8sqlcycli_7charset_Charsets;
   #if CYTHON_USE_MODULE_STATE
@@ -2860,6 +2925,8 @@ typedef struct {
   PyObject *__pyx_n_s_AuthPlugin___reduce_cython;
   PyObject *__pyx_n_s_AuthPlugin___setstate_cython;
   PyObject *__pyx_n_s_AuthPlugin_get;
+  PyObject *__pyx_n_s_AuthPlugin_set;
+  PyObject *__pyx_kp_u_Auth_plugin;
   PyObject *__pyx_kp_u_Auth_plugin_handler;
   PyObject *__pyx_kp_u_Auth_plugin_name;
   PyObject *__pyx_kp_u_Auth_plugins_must_be_type_of_di;
@@ -2871,6 +2938,8 @@ typedef struct {
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0;
   PyObject *__pyx_n_s_InvalidAuthPluginError;
   PyObject *__pyx_n_s_InvalidSQLArgsErorr;
+  PyObject *__pyx_n_s_Iterator;
+  PyObject *__pyx_n_s_KeyError;
   PyObject *__pyx_n_s_MGF1;
   PyObject *__pyx_n_s_NACL_AVAILABLE;
   PyObject *__pyx_n_s_NACL_AVAILABLE_C;
@@ -2880,17 +2949,19 @@ typedef struct {
   PyObject *__pyx_n_s_RuntimeError;
   PyObject *__pyx_n_s_SCRAMBLE_LENGTH;
   PyObject *__pyx_n_s_SHA1;
-  PyObject *__pyx_kp_u_The_cryptography_package_is_requ;
-  PyObject *__pyx_kp_u_The_nacl_pynacl_package_is_requi;
+  PyObject *__pyx_kp_u_The_cryptography_libarary_is_req;
+  PyObject *__pyx_kp_u_The_nacl_pynacl_library_is_requi;
   PyObject *__pyx_kp_u_With;
-  PyObject *__pyx_kp_u__12;
+  PyObject *__pyx_kp_b__11;
+  PyObject *__pyx_kp_u__14;
   PyObject *__pyx_kp_u__2;
-  PyObject *__pyx_n_s__28;
   PyObject *__pyx_kp_u__3;
+  PyObject *__pyx_n_s__32;
   PyObject *__pyx_kp_u__4;
   PyObject *__pyx_kp_u__5;
   PyObject *__pyx_kp_u__6;
-  PyObject *__pyx_kp_b__7;
+  PyObject *__pyx_kp_u__7;
+  PyObject *__pyx_kp_u__8;
   PyObject *__pyx_kp_b__9;
   PyObject *__pyx_n_s_algorithm;
   PyObject *__pyx_n_s_all;
@@ -2927,6 +2998,7 @@ typedef struct {
   PyObject *__pyx_n_s_genexpr;
   PyObject *__pyx_n_s_get;
   PyObject *__pyx_n_s_getstate;
+  PyObject *__pyx_n_s_handler;
   PyObject *__pyx_n_s_hashes;
   PyObject *__pyx_n_s_hashlib;
   PyObject *__pyx_n_s_hashlib_sha1;
@@ -2934,20 +3006,22 @@ typedef struct {
   PyObject *__pyx_n_s_hashlib_sha512;
   PyObject *__pyx_n_s_import;
   PyObject *__pyx_n_s_is_coroutine;
+  PyObject *__pyx_kp_u_is_invalid_must_be_class_type;
+  PyObject *__pyx_kp_u_is_invalid_must_be_str_or_bytes;
+  PyObject *__pyx_kp_u_is_not_registered;
   PyObject *__pyx_kp_u_isenabled;
   PyObject *__pyx_n_s_items;
   PyObject *__pyx_n_s_label;
   PyObject *__pyx_n_s_load_pem_public_key;
   PyObject *__pyx_n_s_main;
   PyObject *__pyx_n_s_mgf;
-  PyObject *__pyx_kp_u_must_be_class_type_instead_of;
-  PyObject *__pyx_kp_u_must_be_type_of_str_bytes_inste;
   PyObject *__pyx_n_b_mysql_clear_password;
   PyObject *__pyx_n_b_mysql_native_password;
   PyObject *__pyx_n_b_mysql_old_password;
   PyObject *__pyx_n_s_nacl;
   PyObject *__pyx_n_s_name;
   PyObject *__pyx_n_s_new;
+  PyObject *__pyx_n_s_object;
   PyObject *__pyx_n_s_padding;
   PyObject *__pyx_n_s_password;
   PyObject *__pyx_n_s_pickle;
@@ -2967,7 +3041,7 @@ typedef struct {
   PyObject *__pyx_n_s_reduce_cython;
   PyObject *__pyx_n_s_reduce_ex;
   PyObject *__pyx_n_s_repr___locals_genexpr;
-  PyObject *__pyx_kp_u_s_No_Handlers;
+  PyObject *__pyx_kp_u_s;
   PyObject *__pyx_n_s_salt;
   PyObject *__pyx_n_s_scramble;
   PyObject *__pyx_n_s_scramble_caching_sha2;
@@ -2977,6 +3051,7 @@ typedef struct {
   PyObject *__pyx_n_s_self;
   PyObject *__pyx_n_s_send;
   PyObject *__pyx_n_s_serialization;
+  PyObject *__pyx_n_s_set;
   PyObject *__pyx_n_s_setstate;
   PyObject *__pyx_n_s_setstate_cython;
   PyObject *__pyx_n_s_sha1;
@@ -2989,33 +3064,38 @@ typedef struct {
   PyObject *__pyx_n_s_sqlcycli__auth;
   PyObject *__pyx_kp_s_src_sqlcycli__auth_py;
   PyObject *__pyx_n_s_state;
+  PyObject *__pyx_kp_s_str_bytes;
   PyObject *__pyx_kp_s_stringsource;
   PyObject *__pyx_n_s_test;
   PyObject *__pyx_n_s_throw;
+  PyObject *__pyx_n_s_typing;
   PyObject *__pyx_n_s_update;
   PyObject *__pyx_n_s_use_setstate;
   PyObject *__pyx_n_s_utils;
+  PyObject *__pyx_n_s_values;
   PyObject *__pyx_int_45328697;
   PyObject *__pyx_int_71843671;
   PyObject *__pyx_int_218938185;
-  PyObject *__pyx_tuple__8;
   PyObject *__pyx_tuple__10;
-  PyObject *__pyx_tuple__11;
+  PyObject *__pyx_tuple__12;
   PyObject *__pyx_tuple__13;
   PyObject *__pyx_tuple__15;
   PyObject *__pyx_tuple__17;
   PyObject *__pyx_tuple__19;
-  PyObject *__pyx_tuple__22;
-  PyObject *__pyx_tuple__24;
+  PyObject *__pyx_tuple__21;
+  PyObject *__pyx_tuple__23;
   PyObject *__pyx_tuple__26;
-  PyObject *__pyx_codeobj__14;
+  PyObject *__pyx_tuple__28;
+  PyObject *__pyx_tuple__30;
   PyObject *__pyx_codeobj__16;
   PyObject *__pyx_codeobj__18;
   PyObject *__pyx_codeobj__20;
-  PyObject *__pyx_codeobj__21;
-  PyObject *__pyx_codeobj__23;
+  PyObject *__pyx_codeobj__22;
+  PyObject *__pyx_codeobj__24;
   PyObject *__pyx_codeobj__25;
   PyObject *__pyx_codeobj__27;
+  PyObject *__pyx_codeobj__29;
+  PyObject *__pyx_codeobj__31;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -3071,6 +3151,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_AuthPlugin___reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_AuthPlugin___setstate_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_AuthPlugin_get);
+  Py_CLEAR(clear_module_state->__pyx_n_s_AuthPlugin_set);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Auth_plugin);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Auth_plugin_handler);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Auth_plugin_name);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Auth_plugins_must_be_type_of_di);
@@ -3082,6 +3164,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_CLEAR(clear_module_state->__pyx_n_s_InvalidAuthPluginError);
   Py_CLEAR(clear_module_state->__pyx_n_s_InvalidSQLArgsErorr);
+  Py_CLEAR(clear_module_state->__pyx_n_s_Iterator);
+  Py_CLEAR(clear_module_state->__pyx_n_s_KeyError);
   Py_CLEAR(clear_module_state->__pyx_n_s_MGF1);
   Py_CLEAR(clear_module_state->__pyx_n_s_NACL_AVAILABLE);
   Py_CLEAR(clear_module_state->__pyx_n_s_NACL_AVAILABLE_C);
@@ -3091,17 +3175,19 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_RuntimeError);
   Py_CLEAR(clear_module_state->__pyx_n_s_SCRAMBLE_LENGTH);
   Py_CLEAR(clear_module_state->__pyx_n_s_SHA1);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_The_cryptography_package_is_requ);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_The_nacl_pynacl_package_is_requi);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_The_cryptography_libarary_is_req);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_The_nacl_pynacl_library_is_requi);
   Py_CLEAR(clear_module_state->__pyx_kp_u_With);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__12);
+  Py_CLEAR(clear_module_state->__pyx_kp_b__11);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__14);
   Py_CLEAR(clear_module_state->__pyx_kp_u__2);
-  Py_CLEAR(clear_module_state->__pyx_n_s__28);
   Py_CLEAR(clear_module_state->__pyx_kp_u__3);
+  Py_CLEAR(clear_module_state->__pyx_n_s__32);
   Py_CLEAR(clear_module_state->__pyx_kp_u__4);
   Py_CLEAR(clear_module_state->__pyx_kp_u__5);
   Py_CLEAR(clear_module_state->__pyx_kp_u__6);
-  Py_CLEAR(clear_module_state->__pyx_kp_b__7);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__7);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__8);
   Py_CLEAR(clear_module_state->__pyx_kp_b__9);
   Py_CLEAR(clear_module_state->__pyx_n_s_algorithm);
   Py_CLEAR(clear_module_state->__pyx_n_s_all);
@@ -3138,6 +3224,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_genexpr);
   Py_CLEAR(clear_module_state->__pyx_n_s_get);
   Py_CLEAR(clear_module_state->__pyx_n_s_getstate);
+  Py_CLEAR(clear_module_state->__pyx_n_s_handler);
   Py_CLEAR(clear_module_state->__pyx_n_s_hashes);
   Py_CLEAR(clear_module_state->__pyx_n_s_hashlib);
   Py_CLEAR(clear_module_state->__pyx_n_s_hashlib_sha1);
@@ -3145,20 +3232,22 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_hashlib_sha512);
   Py_CLEAR(clear_module_state->__pyx_n_s_import);
   Py_CLEAR(clear_module_state->__pyx_n_s_is_coroutine);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_is_invalid_must_be_class_type);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_is_invalid_must_be_str_or_bytes);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_is_not_registered);
   Py_CLEAR(clear_module_state->__pyx_kp_u_isenabled);
   Py_CLEAR(clear_module_state->__pyx_n_s_items);
   Py_CLEAR(clear_module_state->__pyx_n_s_label);
   Py_CLEAR(clear_module_state->__pyx_n_s_load_pem_public_key);
   Py_CLEAR(clear_module_state->__pyx_n_s_main);
   Py_CLEAR(clear_module_state->__pyx_n_s_mgf);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_must_be_class_type_instead_of);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_must_be_type_of_str_bytes_inste);
   Py_CLEAR(clear_module_state->__pyx_n_b_mysql_clear_password);
   Py_CLEAR(clear_module_state->__pyx_n_b_mysql_native_password);
   Py_CLEAR(clear_module_state->__pyx_n_b_mysql_old_password);
   Py_CLEAR(clear_module_state->__pyx_n_s_nacl);
   Py_CLEAR(clear_module_state->__pyx_n_s_name);
   Py_CLEAR(clear_module_state->__pyx_n_s_new);
+  Py_CLEAR(clear_module_state->__pyx_n_s_object);
   Py_CLEAR(clear_module_state->__pyx_n_s_padding);
   Py_CLEAR(clear_module_state->__pyx_n_s_password);
   Py_CLEAR(clear_module_state->__pyx_n_s_pickle);
@@ -3178,7 +3267,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_ex);
   Py_CLEAR(clear_module_state->__pyx_n_s_repr___locals_genexpr);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_s_No_Handlers);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_s);
   Py_CLEAR(clear_module_state->__pyx_n_s_salt);
   Py_CLEAR(clear_module_state->__pyx_n_s_scramble);
   Py_CLEAR(clear_module_state->__pyx_n_s_scramble_caching_sha2);
@@ -3188,6 +3277,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_self);
   Py_CLEAR(clear_module_state->__pyx_n_s_send);
   Py_CLEAR(clear_module_state->__pyx_n_s_serialization);
+  Py_CLEAR(clear_module_state->__pyx_n_s_set);
   Py_CLEAR(clear_module_state->__pyx_n_s_setstate);
   Py_CLEAR(clear_module_state->__pyx_n_s_setstate_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_sha1);
@@ -3200,33 +3290,38 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_sqlcycli__auth);
   Py_CLEAR(clear_module_state->__pyx_kp_s_src_sqlcycli__auth_py);
   Py_CLEAR(clear_module_state->__pyx_n_s_state);
+  Py_CLEAR(clear_module_state->__pyx_kp_s_str_bytes);
   Py_CLEAR(clear_module_state->__pyx_kp_s_stringsource);
   Py_CLEAR(clear_module_state->__pyx_n_s_test);
   Py_CLEAR(clear_module_state->__pyx_n_s_throw);
+  Py_CLEAR(clear_module_state->__pyx_n_s_typing);
   Py_CLEAR(clear_module_state->__pyx_n_s_update);
   Py_CLEAR(clear_module_state->__pyx_n_s_use_setstate);
   Py_CLEAR(clear_module_state->__pyx_n_s_utils);
+  Py_CLEAR(clear_module_state->__pyx_n_s_values);
   Py_CLEAR(clear_module_state->__pyx_int_45328697);
   Py_CLEAR(clear_module_state->__pyx_int_71843671);
   Py_CLEAR(clear_module_state->__pyx_int_218938185);
-  Py_CLEAR(clear_module_state->__pyx_tuple__8);
   Py_CLEAR(clear_module_state->__pyx_tuple__10);
-  Py_CLEAR(clear_module_state->__pyx_tuple__11);
+  Py_CLEAR(clear_module_state->__pyx_tuple__12);
   Py_CLEAR(clear_module_state->__pyx_tuple__13);
   Py_CLEAR(clear_module_state->__pyx_tuple__15);
   Py_CLEAR(clear_module_state->__pyx_tuple__17);
   Py_CLEAR(clear_module_state->__pyx_tuple__19);
-  Py_CLEAR(clear_module_state->__pyx_tuple__22);
-  Py_CLEAR(clear_module_state->__pyx_tuple__24);
+  Py_CLEAR(clear_module_state->__pyx_tuple__21);
+  Py_CLEAR(clear_module_state->__pyx_tuple__23);
   Py_CLEAR(clear_module_state->__pyx_tuple__26);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__14);
+  Py_CLEAR(clear_module_state->__pyx_tuple__28);
+  Py_CLEAR(clear_module_state->__pyx_tuple__30);
   Py_CLEAR(clear_module_state->__pyx_codeobj__16);
   Py_CLEAR(clear_module_state->__pyx_codeobj__18);
   Py_CLEAR(clear_module_state->__pyx_codeobj__20);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__21);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__23);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__22);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__24);
   Py_CLEAR(clear_module_state->__pyx_codeobj__25);
   Py_CLEAR(clear_module_state->__pyx_codeobj__27);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__29);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__31);
   return 0;
 }
 #endif
@@ -3260,6 +3355,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_AuthPlugin___reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_AuthPlugin___setstate_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_AuthPlugin_get);
+  Py_VISIT(traverse_module_state->__pyx_n_s_AuthPlugin_set);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Auth_plugin);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Auth_plugin_handler);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Auth_plugin_name);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Auth_plugins_must_be_type_of_di);
@@ -3271,6 +3368,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_VISIT(traverse_module_state->__pyx_n_s_InvalidAuthPluginError);
   Py_VISIT(traverse_module_state->__pyx_n_s_InvalidSQLArgsErorr);
+  Py_VISIT(traverse_module_state->__pyx_n_s_Iterator);
+  Py_VISIT(traverse_module_state->__pyx_n_s_KeyError);
   Py_VISIT(traverse_module_state->__pyx_n_s_MGF1);
   Py_VISIT(traverse_module_state->__pyx_n_s_NACL_AVAILABLE);
   Py_VISIT(traverse_module_state->__pyx_n_s_NACL_AVAILABLE_C);
@@ -3280,17 +3379,19 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_RuntimeError);
   Py_VISIT(traverse_module_state->__pyx_n_s_SCRAMBLE_LENGTH);
   Py_VISIT(traverse_module_state->__pyx_n_s_SHA1);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_The_cryptography_package_is_requ);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_The_nacl_pynacl_package_is_requi);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_The_cryptography_libarary_is_req);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_The_nacl_pynacl_library_is_requi);
   Py_VISIT(traverse_module_state->__pyx_kp_u_With);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__12);
+  Py_VISIT(traverse_module_state->__pyx_kp_b__11);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__14);
   Py_VISIT(traverse_module_state->__pyx_kp_u__2);
-  Py_VISIT(traverse_module_state->__pyx_n_s__28);
   Py_VISIT(traverse_module_state->__pyx_kp_u__3);
+  Py_VISIT(traverse_module_state->__pyx_n_s__32);
   Py_VISIT(traverse_module_state->__pyx_kp_u__4);
   Py_VISIT(traverse_module_state->__pyx_kp_u__5);
   Py_VISIT(traverse_module_state->__pyx_kp_u__6);
-  Py_VISIT(traverse_module_state->__pyx_kp_b__7);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__7);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__8);
   Py_VISIT(traverse_module_state->__pyx_kp_b__9);
   Py_VISIT(traverse_module_state->__pyx_n_s_algorithm);
   Py_VISIT(traverse_module_state->__pyx_n_s_all);
@@ -3327,6 +3428,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_genexpr);
   Py_VISIT(traverse_module_state->__pyx_n_s_get);
   Py_VISIT(traverse_module_state->__pyx_n_s_getstate);
+  Py_VISIT(traverse_module_state->__pyx_n_s_handler);
   Py_VISIT(traverse_module_state->__pyx_n_s_hashes);
   Py_VISIT(traverse_module_state->__pyx_n_s_hashlib);
   Py_VISIT(traverse_module_state->__pyx_n_s_hashlib_sha1);
@@ -3334,20 +3436,22 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_hashlib_sha512);
   Py_VISIT(traverse_module_state->__pyx_n_s_import);
   Py_VISIT(traverse_module_state->__pyx_n_s_is_coroutine);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_is_invalid_must_be_class_type);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_is_invalid_must_be_str_or_bytes);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_is_not_registered);
   Py_VISIT(traverse_module_state->__pyx_kp_u_isenabled);
   Py_VISIT(traverse_module_state->__pyx_n_s_items);
   Py_VISIT(traverse_module_state->__pyx_n_s_label);
   Py_VISIT(traverse_module_state->__pyx_n_s_load_pem_public_key);
   Py_VISIT(traverse_module_state->__pyx_n_s_main);
   Py_VISIT(traverse_module_state->__pyx_n_s_mgf);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_must_be_class_type_instead_of);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_must_be_type_of_str_bytes_inste);
   Py_VISIT(traverse_module_state->__pyx_n_b_mysql_clear_password);
   Py_VISIT(traverse_module_state->__pyx_n_b_mysql_native_password);
   Py_VISIT(traverse_module_state->__pyx_n_b_mysql_old_password);
   Py_VISIT(traverse_module_state->__pyx_n_s_nacl);
   Py_VISIT(traverse_module_state->__pyx_n_s_name);
   Py_VISIT(traverse_module_state->__pyx_n_s_new);
+  Py_VISIT(traverse_module_state->__pyx_n_s_object);
   Py_VISIT(traverse_module_state->__pyx_n_s_padding);
   Py_VISIT(traverse_module_state->__pyx_n_s_password);
   Py_VISIT(traverse_module_state->__pyx_n_s_pickle);
@@ -3367,7 +3471,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_ex);
   Py_VISIT(traverse_module_state->__pyx_n_s_repr___locals_genexpr);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_s_No_Handlers);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_s);
   Py_VISIT(traverse_module_state->__pyx_n_s_salt);
   Py_VISIT(traverse_module_state->__pyx_n_s_scramble);
   Py_VISIT(traverse_module_state->__pyx_n_s_scramble_caching_sha2);
@@ -3377,6 +3481,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_self);
   Py_VISIT(traverse_module_state->__pyx_n_s_send);
   Py_VISIT(traverse_module_state->__pyx_n_s_serialization);
+  Py_VISIT(traverse_module_state->__pyx_n_s_set);
   Py_VISIT(traverse_module_state->__pyx_n_s_setstate);
   Py_VISIT(traverse_module_state->__pyx_n_s_setstate_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_sha1);
@@ -3389,33 +3494,38 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_sqlcycli__auth);
   Py_VISIT(traverse_module_state->__pyx_kp_s_src_sqlcycli__auth_py);
   Py_VISIT(traverse_module_state->__pyx_n_s_state);
+  Py_VISIT(traverse_module_state->__pyx_kp_s_str_bytes);
   Py_VISIT(traverse_module_state->__pyx_kp_s_stringsource);
   Py_VISIT(traverse_module_state->__pyx_n_s_test);
   Py_VISIT(traverse_module_state->__pyx_n_s_throw);
+  Py_VISIT(traverse_module_state->__pyx_n_s_typing);
   Py_VISIT(traverse_module_state->__pyx_n_s_update);
   Py_VISIT(traverse_module_state->__pyx_n_s_use_setstate);
   Py_VISIT(traverse_module_state->__pyx_n_s_utils);
+  Py_VISIT(traverse_module_state->__pyx_n_s_values);
   Py_VISIT(traverse_module_state->__pyx_int_45328697);
   Py_VISIT(traverse_module_state->__pyx_int_71843671);
   Py_VISIT(traverse_module_state->__pyx_int_218938185);
-  Py_VISIT(traverse_module_state->__pyx_tuple__8);
   Py_VISIT(traverse_module_state->__pyx_tuple__10);
-  Py_VISIT(traverse_module_state->__pyx_tuple__11);
+  Py_VISIT(traverse_module_state->__pyx_tuple__12);
   Py_VISIT(traverse_module_state->__pyx_tuple__13);
   Py_VISIT(traverse_module_state->__pyx_tuple__15);
   Py_VISIT(traverse_module_state->__pyx_tuple__17);
   Py_VISIT(traverse_module_state->__pyx_tuple__19);
-  Py_VISIT(traverse_module_state->__pyx_tuple__22);
-  Py_VISIT(traverse_module_state->__pyx_tuple__24);
+  Py_VISIT(traverse_module_state->__pyx_tuple__21);
+  Py_VISIT(traverse_module_state->__pyx_tuple__23);
   Py_VISIT(traverse_module_state->__pyx_tuple__26);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__14);
+  Py_VISIT(traverse_module_state->__pyx_tuple__28);
+  Py_VISIT(traverse_module_state->__pyx_tuple__30);
   Py_VISIT(traverse_module_state->__pyx_codeobj__16);
   Py_VISIT(traverse_module_state->__pyx_codeobj__18);
   Py_VISIT(traverse_module_state->__pyx_codeobj__20);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__21);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__23);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__22);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__24);
   Py_VISIT(traverse_module_state->__pyx_codeobj__25);
   Py_VISIT(traverse_module_state->__pyx_codeobj__27);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__29);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__31);
   return 0;
 }
 #endif
@@ -3471,6 +3581,10 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #endif
 #if CYTHON_USE_MODULE_STATE
 #endif
+#if CYTHON_USE_MODULE_STATE
+#endif
+#if CYTHON_USE_MODULE_STATE
+#endif
 #define __pyx_ptype_8sqlcycli_7charset_Charset __pyx_mstate_global->__pyx_ptype_8sqlcycli_7charset_Charset
 #define __pyx_ptype_8sqlcycli_7charset_Charsets __pyx_mstate_global->__pyx_ptype_8sqlcycli_7charset_Charsets
 #if CYTHON_USE_MODULE_STATE
@@ -3487,6 +3601,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_AuthPlugin___reduce_cython __pyx_mstate_global->__pyx_n_s_AuthPlugin___reduce_cython
 #define __pyx_n_s_AuthPlugin___setstate_cython __pyx_mstate_global->__pyx_n_s_AuthPlugin___setstate_cython
 #define __pyx_n_s_AuthPlugin_get __pyx_mstate_global->__pyx_n_s_AuthPlugin_get
+#define __pyx_n_s_AuthPlugin_set __pyx_mstate_global->__pyx_n_s_AuthPlugin_set
+#define __pyx_kp_u_Auth_plugin __pyx_mstate_global->__pyx_kp_u_Auth_plugin
 #define __pyx_kp_u_Auth_plugin_handler __pyx_mstate_global->__pyx_kp_u_Auth_plugin_handler
 #define __pyx_kp_u_Auth_plugin_name __pyx_mstate_global->__pyx_kp_u_Auth_plugin_name
 #define __pyx_kp_u_Auth_plugins_must_be_type_of_di __pyx_mstate_global->__pyx_kp_u_Auth_plugins_must_be_type_of_di
@@ -3498,6 +3614,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0
 #define __pyx_n_s_InvalidAuthPluginError __pyx_mstate_global->__pyx_n_s_InvalidAuthPluginError
 #define __pyx_n_s_InvalidSQLArgsErorr __pyx_mstate_global->__pyx_n_s_InvalidSQLArgsErorr
+#define __pyx_n_s_Iterator __pyx_mstate_global->__pyx_n_s_Iterator
+#define __pyx_n_s_KeyError __pyx_mstate_global->__pyx_n_s_KeyError
 #define __pyx_n_s_MGF1 __pyx_mstate_global->__pyx_n_s_MGF1
 #define __pyx_n_s_NACL_AVAILABLE __pyx_mstate_global->__pyx_n_s_NACL_AVAILABLE
 #define __pyx_n_s_NACL_AVAILABLE_C __pyx_mstate_global->__pyx_n_s_NACL_AVAILABLE_C
@@ -3507,17 +3625,19 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_RuntimeError __pyx_mstate_global->__pyx_n_s_RuntimeError
 #define __pyx_n_s_SCRAMBLE_LENGTH __pyx_mstate_global->__pyx_n_s_SCRAMBLE_LENGTH
 #define __pyx_n_s_SHA1 __pyx_mstate_global->__pyx_n_s_SHA1
-#define __pyx_kp_u_The_cryptography_package_is_requ __pyx_mstate_global->__pyx_kp_u_The_cryptography_package_is_requ
-#define __pyx_kp_u_The_nacl_pynacl_package_is_requi __pyx_mstate_global->__pyx_kp_u_The_nacl_pynacl_package_is_requi
+#define __pyx_kp_u_The_cryptography_libarary_is_req __pyx_mstate_global->__pyx_kp_u_The_cryptography_libarary_is_req
+#define __pyx_kp_u_The_nacl_pynacl_library_is_requi __pyx_mstate_global->__pyx_kp_u_The_nacl_pynacl_library_is_requi
 #define __pyx_kp_u_With __pyx_mstate_global->__pyx_kp_u_With
-#define __pyx_kp_u__12 __pyx_mstate_global->__pyx_kp_u__12
+#define __pyx_kp_b__11 __pyx_mstate_global->__pyx_kp_b__11
+#define __pyx_kp_u__14 __pyx_mstate_global->__pyx_kp_u__14
 #define __pyx_kp_u__2 __pyx_mstate_global->__pyx_kp_u__2
-#define __pyx_n_s__28 __pyx_mstate_global->__pyx_n_s__28
 #define __pyx_kp_u__3 __pyx_mstate_global->__pyx_kp_u__3
+#define __pyx_n_s__32 __pyx_mstate_global->__pyx_n_s__32
 #define __pyx_kp_u__4 __pyx_mstate_global->__pyx_kp_u__4
 #define __pyx_kp_u__5 __pyx_mstate_global->__pyx_kp_u__5
 #define __pyx_kp_u__6 __pyx_mstate_global->__pyx_kp_u__6
-#define __pyx_kp_b__7 __pyx_mstate_global->__pyx_kp_b__7
+#define __pyx_kp_u__7 __pyx_mstate_global->__pyx_kp_u__7
+#define __pyx_kp_u__8 __pyx_mstate_global->__pyx_kp_u__8
 #define __pyx_kp_b__9 __pyx_mstate_global->__pyx_kp_b__9
 #define __pyx_n_s_algorithm __pyx_mstate_global->__pyx_n_s_algorithm
 #define __pyx_n_s_all __pyx_mstate_global->__pyx_n_s_all
@@ -3554,6 +3674,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_genexpr __pyx_mstate_global->__pyx_n_s_genexpr
 #define __pyx_n_s_get __pyx_mstate_global->__pyx_n_s_get
 #define __pyx_n_s_getstate __pyx_mstate_global->__pyx_n_s_getstate
+#define __pyx_n_s_handler __pyx_mstate_global->__pyx_n_s_handler
 #define __pyx_n_s_hashes __pyx_mstate_global->__pyx_n_s_hashes
 #define __pyx_n_s_hashlib __pyx_mstate_global->__pyx_n_s_hashlib
 #define __pyx_n_s_hashlib_sha1 __pyx_mstate_global->__pyx_n_s_hashlib_sha1
@@ -3561,20 +3682,22 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_hashlib_sha512 __pyx_mstate_global->__pyx_n_s_hashlib_sha512
 #define __pyx_n_s_import __pyx_mstate_global->__pyx_n_s_import
 #define __pyx_n_s_is_coroutine __pyx_mstate_global->__pyx_n_s_is_coroutine
+#define __pyx_kp_u_is_invalid_must_be_class_type __pyx_mstate_global->__pyx_kp_u_is_invalid_must_be_class_type
+#define __pyx_kp_u_is_invalid_must_be_str_or_bytes __pyx_mstate_global->__pyx_kp_u_is_invalid_must_be_str_or_bytes
+#define __pyx_kp_u_is_not_registered __pyx_mstate_global->__pyx_kp_u_is_not_registered
 #define __pyx_kp_u_isenabled __pyx_mstate_global->__pyx_kp_u_isenabled
 #define __pyx_n_s_items __pyx_mstate_global->__pyx_n_s_items
 #define __pyx_n_s_label __pyx_mstate_global->__pyx_n_s_label
 #define __pyx_n_s_load_pem_public_key __pyx_mstate_global->__pyx_n_s_load_pem_public_key
 #define __pyx_n_s_main __pyx_mstate_global->__pyx_n_s_main
 #define __pyx_n_s_mgf __pyx_mstate_global->__pyx_n_s_mgf
-#define __pyx_kp_u_must_be_class_type_instead_of __pyx_mstate_global->__pyx_kp_u_must_be_class_type_instead_of
-#define __pyx_kp_u_must_be_type_of_str_bytes_inste __pyx_mstate_global->__pyx_kp_u_must_be_type_of_str_bytes_inste
 #define __pyx_n_b_mysql_clear_password __pyx_mstate_global->__pyx_n_b_mysql_clear_password
 #define __pyx_n_b_mysql_native_password __pyx_mstate_global->__pyx_n_b_mysql_native_password
 #define __pyx_n_b_mysql_old_password __pyx_mstate_global->__pyx_n_b_mysql_old_password
 #define __pyx_n_s_nacl __pyx_mstate_global->__pyx_n_s_nacl
 #define __pyx_n_s_name __pyx_mstate_global->__pyx_n_s_name
 #define __pyx_n_s_new __pyx_mstate_global->__pyx_n_s_new
+#define __pyx_n_s_object __pyx_mstate_global->__pyx_n_s_object
 #define __pyx_n_s_padding __pyx_mstate_global->__pyx_n_s_padding
 #define __pyx_n_s_password __pyx_mstate_global->__pyx_n_s_password
 #define __pyx_n_s_pickle __pyx_mstate_global->__pyx_n_s_pickle
@@ -3594,7 +3717,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_reduce_cython __pyx_mstate_global->__pyx_n_s_reduce_cython
 #define __pyx_n_s_reduce_ex __pyx_mstate_global->__pyx_n_s_reduce_ex
 #define __pyx_n_s_repr___locals_genexpr __pyx_mstate_global->__pyx_n_s_repr___locals_genexpr
-#define __pyx_kp_u_s_No_Handlers __pyx_mstate_global->__pyx_kp_u_s_No_Handlers
+#define __pyx_kp_u_s __pyx_mstate_global->__pyx_kp_u_s
 #define __pyx_n_s_salt __pyx_mstate_global->__pyx_n_s_salt
 #define __pyx_n_s_scramble __pyx_mstate_global->__pyx_n_s_scramble
 #define __pyx_n_s_scramble_caching_sha2 __pyx_mstate_global->__pyx_n_s_scramble_caching_sha2
@@ -3604,6 +3727,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_self __pyx_mstate_global->__pyx_n_s_self
 #define __pyx_n_s_send __pyx_mstate_global->__pyx_n_s_send
 #define __pyx_n_s_serialization __pyx_mstate_global->__pyx_n_s_serialization
+#define __pyx_n_s_set __pyx_mstate_global->__pyx_n_s_set
 #define __pyx_n_s_setstate __pyx_mstate_global->__pyx_n_s_setstate
 #define __pyx_n_s_setstate_cython __pyx_mstate_global->__pyx_n_s_setstate_cython
 #define __pyx_n_s_sha1 __pyx_mstate_global->__pyx_n_s_sha1
@@ -3616,33 +3740,38 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_sqlcycli__auth __pyx_mstate_global->__pyx_n_s_sqlcycli__auth
 #define __pyx_kp_s_src_sqlcycli__auth_py __pyx_mstate_global->__pyx_kp_s_src_sqlcycli__auth_py
 #define __pyx_n_s_state __pyx_mstate_global->__pyx_n_s_state
+#define __pyx_kp_s_str_bytes __pyx_mstate_global->__pyx_kp_s_str_bytes
 #define __pyx_kp_s_stringsource __pyx_mstate_global->__pyx_kp_s_stringsource
 #define __pyx_n_s_test __pyx_mstate_global->__pyx_n_s_test
 #define __pyx_n_s_throw __pyx_mstate_global->__pyx_n_s_throw
+#define __pyx_n_s_typing __pyx_mstate_global->__pyx_n_s_typing
 #define __pyx_n_s_update __pyx_mstate_global->__pyx_n_s_update
 #define __pyx_n_s_use_setstate __pyx_mstate_global->__pyx_n_s_use_setstate
 #define __pyx_n_s_utils __pyx_mstate_global->__pyx_n_s_utils
+#define __pyx_n_s_values __pyx_mstate_global->__pyx_n_s_values
 #define __pyx_int_45328697 __pyx_mstate_global->__pyx_int_45328697
 #define __pyx_int_71843671 __pyx_mstate_global->__pyx_int_71843671
 #define __pyx_int_218938185 __pyx_mstate_global->__pyx_int_218938185
-#define __pyx_tuple__8 __pyx_mstate_global->__pyx_tuple__8
 #define __pyx_tuple__10 __pyx_mstate_global->__pyx_tuple__10
-#define __pyx_tuple__11 __pyx_mstate_global->__pyx_tuple__11
+#define __pyx_tuple__12 __pyx_mstate_global->__pyx_tuple__12
 #define __pyx_tuple__13 __pyx_mstate_global->__pyx_tuple__13
 #define __pyx_tuple__15 __pyx_mstate_global->__pyx_tuple__15
 #define __pyx_tuple__17 __pyx_mstate_global->__pyx_tuple__17
 #define __pyx_tuple__19 __pyx_mstate_global->__pyx_tuple__19
-#define __pyx_tuple__22 __pyx_mstate_global->__pyx_tuple__22
-#define __pyx_tuple__24 __pyx_mstate_global->__pyx_tuple__24
+#define __pyx_tuple__21 __pyx_mstate_global->__pyx_tuple__21
+#define __pyx_tuple__23 __pyx_mstate_global->__pyx_tuple__23
 #define __pyx_tuple__26 __pyx_mstate_global->__pyx_tuple__26
-#define __pyx_codeobj__14 __pyx_mstate_global->__pyx_codeobj__14
+#define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
+#define __pyx_tuple__30 __pyx_mstate_global->__pyx_tuple__30
 #define __pyx_codeobj__16 __pyx_mstate_global->__pyx_codeobj__16
 #define __pyx_codeobj__18 __pyx_mstate_global->__pyx_codeobj__18
 #define __pyx_codeobj__20 __pyx_mstate_global->__pyx_codeobj__20
-#define __pyx_codeobj__21 __pyx_mstate_global->__pyx_codeobj__21
-#define __pyx_codeobj__23 __pyx_mstate_global->__pyx_codeobj__23
+#define __pyx_codeobj__22 __pyx_mstate_global->__pyx_codeobj__22
+#define __pyx_codeobj__24 __pyx_mstate_global->__pyx_codeobj__24
 #define __pyx_codeobj__25 __pyx_mstate_global->__pyx_codeobj__25
 #define __pyx_codeobj__27 __pyx_mstate_global->__pyx_codeobj__27
+#define __pyx_codeobj__29 __pyx_mstate_global->__pyx_codeobj__29
+#define __pyx_codeobj__31 __pyx_mstate_global->__pyx_codeobj__31
 /* #### Code section: module_code ### */
 
 /* "utils.pxd":52
@@ -6389,17 +6518,17 @@ static CYTHON_INLINE PY_LONG_LONG __pyx_f_8sqlcycli_5utils_unpack_int64(char *__
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":65
- *     _plugins: dict[bytes, type]
+/* "sqlcycli/_auth.py":78
+ *     _dialog: object
  * 
  *     def __init__(self, plugins: dict[str | bytes, type] | None = None) -> None:             # <<<<<<<<<<<<<<
- *         """The authentication pluging handlers for MySQL.
+ *         """Registry and manager for MySQL authentication plugin handlers.
  * 
  */
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_10AuthPlugin___init__, "The authentication pluging handlers for MySQL.\n\n        :param plugins `<'dict'>`: The plugin handlers for MySQL authentication,\n            where key is the plugin name <'str/bytes'> and value is the handler\n            Class <'type'>. Defaults to `None`.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_10AuthPlugin___init__, "Registry and manager for MySQL authentication plugin handlers.\n\n        This class holds and validates handler classes for various MySQL\n        authentication methods (native, sha2, sha256, clear-text, dialog, etc.).\n        You can provide a custom mapping of plugin names to handler classes,\n        or rely on the built-in attributes and setters to register handlers\n        individually.\n\n        :param plugins `<'dict'>`: Optional initial mapping of plugin names\n            (str or bytes) to the handler classes. Defaults to `None`.\n\n        Common plugin names:\n        ```python\n        - \"mysql_native_password\"\n        - \"caching_sha2_password\"\n        - \"sha256_password\"\n        - \"client_ed25519\"\n        - \"mysql_old_password\"\n        - \"mysql_clear_password\"\n        - \"dialog\"\n        ```\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_5_auth_10AuthPlugin___init__;
 #endif
@@ -6437,12 +6566,12 @@ static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_1__init__(PyObject *__pyx_v_se
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_plugins);
           if (value) { values[0] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 65, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 78, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -6456,7 +6585,7 @@ static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_1__init__(PyObject *__pyx_v_se
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 65, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 78, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6484,761 +6613,310 @@ static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_1__init__(PyObject *__pyx_v_se
 }
 
 static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin___init__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugins) {
-  PyObject *__pyx_v__plugins = 0;
   PyObject *__pyx_v_name = NULL;
-  PyObject *__pyx_v_plugin = NULL;
+  PyObject *__pyx_v_handler = NULL;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
   Py_ssize_t __pyx_t_3;
   Py_ssize_t __pyx_t_4;
   int __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
   int __pyx_t_8;
-  int __pyx_t_9;
+  Py_UCS4 __pyx_t_9;
   PyObject *__pyx_t_10 = NULL;
-  Py_ssize_t __pyx_t_11;
-  Py_UCS4 __pyx_t_12;
-  PyObject *__pyx_t_13 = NULL;
-  PyObject *__pyx_t_14 = NULL;
-  unsigned int __pyx_t_15;
+  PyObject *__pyx_t_11 = NULL;
+  unsigned int __pyx_t_12;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/_auth.py":72
- *             Class <'type'>. Defaults to `None`.
+  /* "sqlcycli/_auth.py":101
+ *         ```
  *         """
+ *         self._plugins = {}             # <<<<<<<<<<<<<<
+ *         self._mysql_native_password = None
+ *         self._caching_sha2_password = None
+ */
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v_self->_plugins);
+  __Pyx_DECREF(__pyx_v_self->_plugins);
+  __pyx_v_self->_plugins = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "sqlcycli/_auth.py":102
+ *         """
+ *         self._plugins = {}
+ *         self._mysql_native_password = None             # <<<<<<<<<<<<<<
+ *         self._caching_sha2_password = None
+ *         self._sha256_password = None
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_mysql_native_password);
+  __Pyx_DECREF(__pyx_v_self->_mysql_native_password);
+  __pyx_v_self->_mysql_native_password = Py_None;
+
+  /* "sqlcycli/_auth.py":103
+ *         self._plugins = {}
+ *         self._mysql_native_password = None
+ *         self._caching_sha2_password = None             # <<<<<<<<<<<<<<
+ *         self._sha256_password = None
+ *         self._client_ed25519 = None
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_caching_sha2_password);
+  __Pyx_DECREF(__pyx_v_self->_caching_sha2_password);
+  __pyx_v_self->_caching_sha2_password = Py_None;
+
+  /* "sqlcycli/_auth.py":104
+ *         self._mysql_native_password = None
+ *         self._caching_sha2_password = None
+ *         self._sha256_password = None             # <<<<<<<<<<<<<<
+ *         self._client_ed25519 = None
+ *         self._mysql_old_password = None
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_sha256_password);
+  __Pyx_DECREF(__pyx_v_self->_sha256_password);
+  __pyx_v_self->_sha256_password = Py_None;
+
+  /* "sqlcycli/_auth.py":105
+ *         self._caching_sha2_password = None
+ *         self._sha256_password = None
+ *         self._client_ed25519 = None             # <<<<<<<<<<<<<<
+ *         self._mysql_old_password = None
+ *         self._mysql_clear_password = None
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_client_ed25519);
+  __Pyx_DECREF(__pyx_v_self->_client_ed25519);
+  __pyx_v_self->_client_ed25519 = Py_None;
+
+  /* "sqlcycli/_auth.py":106
+ *         self._sha256_password = None
+ *         self._client_ed25519 = None
+ *         self._mysql_old_password = None             # <<<<<<<<<<<<<<
+ *         self._mysql_clear_password = None
+ *         self._dialog = None
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_mysql_old_password);
+  __Pyx_DECREF(__pyx_v_self->_mysql_old_password);
+  __pyx_v_self->_mysql_old_password = Py_None;
+
+  /* "sqlcycli/_auth.py":107
+ *         self._client_ed25519 = None
+ *         self._mysql_old_password = None
+ *         self._mysql_clear_password = None             # <<<<<<<<<<<<<<
+ *         self._dialog = None
+ * 
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_mysql_clear_password);
+  __Pyx_DECREF(__pyx_v_self->_mysql_clear_password);
+  __pyx_v_self->_mysql_clear_password = Py_None;
+
+  /* "sqlcycli/_auth.py":108
+ *         self._mysql_old_password = None
+ *         self._mysql_clear_password = None
+ *         self._dialog = None             # <<<<<<<<<<<<<<
+ * 
+ *         # Validate and register plugins
+ */
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->_dialog);
+  __Pyx_DECREF(__pyx_v_self->_dialog);
+  __pyx_v_self->_dialog = Py_None;
+
+  /* "sqlcycli/_auth.py":111
+ * 
+ *         # Validate and register plugins
  *         if plugins is None:             # <<<<<<<<<<<<<<
- *             self._mysql_native_password = None
- *             self._caching_sha2_password = None
- */
-  __pyx_t_1 = (__pyx_v_plugins == Py_None);
-  if (__pyx_t_1) {
-
-    /* "sqlcycli/_auth.py":73
- *         """
- *         if plugins is None:
- *             self._mysql_native_password = None             # <<<<<<<<<<<<<<
- *             self._caching_sha2_password = None
- *             self._sha256_password = None
- */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_mysql_native_password);
-    __Pyx_DECREF(__pyx_v_self->_mysql_native_password);
-    __pyx_v_self->_mysql_native_password = Py_None;
-
-    /* "sqlcycli/_auth.py":74
- *         if plugins is None:
- *             self._mysql_native_password = None
- *             self._caching_sha2_password = None             # <<<<<<<<<<<<<<
- *             self._sha256_password = None
- *             self._client_ed25519 = None
- */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_caching_sha2_password);
-    __Pyx_DECREF(__pyx_v_self->_caching_sha2_password);
-    __pyx_v_self->_caching_sha2_password = Py_None;
-
-    /* "sqlcycli/_auth.py":75
- *             self._mysql_native_password = None
- *             self._caching_sha2_password = None
- *             self._sha256_password = None             # <<<<<<<<<<<<<<
- *             self._client_ed25519 = None
- *             self._mysql_old_password = None
- */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_sha256_password);
-    __Pyx_DECREF(__pyx_v_self->_sha256_password);
-    __pyx_v_self->_sha256_password = Py_None;
-
-    /* "sqlcycli/_auth.py":76
- *             self._caching_sha2_password = None
- *             self._sha256_password = None
- *             self._client_ed25519 = None             # <<<<<<<<<<<<<<
- *             self._mysql_old_password = None
- *             self._mysql_clear_password = None
- */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_client_ed25519);
-    __Pyx_DECREF(__pyx_v_self->_client_ed25519);
-    __pyx_v_self->_client_ed25519 = Py_None;
-
-    /* "sqlcycli/_auth.py":77
- *             self._sha256_password = None
- *             self._client_ed25519 = None
- *             self._mysql_old_password = None             # <<<<<<<<<<<<<<
- *             self._mysql_clear_password = None
- *             self._dialog = None
- */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_mysql_old_password);
-    __Pyx_DECREF(__pyx_v_self->_mysql_old_password);
-    __pyx_v_self->_mysql_old_password = Py_None;
-
-    /* "sqlcycli/_auth.py":78
- *             self._client_ed25519 = None
- *             self._mysql_old_password = None
- *             self._mysql_clear_password = None             # <<<<<<<<<<<<<<
- *             self._dialog = None
- *             self._plugins = {}
- */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_mysql_clear_password);
-    __Pyx_DECREF(__pyx_v_self->_mysql_clear_password);
-    __pyx_v_self->_mysql_clear_password = Py_None;
-
-    /* "sqlcycli/_auth.py":79
- *             self._mysql_old_password = None
- *             self._mysql_clear_password = None
- *             self._dialog = None             # <<<<<<<<<<<<<<
- *             self._plugins = {}
+ *             pass
  *         elif isinstance(plugins, dict):
  */
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    __Pyx_GOTREF(__pyx_v_self->_dialog);
-    __Pyx_DECREF(__pyx_v_self->_dialog);
-    __pyx_v_self->_dialog = Py_None;
-
-    /* "sqlcycli/_auth.py":80
- *             self._mysql_clear_password = None
- *             self._dialog = None
- *             self._plugins = {}             # <<<<<<<<<<<<<<
- *         elif isinstance(plugins, dict):
- *             _plugins: dict[bytes, type] = {}
- */
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_plugins);
-    __Pyx_DECREF(__pyx_v_self->_plugins);
-    __pyx_v_self->_plugins = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":72
- *             Class <'type'>. Defaults to `None`.
- *         """
- *         if plugins is None:             # <<<<<<<<<<<<<<
- *             self._mysql_native_password = None
- *             self._caching_sha2_password = None
- */
-    goto __pyx_L3;
-  }
-
-  /* "sqlcycli/_auth.py":81
- *             self._dialog = None
- *             self._plugins = {}
- *         elif isinstance(plugins, dict):             # <<<<<<<<<<<<<<
- *             _plugins: dict[bytes, type] = {}
- *             for name, plugin in plugins.items():
- */
-  __pyx_t_1 = PyDict_Check(__pyx_v_plugins); 
-  if (likely(__pyx_t_1)) {
-
-    /* "sqlcycli/_auth.py":82
- *             self._plugins = {}
- *         elif isinstance(plugins, dict):
- *             _plugins: dict[bytes, type] = {}             # <<<<<<<<<<<<<<
- *             for name, plugin in plugins.items():
- *                 # . validate plugin name
- */
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_v__plugins = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":83
- *         elif isinstance(plugins, dict):
- *             _plugins: dict[bytes, type] = {}
- *             for name, plugin in plugins.items():             # <<<<<<<<<<<<<<
- *                 # . validate plugin name
- *                 if isinstance(name, str):
- */
-    __pyx_t_3 = 0;
-    if (unlikely(__pyx_v_plugins == Py_None)) {
-      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 83, __pyx_L1_error)
-    }
-    __pyx_t_6 = __Pyx_dict_iterator(__pyx_v_plugins, 0, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 83, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_XDECREF(__pyx_t_2);
-    __pyx_t_2 = __pyx_t_6;
-    __pyx_t_6 = 0;
-    while (1) {
-      __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_4, &__pyx_t_3, &__pyx_t_6, &__pyx_t_7, NULL, __pyx_t_5);
-      if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 83, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_GOTREF(__pyx_t_7);
-      __Pyx_XDECREF_SET(__pyx_v_name, __pyx_t_6);
-      __pyx_t_6 = 0;
-      __Pyx_XDECREF_SET(__pyx_v_plugin, __pyx_t_7);
-      __pyx_t_7 = 0;
-
-      /* "sqlcycli/_auth.py":85
- *             for name, plugin in plugins.items():
- *                 # . validate plugin name
- *                 if isinstance(name, str):             # <<<<<<<<<<<<<<
- *                     name = utils.encode_str(name, "ascii")
- *                 elif not isinstance(name, bytes):
- */
-      __pyx_t_1 = PyUnicode_Check(__pyx_v_name); 
-      if (__pyx_t_1) {
-
-        /* "sqlcycli/_auth.py":86
- *                 # . validate plugin name
- *                 if isinstance(name, str):
- *                     name = utils.encode_str(name, "ascii")             # <<<<<<<<<<<<<<
- *                 elif not isinstance(name, bytes):
- *                     raise errors.InvalidAuthPluginError(
- */
-        __pyx_t_7 = __pyx_f_8sqlcycli_5utils_encode_str(__pyx_v_name, ((char *)"ascii")); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 86, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_7);
-        __Pyx_DECREF_SET(__pyx_v_name, __pyx_t_7);
-        __pyx_t_7 = 0;
-
-        /* "sqlcycli/_auth.py":85
- *             for name, plugin in plugins.items():
- *                 # . validate plugin name
- *                 if isinstance(name, str):             # <<<<<<<<<<<<<<
- *                     name = utils.encode_str(name, "ascii")
- *                 elif not isinstance(name, bytes):
- */
-        goto __pyx_L6;
-      }
-
-      /* "sqlcycli/_auth.py":87
- *                 if isinstance(name, str):
- *                     name = utils.encode_str(name, "ascii")
- *                 elif not isinstance(name, bytes):             # <<<<<<<<<<<<<<
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin name '%s' must be type of <'str/bytes'>, "
- */
-      __pyx_t_1 = PyBytes_Check(__pyx_v_name); 
-      __pyx_t_9 = (!__pyx_t_1);
-      if (unlikely(__pyx_t_9)) {
-
-        /* "sqlcycli/_auth.py":88
- *                     name = utils.encode_str(name, "ascii")
- *                 elif not isinstance(name, bytes):
- *                     raise errors.InvalidAuthPluginError(             # <<<<<<<<<<<<<<
- *                         "<'%s'>\nAuth plugin name '%s' must be type of <'str/bytes'>, "
- *                         "instead of: %s" % (self.__class__.__name__, name, type(name))
- */
-        __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_errors); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_InvalidAuthPluginError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 88, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_10);
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-
-        /* "sqlcycli/_auth.py":89
- *                 elif not isinstance(name, bytes):
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin name '%s' must be type of <'str/bytes'>, "             # <<<<<<<<<<<<<<
- *                         "instead of: %s" % (self.__class__.__name__, name, type(name))
- *                     )
- */
-        __pyx_t_6 = PyTuple_New(6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 89, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_11 = 0;
-        __pyx_t_12 = 127;
-        __Pyx_INCREF(__pyx_kp_u_);
-        __pyx_t_11 += 2;
-        __Pyx_GIVEREF(__pyx_kp_u_);
-        PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_kp_u_);
-
-        /* "sqlcycli/_auth.py":90
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin name '%s' must be type of <'str/bytes'>, "
- *                         "instead of: %s" % (self.__class__.__name__, name, type(name))             # <<<<<<<<<<<<<<
- *                     )
- *                 # . validate plugin handler
- */
-        __pyx_t_13 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 90, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_13);
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_13, __pyx_n_s_name); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 90, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_14);
-        __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-        __pyx_t_13 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_14), __pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 90, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_13);
-        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-        __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) : __pyx_t_12;
-        __pyx_t_11 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_13);
-        __Pyx_GIVEREF(__pyx_t_13);
-        PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_13);
-        __pyx_t_13 = 0;
-        __Pyx_INCREF(__pyx_kp_u_Auth_plugin_name);
-        __pyx_t_11 += 21;
-        __Pyx_GIVEREF(__pyx_kp_u_Auth_plugin_name);
-        PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_kp_u_Auth_plugin_name);
-        __pyx_t_13 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 90, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_13);
-        __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) : __pyx_t_12;
-        __pyx_t_11 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_13);
-        __Pyx_GIVEREF(__pyx_t_13);
-        PyTuple_SET_ITEM(__pyx_t_6, 3, __pyx_t_13);
-        __pyx_t_13 = 0;
-        __Pyx_INCREF(__pyx_kp_u_must_be_type_of_str_bytes_inste);
-        __pyx_t_11 += 45;
-        __Pyx_GIVEREF(__pyx_kp_u_must_be_type_of_str_bytes_inste);
-        PyTuple_SET_ITEM(__pyx_t_6, 4, __pyx_kp_u_must_be_type_of_str_bytes_inste);
-        __pyx_t_13 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_name))), __pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 90, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_13);
-        __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) : __pyx_t_12;
-        __pyx_t_11 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_13);
-        __Pyx_GIVEREF(__pyx_t_13);
-        PyTuple_SET_ITEM(__pyx_t_6, 5, __pyx_t_13);
-        __pyx_t_13 = 0;
-
-        /* "sqlcycli/_auth.py":89
- *                 elif not isinstance(name, bytes):
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin name '%s' must be type of <'str/bytes'>, "             # <<<<<<<<<<<<<<
- *                         "instead of: %s" % (self.__class__.__name__, name, type(name))
- *                     )
- */
-        __pyx_t_13 = __Pyx_PyUnicode_Join(__pyx_t_6, 6, __pyx_t_11, __pyx_t_12); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 89, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_13);
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_6 = NULL;
-        __pyx_t_15 = 0;
-        #if CYTHON_UNPACK_METHODS
-        if (unlikely(PyMethod_Check(__pyx_t_10))) {
-          __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_10);
-          if (likely(__pyx_t_6)) {
-            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_10);
-            __Pyx_INCREF(__pyx_t_6);
-            __Pyx_INCREF(function);
-            __Pyx_DECREF_SET(__pyx_t_10, function);
-            __pyx_t_15 = 1;
-          }
-        }
-        #endif
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_13};
-          __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+1-__pyx_t_15, 1+__pyx_t_15);
-          __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-          __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 88, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        }
-        __Pyx_Raise(__pyx_t_7, 0, 0, 0);
-        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __PYX_ERR(0, 88, __pyx_L1_error)
-
-        /* "sqlcycli/_auth.py":87
- *                 if isinstance(name, str):
- *                     name = utils.encode_str(name, "ascii")
- *                 elif not isinstance(name, bytes):             # <<<<<<<<<<<<<<
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin name '%s' must be type of <'str/bytes'>, "
- */
-      }
-      __pyx_L6:;
-
-      /* "sqlcycli/_auth.py":93
- *                     )
- *                 # . validate plugin handler
- *                 if type(plugin) is not type:             # <<<<<<<<<<<<<<
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin handler '%s' "
- */
-      __pyx_t_9 = (((PyObject *)Py_TYPE(__pyx_v_plugin)) != ((PyObject *)(&PyType_Type)));
-      if (unlikely(__pyx_t_9)) {
-
-        /* "sqlcycli/_auth.py":94
- *                 # . validate plugin handler
- *                 if type(plugin) is not type:
- *                     raise errors.InvalidAuthPluginError(             # <<<<<<<<<<<<<<
- *                         "<'%s'>\nAuth plugin handler '%s' "
- *                         "must be <class 'type'>, instead of: %s"
- */
-        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_n_s_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 94, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_InvalidAuthPluginError); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 94, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_13);
-        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-
-        /* "sqlcycli/_auth.py":95
- *                 if type(plugin) is not type:
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin handler '%s' "             # <<<<<<<<<<<<<<
- *                         "must be <class 'type'>, instead of: %s"
- *                         % (
- */
-        __pyx_t_10 = PyTuple_New(6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 95, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_11 = 0;
-        __pyx_t_12 = 127;
-        __Pyx_INCREF(__pyx_kp_u_);
-        __pyx_t_11 += 2;
-        __Pyx_GIVEREF(__pyx_kp_u_);
-        PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_kp_u_);
-
-        /* "sqlcycli/_auth.py":98
- *                         "must be <class 'type'>, instead of: %s"
- *                         % (
- *                             self.__class__.__name__,             # <<<<<<<<<<<<<<
- *                             utils.decode_bytes_ascii(name),
- *                             type(plugin),
- */
-        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_name); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 98, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_14);
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_14), __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-        __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) : __pyx_t_12;
-        __pyx_t_11 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6);
-        __Pyx_GIVEREF(__pyx_t_6);
-        PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_6);
-        __pyx_t_6 = 0;
-        __Pyx_INCREF(__pyx_kp_u_Auth_plugin_handler);
-        __pyx_t_11 += 24;
-        __Pyx_GIVEREF(__pyx_kp_u_Auth_plugin_handler);
-        PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_kp_u_Auth_plugin_handler);
-
-        /* "sqlcycli/_auth.py":99
- *                         % (
- *                             self.__class__.__name__,
- *                             utils.decode_bytes_ascii(name),             # <<<<<<<<<<<<<<
- *                             type(plugin),
- *                         )
- */
-        __pyx_t_6 = __pyx_f_8sqlcycli_5utils_decode_bytes_ascii(__pyx_v_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_14 = __Pyx_PyUnicode_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 99, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_14);
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_12;
-        __pyx_t_11 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
-        __Pyx_GIVEREF(__pyx_t_14);
-        PyTuple_SET_ITEM(__pyx_t_10, 3, __pyx_t_14);
-        __pyx_t_14 = 0;
-        __Pyx_INCREF(__pyx_kp_u_must_be_class_type_instead_of);
-        __pyx_t_11 += 38;
-        __Pyx_GIVEREF(__pyx_kp_u_must_be_class_type_instead_of);
-        PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_kp_u_must_be_class_type_instead_of);
-
-        /* "sqlcycli/_auth.py":100
- *                             self.__class__.__name__,
- *                             utils.decode_bytes_ascii(name),
- *                             type(plugin),             # <<<<<<<<<<<<<<
- *                         )
- *                     )
- */
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_plugin))), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 100, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_12;
-        __pyx_t_11 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
-        __Pyx_GIVEREF(__pyx_t_14);
-        PyTuple_SET_ITEM(__pyx_t_10, 5, __pyx_t_14);
-        __pyx_t_14 = 0;
-
-        /* "sqlcycli/_auth.py":95
- *                 if type(plugin) is not type:
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin handler '%s' "             # <<<<<<<<<<<<<<
- *                         "must be <class 'type'>, instead of: %s"
- *                         % (
- */
-        __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_10, 6, __pyx_t_11, __pyx_t_12); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 95, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_14);
-        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __pyx_t_10 = NULL;
-        __pyx_t_15 = 0;
-        #if CYTHON_UNPACK_METHODS
-        if (unlikely(PyMethod_Check(__pyx_t_13))) {
-          __pyx_t_10 = PyMethod_GET_SELF(__pyx_t_13);
-          if (likely(__pyx_t_10)) {
-            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_13);
-            __Pyx_INCREF(__pyx_t_10);
-            __Pyx_INCREF(function);
-            __Pyx_DECREF_SET(__pyx_t_13, function);
-            __pyx_t_15 = 1;
-          }
-        }
-        #endif
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_t_14};
-          __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+1-__pyx_t_15, 1+__pyx_t_15);
-          __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 94, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-        }
-        __Pyx_Raise(__pyx_t_7, 0, 0, 0);
-        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __PYX_ERR(0, 94, __pyx_L1_error)
-
-        /* "sqlcycli/_auth.py":93
- *                     )
- *                 # . validate plugin handler
- *                 if type(plugin) is not type:             # <<<<<<<<<<<<<<
- *                     raise errors.InvalidAuthPluginError(
- *                         "<'%s'>\nAuth plugin handler '%s' "
- */
-      }
-
-      /* "sqlcycli/_auth.py":103
- *                         )
- *                     )
- *                 _plugins[name] = plugin             # <<<<<<<<<<<<<<
- *             self._mysql_native_password = _plugins.get(b"mysql_native_password")
- *             self._caching_sha2_password = _plugins.get(b"caching_sha2_password")
- */
-      if (unlikely((PyDict_SetItem(__pyx_v__plugins, __pyx_v_name, __pyx_v_plugin) < 0))) __PYX_ERR(0, 103, __pyx_L1_error)
-    }
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":104
- *                     )
- *                 _plugins[name] = plugin
- *             self._mysql_native_password = _plugins.get(b"mysql_native_password")             # <<<<<<<<<<<<<<
- *             self._caching_sha2_password = _plugins.get(b"caching_sha2_password")
- *             self._sha256_password = _plugins.get(b"sha256_password")
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_mysql_native_password, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_mysql_native_password);
-    __Pyx_DECREF(__pyx_v_self->_mysql_native_password);
-    __pyx_v_self->_mysql_native_password = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":105
- *                 _plugins[name] = plugin
- *             self._mysql_native_password = _plugins.get(b"mysql_native_password")
- *             self._caching_sha2_password = _plugins.get(b"caching_sha2_password")             # <<<<<<<<<<<<<<
- *             self._sha256_password = _plugins.get(b"sha256_password")
- *             self._client_ed25519 = _plugins.get(b"client_ed25519")
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_caching_sha2_password, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_caching_sha2_password);
-    __Pyx_DECREF(__pyx_v_self->_caching_sha2_password);
-    __pyx_v_self->_caching_sha2_password = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":106
- *             self._mysql_native_password = _plugins.get(b"mysql_native_password")
- *             self._caching_sha2_password = _plugins.get(b"caching_sha2_password")
- *             self._sha256_password = _plugins.get(b"sha256_password")             # <<<<<<<<<<<<<<
- *             self._client_ed25519 = _plugins.get(b"client_ed25519")
- *             self._mysql_old_password = _plugins.get(b"mysql_old_password")
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_sha256_password, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_sha256_password);
-    __Pyx_DECREF(__pyx_v_self->_sha256_password);
-    __pyx_v_self->_sha256_password = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":107
- *             self._caching_sha2_password = _plugins.get(b"caching_sha2_password")
- *             self._sha256_password = _plugins.get(b"sha256_password")
- *             self._client_ed25519 = _plugins.get(b"client_ed25519")             # <<<<<<<<<<<<<<
- *             self._mysql_old_password = _plugins.get(b"mysql_old_password")
- *             self._mysql_clear_password = _plugins.get(b"mysql_clear_password")
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_client_ed25519, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_client_ed25519);
-    __Pyx_DECREF(__pyx_v_self->_client_ed25519);
-    __pyx_v_self->_client_ed25519 = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":108
- *             self._sha256_password = _plugins.get(b"sha256_password")
- *             self._client_ed25519 = _plugins.get(b"client_ed25519")
- *             self._mysql_old_password = _plugins.get(b"mysql_old_password")             # <<<<<<<<<<<<<<
- *             self._mysql_clear_password = _plugins.get(b"mysql_clear_password")
- *             self._dialog = _plugins.get(b"dialog")
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_mysql_old_password, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 108, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_mysql_old_password);
-    __Pyx_DECREF(__pyx_v_self->_mysql_old_password);
-    __pyx_v_self->_mysql_old_password = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":109
- *             self._client_ed25519 = _plugins.get(b"client_ed25519")
- *             self._mysql_old_password = _plugins.get(b"mysql_old_password")
- *             self._mysql_clear_password = _plugins.get(b"mysql_clear_password")             # <<<<<<<<<<<<<<
- *             self._dialog = _plugins.get(b"dialog")
- *             self._plugins = _plugins
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_mysql_clear_password, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_mysql_clear_password);
-    __Pyx_DECREF(__pyx_v_self->_mysql_clear_password);
-    __pyx_v_self->_mysql_clear_password = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":110
- *             self._mysql_old_password = _plugins.get(b"mysql_old_password")
- *             self._mysql_clear_password = _plugins.get(b"mysql_clear_password")
- *             self._dialog = _plugins.get(b"dialog")             # <<<<<<<<<<<<<<
- *             self._plugins = _plugins
- *         else:
- */
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v__plugins, __pyx_n_b_dialog, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 110, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_dialog);
-    __Pyx_DECREF(__pyx_v_self->_dialog);
-    __pyx_v_self->_dialog = __pyx_t_2;
-    __pyx_t_2 = 0;
-
-    /* "sqlcycli/_auth.py":111
- *             self._mysql_clear_password = _plugins.get(b"mysql_clear_password")
- *             self._dialog = _plugins.get(b"dialog")
- *             self._plugins = _plugins             # <<<<<<<<<<<<<<
- *         else:
- *             raise errors.InvalidAuthPluginError(
- */
-    __Pyx_INCREF(__pyx_v__plugins);
-    __Pyx_GIVEREF(__pyx_v__plugins);
-    __Pyx_GOTREF(__pyx_v_self->_plugins);
-    __Pyx_DECREF(__pyx_v_self->_plugins);
-    __pyx_v_self->_plugins = __pyx_v__plugins;
-
-    /* "sqlcycli/_auth.py":81
- *             self._dialog = None
- *             self._plugins = {}
- *         elif isinstance(plugins, dict):             # <<<<<<<<<<<<<<
- *             _plugins: dict[bytes, type] = {}
- *             for name, plugin in plugins.items():
- */
+  __pyx_t_2 = (__pyx_v_plugins == Py_None);
+  if (__pyx_t_2) {
     goto __pyx_L3;
   }
 
   /* "sqlcycli/_auth.py":113
- *             self._plugins = _plugins
+ *         if plugins is None:
+ *             pass
+ *         elif isinstance(plugins, dict):             # <<<<<<<<<<<<<<
+ *             for name, handler in plugins.items():
+ *                 self.set(name, handler)
+ */
+  __pyx_t_2 = PyDict_Check(__pyx_v_plugins); 
+  if (likely(__pyx_t_2)) {
+
+    /* "sqlcycli/_auth.py":114
+ *             pass
+ *         elif isinstance(plugins, dict):
+ *             for name, handler in plugins.items():             # <<<<<<<<<<<<<<
+ *                 self.set(name, handler)
+ *         else:
+ */
+    __pyx_t_3 = 0;
+    if (unlikely(__pyx_v_plugins == Py_None)) {
+      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
+      __PYX_ERR(0, 114, __pyx_L1_error)
+    }
+    __pyx_t_6 = __Pyx_dict_iterator(__pyx_v_plugins, 0, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_XDECREF(__pyx_t_1);
+    __pyx_t_1 = __pyx_t_6;
+    __pyx_t_6 = 0;
+    while (1) {
+      __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_4, &__pyx_t_3, &__pyx_t_6, &__pyx_t_7, NULL, __pyx_t_5);
+      if (unlikely(__pyx_t_8 == 0)) break;
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 114, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_XDECREF_SET(__pyx_v_name, __pyx_t_6);
+      __pyx_t_6 = 0;
+      __Pyx_XDECREF_SET(__pyx_v_handler, __pyx_t_7);
+      __pyx_t_7 = 0;
+
+      /* "sqlcycli/_auth.py":115
+ *         elif isinstance(plugins, dict):
+ *             for name, handler in plugins.items():
+ *                 self.set(name, handler)             # <<<<<<<<<<<<<<
+ *         else:
+ *             raise errors.InvalidAuthPluginError(
+ */
+      __pyx_t_2 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_v_name, __pyx_v_handler, 0); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 115, __pyx_L1_error)
+    }
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "sqlcycli/_auth.py":113
+ *         if plugins is None:
+ *             pass
+ *         elif isinstance(plugins, dict):             # <<<<<<<<<<<<<<
+ *             for name, handler in plugins.items():
+ *                 self.set(name, handler)
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":117
+ *                 self.set(name, handler)
  *         else:
  *             raise errors.InvalidAuthPluginError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nAuth 'plugins' must be type of <'dict'>, instead of: %s"
  *                 % (self.__class__.__name__, type(plugins))
  */
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_errors); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_errors); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_InvalidAuthPluginError); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 113, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_13);
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_InvalidAuthPluginError); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 117, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "sqlcycli/_auth.py":114
+    /* "sqlcycli/_auth.py":118
  *         else:
  *             raise errors.InvalidAuthPluginError(
  *                 "<'%s'>\nAuth 'plugins' must be type of <'dict'>, instead of: %s"             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, type(plugins))
  *             )
  */
-    __pyx_t_7 = PyTuple_New(4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_7 = PyTuple_New(4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_4 = 0;
-    __pyx_t_12 = 127;
+    __pyx_t_9 = 127;
     __Pyx_INCREF(__pyx_kp_u_);
     __pyx_t_4 += 2;
     __Pyx_GIVEREF(__pyx_kp_u_);
     PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_kp_u_);
 
-    /* "sqlcycli/_auth.py":115
+    /* "sqlcycli/_auth.py":119
  *             raise errors.InvalidAuthPluginError(
  *                 "<'%s'>\nAuth 'plugins' must be type of <'dict'>, instead of: %s"
  *                 % (self.__class__.__name__, type(plugins))             # <<<<<<<<<<<<<<
  *             )
  * 
  */
-    __pyx_t_14 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_14);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_n_s_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-    __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_10), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_14);
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_name); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_12;
-    __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
-    __Pyx_GIVEREF(__pyx_t_14);
-    PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_14);
-    __pyx_t_14 = 0;
+    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_11), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) : __pyx_t_9;
+    __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10);
+    __Pyx_GIVEREF(__pyx_t_10);
+    PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_10);
+    __pyx_t_10 = 0;
     __Pyx_INCREF(__pyx_kp_u_Auth_plugins_must_be_type_of_di);
     __pyx_t_4 += 56;
     __Pyx_GIVEREF(__pyx_kp_u_Auth_plugins_must_be_type_of_di);
     PyTuple_SET_ITEM(__pyx_t_7, 2, __pyx_kp_u_Auth_plugins_must_be_type_of_di);
-    __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_plugins))), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_14);
-    __pyx_t_12 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_12) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_12;
-    __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
-    __Pyx_GIVEREF(__pyx_t_14);
-    PyTuple_SET_ITEM(__pyx_t_7, 3, __pyx_t_14);
-    __pyx_t_14 = 0;
+    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_plugins))), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) : __pyx_t_9;
+    __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10);
+    __Pyx_GIVEREF(__pyx_t_10);
+    PyTuple_SET_ITEM(__pyx_t_7, 3, __pyx_t_10);
+    __pyx_t_10 = 0;
 
-    /* "sqlcycli/_auth.py":114
+    /* "sqlcycli/_auth.py":118
  *         else:
  *             raise errors.InvalidAuthPluginError(
  *                 "<'%s'>\nAuth 'plugins' must be type of <'dict'>, instead of: %s"             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, type(plugins))
  *             )
  */
-    __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_7, 4, __pyx_t_4, __pyx_t_12); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 114, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_14);
+    __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_7, 4, __pyx_t_4, __pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 118, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_7 = NULL;
-    __pyx_t_15 = 0;
+    __pyx_t_12 = 0;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_13))) {
-      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_13);
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_6);
       if (likely(__pyx_t_7)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_13);
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_6);
         __Pyx_INCREF(__pyx_t_7);
         __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_13, function);
-        __pyx_t_15 = 1;
+        __Pyx_DECREF_SET(__pyx_t_6, function);
+        __pyx_t_12 = 1;
       }
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_14};
-      __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+1-__pyx_t_15, 1+__pyx_t_15);
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_10};
+      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_12, 1+__pyx_t_12);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+      __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     }
-    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 113, __pyx_L1_error)
+    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __PYX_ERR(0, 117, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "sqlcycli/_auth.py":65
- *     _plugins: dict[bytes, type]
+  /* "sqlcycli/_auth.py":78
+ *     _dialog: object
  * 
  *     def __init__(self, plugins: dict[str | bytes, type] | None = None) -> None:             # <<<<<<<<<<<<<<
- *         """The authentication pluging handlers for MySQL.
+ *         """Registry and manager for MySQL authentication plugin handlers.
  * 
  */
 
@@ -7246,28 +6924,26 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin___init__(struct __pyx_obj_8sql
   __pyx_r = 0;
   goto __pyx_L0;
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_10);
-  __Pyx_XDECREF(__pyx_t_13);
-  __Pyx_XDECREF(__pyx_t_14);
+  __Pyx_XDECREF(__pyx_t_11);
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v__plugins);
   __Pyx_XDECREF(__pyx_v_name);
-  __Pyx_XDECREF(__pyx_v_plugin);
+  __Pyx_XDECREF(__pyx_v_handler);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":119
+/* "sqlcycli/_auth.py":123
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def mysql_native_password(self) -> type | None:
- *         """The handler for 'mysql_native_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_native_password` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -7290,9 +6966,9 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_auth.py":122
+  /* "sqlcycli/_auth.py":126
  *     def mysql_native_password(self) -> type | None:
- *         """The handler for 'mysql_native_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_native_password` authentication plugin `<'type'>`."""
  *         return self._mysql_native_password             # <<<<<<<<<<<<<<
  * 
  *     @mysql_native_password.setter
@@ -7302,12 +6978,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_
   __pyx_r = __pyx_v_self->_mysql_native_password;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":119
+  /* "sqlcycli/_auth.py":123
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def mysql_native_password(self) -> type | None:
- *         """The handler for 'mysql_native_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_native_password` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -7317,77 +6993,51 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":124
+/* "sqlcycli/_auth.py":128
  *         return self._mysql_native_password
  * 
  *     @mysql_native_password.setter             # <<<<<<<<<<<<<<
- *     def mysql_native_password(self, plugin: type) -> None:
- *         self._mysql_native_password = plugin
+ *     def mysql_native_password(self, handler: object) -> None:
+ *         self.set(b"mysql_native_password", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 125, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
 
-  /* "sqlcycli/_auth.py":126
+  /* "sqlcycli/_auth.py":130
  *     @mysql_native_password.setter
- *     def mysql_native_password(self, plugin: type) -> None:
- *         self._mysql_native_password = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"mysql_native_password"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_mysql_native_password);
-  __Pyx_DECREF(__pyx_v_self->_mysql_native_password);
-  __pyx_v_self->_mysql_native_password = ((PyObject *)__pyx_v_plugin);
-
-  /* "sqlcycli/_auth.py":127
- *     def mysql_native_password(self, plugin: type) -> None:
- *         self._mysql_native_password = plugin
- *         self._plugins[b"mysql_native_password"] = plugin             # <<<<<<<<<<<<<<
+ *     def mysql_native_password(self, handler: object) -> None:
+ *         self.set(b"mysql_native_password", handler)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 127, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_mysql_native_password, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_mysql_native_password, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 130, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":124
+  /* "sqlcycli/_auth.py":128
  *         return self._mysql_native_password
  * 
  *     @mysql_native_password.setter             # <<<<<<<<<<<<<<
- *     def mysql_native_password(self, plugin: type) -> None:
- *         self._mysql_native_password = plugin
+ *     def mysql_native_password(self, handler: object) -> None:
+ *         self.set(b"mysql_native_password", handler)
  */
 
   /* function exit code */
@@ -7397,16 +7047,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21mysql_native_password_2__set
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.mysql_native_password.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":129
- *         self._plugins[b"mysql_native_password"] = plugin
+/* "sqlcycli/_auth.py":132
+ *         self.set(b"mysql_native_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def caching_sha2_password(self) -> type | None:
- *         """The handler for 'caching_sha2_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `caching_sha2_password` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -7429,9 +7078,9 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_auth.py":132
+  /* "sqlcycli/_auth.py":135
  *     def caching_sha2_password(self) -> type | None:
- *         """The handler for 'caching_sha2_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `caching_sha2_password` authentication plugin `<'type'>`."""
  *         return self._caching_sha2_password             # <<<<<<<<<<<<<<
  * 
  *     @caching_sha2_password.setter
@@ -7441,12 +7090,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_
   __pyx_r = __pyx_v_self->_caching_sha2_password;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":129
- *         self._plugins[b"mysql_native_password"] = plugin
+  /* "sqlcycli/_auth.py":132
+ *         self.set(b"mysql_native_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def caching_sha2_password(self) -> type | None:
- *         """The handler for 'caching_sha2_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `caching_sha2_password` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -7456,77 +7105,51 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":134
+/* "sqlcycli/_auth.py":137
  *         return self._caching_sha2_password
  * 
  *     @caching_sha2_password.setter             # <<<<<<<<<<<<<<
- *     def caching_sha2_password(self, plugin: type) -> None:
- *         self._caching_sha2_password = plugin
+ *     def caching_sha2_password(self, handler: object) -> None:
+ *         self.set(b"caching_sha2_password", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 135, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
 
-  /* "sqlcycli/_auth.py":136
+  /* "sqlcycli/_auth.py":139
  *     @caching_sha2_password.setter
- *     def caching_sha2_password(self, plugin: type) -> None:
- *         self._caching_sha2_password = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"caching_sha2_password"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_caching_sha2_password);
-  __Pyx_DECREF(__pyx_v_self->_caching_sha2_password);
-  __pyx_v_self->_caching_sha2_password = ((PyObject *)__pyx_v_plugin);
-
-  /* "sqlcycli/_auth.py":137
- *     def caching_sha2_password(self, plugin: type) -> None:
- *         self._caching_sha2_password = plugin
- *         self._plugins[b"caching_sha2_password"] = plugin             # <<<<<<<<<<<<<<
+ *     def caching_sha2_password(self, handler: object) -> None:
+ *         self.set(b"caching_sha2_password", handler)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 137, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_caching_sha2_password, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_caching_sha2_password, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 139, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":134
+  /* "sqlcycli/_auth.py":137
  *         return self._caching_sha2_password
  * 
  *     @caching_sha2_password.setter             # <<<<<<<<<<<<<<
- *     def caching_sha2_password(self, plugin: type) -> None:
- *         self._caching_sha2_password = plugin
+ *     def caching_sha2_password(self, handler: object) -> None:
+ *         self.set(b"caching_sha2_password", handler)
  */
 
   /* function exit code */
@@ -7536,16 +7159,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_21caching_sha2_password_2__set
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.caching_sha2_password.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":139
- *         self._plugins[b"caching_sha2_password"] = plugin
+/* "sqlcycli/_auth.py":141
+ *         self.set(b"caching_sha2_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def sha256_password(self) -> type | None:
- *         """The handler for 'sha256_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `sha256_password` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -7568,9 +7190,9 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password___get_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_auth.py":142
+  /* "sqlcycli/_auth.py":144
  *     def sha256_password(self) -> type | None:
- *         """The handler for 'sha256_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `sha256_password` authentication plugin `<'type'>`."""
  *         return self._sha256_password             # <<<<<<<<<<<<<<
  * 
  *     @sha256_password.setter
@@ -7580,12 +7202,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password___get_
   __pyx_r = __pyx_v_self->_sha256_password;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":139
- *         self._plugins[b"caching_sha2_password"] = plugin
+  /* "sqlcycli/_auth.py":141
+ *         self.set(b"caching_sha2_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def sha256_password(self) -> type | None:
- *         """The handler for 'sha256_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `sha256_password` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -7595,77 +7217,51 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password___get_
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":144
+/* "sqlcycli/_auth.py":146
  *         return self._sha256_password
  * 
  *     @sha256_password.setter             # <<<<<<<<<<<<<<
- *     def sha256_password(self, plugin: type) -> None:
- *         self._sha256_password = plugin
+ *     def sha256_password(self, handler: object) -> None:
+ *         self.set(b"sha256_password", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 145, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
 
-  /* "sqlcycli/_auth.py":146
+  /* "sqlcycli/_auth.py":148
  *     @sha256_password.setter
- *     def sha256_password(self, plugin: type) -> None:
- *         self._sha256_password = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"sha256_password"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_sha256_password);
-  __Pyx_DECREF(__pyx_v_self->_sha256_password);
-  __pyx_v_self->_sha256_password = ((PyObject *)__pyx_v_plugin);
-
-  /* "sqlcycli/_auth.py":147
- *     def sha256_password(self, plugin: type) -> None:
- *         self._sha256_password = plugin
- *         self._plugins[b"sha256_password"] = plugin             # <<<<<<<<<<<<<<
+ *     def sha256_password(self, handler: object) -> None:
+ *         self.set(b"sha256_password", handler)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 147, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_sha256_password, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_sha256_password, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 148, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":144
+  /* "sqlcycli/_auth.py":146
  *         return self._sha256_password
  * 
  *     @sha256_password.setter             # <<<<<<<<<<<<<<
- *     def sha256_password(self, plugin: type) -> None:
- *         self._sha256_password = plugin
+ *     def sha256_password(self, handler: object) -> None:
+ *         self.set(b"sha256_password", handler)
  */
 
   /* function exit code */
@@ -7675,16 +7271,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_15sha256_password_2__set__(str
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.sha256_password.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":149
- *         self._plugins[b"sha256_password"] = plugin
+/* "sqlcycli/_auth.py":150
+ *         self.set(b"sha256_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def client_ed25519(self) -> type | None:
- *         """The handler for 'client_ed25519' auth plugin `<'type'>`."""
+ *         """Handler class for the `client_ed25519` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -7707,9 +7302,9 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519___get__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_auth.py":152
+  /* "sqlcycli/_auth.py":153
  *     def client_ed25519(self) -> type | None:
- *         """The handler for 'client_ed25519' auth plugin `<'type'>`."""
+ *         """Handler class for the `client_ed25519` authentication plugin `<'type'>`."""
  *         return self._client_ed25519             # <<<<<<<<<<<<<<
  * 
  *     @client_ed25519.setter
@@ -7719,12 +7314,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519___get__
   __pyx_r = __pyx_v_self->_client_ed25519;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":149
- *         self._plugins[b"sha256_password"] = plugin
+  /* "sqlcycli/_auth.py":150
+ *         self.set(b"sha256_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def client_ed25519(self) -> type | None:
- *         """The handler for 'client_ed25519' auth plugin `<'type'>`."""
+ *         """Handler class for the `client_ed25519` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -7734,77 +7329,51 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519___get__
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":154
+/* "sqlcycli/_auth.py":155
  *         return self._client_ed25519
  * 
  *     @client_ed25519.setter             # <<<<<<<<<<<<<<
- *     def client_ed25519(self, plugin: type) -> None:
- *         self._client_ed25519 = plugin
+ *     def client_ed25519(self, handler: object) -> None:
+ *         self.set(b"client_ed25519", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 155, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
-
-  /* "sqlcycli/_auth.py":156
- *     @client_ed25519.setter
- *     def client_ed25519(self, plugin: type) -> None:
- *         self._client_ed25519 = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"client_ed25519"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_client_ed25519);
-  __Pyx_DECREF(__pyx_v_self->_client_ed25519);
-  __pyx_v_self->_client_ed25519 = ((PyObject *)__pyx_v_plugin);
 
   /* "sqlcycli/_auth.py":157
- *     def client_ed25519(self, plugin: type) -> None:
- *         self._client_ed25519 = plugin
- *         self._plugins[b"client_ed25519"] = plugin             # <<<<<<<<<<<<<<
+ *     @client_ed25519.setter
+ *     def client_ed25519(self, handler: object) -> None:
+ *         self.set(b"client_ed25519", handler)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 157, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_client_ed25519, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_client_ed25519, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 157, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":154
+  /* "sqlcycli/_auth.py":155
  *         return self._client_ed25519
  * 
  *     @client_ed25519.setter             # <<<<<<<<<<<<<<
- *     def client_ed25519(self, plugin: type) -> None:
- *         self._client_ed25519 = plugin
+ *     def client_ed25519(self, handler: object) -> None:
+ *         self.set(b"client_ed25519", handler)
  */
 
   /* function exit code */
@@ -7814,16 +7383,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14client_ed25519_2__set__(stru
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.client_ed25519.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
 /* "sqlcycli/_auth.py":159
- *         self._plugins[b"client_ed25519"] = plugin
+ *         self.set(b"client_ed25519", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def mysql_old_password(self) -> type | None:
- *         """The handler for 'mysql_old_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_old_password` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -7848,7 +7416,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password___g
 
   /* "sqlcycli/_auth.py":162
  *     def mysql_old_password(self) -> type | None:
- *         """The handler for 'mysql_old_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_old_password` authentication plugin `<'type'>`."""
  *         return self._mysql_old_password             # <<<<<<<<<<<<<<
  * 
  *     @mysql_old_password.setter
@@ -7859,11 +7427,11 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password___g
   goto __pyx_L0;
 
   /* "sqlcycli/_auth.py":159
- *         self._plugins[b"client_ed25519"] = plugin
+ *         self.set(b"client_ed25519", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def mysql_old_password(self) -> type | None:
- *         """The handler for 'mysql_old_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_old_password` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -7877,73 +7445,47 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password___g
  *         return self._mysql_old_password
  * 
  *     @mysql_old_password.setter             # <<<<<<<<<<<<<<
- *     def mysql_old_password(self, plugin: type) -> None:
- *         self._mysql_old_password = plugin
+ *     def mysql_old_password(self, handler: object) -> None:
+ *         self.set(b"mysql_old_password", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 165, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
 
   /* "sqlcycli/_auth.py":166
  *     @mysql_old_password.setter
- *     def mysql_old_password(self, plugin: type) -> None:
- *         self._mysql_old_password = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"mysql_old_password"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_mysql_old_password);
-  __Pyx_DECREF(__pyx_v_self->_mysql_old_password);
-  __pyx_v_self->_mysql_old_password = ((PyObject *)__pyx_v_plugin);
-
-  /* "sqlcycli/_auth.py":167
- *     def mysql_old_password(self, plugin: type) -> None:
- *         self._mysql_old_password = plugin
- *         self._plugins[b"mysql_old_password"] = plugin             # <<<<<<<<<<<<<<
+ *     def mysql_old_password(self, handler: object) -> None:
+ *         self.set(b"mysql_old_password", handler)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 167, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_mysql_old_password, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_mysql_old_password, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 166, __pyx_L1_error)
 
   /* "sqlcycli/_auth.py":164
  *         return self._mysql_old_password
  * 
  *     @mysql_old_password.setter             # <<<<<<<<<<<<<<
- *     def mysql_old_password(self, plugin: type) -> None:
- *         self._mysql_old_password = plugin
+ *     def mysql_old_password(self, handler: object) -> None:
+ *         self.set(b"mysql_old_password", handler)
  */
 
   /* function exit code */
@@ -7953,16 +7495,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18mysql_old_password_2__set__(
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.mysql_old_password.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":169
- *         self._plugins[b"mysql_old_password"] = plugin
+/* "sqlcycli/_auth.py":168
+ *         self.set(b"mysql_old_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def mysql_clear_password(self) -> type | None:
- *         """The handler for 'mysql_clear_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_clear_password` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -7985,9 +7526,9 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_auth.py":172
+  /* "sqlcycli/_auth.py":171
  *     def mysql_clear_password(self) -> type | None:
- *         """The handler for 'mysql_clear_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_clear_password` authentication plugin `<'type'>`."""
  *         return self._mysql_clear_password             # <<<<<<<<<<<<<<
  * 
  *     @mysql_clear_password.setter
@@ -7997,12 +7538,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password__
   __pyx_r = __pyx_v_self->_mysql_clear_password;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":169
- *         self._plugins[b"mysql_old_password"] = plugin
+  /* "sqlcycli/_auth.py":168
+ *         self.set(b"mysql_old_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def mysql_clear_password(self) -> type | None:
- *         """The handler for 'mysql_clear_password' auth plugin `<'type'>`."""
+ *         """Handler class for the `mysql_clear_password` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -8012,77 +7553,51 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password__
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":174
+/* "sqlcycli/_auth.py":173
  *         return self._mysql_clear_password
  * 
  *     @mysql_clear_password.setter             # <<<<<<<<<<<<<<
- *     def mysql_clear_password(self, plugin: type) -> None:
- *         self._mysql_clear_password = plugin
+ *     def mysql_clear_password(self, handler: object) -> None:
+ *         self.set(b"mysql_clear_password", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 175, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
 
-  /* "sqlcycli/_auth.py":176
+  /* "sqlcycli/_auth.py":175
  *     @mysql_clear_password.setter
- *     def mysql_clear_password(self, plugin: type) -> None:
- *         self._mysql_clear_password = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"mysql_clear_password"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_mysql_clear_password);
-  __Pyx_DECREF(__pyx_v_self->_mysql_clear_password);
-  __pyx_v_self->_mysql_clear_password = ((PyObject *)__pyx_v_plugin);
-
-  /* "sqlcycli/_auth.py":177
- *     def mysql_clear_password(self, plugin: type) -> None:
- *         self._mysql_clear_password = plugin
- *         self._plugins[b"mysql_clear_password"] = plugin             # <<<<<<<<<<<<<<
+ *     def mysql_clear_password(self, handler: object) -> None:
+ *         self.set(b"mysql_clear_password", handler)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 177, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_mysql_clear_password, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_mysql_clear_password, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 175, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":174
+  /* "sqlcycli/_auth.py":173
  *         return self._mysql_clear_password
  * 
  *     @mysql_clear_password.setter             # <<<<<<<<<<<<<<
- *     def mysql_clear_password(self, plugin: type) -> None:
- *         self._mysql_clear_password = plugin
+ *     def mysql_clear_password(self, handler: object) -> None:
+ *         self.set(b"mysql_clear_password", handler)
  */
 
   /* function exit code */
@@ -8092,16 +7607,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20mysql_clear_password_2__set_
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.mysql_clear_password.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":179
- *         self._plugins[b"mysql_clear_password"] = plugin
+/* "sqlcycli/_auth.py":177
+ *         self.set(b"mysql_clear_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def dialog(self) -> type | None:
- *         """The handler for 'dialog' auth plugin `<'type'>`."""
+ *         """Handler class for the `dialog` authentication plugin `<'type'>`."""
  */
 
 /* Python wrapper */
@@ -8124,9 +7638,9 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog___get__(struct _
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_auth.py":182
+  /* "sqlcycli/_auth.py":180
  *     def dialog(self) -> type | None:
- *         """The handler for 'dialog' auth plugin `<'type'>`."""
+ *         """Handler class for the `dialog` authentication plugin `<'type'>`."""
  *         return self._dialog             # <<<<<<<<<<<<<<
  * 
  *     @dialog.setter
@@ -8136,12 +7650,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog___get__(struct _
   __pyx_r = __pyx_v_self->_dialog;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":179
- *         self._plugins[b"mysql_clear_password"] = plugin
+  /* "sqlcycli/_auth.py":177
+ *         self.set(b"mysql_clear_password", handler)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def dialog(self) -> type | None:
- *         """The handler for 'dialog' auth plugin `<'type'>`."""
+ *         """Handler class for the `dialog` authentication plugin `<'type'>`."""
  */
 
   /* function exit code */
@@ -8151,77 +7665,51 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog___get__(struct _
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":184
+/* "sqlcycli/_auth.py":182
  *         return self._dialog
  * 
  *     @dialog.setter             # <<<<<<<<<<<<<<
- *     def dialog(self, plugin: type) -> None:
- *         self._dialog = plugin
+ *     def dialog(self, handler: object) -> None:
+ *         self.set(b"dialog", handler)
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_6dialog_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_6dialog_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin) {
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_6dialog_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_6dialog_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_handler) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin), (&PyType_Type), 0, "plugin", 1))) __PYX_ERR(0, 185, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyTypeObject*)__pyx_v_plugin));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_handler));
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = -1;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyTypeObject *__pyx_v_plugin) {
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_handler) {
   int __pyx_r;
-  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__set__", 1);
-
-  /* "sqlcycli/_auth.py":186
- *     @dialog.setter
- *     def dialog(self, plugin: type) -> None:
- *         self._dialog = plugin             # <<<<<<<<<<<<<<
- *         self._plugins[b"dialog"] = plugin
- * 
- */
-  __Pyx_INCREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GIVEREF((PyObject *)__pyx_v_plugin);
-  __Pyx_GOTREF(__pyx_v_self->_dialog);
-  __Pyx_DECREF(__pyx_v_self->_dialog);
-  __pyx_v_self->_dialog = ((PyObject *)__pyx_v_plugin);
-
-  /* "sqlcycli/_auth.py":187
- *     def dialog(self, plugin: type) -> None:
- *         self._dialog = plugin
- *         self._plugins[b"dialog"] = plugin             # <<<<<<<<<<<<<<
- * 
- *     # Methods ---------------------------------------------------------------------------------
- */
-  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 187, __pyx_L1_error)
-  }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_plugins, __pyx_n_b_dialog, ((PyObject *)__pyx_v_plugin)) < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
 
   /* "sqlcycli/_auth.py":184
+ *     @dialog.setter
+ *     def dialog(self, handler: object) -> None:
+ *         self.set(b"dialog", handler)             # <<<<<<<<<<<<<<
+ * 
+ *     # Handler ---------------------------------------------------------------------------------
+ */
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->set(__pyx_v_self, __pyx_n_b_dialog, __pyx_v_handler, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 184, __pyx_L1_error)
+
+  /* "sqlcycli/_auth.py":182
  *         return self._dialog
  * 
  *     @dialog.setter             # <<<<<<<<<<<<<<
- *     def dialog(self, plugin: type) -> None:
- *         self._dialog = plugin
+ *     def dialog(self, handler: object) -> None:
+ *         self.set(b"dialog", handler)
  */
 
   /* function exit code */
@@ -8231,16 +7719,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6dialog_2__set__(struct __pyx_
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.dialog.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":190
+/* "sqlcycli/_auth.py":187
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Handler ---------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
- *     def get(self, plugin_name: bytes) -> object:
- *         """Get the handler for the plugin by name `<'type/None'>`."""
+ *     def get(self, plugin_name: str | bytes) -> object:
+ *         """Retrieve the registered handler class for a given plugin name `<'type/None'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_3get(PyObject *__pyx_v_self, 
@@ -8258,7 +7745,6 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(struct __pyx_obj_8sql
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   unsigned int __pyx_t_5;
-  int __pyx_t_6;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -8272,7 +7758,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(struct __pyx_obj_8sql
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_get); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_get); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_3get)) {
         __Pyx_XDECREF(__pyx_r);
@@ -8295,7 +7781,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(struct __pyx_obj_8sql
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_plugin_name};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
@@ -8317,247 +7803,33 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(struct __pyx_obj_8sql
     #endif
   }
 
-  /* "sqlcycli/_auth.py":193
- *     def get(self, plugin_name: bytes) -> object:
- *         """Get the handler for the plugin by name `<'type/None'>`."""
- *         if plugin_name == b"mysql_native_password":             # <<<<<<<<<<<<<<
- *             return self._mysql_native_password
- *         if plugin_name == b"caching_sha2_password":
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_mysql_native_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 193, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":194
- *         """Get the handler for the plugin by name `<'type/None'>`."""
- *         if plugin_name == b"mysql_native_password":
- *             return self._mysql_native_password             # <<<<<<<<<<<<<<
- *         if plugin_name == b"caching_sha2_password":
- *             return self._caching_sha2_password
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_mysql_native_password);
-    __pyx_r = __pyx_v_self->_mysql_native_password;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":193
- *     def get(self, plugin_name: bytes) -> object:
- *         """Get the handler for the plugin by name `<'type/None'>`."""
- *         if plugin_name == b"mysql_native_password":             # <<<<<<<<<<<<<<
- *             return self._mysql_native_password
- *         if plugin_name == b"caching_sha2_password":
- */
-  }
-
   /* "sqlcycli/_auth.py":195
- *         if plugin_name == b"mysql_native_password":
- *             return self._mysql_native_password
- *         if plugin_name == b"caching_sha2_password":             # <<<<<<<<<<<<<<
- *             return self._caching_sha2_password
- *         if plugin_name == b"sha256_password":
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_caching_sha2_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 195, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":196
- *             return self._mysql_native_password
- *         if plugin_name == b"caching_sha2_password":
- *             return self._caching_sha2_password             # <<<<<<<<<<<<<<
- *         if plugin_name == b"sha256_password":
- *             return self._sha256_password
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_caching_sha2_password);
-    __pyx_r = __pyx_v_self->_caching_sha2_password;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":195
- *         if plugin_name == b"mysql_native_password":
- *             return self._mysql_native_password
- *         if plugin_name == b"caching_sha2_password":             # <<<<<<<<<<<<<<
- *             return self._caching_sha2_password
- *         if plugin_name == b"sha256_password":
- */
-  }
-
-  /* "sqlcycli/_auth.py":197
- *         if plugin_name == b"caching_sha2_password":
- *             return self._caching_sha2_password
- *         if plugin_name == b"sha256_password":             # <<<<<<<<<<<<<<
- *             return self._sha256_password
- *         if plugin_name == b"client_ed25519":
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_sha256_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 197, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":198
- *             return self._caching_sha2_password
- *         if plugin_name == b"sha256_password":
- *             return self._sha256_password             # <<<<<<<<<<<<<<
- *         if plugin_name == b"client_ed25519":
- *             return self._client_ed25519
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_sha256_password);
-    __pyx_r = __pyx_v_self->_sha256_password;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":197
- *         if plugin_name == b"caching_sha2_password":
- *             return self._caching_sha2_password
- *         if plugin_name == b"sha256_password":             # <<<<<<<<<<<<<<
- *             return self._sha256_password
- *         if plugin_name == b"client_ed25519":
- */
-  }
-
-  /* "sqlcycli/_auth.py":199
- *         if plugin_name == b"sha256_password":
- *             return self._sha256_password
- *         if plugin_name == b"client_ed25519":             # <<<<<<<<<<<<<<
- *             return self._client_ed25519
- *         if plugin_name == b"mysql_old_password":
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_client_ed25519, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 199, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":200
- *             return self._sha256_password
- *         if plugin_name == b"client_ed25519":
- *             return self._client_ed25519             # <<<<<<<<<<<<<<
- *         if plugin_name == b"mysql_old_password":
- *             return self._mysql_old_password
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_client_ed25519);
-    __pyx_r = __pyx_v_self->_client_ed25519;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":199
- *         if plugin_name == b"sha256_password":
- *             return self._sha256_password
- *         if plugin_name == b"client_ed25519":             # <<<<<<<<<<<<<<
- *             return self._client_ed25519
- *         if plugin_name == b"mysql_old_password":
- */
-  }
-
-  /* "sqlcycli/_auth.py":201
- *         if plugin_name == b"client_ed25519":
- *             return self._client_ed25519
- *         if plugin_name == b"mysql_old_password":             # <<<<<<<<<<<<<<
- *             return self._mysql_old_password
- *         if plugin_name == b"mysql_clear_password":
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_mysql_old_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 201, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":202
- *             return self._client_ed25519
- *         if plugin_name == b"mysql_old_password":
- *             return self._mysql_old_password             # <<<<<<<<<<<<<<
- *         if plugin_name == b"mysql_clear_password":
- *             return self._mysql_clear_password
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_mysql_old_password);
-    __pyx_r = __pyx_v_self->_mysql_old_password;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":201
- *         if plugin_name == b"client_ed25519":
- *             return self._client_ed25519
- *         if plugin_name == b"mysql_old_password":             # <<<<<<<<<<<<<<
- *             return self._mysql_old_password
- *         if plugin_name == b"mysql_clear_password":
- */
-  }
-
-  /* "sqlcycli/_auth.py":203
- *         if plugin_name == b"mysql_old_password":
- *             return self._mysql_old_password
- *         if plugin_name == b"mysql_clear_password":             # <<<<<<<<<<<<<<
- *             return self._mysql_clear_password
- *         if plugin_name == b"dialog":
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_mysql_clear_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 203, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":204
- *             return self._mysql_old_password
- *         if plugin_name == b"mysql_clear_password":
- *             return self._mysql_clear_password             # <<<<<<<<<<<<<<
- *         if plugin_name == b"dialog":
- *             return self._dialog
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_mysql_clear_password);
-    __pyx_r = __pyx_v_self->_mysql_clear_password;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":203
- *         if plugin_name == b"mysql_old_password":
- *             return self._mysql_old_password
- *         if plugin_name == b"mysql_clear_password":             # <<<<<<<<<<<<<<
- *             return self._mysql_clear_password
- *         if plugin_name == b"dialog":
- */
-  }
-
-  /* "sqlcycli/_auth.py":205
- *         if plugin_name == b"mysql_clear_password":
- *             return self._mysql_clear_password
- *         if plugin_name == b"dialog":             # <<<<<<<<<<<<<<
- *             return self._dialog
- *         return self._plugins.get(plugin_name)
- */
-  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_plugin_name, __pyx_n_b_dialog, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 205, __pyx_L1_error)
-  if (__pyx_t_6) {
-
-    /* "sqlcycli/_auth.py":206
- *             return self._mysql_clear_password
- *         if plugin_name == b"dialog":
- *             return self._dialog             # <<<<<<<<<<<<<<
- *         return self._plugins.get(plugin_name)
+ *             `None` if the plugin is not registered.
+ *         """
+ *         return self._plugins.get(self._validete_plugin_name(plugin_name))             # <<<<<<<<<<<<<<
  * 
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_dialog);
-    __pyx_r = __pyx_v_self->_dialog;
-    goto __pyx_L0;
-
-    /* "sqlcycli/_auth.py":205
- *         if plugin_name == b"mysql_clear_password":
- *             return self._mysql_clear_password
- *         if plugin_name == b"dialog":             # <<<<<<<<<<<<<<
- *             return self._dialog
- *         return self._plugins.get(plugin_name)
- */
-  }
-
-  /* "sqlcycli/_auth.py":207
- *         if plugin_name == b"dialog":
- *             return self._dialog
- *         return self._plugins.get(plugin_name)             # <<<<<<<<<<<<<<
- * 
- *     def __repr__(self) -> str:
+ *     @cython.ccall
  */
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_self->_plugins == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 207, __pyx_L1_error)
+    __PYX_ERR(0, 195, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_plugins, __pyx_v_plugin_name, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name(__pyx_v_self, __pyx_v_plugin_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_plugins, __pyx_t_1, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":190
+  /* "sqlcycli/_auth.py":187
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Handler ---------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
- *     def get(self, plugin_name: bytes) -> object:
- *         """Get the handler for the plugin by name `<'type/None'>`."""
+ *     def get(self, plugin_name: str | bytes) -> object:
+ *         """Retrieve the registered handler class for a given plugin name `<'type/None'>`.
  */
 
   /* function exit code */
@@ -8582,7 +7854,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_10AuthPlugin_2get, "Get the handler for the plugin by name `<'type/None'>`.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_10AuthPlugin_2get, "Retrieve the registered handler class for a given plugin name `<'type/None'>`.\n\n        :param plugin_name `<'str/bytes'>`: The name of the authentication plugin.\n        :returns `<'type/None'>`: The handler class for the specified plugin, or\n            `None` if the plugin is not registered.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_3get = {"get", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_3get, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_5_auth_10AuthPlugin_2get};
 static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_3get(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -8628,23 +7900,23 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 190, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 187, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get") < 0)) __PYX_ERR(0, 190, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get") < 0)) __PYX_ERR(0, 187, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
     }
-    __pyx_v_plugin_name = ((PyObject*)values[0]);
+    __pyx_v_plugin_name = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 190, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 187, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8658,14 +7930,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_plugin_name), (&PyBytes_Type), 0, "plugin_name", 1))) __PYX_ERR(0, 191, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_2get(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), __pyx_v_plugin_name);
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = NULL;
-  __pyx_L0:;
   {
     Py_ssize_t __pyx_temp;
     for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -8685,7 +7952,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_2get(struct __pyx_obj_8s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(__pyx_v_self, __pyx_v_plugin_name, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin_get(__pyx_v_self, __pyx_v_plugin_name, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8702,23 +7969,1012 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_2get(struct __pyx_obj_8s
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":209
- *         return self._plugins.get(plugin_name)
+/* "sqlcycli/_auth.py":197
+ *         return self._plugins.get(self._validete_plugin_name(plugin_name))
  * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     @cython.exceptval(-1, check=False)
+ *     def set(
+ */
+
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5set(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static int __pyx_f_8sqlcycli_5_auth_10AuthPlugin_set(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name, PyObject *__pyx_v_handler, int __pyx_skip_dispatch) {
+  PyObject *__pyx_v_name = 0;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  unsigned int __pyx_t_5;
+  int __pyx_t_6;
+  int __pyx_t_7;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("set", 0);
+  __Pyx_INCREF(__pyx_v_handler);
+  /* Check if called by wrapper */
+  if (unlikely(__pyx_skip_dispatch)) ;
+  /* Check if overridden in Python */
+  else if (unlikely((Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0) || __Pyx_PyType_HasFeature(Py_TYPE(((PyObject *)__pyx_v_self)), (Py_TPFLAGS_IS_ABSTRACT | Py_TPFLAGS_HEAPTYPE)))) {
+    #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+    static PY_UINT64_T __pyx_tp_dict_version = __PYX_DICT_VERSION_INIT, __pyx_obj_dict_version = __PYX_DICT_VERSION_INIT;
+    if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
+      PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
+      #endif
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_set); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5set)) {
+        __Pyx_INCREF(__pyx_t_1);
+        __pyx_t_3 = __pyx_t_1; __pyx_t_4 = NULL;
+        __pyx_t_5 = 0;
+        #if CYTHON_UNPACK_METHODS
+        if (unlikely(PyMethod_Check(__pyx_t_3))) {
+          __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+          if (likely(__pyx_t_4)) {
+            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+            __Pyx_INCREF(__pyx_t_4);
+            __Pyx_INCREF(function);
+            __Pyx_DECREF_SET(__pyx_t_3, function);
+            __pyx_t_5 = 1;
+          }
+        }
+        #endif
+        {
+          PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_v_plugin_name, __pyx_v_handler};
+          __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 197, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_2);
+          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+        }
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 197, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __pyx_r = __pyx_t_6;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        goto __pyx_L0;
+      }
+      #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+      __pyx_tp_dict_version = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
+      __pyx_obj_dict_version = __Pyx_get_object_dict_version(((PyObject *)__pyx_v_self));
+      if (unlikely(__pyx_typedict_guard != __pyx_tp_dict_version)) {
+        __pyx_tp_dict_version = __pyx_obj_dict_version = __PYX_DICT_VERSION_INIT;
+      }
+      #endif
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+    }
+    #endif
+  }
+
+  /* "sqlcycli/_auth.py":211
+ *         """
+ *         # Register plugins
+ *         name: bytes = self._validete_plugin_name(plugin_name)             # <<<<<<<<<<<<<<
+ *         handler = self._validate_plugin_handler(name, handler)
+ *         dict_setitem(self._plugins, name, handler)
+ */
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name(__pyx_v_self, __pyx_v_plugin_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_v_name = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "sqlcycli/_auth.py":212
+ *         # Register plugins
+ *         name: bytes = self._validete_plugin_name(plugin_name)
+ *         handler = self._validate_plugin_handler(name, handler)             # <<<<<<<<<<<<<<
+ *         dict_setitem(self._plugins, name, handler)
+ * 
+ */
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin__validate_plugin_handler(__pyx_v_self, __pyx_v_name, __pyx_v_handler); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF_SET(__pyx_v_handler, __pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "sqlcycli/_auth.py":213
+ *         name: bytes = self._validete_plugin_name(plugin_name)
+ *         handler = self._validate_plugin_handler(name, handler)
+ *         dict_setitem(self._plugins, name, handler)             # <<<<<<<<<<<<<<
+ * 
+ *         # Common plugins
+ */
+  __pyx_t_1 = __pyx_v_self->_plugins;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_7 = PyDict_SetItem(__pyx_t_1, __pyx_v_name, __pyx_v_handler); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "sqlcycli/_auth.py":216
+ * 
+ *         # Common plugins
+ *         if name == b"mysql_native_password":             # <<<<<<<<<<<<<<
+ *             self._mysql_native_password = handler
+ *         elif name == b"caching_sha2_password":
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_mysql_native_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 216, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":217
+ *         # Common plugins
+ *         if name == b"mysql_native_password":
+ *             self._mysql_native_password = handler             # <<<<<<<<<<<<<<
+ *         elif name == b"caching_sha2_password":
+ *             self._caching_sha2_password = handler
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_mysql_native_password);
+    __Pyx_DECREF(__pyx_v_self->_mysql_native_password);
+    __pyx_v_self->_mysql_native_password = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":216
+ * 
+ *         # Common plugins
+ *         if name == b"mysql_native_password":             # <<<<<<<<<<<<<<
+ *             self._mysql_native_password = handler
+ *         elif name == b"caching_sha2_password":
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":218
+ *         if name == b"mysql_native_password":
+ *             self._mysql_native_password = handler
+ *         elif name == b"caching_sha2_password":             # <<<<<<<<<<<<<<
+ *             self._caching_sha2_password = handler
+ *         elif name == b"sha256_password":
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_caching_sha2_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 218, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":219
+ *             self._mysql_native_password = handler
+ *         elif name == b"caching_sha2_password":
+ *             self._caching_sha2_password = handler             # <<<<<<<<<<<<<<
+ *         elif name == b"sha256_password":
+ *             self._sha256_password = handler
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_caching_sha2_password);
+    __Pyx_DECREF(__pyx_v_self->_caching_sha2_password);
+    __pyx_v_self->_caching_sha2_password = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":218
+ *         if name == b"mysql_native_password":
+ *             self._mysql_native_password = handler
+ *         elif name == b"caching_sha2_password":             # <<<<<<<<<<<<<<
+ *             self._caching_sha2_password = handler
+ *         elif name == b"sha256_password":
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":220
+ *         elif name == b"caching_sha2_password":
+ *             self._caching_sha2_password = handler
+ *         elif name == b"sha256_password":             # <<<<<<<<<<<<<<
+ *             self._sha256_password = handler
+ *         elif name == b"client_ed25519":
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_sha256_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 220, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":221
+ *             self._caching_sha2_password = handler
+ *         elif name == b"sha256_password":
+ *             self._sha256_password = handler             # <<<<<<<<<<<<<<
+ *         elif name == b"client_ed25519":
+ *             self._client_ed25519 = handler
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_sha256_password);
+    __Pyx_DECREF(__pyx_v_self->_sha256_password);
+    __pyx_v_self->_sha256_password = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":220
+ *         elif name == b"caching_sha2_password":
+ *             self._caching_sha2_password = handler
+ *         elif name == b"sha256_password":             # <<<<<<<<<<<<<<
+ *             self._sha256_password = handler
+ *         elif name == b"client_ed25519":
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":222
+ *         elif name == b"sha256_password":
+ *             self._sha256_password = handler
+ *         elif name == b"client_ed25519":             # <<<<<<<<<<<<<<
+ *             self._client_ed25519 = handler
+ *         elif name == b"mysql_old_password":
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_client_ed25519, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 222, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":223
+ *             self._sha256_password = handler
+ *         elif name == b"client_ed25519":
+ *             self._client_ed25519 = handler             # <<<<<<<<<<<<<<
+ *         elif name == b"mysql_old_password":
+ *             self._mysql_old_password = handler
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_client_ed25519);
+    __Pyx_DECREF(__pyx_v_self->_client_ed25519);
+    __pyx_v_self->_client_ed25519 = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":222
+ *         elif name == b"sha256_password":
+ *             self._sha256_password = handler
+ *         elif name == b"client_ed25519":             # <<<<<<<<<<<<<<
+ *             self._client_ed25519 = handler
+ *         elif name == b"mysql_old_password":
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":224
+ *         elif name == b"client_ed25519":
+ *             self._client_ed25519 = handler
+ *         elif name == b"mysql_old_password":             # <<<<<<<<<<<<<<
+ *             self._mysql_old_password = handler
+ *         elif name == b"mysql_clear_password":
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_mysql_old_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 224, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":225
+ *             self._client_ed25519 = handler
+ *         elif name == b"mysql_old_password":
+ *             self._mysql_old_password = handler             # <<<<<<<<<<<<<<
+ *         elif name == b"mysql_clear_password":
+ *             self._mysql_clear_password = handler
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_mysql_old_password);
+    __Pyx_DECREF(__pyx_v_self->_mysql_old_password);
+    __pyx_v_self->_mysql_old_password = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":224
+ *         elif name == b"client_ed25519":
+ *             self._client_ed25519 = handler
+ *         elif name == b"mysql_old_password":             # <<<<<<<<<<<<<<
+ *             self._mysql_old_password = handler
+ *         elif name == b"mysql_clear_password":
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":226
+ *         elif name == b"mysql_old_password":
+ *             self._mysql_old_password = handler
+ *         elif name == b"mysql_clear_password":             # <<<<<<<<<<<<<<
+ *             self._mysql_clear_password = handler
+ *         elif name == b"dialog":
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_mysql_clear_password, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 226, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":227
+ *             self._mysql_old_password = handler
+ *         elif name == b"mysql_clear_password":
+ *             self._mysql_clear_password = handler             # <<<<<<<<<<<<<<
+ *         elif name == b"dialog":
+ *             self._dialog = handler
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_mysql_clear_password);
+    __Pyx_DECREF(__pyx_v_self->_mysql_clear_password);
+    __pyx_v_self->_mysql_clear_password = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":226
+ *         elif name == b"mysql_old_password":
+ *             self._mysql_old_password = handler
+ *         elif name == b"mysql_clear_password":             # <<<<<<<<<<<<<<
+ *             self._mysql_clear_password = handler
+ *         elif name == b"dialog":
+ */
+    goto __pyx_L3;
+  }
+
+  /* "sqlcycli/_auth.py":228
+ *         elif name == b"mysql_clear_password":
+ *             self._mysql_clear_password = handler
+ *         elif name == b"dialog":             # <<<<<<<<<<<<<<
+ *             self._dialog = handler
+ *         return True
+ */
+  __pyx_t_6 = (__Pyx_PyBytes_Equals(__pyx_v_name, __pyx_n_b_dialog, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 228, __pyx_L1_error)
+  if (__pyx_t_6) {
+
+    /* "sqlcycli/_auth.py":229
+ *             self._mysql_clear_password = handler
+ *         elif name == b"dialog":
+ *             self._dialog = handler             # <<<<<<<<<<<<<<
+ *         return True
+ * 
+ */
+    __Pyx_INCREF(__pyx_v_handler);
+    __Pyx_GIVEREF(__pyx_v_handler);
+    __Pyx_GOTREF(__pyx_v_self->_dialog);
+    __Pyx_DECREF(__pyx_v_self->_dialog);
+    __pyx_v_self->_dialog = __pyx_v_handler;
+
+    /* "sqlcycli/_auth.py":228
+ *         elif name == b"mysql_clear_password":
+ *             self._mysql_clear_password = handler
+ *         elif name == b"dialog":             # <<<<<<<<<<<<<<
+ *             self._dialog = handler
+ *         return True
+ */
+  }
+  __pyx_L3:;
+
+  /* "sqlcycli/_auth.py":230
+ *         elif name == b"dialog":
+ *             self._dialog = handler
+ *         return True             # <<<<<<<<<<<<<<
+ * 
+ *     # Validate --------------------------------------------------------------------------------
+ */
+  __pyx_r = 1;
+  goto __pyx_L0;
+
+  /* "sqlcycli/_auth.py":197
+ *         return self._plugins.get(self._validete_plugin_name(plugin_name))
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     @cython.exceptval(-1, check=False)
+ *     def set(
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.set", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_name);
+  __Pyx_XDECREF(__pyx_v_handler);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5set(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_10AuthPlugin_4set, "Register a handler class under a given plugin name.\n\n        :param plugin_name `<'str/bytes'>`: The name of the authentication plugin.\n        :param handler `<'type'>`: The handler class to register.\n        :raises `<'InvalidAuthPluginError'>`: If the plugin name or handler is invalid.\n        ");
+static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_5set = {"set", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5set, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_5_auth_10AuthPlugin_4set};
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5set(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_plugin_name = 0;
+  PyObject *__pyx_v_handler = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[2] = {0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("set (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_MACROS
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_plugin_name,&__pyx_n_s_handler,0};
+    if (__pyx_kwds) {
+      Py_ssize_t kw_args;
+      switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = __Pyx_NumKwargs_FASTCALL(__pyx_kwds);
+      switch (__pyx_nargs) {
+        case  0:
+        if (likely((values[0] = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_plugin_name)) != 0)) {
+          (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
+          kw_args--;
+        }
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 197, __pyx_L3_error)
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_handler)) != 0)) {
+          (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
+          kw_args--;
+        }
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 197, __pyx_L3_error)
+        else {
+          __Pyx_RaiseArgtupleInvalid("set", 1, 2, 2, 1); __PYX_ERR(0, 197, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        const Py_ssize_t kwd_pos_args = __pyx_nargs;
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set") < 0)) __PYX_ERR(0, 197, __pyx_L3_error)
+      }
+    } else if (unlikely(__pyx_nargs != 2)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+      values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+    }
+    __pyx_v_plugin_name = values[0];
+    __pyx_v_handler = values[1];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("set", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 197, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  {
+    Py_ssize_t __pyx_temp;
+    for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+      __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
+    }
+  }
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.set", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4set(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), __pyx_v_plugin_name, __pyx_v_handler);
+
+  /* function exit code */
+  {
+    Py_ssize_t __pyx_temp;
+    for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+      __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
+    }
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4set(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name, PyObject *__pyx_v_handler) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("set", 1);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin_set(__pyx_v_self, __pyx_v_plugin_name, __pyx_v_handler, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 197, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.set", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":233
+ * 
+ *     # Validate --------------------------------------------------------------------------------
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     def _validete_plugin_name(self, plugin_name: str | bytes) -> object:
+ */
+
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  Py_ssize_t __pyx_t_5;
+  Py_UCS4 __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  unsigned int __pyx_t_9;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_validete_plugin_name", 1);
+
+  /* "sqlcycli/_auth.py":242
+ *         :raises `<'InvalidAuthPluginError'>`: If the plugin name is not a valid string or bytes.
+ *         """
+ *         if isinstance(plugin_name, bytes):             # <<<<<<<<<<<<<<
+ *             return plugin_name
+ *         elif isinstance(plugin_name, str):
+ */
+  __pyx_t_1 = PyBytes_Check(__pyx_v_plugin_name); 
+  if (__pyx_t_1) {
+
+    /* "sqlcycli/_auth.py":243
+ *         """
+ *         if isinstance(plugin_name, bytes):
+ *             return plugin_name             # <<<<<<<<<<<<<<
+ *         elif isinstance(plugin_name, str):
+ *             return utils.encode_str(plugin_name, "ascii")
+ */
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_v_plugin_name);
+    __pyx_r = __pyx_v_plugin_name;
+    goto __pyx_L0;
+
+    /* "sqlcycli/_auth.py":242
+ *         :raises `<'InvalidAuthPluginError'>`: If the plugin name is not a valid string or bytes.
+ *         """
+ *         if isinstance(plugin_name, bytes):             # <<<<<<<<<<<<<<
+ *             return plugin_name
+ *         elif isinstance(plugin_name, str):
+ */
+  }
+
+  /* "sqlcycli/_auth.py":244
+ *         if isinstance(plugin_name, bytes):
+ *             return plugin_name
+ *         elif isinstance(plugin_name, str):             # <<<<<<<<<<<<<<
+ *             return utils.encode_str(plugin_name, "ascii")
+ *         else:
+ */
+  __pyx_t_1 = PyUnicode_Check(__pyx_v_plugin_name); 
+  if (likely(__pyx_t_1)) {
+
+    /* "sqlcycli/_auth.py":245
+ *             return plugin_name
+ *         elif isinstance(plugin_name, str):
+ *             return utils.encode_str(plugin_name, "ascii")             # <<<<<<<<<<<<<<
+ *         else:
+ *             raise errors.InvalidAuthPluginError(
+ */
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_2 = __pyx_f_8sqlcycli_5utils_encode_str(__pyx_v_plugin_name, ((char *)"ascii")); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 245, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_r = __pyx_t_2;
+    __pyx_t_2 = 0;
+    goto __pyx_L0;
+
+    /* "sqlcycli/_auth.py":244
+ *         if isinstance(plugin_name, bytes):
+ *             return plugin_name
+ *         elif isinstance(plugin_name, str):             # <<<<<<<<<<<<<<
+ *             return utils.encode_str(plugin_name, "ascii")
+ *         else:
+ */
+  }
+
+  /* "sqlcycli/_auth.py":247
+ *             return utils.encode_str(plugin_name, "ascii")
+ *         else:
+ *             raise errors.InvalidAuthPluginError(             # <<<<<<<<<<<<<<
+ *                 "<'%s'>\nAuth plugin name (%s %r) is invalid, must be <'str'> or <'bytes'>."
+ *                 % (self.__class__.__name__, type(plugin_name), plugin_name)
+ */
+  /*else*/ {
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_InvalidAuthPluginError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "sqlcycli/_auth.py":248
+ *         else:
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin name (%s %r) is invalid, must be <'str'> or <'bytes'>."             # <<<<<<<<<<<<<<
+ *                 % (self.__class__.__name__, type(plugin_name), plugin_name)
+ *             )
+ */
+    __pyx_t_3 = PyTuple_New(7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 248, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_5 = 0;
+    __pyx_t_6 = 127;
+    __Pyx_INCREF(__pyx_kp_u_);
+    __pyx_t_5 += 2;
+    __Pyx_GIVEREF(__pyx_kp_u_);
+    PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u_);
+
+    /* "sqlcycli/_auth.py":249
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin name (%s %r) is invalid, must be <'str'> or <'bytes'>."
+ *                 % (self.__class__.__name__, type(plugin_name), plugin_name)             # <<<<<<<<<<<<<<
+ *             )
+ * 
+ */
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 249, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 249, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_8), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 249, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u_Auth_plugin_name);
+    __pyx_t_5 += 21;
+    __Pyx_GIVEREF(__pyx_kp_u_Auth_plugin_name);
+    PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u_Auth_plugin_name);
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_plugin_name))), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 249, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 3, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u__2);
+    __pyx_t_5 += 1;
+    __Pyx_GIVEREF(__pyx_kp_u__2);
+    PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_kp_u__2);
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_plugin_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 249, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 5, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u_is_invalid_must_be_str_or_bytes);
+    __pyx_t_5 += 43;
+    __Pyx_GIVEREF(__pyx_kp_u_is_invalid_must_be_str_or_bytes);
+    PyTuple_SET_ITEM(__pyx_t_3, 6, __pyx_kp_u_is_invalid_must_be_str_or_bytes);
+
+    /* "sqlcycli/_auth.py":248
+ *         else:
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin name (%s %r) is invalid, must be <'str'> or <'bytes'>."             # <<<<<<<<<<<<<<
+ *                 % (self.__class__.__name__, type(plugin_name), plugin_name)
+ *             )
+ */
+    __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_3, 7, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 248, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = NULL;
+    __pyx_t_9 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+      if (likely(__pyx_t_3)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_4, function);
+        __pyx_t_9 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_7};
+      __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 247, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 247, __pyx_L1_error)
+  }
+
+  /* "sqlcycli/_auth.py":233
+ * 
+ *     # Validate --------------------------------------------------------------------------------
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     def _validete_plugin_name(self, plugin_name: str | bytes) -> object:
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin._validete_plugin_name", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":252
+ *             )
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     def _validate_plugin_handler(
+ */
+
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validate_plugin_handler(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_pluging_name, PyObject *__pyx_v_handler) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  Py_ssize_t __pyx_t_5;
+  Py_UCS4 __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  unsigned int __pyx_t_9;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_validate_plugin_handler", 0);
+  __Pyx_INCREF(__pyx_v_pluging_name);
+
+  /* "sqlcycli/_auth.py":266
+ *         :raises `<'InvalidAuthPluginError'>`: If the handler is not a valid class.
+ *         """
+ *         if type(handler) is not type:             # <<<<<<<<<<<<<<
+ *             if isinstance(pluging_name, bytes):
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ */
+  __pyx_t_1 = (((PyObject *)Py_TYPE(__pyx_v_handler)) != ((PyObject *)(&PyType_Type)));
+  if (__pyx_t_1) {
+
+    /* "sqlcycli/_auth.py":267
+ *         """
+ *         if type(handler) is not type:
+ *             if isinstance(pluging_name, bytes):             # <<<<<<<<<<<<<<
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ *             raise errors.InvalidAuthPluginError(
+ */
+    __pyx_t_1 = PyBytes_Check(__pyx_v_pluging_name); 
+    if (__pyx_t_1) {
+
+      /* "sqlcycli/_auth.py":268
+ *         if type(handler) is not type:
+ *             if isinstance(pluging_name, bytes):
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)             # <<<<<<<<<<<<<<
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin handler '%s' (%s %r) is invalid, must be <class 'type'>."
+ */
+      __pyx_t_2 = __pyx_f_8sqlcycli_5utils_decode_bytes_ascii(__pyx_v_pluging_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 268, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_DECREF_SET(__pyx_v_pluging_name, __pyx_t_2);
+      __pyx_t_2 = 0;
+
+      /* "sqlcycli/_auth.py":267
+ *         """
+ *         if type(handler) is not type:
+ *             if isinstance(pluging_name, bytes):             # <<<<<<<<<<<<<<
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ *             raise errors.InvalidAuthPluginError(
+ */
+    }
+
+    /* "sqlcycli/_auth.py":269
+ *             if isinstance(pluging_name, bytes):
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ *             raise errors.InvalidAuthPluginError(             # <<<<<<<<<<<<<<
+ *                 "<'%s'>\nAuth plugin handler '%s' (%s %r) is invalid, must be <class 'type'>."
+ *                 % (self.__class__.__name__, pluging_name, type(handler), handler)
+ */
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 269, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_InvalidAuthPluginError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 269, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "sqlcycli/_auth.py":270
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin handler '%s' (%s %r) is invalid, must be <class 'type'>."             # <<<<<<<<<<<<<<
+ *                 % (self.__class__.__name__, pluging_name, type(handler), handler)
+ *             )
+ */
+    __pyx_t_3 = PyTuple_New(9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 270, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_5 = 0;
+    __pyx_t_6 = 127;
+    __Pyx_INCREF(__pyx_kp_u_);
+    __pyx_t_5 += 2;
+    __Pyx_GIVEREF(__pyx_kp_u_);
+    PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u_);
+
+    /* "sqlcycli/_auth.py":271
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin handler '%s' (%s %r) is invalid, must be <class 'type'>."
+ *                 % (self.__class__.__name__, pluging_name, type(handler), handler)             # <<<<<<<<<<<<<<
+ *             )
+ *         return handler
+ */
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_8), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u_Auth_plugin_handler);
+    __pyx_t_5 += 24;
+    __Pyx_GIVEREF(__pyx_kp_u_Auth_plugin_handler);
+    PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u_Auth_plugin_handler);
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_pluging_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 3, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u__3);
+    __pyx_t_5 += 3;
+    __Pyx_GIVEREF(__pyx_kp_u__3);
+    PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_kp_u__3);
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_handler))), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 5, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u__2);
+    __pyx_t_5 += 1;
+    __Pyx_GIVEREF(__pyx_kp_u__2);
+    PyTuple_SET_ITEM(__pyx_t_3, 6, __pyx_kp_u__2);
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_handler), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
+    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_3, 7, __pyx_t_7);
+    __pyx_t_7 = 0;
+    __Pyx_INCREF(__pyx_kp_u_is_invalid_must_be_class_type);
+    __pyx_t_5 += 37;
+    __Pyx_GIVEREF(__pyx_kp_u_is_invalid_must_be_class_type);
+    PyTuple_SET_ITEM(__pyx_t_3, 8, __pyx_kp_u_is_invalid_must_be_class_type);
+
+    /* "sqlcycli/_auth.py":270
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ *             raise errors.InvalidAuthPluginError(
+ *                 "<'%s'>\nAuth plugin handler '%s' (%s %r) is invalid, must be <class 'type'>."             # <<<<<<<<<<<<<<
+ *                 % (self.__class__.__name__, pluging_name, type(handler), handler)
+ *             )
+ */
+    __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_3, 9, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 270, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = NULL;
+    __pyx_t_9 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+      if (likely(__pyx_t_3)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_4, function);
+        __pyx_t_9 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_7};
+      __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 269, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 269, __pyx_L1_error)
+
+    /* "sqlcycli/_auth.py":266
+ *         :raises `<'InvalidAuthPluginError'>`: If the handler is not a valid class.
+ *         """
+ *         if type(handler) is not type:             # <<<<<<<<<<<<<<
+ *             if isinstance(pluging_name, bytes):
+ *                 pluging_name = utils.decode_bytes_ascii(pluging_name)
+ */
+  }
+
+  /* "sqlcycli/_auth.py":273
+ *                 % (self.__class__.__name__, pluging_name, type(handler), handler)
+ *             )
+ *         return handler             # <<<<<<<<<<<<<<
+ * 
+ *     # Special Methods -------------------------------------------------------------------------
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v_handler);
+  __pyx_r = __pyx_v_handler;
+  goto __pyx_L0;
+
+  /* "sqlcycli/_auth.py":252
+ *             )
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     def _validate_plugin_handler(
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin._validate_plugin_handler", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_pluging_name);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":276
+ * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
- *         if not self._plugins:
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+ *         if dict_len(self._plugins) == 0:
+ *             return "<%s ()>" % self.__class__.__name__
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__(PyObject *__pyx_v_self); /*proto*/
-static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__(PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__(PyObject *__pyx_v_self) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__repr__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4__repr__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__repr__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
@@ -8726,10 +8982,10 @@ static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__(PyObject *__py
 }
 static PyObject *__pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_auth.py":215
- *             return "<%s(\n  %s)>" % (
+/* "sqlcycli/_auth.py":282
+ *             return "<%s (\n\t%s\n)>" % (
  *                 self.__class__.__name__,
- *                 ",\n  ".join("%s=%s" % (k, v) for k, v in self._plugins.items()),             # <<<<<<<<<<<<<<
+ *                 ",\n\t".join("%s=%s" % (k, v) for k, v in self._plugins.items()),             # <<<<<<<<<<<<<<
  *             )
  * 
  */
@@ -8746,7 +9002,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__repr___genexpr(CYTHON
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_5_auth___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 215, __pyx_L1_error)
+    __PYX_ERR(0, 282, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8754,7 +9010,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__repr___genexpr(CYTHON
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli__auth); if (unlikely(!gen)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli__auth); if (unlikely(!gen)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -8795,16 +9051,16 @@ static PyObject *__pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator(__p
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 215, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 282, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 215, __pyx_L1_error)
+    __PYX_ERR(0, 282, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -8812,7 +9068,7 @@ static PyObject *__pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator(__p
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -8823,32 +9079,32 @@ static PyObject *__pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator(__p
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_8 = 0;
     __pyx_t_9 = 127;
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_5);
     PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_5);
     __pyx_t_5 = 0;
-    __Pyx_INCREF(__pyx_kp_u__2);
+    __Pyx_INCREF(__pyx_kp_u__4);
     __pyx_t_8 += 1;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__2);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_v), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __Pyx_GIVEREF(__pyx_kp_u__4);
+    PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__4);
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_v), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_5);
     PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_5);
     __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -8874,166 +9130,168 @@ static PyObject *__pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator(__p
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":209
- *         return self._plugins.get(plugin_name)
+/* "sqlcycli/_auth.py":276
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
- *         if not self._plugins:
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+ *         if dict_len(self._plugins) == 0:
+ *             return "<%s ()>" % self.__class__.__name__
  */
 
-static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4__repr__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__repr__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
   PyObject *__pyx_gb_8sqlcycli_5_auth_10AuthPlugin_8__repr___2generator = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  int __pyx_t_2;
-  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_1 = NULL;
+  Py_ssize_t __pyx_t_2;
+  int __pyx_t_3;
   PyObject *__pyx_t_4 = NULL;
-  Py_ssize_t __pyx_t_5;
-  Py_UCS4 __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
+  Py_UCS4 __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "sqlcycli/_auth.py":210
- * 
+  /* "sqlcycli/_auth.py":277
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:
- *         if not self._plugins:             # <<<<<<<<<<<<<<
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+ *         if dict_len(self._plugins) == 0:             # <<<<<<<<<<<<<<
+ *             return "<%s ()>" % self.__class__.__name__
  *         else:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_self->_plugins); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 210, __pyx_L1_error)
-  __pyx_t_2 = (!__pyx_t_1);
-  if (__pyx_t_2) {
+  __pyx_t_1 = __pyx_v_self->_plugins;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = PyDict_Size(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 277, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_3 = (__pyx_t_2 == 0);
+  if (__pyx_t_3) {
 
-    /* "sqlcycli/_auth.py":211
+    /* "sqlcycli/_auth.py":278
  *     def __repr__(self) -> str:
- *         if not self._plugins:
- *             return "<%s(No Handlers)>" % self.__class__.__name__             # <<<<<<<<<<<<<<
+ *         if dict_len(self._plugins) == 0:
+ *             return "<%s ()>" % self.__class__.__name__             # <<<<<<<<<<<<<<
  *         else:
- *             return "<%s(\n  %s)>" % (
+ *             return "<%s (\n\t%s\n)>" % (
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s_No_Handlers, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_r = __pyx_t_3;
-    __pyx_t_3 = 0;
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/_auth.py":210
- * 
+    /* "sqlcycli/_auth.py":277
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:
- *         if not self._plugins:             # <<<<<<<<<<<<<<
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+ *         if dict_len(self._plugins) == 0:             # <<<<<<<<<<<<<<
+ *             return "<%s ()>" % self.__class__.__name__
  *         else:
  */
   }
 
-  /* "sqlcycli/_auth.py":213
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+  /* "sqlcycli/_auth.py":280
+ *             return "<%s ()>" % self.__class__.__name__
  *         else:
- *             return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
+ *             return "<%s (\n\t%s\n)>" % (             # <<<<<<<<<<<<<<
  *                 self.__class__.__name__,
- *                 ",\n  ".join("%s=%s" % (k, v) for k, v in self._plugins.items()),
+ *                 ",\n\t".join("%s=%s" % (k, v) for k, v in self._plugins.items()),
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = PyTuple_New(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = 0;
-    __pyx_t_6 = 127;
-    __Pyx_INCREF(__pyx_kp_u__3);
-    __pyx_t_5 += 1;
-    __Pyx_GIVEREF(__pyx_kp_u__3);
-    PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u__3);
+    __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 280, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = 0;
+    __pyx_t_5 = 127;
+    __Pyx_INCREF(__pyx_kp_u__5);
+    __pyx_t_2 += 1;
+    __Pyx_GIVEREF(__pyx_kp_u__5);
+    PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u__5);
 
-    /* "sqlcycli/_auth.py":214
+    /* "sqlcycli/_auth.py":281
  *         else:
- *             return "<%s(\n  %s)>" % (
+ *             return "<%s (\n\t%s\n)>" % (
  *                 self.__class__.__name__,             # <<<<<<<<<<<<<<
- *                 ",\n  ".join("%s=%s" % (k, v) for k, v in self._plugins.items()),
+ *                 ",\n\t".join("%s=%s" % (k, v) for k, v in self._plugins.items()),
  *             )
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 281, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 214, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 281, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_7), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_6), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 281, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_6;
-    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_5;
+    __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
     __Pyx_GIVEREF(__pyx_t_4);
-    PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_4);
+    PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4);
     __pyx_t_4 = 0;
-    __Pyx_INCREF(__pyx_kp_u__4);
-    __pyx_t_5 += 4;
-    __Pyx_GIVEREF(__pyx_kp_u__4);
-    PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u__4);
+    __Pyx_INCREF(__pyx_kp_u__6);
+    __pyx_t_2 += 4;
+    __Pyx_GIVEREF(__pyx_kp_u__6);
+    PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__6);
 
-    /* "sqlcycli/_auth.py":215
- *             return "<%s(\n  %s)>" % (
+    /* "sqlcycli/_auth.py":282
+ *             return "<%s (\n\t%s\n)>" % (
  *                 self.__class__.__name__,
- *                 ",\n  ".join("%s=%s" % (k, v) for k, v in self._plugins.items()),             # <<<<<<<<<<<<<<
+ *                 ",\n\t".join("%s=%s" % (k, v) for k, v in self._plugins.items()),             # <<<<<<<<<<<<<<
  *             )
  * 
  */
-    __pyx_t_4 = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__repr___genexpr(NULL, __pyx_v_self->_plugins); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_4 = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__repr___genexpr(NULL, __pyx_v_self->_plugins); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_7 = __Pyx_Generator_Next(__pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 215, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_6 = __Pyx_Generator_Next(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 282, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyUnicode_Join(__pyx_kp_u__5, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Join(__pyx_kp_u__7, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_6;
-    __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_5;
+    __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
     __Pyx_GIVEREF(__pyx_t_4);
-    PyTuple_SET_ITEM(__pyx_t_3, 3, __pyx_t_4);
+    PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_4);
     __pyx_t_4 = 0;
-    __Pyx_INCREF(__pyx_kp_u__6);
-    __pyx_t_5 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__6);
-    PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_kp_u__6);
+    __Pyx_INCREF(__pyx_kp_u__8);
+    __pyx_t_2 += 3;
+    __Pyx_GIVEREF(__pyx_kp_u__8);
+    PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u__8);
 
-    /* "sqlcycli/_auth.py":213
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+    /* "sqlcycli/_auth.py":280
+ *             return "<%s ()>" % self.__class__.__name__
  *         else:
- *             return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
+ *             return "<%s (\n\t%s\n)>" % (             # <<<<<<<<<<<<<<
  *                 self.__class__.__name__,
- *                 ",\n  ".join("%s=%s" % (k, v) for k, v in self._plugins.items()),
+ *                 ",\n\t".join("%s=%s" % (k, v) for k, v in self._plugins.items()),
  */
-    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_3, 5, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 280, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/_auth.py":209
- *         return self._plugins.get(plugin_name)
+  /* "sqlcycli/_auth.py":276
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
- *         if not self._plugins:
- *             return "<%s(No Handlers)>" % self.__class__.__name__
+ *         if dict_len(self._plugins) == 0:
+ *             return "<%s ()>" % self.__class__.__name__
  */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_6);
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__repr__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -9043,60 +9301,457 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_4__repr__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":218
+/* "sqlcycli/_auth.py":285
  *             )
  * 
- *     def __bool__(self) -> bool:             # <<<<<<<<<<<<<<
- *         return bool(self._plugins)
- * 
+ *     def __getitem__(self, key: str | bytes) -> type:             # <<<<<<<<<<<<<<
+ *         handler = self.get(key)
+ *         if handler is None:
  */
 
 /* Python wrapper */
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__bool__(PyObject *__pyx_v_self); /*proto*/
-static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__bool__(PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__getitem__(PyObject *__pyx_v_self, PyObject *__pyx_v_key); /*proto*/
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__getitem__(PyObject *__pyx_v_self, PyObject *__pyx_v_key) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_r;
+  PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("__bool__ (wrapper)", 0);
+  __Pyx_RefNannySetupContext("__getitem__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__bool__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__getitem__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_key));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__bool__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
-  int __pyx_r;
-  int __pyx_t_1;
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__getitem__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_key) {
+  PyObject *__pyx_v_handler = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  Py_ssize_t __pyx_t_3;
+  Py_UCS4 __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__getitem__", 1);
 
-  /* "sqlcycli/_auth.py":219
+  /* "sqlcycli/_auth.py":286
  * 
- *     def __bool__(self) -> bool:
- *         return bool(self._plugins)             # <<<<<<<<<<<<<<
- * 
- * 
+ *     def __getitem__(self, key: str | bytes) -> type:
+ *         handler = self.get(key)             # <<<<<<<<<<<<<<
+ *         if handler is None:
+ *             raise KeyError(
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_self->_plugins); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 219, __pyx_L1_error)
-  __pyx_r = (!(!__pyx_t_1));
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self->__pyx_vtab)->get(__pyx_v_self, __pyx_v_key, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 286, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_handler = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "sqlcycli/_auth.py":287
+ *     def __getitem__(self, key: str | bytes) -> type:
+ *         handler = self.get(key)
+ *         if handler is None:             # <<<<<<<<<<<<<<
+ *             raise KeyError(
+ *                 "<'%s'>\nAuth plugin '%s' is not registered."
+ */
+  __pyx_t_2 = (__pyx_v_handler == Py_None);
+  if (unlikely(__pyx_t_2)) {
+
+    /* "sqlcycli/_auth.py":289
+ *         if handler is None:
+ *             raise KeyError(
+ *                 "<'%s'>\nAuth plugin '%s' is not registered."             # <<<<<<<<<<<<<<
+ *                 % (self.__class__.__name__, key)
+ *             )
+ */
+    __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = 0;
+    __pyx_t_4 = 127;
+    __Pyx_INCREF(__pyx_kp_u_);
+    __pyx_t_3 += 2;
+    __Pyx_GIVEREF(__pyx_kp_u_);
+    PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_);
+
+    /* "sqlcycli/_auth.py":290
+ *             raise KeyError(
+ *                 "<'%s'>\nAuth plugin '%s' is not registered."
+ *                 % (self.__class__.__name__, key)             # <<<<<<<<<<<<<<
+ *             )
+ *         return handler
+ */
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_6), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_4;
+    __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
+    __Pyx_GIVEREF(__pyx_t_5);
+    PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_5);
+    __pyx_t_5 = 0;
+    __Pyx_INCREF(__pyx_kp_u_Auth_plugin);
+    __pyx_t_3 += 16;
+    __Pyx_GIVEREF(__pyx_kp_u_Auth_plugin);
+    PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u_Auth_plugin);
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_key), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_4;
+    __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
+    __Pyx_GIVEREF(__pyx_t_5);
+    PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_5);
+    __pyx_t_5 = 0;
+    __Pyx_INCREF(__pyx_kp_u_is_not_registered);
+    __pyx_t_3 += 20;
+    __Pyx_GIVEREF(__pyx_kp_u_is_not_registered);
+    PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u_is_not_registered);
+
+    /* "sqlcycli/_auth.py":289
+ *         if handler is None:
+ *             raise KeyError(
+ *                 "<'%s'>\nAuth plugin '%s' is not registered."             # <<<<<<<<<<<<<<
+ *                 % (self.__class__.__name__, key)
+ *             )
+ */
+    __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "sqlcycli/_auth.py":288
+ *         handler = self.get(key)
+ *         if handler is None:
+ *             raise KeyError(             # <<<<<<<<<<<<<<
+ *                 "<'%s'>\nAuth plugin '%s' is not registered."
+ *                 % (self.__class__.__name__, key)
+ */
+    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_builtin_KeyError, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __PYX_ERR(0, 288, __pyx_L1_error)
+
+    /* "sqlcycli/_auth.py":287
+ *     def __getitem__(self, key: str | bytes) -> type:
+ *         handler = self.get(key)
+ *         if handler is None:             # <<<<<<<<<<<<<<
+ *             raise KeyError(
+ *                 "<'%s'>\nAuth plugin '%s' is not registered."
+ */
+  }
+
+  /* "sqlcycli/_auth.py":292
+ *                 % (self.__class__.__name__, key)
+ *             )
+ *         return handler             # <<<<<<<<<<<<<<
+ * 
+ *     def __contains__(self, plugin_name: str | bytes) -> bool:
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v_handler);
+  __pyx_r = __pyx_v_handler;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":218
+  /* "sqlcycli/_auth.py":285
  *             )
  * 
- *     def __bool__(self) -> bool:             # <<<<<<<<<<<<<<
- *         return bool(self._plugins)
+ *     def __getitem__(self, key: str | bytes) -> type:             # <<<<<<<<<<<<<<
+ *         handler = self.get(key)
+ *         if handler is None:
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__getitem__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_handler);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":294
+ *         return handler
+ * 
+ *     def __contains__(self, plugin_name: str | bytes) -> bool:             # <<<<<<<<<<<<<<
+ *         return dict_contains(self._plugins, self._validete_plugin_name(plugin_name))
+ * 
+ */
+
+/* Python wrapper */
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__contains__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin_name); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__contains__(PyObject *__pyx_v_self, PyObject *__pyx_v_plugin_name) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__contains__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__contains__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), ((PyObject *)__pyx_v_plugin_name));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__contains__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v_plugin_name) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_3;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__contains__", 1);
+
+  /* "sqlcycli/_auth.py":295
+ * 
+ *     def __contains__(self, plugin_name: str | bytes) -> bool:
+ *         return dict_contains(self._plugins, self._validete_plugin_name(plugin_name))             # <<<<<<<<<<<<<<
+ * 
+ *     def __iter__(self) -> Iterator[type]:
+ */
+  __pyx_t_1 = __pyx_v_self->_plugins;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = __pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name(__pyx_v_self, __pyx_v_plugin_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = PyDict_Contains(__pyx_t_1, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_r = __pyx_t_3;
+  goto __pyx_L0;
+
+  /* "sqlcycli/_auth.py":294
+ *         return handler
+ * 
+ *     def __contains__(self, plugin_name: str | bytes) -> bool:             # <<<<<<<<<<<<<<
+ *         return dict_contains(self._plugins, self._validete_plugin_name(plugin_name))
  * 
  */
 
   /* function exit code */
   __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__contains__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":297
+ *         return dict_contains(self._plugins, self._validete_plugin_name(plugin_name))
+ * 
+ *     def __iter__(self) -> Iterator[type]:             # <<<<<<<<<<<<<<
+ *         return iter(self._plugins.values())
+ * 
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_13__iter__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_13__iter__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__iter__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_12__iter__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_12__iter__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__iter__", 1);
+
+  /* "sqlcycli/_auth.py":298
+ * 
+ *     def __iter__(self) -> Iterator[type]:
+ *         return iter(self._plugins.values())             # <<<<<<<<<<<<<<
+ * 
+ *     def __bool__(self) -> bool:
+ */
+  __Pyx_XDECREF(__pyx_r);
+  if (unlikely(__pyx_v_self->_plugins == Py_None)) {
+    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
+    __PYX_ERR(0, 298, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_PyDict_Values(__pyx_v_self->_plugins); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
+  goto __pyx_L0;
+
+  /* "sqlcycli/_auth.py":297
+ *         return dict_contains(self._plugins, self._validete_plugin_name(plugin_name))
+ * 
+ *     def __iter__(self) -> Iterator[type]:             # <<<<<<<<<<<<<<
+ *         return iter(self._plugins.values())
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__iter__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":300
+ *         return iter(self._plugins.values())
+ * 
+ *     def __bool__(self) -> bool:             # <<<<<<<<<<<<<<
+ *         return dict_len(self._plugins) != 0
+ * 
+ */
+
+/* Python wrapper */
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15__bool__(PyObject *__pyx_v_self); /*proto*/
+static int __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15__bool__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__bool__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14__bool__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_14__bool__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  Py_ssize_t __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__bool__", 1);
+
+  /* "sqlcycli/_auth.py":301
+ * 
+ *     def __bool__(self) -> bool:
+ *         return dict_len(self._plugins) != 0             # <<<<<<<<<<<<<<
+ * 
+ *     def __len__(self) -> int:
+ */
+  __pyx_t_1 = __pyx_v_self->_plugins;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = PyDict_Size(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 301, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_r = (__pyx_t_2 != 0);
+  goto __pyx_L0;
+
+  /* "sqlcycli/_auth.py":300
+ *         return iter(self._plugins.values())
+ * 
+ *     def __bool__(self) -> bool:             # <<<<<<<<<<<<<<
+ *         return dict_len(self._plugins) != 0
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__bool__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/_auth.py":303
+ *         return dict_len(self._plugins) != 0
+ * 
+ *     def __len__(self) -> int:             # <<<<<<<<<<<<<<
+ *         return dict_len(self._plugins)
+ * 
+ */
+
+/* Python wrapper */
+static Py_ssize_t __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_17__len__(PyObject *__pyx_v_self); /*proto*/
+static Py_ssize_t __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_17__len__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  Py_ssize_t __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__len__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_16__len__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static Py_ssize_t __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_16__len__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
+  Py_ssize_t __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  Py_ssize_t __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__len__", 1);
+
+  /* "sqlcycli/_auth.py":304
+ * 
+ *     def __len__(self) -> int:
+ *         return dict_len(self._plugins)             # <<<<<<<<<<<<<<
+ * 
+ * 
+ */
+  __pyx_t_1 = __pyx_v_self->_plugins;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = PyDict_Size(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 304, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_r = __pyx_t_2;
+  goto __pyx_L0;
+
+  /* "sqlcycli/_auth.py":303
+ *         return dict_len(self._plugins) != 0
+ * 
+ *     def __len__(self) -> int:             # <<<<<<<<<<<<<<
+ *         return dict_len(self._plugins)
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("sqlcycli._auth.AuthPlugin.__len__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
@@ -9107,15 +9762,15 @@ static int __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_6__bool__(struct __pyx_obj_8sq
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_19__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_9__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__reduce_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_19__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_19__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_19__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -9140,14 +9795,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("__reduce_cython__", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "__reduce_cython__", 0))) return NULL;
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__reduce_cython__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18__reduce_cython__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__reduce_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_18__reduce_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self) {
   PyObject *__pyx_v_state = 0;
   PyObject *__pyx_v__dict = 0;
   int __pyx_v_use_setstate;
@@ -9433,15 +10088,15 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_8__reduce_cython__(struc
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_11__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__setstate_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_21__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -9515,7 +10170,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__setstate_cython__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20__setstate_cython__(((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   {
@@ -9528,7 +10183,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__setstate_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_20__setstate_cython__(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -9567,7 +10222,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_10AuthPlugin_10__setstate_cython__(st
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":223
+/* "sqlcycli/_auth.py":308
  * 
  * # Password ------------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -9610,9 +10265,9 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("scramble_native_password", 1);
 
-  /* "sqlcycli/_auth.py":227
- * def scramble_native_password(password: bytes, salt: bytes) -> bytes:
- *     """Scramble used for mysql_native_password `<'bytes'>"""
+  /* "sqlcycli/_auth.py":324
+ *         Returns empty `bytes` if the `password` is empty.
+ *     """
  *     if not password:             # <<<<<<<<<<<<<<
  *         return b""
  * 
@@ -9621,35 +10276,35 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/_auth.py":228
- *     """Scramble used for mysql_native_password `<'bytes'>"""
+    /* "sqlcycli/_auth.py":325
+ *     """
  *     if not password:
  *         return b""             # <<<<<<<<<<<<<<
  * 
  *     stage1: bytes = _hashlib_sha1(password).digest()
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_kp_b__7);
-    __pyx_r = __pyx_kp_b__7;
+    __Pyx_INCREF(__pyx_kp_b__9);
+    __pyx_r = __pyx_kp_b__9;
     goto __pyx_L0;
 
-    /* "sqlcycli/_auth.py":227
- * def scramble_native_password(password: bytes, salt: bytes) -> bytes:
- *     """Scramble used for mysql_native_password `<'bytes'>"""
+    /* "sqlcycli/_auth.py":324
+ *         Returns empty `bytes` if the `password` is empty.
+ *     """
  *     if not password:             # <<<<<<<<<<<<<<
  *         return b""
  * 
  */
   }
 
-  /* "sqlcycli/_auth.py":230
+  /* "sqlcycli/_auth.py":327
  *         return b""
  * 
  *     stage1: bytes = _hashlib_sha1(password).digest()             # <<<<<<<<<<<<<<
  *     stage2: bytes = _hashlib_sha1(stage1).digest()
  *     s = _hashlib_sha1()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -9669,11 +10324,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_password};
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 327, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -9694,22 +10349,22 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 230, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 327, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 327, __pyx_L1_error)
   __pyx_v_stage1 = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":231
+  /* "sqlcycli/_auth.py":328
  * 
  *     stage1: bytes = _hashlib_sha1(password).digest()
  *     stage2: bytes = _hashlib_sha1(stage1).digest()             # <<<<<<<<<<<<<<
  *     s = _hashlib_sha1()
  *     s.update(salt[0:SCRAMBLE_LENGTH])
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -9729,11 +10384,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_stage1};
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 231, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 328, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -9754,22 +10409,22 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 231, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 328, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 231, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 328, __pyx_L1_error)
   __pyx_v_stage2 = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":232
+  /* "sqlcycli/_auth.py":329
  *     stage1: bytes = _hashlib_sha1(password).digest()
  *     stage2: bytes = _hashlib_sha1(stage1).digest()
  *     s = _hashlib_sha1()             # <<<<<<<<<<<<<<
  *     s.update(salt[0:SCRAMBLE_LENGTH])
  *     s.update(stage2)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 232, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 329, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
   __pyx_t_7 = 0;
@@ -9789,23 +10444,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 232, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 329, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_s = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":233
+  /* "sqlcycli/_auth.py":330
  *     stage2: bytes = _hashlib_sha1(stage1).digest()
  *     s = _hashlib_sha1()
  *     s.update(salt[0:SCRAMBLE_LENGTH])             # <<<<<<<<<<<<<<
  *     s.update(stage2)
  *     res: bytes = s.digest()
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_s, __pyx_n_s_update); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_s, __pyx_n_s_update); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PySequence_GetSlice(__pyx_v_salt, 0, __pyx_v_8sqlcycli_5_auth_SCRAMBLE_LENGTH); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_5 = PySequence_GetSlice(__pyx_v_salt, 0, __pyx_v_8sqlcycli_5_auth_SCRAMBLE_LENGTH); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -9826,20 +10481,20 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 233, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 330, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":234
+  /* "sqlcycli/_auth.py":331
  *     s = _hashlib_sha1()
  *     s.update(salt[0:SCRAMBLE_LENGTH])
  *     s.update(stage2)             # <<<<<<<<<<<<<<
  *     res: bytes = s.digest()
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_s, __pyx_n_s_update); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_s, __pyx_n_s_update); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 331, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
   __pyx_t_7 = 0;
@@ -9859,20 +10514,20 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_stage2};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 234, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 331, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":235
+  /* "sqlcycli/_auth.py":332
  *     s.update(salt[0:SCRAMBLE_LENGTH])
  *     s.update(stage2)
  *     res: bytes = s.digest()             # <<<<<<<<<<<<<<
  * 
  *     msg1: cython.pchar = bytes_to_chars(res)
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_s, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_s, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
   __pyx_t_7 = 0;
@@ -9892,45 +10547,45 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 235, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 332, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 332, __pyx_L1_error)
   __pyx_v_res = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":237
+  /* "sqlcycli/_auth.py":334
  *     res: bytes = s.digest()
  * 
  *     msg1: cython.pchar = bytes_to_chars(res)             # <<<<<<<<<<<<<<
  *     msg2: cython.pchar = bytes_to_chars(stage1)
  *     length: cython.Py_ssize_t = bytes_len(res)
  */
-  __pyx_t_8 = PyBytes_AsString(__pyx_v_res); if (unlikely(__pyx_t_8 == ((char *)NULL))) __PYX_ERR(0, 237, __pyx_L1_error)
+  __pyx_t_8 = PyBytes_AsString(__pyx_v_res); if (unlikely(__pyx_t_8 == ((char *)NULL))) __PYX_ERR(0, 334, __pyx_L1_error)
   __pyx_v_msg1 = __pyx_t_8;
 
-  /* "sqlcycli/_auth.py":238
+  /* "sqlcycli/_auth.py":335
  * 
  *     msg1: cython.pchar = bytes_to_chars(res)
  *     msg2: cython.pchar = bytes_to_chars(stage1)             # <<<<<<<<<<<<<<
  *     length: cython.Py_ssize_t = bytes_len(res)
  *     i: cython.Py_ssize_t
  */
-  __pyx_t_8 = PyBytes_AsString(__pyx_v_stage1); if (unlikely(__pyx_t_8 == ((char *)NULL))) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_8 = PyBytes_AsString(__pyx_v_stage1); if (unlikely(__pyx_t_8 == ((char *)NULL))) __PYX_ERR(0, 335, __pyx_L1_error)
   __pyx_v_msg2 = __pyx_t_8;
 
-  /* "sqlcycli/_auth.py":239
+  /* "sqlcycli/_auth.py":336
  *     msg1: cython.pchar = bytes_to_chars(res)
  *     msg2: cython.pchar = bytes_to_chars(stage1)
  *     length: cython.Py_ssize_t = bytes_len(res)             # <<<<<<<<<<<<<<
  *     i: cython.Py_ssize_t
  *     for i in range(length):
  */
-  __pyx_t_9 = PyBytes_Size(__pyx_v_res); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_9 = PyBytes_Size(__pyx_v_res); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 336, __pyx_L1_error)
   __pyx_v_length = __pyx_t_9;
 
-  /* "sqlcycli/_auth.py":241
+  /* "sqlcycli/_auth.py":338
  *     length: cython.Py_ssize_t = bytes_len(res)
  *     i: cython.Py_ssize_t
  *     for i in range(length):             # <<<<<<<<<<<<<<
@@ -9942,7 +10597,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
   for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
     __pyx_v_i = __pyx_t_11;
 
-    /* "sqlcycli/_auth.py":242
+    /* "sqlcycli/_auth.py":339
  *     i: cython.Py_ssize_t
  *     for i in range(length):
  *         msg1[i] ^= msg2[i]             # <<<<<<<<<<<<<<
@@ -9953,7 +10608,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
     (__pyx_v_msg1[__pyx_t_12]) = ((__pyx_v_msg1[__pyx_t_12]) ^ (__pyx_v_msg2[__pyx_v_i]));
   }
 
-  /* "sqlcycli/_auth.py":243
+  /* "sqlcycli/_auth.py":340
  *     for i in range(length):
  *         msg1[i] ^= msg2[i]
  *     return bytes_fr_chars_wlen(msg1, length)             # <<<<<<<<<<<<<<
@@ -9961,13 +10616,13 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_native_password(PyObject *__p
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = PyBytes_FromStringAndSize(__pyx_v_msg1, __pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 243, __pyx_L1_error)
+  __pyx_t_3 = PyBytes_FromStringAndSize(__pyx_v_msg1, __pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 340, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":223
+  /* "sqlcycli/_auth.py":308
  * 
  * # Password ------------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -10001,7 +10656,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_scramble_native_password, "Scramble used for mysql_native_password `<'bytes'>");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_scramble_native_password, "Compute the MySQL `native_password` scramble `<'bytes'>`.\n\n    Performs:\n    - 1. SHA1(password) \342\206\222 stage1\n    - 2. SHA1(stage1) \342\206\222 stage2\n    - 3. SHA1(salt[:20] + stage2) \342\206\222 scramble\n    - 4. XOR(stage1, scramble) \342\206\222 result\n\n    :param password `<'bytes'>`: User's plaintext password as UTF-8 encoded bytes.\n    :param salt `<'bytes'>`: Server-provided challenge (salt), at least SCRAMBLE_LENGTH bytes.\n    :returns `<'bytes'>`: The scrambled password bytes to send to the server.\n        Returns empty `bytes` if the `password` is empty.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_1scramble_native_password = {"scramble_native_password", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_1scramble_native_password, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_5_auth_scramble_native_password};
 static PyObject *__pyx_pw_8sqlcycli_5_auth_1scramble_native_password(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -10050,7 +10705,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 223, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 308, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -10058,14 +10713,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 223, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 308, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("scramble_native_password", 1, 2, 2, 1); __PYX_ERR(0, 223, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("scramble_native_password", 1, 2, 2, 1); __PYX_ERR(0, 308, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scramble_native_password") < 0)) __PYX_ERR(0, 223, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scramble_native_password") < 0)) __PYX_ERR(0, 308, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -10078,7 +10733,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("scramble_native_password", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 223, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("scramble_native_password", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 308, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10092,8 +10747,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 225, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_salt), (&PyBytes_Type), 0, "salt", 1))) __PYX_ERR(0, 225, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 310, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_salt), (&PyBytes_Type), 0, "salt", 1))) __PYX_ERR(0, 310, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_5_auth_scramble_native_password(__pyx_self, __pyx_v_password, __pyx_v_salt);
 
   /* function exit code */
@@ -10120,7 +10775,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_scramble_native_password(CYTHON_UNUSE
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("scramble_native_password", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_scramble_native_password(__pyx_v_password, __pyx_v_salt, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_scramble_native_password(__pyx_v_password, __pyx_v_salt, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -10137,12 +10792,12 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_scramble_native_password(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":246
+/* "sqlcycli/_auth.py":343
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def scramble_caching_sha2(password: bytes, salt: bytes) -> bytes:
- *     """Scramble algorithm used in cached_sha2_password fast path `<'bytes'>`.
+ *     """Compute the fast-path scramble for `caching_sha2_password` authentication `<'bytes'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_5_auth_3scramble_caching_sha2(PyObject *__pyx_self, 
@@ -10180,8 +10835,8 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("scramble_caching_sha2", 1);
 
-  /* "sqlcycli/_auth.py":252
- *     XOR(SHA256(password), SHA256(SHA256(SHA256(password)), nonce))
+  /* "sqlcycli/_auth.py":358
+ *         Returns empty `bytes` if the `password` is empty.
  *     """
  *     if not password:             # <<<<<<<<<<<<<<
  *         return b""
@@ -10191,7 +10846,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/_auth.py":253
+    /* "sqlcycli/_auth.py":359
  *     """
  *     if not password:
  *         return b""             # <<<<<<<<<<<<<<
@@ -10199,12 +10854,12 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
  *     p1: bytes = _hashlib_sha256(password).digest()
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_kp_b__7);
-    __pyx_r = __pyx_kp_b__7;
+    __Pyx_INCREF(__pyx_kp_b__9);
+    __pyx_r = __pyx_kp_b__9;
     goto __pyx_L0;
 
-    /* "sqlcycli/_auth.py":252
- *     XOR(SHA256(password), SHA256(SHA256(SHA256(password)), nonce))
+    /* "sqlcycli/_auth.py":358
+ *         Returns empty `bytes` if the `password` is empty.
  *     """
  *     if not password:             # <<<<<<<<<<<<<<
  *         return b""
@@ -10212,14 +10867,14 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
  */
   }
 
-  /* "sqlcycli/_auth.py":255
+  /* "sqlcycli/_auth.py":361
  *         return b""
  * 
  *     p1: bytes = _hashlib_sha256(password).digest()             # <<<<<<<<<<<<<<
  *     p2: bytes = _hashlib_sha256(p1).digest()
  *     p3: bytes = _hashlib_sha256(p2 + salt).digest()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha256); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha256); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 361, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -10239,11 +10894,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_password};
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 255, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 361, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 361, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -10264,22 +10919,22 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 255, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 361, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 361, __pyx_L1_error)
   __pyx_v_p1 = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":256
+  /* "sqlcycli/_auth.py":362
  * 
  *     p1: bytes = _hashlib_sha256(password).digest()
  *     p2: bytes = _hashlib_sha256(p1).digest()             # <<<<<<<<<<<<<<
  *     p3: bytes = _hashlib_sha256(p2 + salt).digest()
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha256); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha256); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -10299,11 +10954,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_p1};
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 256, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 362, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -10324,24 +10979,24 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 256, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 256, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 362, __pyx_L1_error)
   __pyx_v_p2 = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":257
+  /* "sqlcycli/_auth.py":363
  *     p1: bytes = _hashlib_sha256(password).digest()
  *     p2: bytes = _hashlib_sha256(p1).digest()
  *     p3: bytes = _hashlib_sha256(p2 + salt).digest()             # <<<<<<<<<<<<<<
  * 
  *     msg1: cython.pchar = bytes_to_chars(p1)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha256); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 257, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha256); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = PyNumber_Add(__pyx_v_p2, __pyx_v_salt); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 257, __pyx_L1_error)
+  __pyx_t_6 = PyNumber_Add(__pyx_v_p2, __pyx_v_salt); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_8 = NULL;
   __pyx_t_7 = 0;
@@ -10362,11 +11017,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 363, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 257, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -10387,45 +11042,45 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 257, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 363, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 257, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(0, 363, __pyx_L1_error)
   __pyx_v_p3 = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_auth.py":259
+  /* "sqlcycli/_auth.py":365
  *     p3: bytes = _hashlib_sha256(p2 + salt).digest()
  * 
  *     msg1: cython.pchar = bytes_to_chars(p1)             # <<<<<<<<<<<<<<
  *     msg2: cython.pchar = bytes_to_chars(p3)
  *     length: cython.Py_ssize_t = bytes_len(p3)
  */
-  __pyx_t_9 = PyBytes_AsString(__pyx_v_p1); if (unlikely(__pyx_t_9 == ((char *)NULL))) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_9 = PyBytes_AsString(__pyx_v_p1); if (unlikely(__pyx_t_9 == ((char *)NULL))) __PYX_ERR(0, 365, __pyx_L1_error)
   __pyx_v_msg1 = __pyx_t_9;
 
-  /* "sqlcycli/_auth.py":260
+  /* "sqlcycli/_auth.py":366
  * 
  *     msg1: cython.pchar = bytes_to_chars(p1)
  *     msg2: cython.pchar = bytes_to_chars(p3)             # <<<<<<<<<<<<<<
  *     length: cython.Py_ssize_t = bytes_len(p3)
  *     i: cython.Py_ssize_t
  */
-  __pyx_t_9 = PyBytes_AsString(__pyx_v_p3); if (unlikely(__pyx_t_9 == ((char *)NULL))) __PYX_ERR(0, 260, __pyx_L1_error)
+  __pyx_t_9 = PyBytes_AsString(__pyx_v_p3); if (unlikely(__pyx_t_9 == ((char *)NULL))) __PYX_ERR(0, 366, __pyx_L1_error)
   __pyx_v_msg2 = __pyx_t_9;
 
-  /* "sqlcycli/_auth.py":261
+  /* "sqlcycli/_auth.py":367
  *     msg1: cython.pchar = bytes_to_chars(p1)
  *     msg2: cython.pchar = bytes_to_chars(p3)
  *     length: cython.Py_ssize_t = bytes_len(p3)             # <<<<<<<<<<<<<<
  *     i: cython.Py_ssize_t
  *     for i in range(length):
  */
-  __pyx_t_10 = PyBytes_Size(__pyx_v_p3); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_10 = PyBytes_Size(__pyx_v_p3); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 367, __pyx_L1_error)
   __pyx_v_length = __pyx_t_10;
 
-  /* "sqlcycli/_auth.py":263
+  /* "sqlcycli/_auth.py":369
  *     length: cython.Py_ssize_t = bytes_len(p3)
  *     i: cython.Py_ssize_t
  *     for i in range(length):             # <<<<<<<<<<<<<<
@@ -10437,7 +11092,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
   for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
     __pyx_v_i = __pyx_t_12;
 
-    /* "sqlcycli/_auth.py":264
+    /* "sqlcycli/_auth.py":370
  *     i: cython.Py_ssize_t
  *     for i in range(length):
  *         msg1[i] ^= msg2[i]             # <<<<<<<<<<<<<<
@@ -10448,7 +11103,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
     (__pyx_v_msg1[__pyx_t_13]) = ((__pyx_v_msg1[__pyx_t_13]) ^ (__pyx_v_msg2[__pyx_v_i]));
   }
 
-  /* "sqlcycli/_auth.py":265
+  /* "sqlcycli/_auth.py":371
  *     for i in range(length):
  *         msg1[i] ^= msg2[i]
  *     return bytes_fr_chars_wlen(msg1, length)             # <<<<<<<<<<<<<<
@@ -10456,18 +11111,18 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(PyObject *__pyx_
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = PyBytes_FromStringAndSize(__pyx_v_msg1, __pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 265, __pyx_L1_error)
+  __pyx_t_3 = PyBytes_FromStringAndSize(__pyx_v_msg1, __pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 371, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":246
+  /* "sqlcycli/_auth.py":343
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def scramble_caching_sha2(password: bytes, salt: bytes) -> bytes:
- *     """Scramble algorithm used in cached_sha2_password fast path `<'bytes'>`.
+ *     """Compute the fast-path scramble for `caching_sha2_password` authentication `<'bytes'>`.
  */
 
   /* function exit code */
@@ -10496,7 +11151,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_2scramble_caching_sha2, "Scramble algorithm used in cached_sha2_password fast path `<'bytes'>`.\n\n    XOR(SHA256(password), SHA256(SHA256(SHA256(password)), nonce))\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_2scramble_caching_sha2, "Compute the fast-path scramble for `caching_sha2_password` authentication `<'bytes'>`.\n\n    Performs:\n    - 1. p1 = SHA256(password)\n    - 2. p2 = SHA256(p1)\n    - 3. p3 = SHA256(p2 + salt)\n    - 4. result = XOR(p1, p3)\n\n    :param password `<'bytes'>`: User's plaintext password as bytes.\n    :param salt `<'bytes'>`: Server-provided 20-byte challenge (salt).\n    :returns `<'bytes'>`: The scrambled password for fast authentication.\n        Returns empty `bytes` if the `password` is empty.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_3scramble_caching_sha2 = {"scramble_caching_sha2", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_3scramble_caching_sha2, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_5_auth_2scramble_caching_sha2};
 static PyObject *__pyx_pw_8sqlcycli_5_auth_3scramble_caching_sha2(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -10545,7 +11200,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 246, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 343, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -10553,14 +11208,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 246, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 343, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("scramble_caching_sha2", 1, 2, 2, 1); __PYX_ERR(0, 246, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("scramble_caching_sha2", 1, 2, 2, 1); __PYX_ERR(0, 343, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scramble_caching_sha2") < 0)) __PYX_ERR(0, 246, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scramble_caching_sha2") < 0)) __PYX_ERR(0, 343, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -10573,7 +11228,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("scramble_caching_sha2", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 246, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("scramble_caching_sha2", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 343, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10587,8 +11242,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 247, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_salt), (&PyBytes_Type), 0, "salt", 1))) __PYX_ERR(0, 247, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 344, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_salt), (&PyBytes_Type), 0, "salt", 1))) __PYX_ERR(0, 344, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_5_auth_2scramble_caching_sha2(__pyx_self, __pyx_v_password, __pyx_v_salt);
 
   /* function exit code */
@@ -10615,7 +11270,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_2scramble_caching_sha2(CYTHON_UNUSED 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("scramble_caching_sha2", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(__pyx_v_password, __pyx_v_salt, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_scramble_caching_sha2(__pyx_v_password, __pyx_v_salt, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 343, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -10632,7 +11287,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_2scramble_caching_sha2(CYTHON_UNUSED 
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":268
+/* "sqlcycli/_auth.py":374
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -10681,58 +11336,58 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
   __Pyx_RefNannySetupContext("sha2_rsa_encrypt", 0);
   __Pyx_INCREF(__pyx_v_salt);
 
-  /* "sqlcycli/_auth.py":275
- *     Used for sha256_password and caching_sha2_password.
+  /* "sqlcycli/_auth.py":393
+ *     :raises `RuntimeError`: If the `cryptography` library is not available.
  *     """
  *     if not CRYPTOGRAPHY_AVAILABLE:             # <<<<<<<<<<<<<<
  *         raise RuntimeError(
- *             "The 'cryptography' package is required for 'sha256_password' "
+ *             "The 'cryptography' libarary is required for 'sha256_password' "
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_CRYPTOGRAPHY_AVAILABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_CRYPTOGRAPHY_AVAILABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 393, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 393, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = (!__pyx_t_2);
   if (unlikely(__pyx_t_3)) {
 
-    /* "sqlcycli/_auth.py":276
+    /* "sqlcycli/_auth.py":394
  *     """
  *     if not CRYPTOGRAPHY_AVAILABLE:
  *         raise RuntimeError(             # <<<<<<<<<<<<<<
- *             "The 'cryptography' package is required for 'sha256_password' "
+ *             "The 'cryptography' libarary is required for 'sha256_password' "
  *             "or 'caching_sha2_password' authentication."
  */
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 276, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__10, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 394, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 276, __pyx_L1_error)
+    __PYX_ERR(0, 394, __pyx_L1_error)
 
-    /* "sqlcycli/_auth.py":275
- *     Used for sha256_password and caching_sha2_password.
+    /* "sqlcycli/_auth.py":393
+ *     :raises `RuntimeError`: If the `cryptography` library is not available.
  *     """
  *     if not CRYPTOGRAPHY_AVAILABLE:             # <<<<<<<<<<<<<<
  *         raise RuntimeError(
- *             "The 'cryptography' package is required for 'sha256_password' "
+ *             "The 'cryptography' libarary is required for 'sha256_password' "
  */
   }
 
-  /* "sqlcycli/_auth.py":284
+  /* "sqlcycli/_auth.py":402
  *     # Trailing NUL character will be added in Auth Switch Request.
  *     # See https://github.com/mysql/mysql-server/blob/7d10c82196c8e45554f27c00681474a9fb86d137/sql/auth/sha2_password.cc#L939-L945
  *     pswd: bytearray = bytearray(password) + b"\0"             # <<<<<<<<<<<<<<
  *     pswd_len: cython.Py_ssize_t = bytearray_len(pswd)
  *     msg1: cython.pchar = bytearray_to_chars(pswd)
  */
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyByteArray_Type)), __pyx_v_password); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyByteArray_Type)), __pyx_v_password); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 402, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = PyNumber_Add(__pyx_t_1, __pyx_kp_b__9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Add(__pyx_t_1, __pyx_kp_b__11); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 402, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_pswd = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/_auth.py":285
+  /* "sqlcycli/_auth.py":403
  *     # See https://github.com/mysql/mysql-server/blob/7d10c82196c8e45554f27c00681474a9fb86d137/sql/auth/sha2_password.cc#L939-L945
  *     pswd: bytearray = bytearray(password) + b"\0"
  *     pswd_len: cython.Py_ssize_t = bytearray_len(pswd)             # <<<<<<<<<<<<<<
@@ -10741,7 +11396,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
  */
   __pyx_v_pswd_len = PyByteArray_GET_SIZE(__pyx_v_pswd);
 
-  /* "sqlcycli/_auth.py":286
+  /* "sqlcycli/_auth.py":404
  *     pswd: bytearray = bytearray(password) + b"\0"
  *     pswd_len: cython.Py_ssize_t = bytearray_len(pswd)
  *     msg1: cython.pchar = bytearray_to_chars(pswd)             # <<<<<<<<<<<<<<
@@ -10750,39 +11405,39 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
  */
   __pyx_v_msg1 = PyByteArray_AS_STRING(__pyx_v_pswd);
 
-  /* "sqlcycli/_auth.py":287
+  /* "sqlcycli/_auth.py":405
  *     pswd_len: cython.Py_ssize_t = bytearray_len(pswd)
  *     msg1: cython.pchar = bytearray_to_chars(pswd)
  *     salt: bytes = salt[0:SCRAMBLE_LENGTH]             # <<<<<<<<<<<<<<
  *     msg2: cython.pchar = bytes_to_chars(salt)
  *     salt_len: cython.Py_ssize_t = bytes_len(salt)
  */
-  __pyx_t_4 = PySequence_GetSlice(__pyx_v_salt, 0, __pyx_v_8sqlcycli_5_auth_SCRAMBLE_LENGTH); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_4 = PySequence_GetSlice(__pyx_v_salt, 0, __pyx_v_8sqlcycli_5_auth_SCRAMBLE_LENGTH); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 405, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF_SET(__pyx_v_salt, ((PyObject*)__pyx_t_4));
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/_auth.py":288
+  /* "sqlcycli/_auth.py":406
  *     msg1: cython.pchar = bytearray_to_chars(pswd)
  *     salt: bytes = salt[0:SCRAMBLE_LENGTH]
  *     msg2: cython.pchar = bytes_to_chars(salt)             # <<<<<<<<<<<<<<
  *     salt_len: cython.Py_ssize_t = bytes_len(salt)
  *     i: cython.Py_ssize_t
  */
-  __pyx_t_5 = PyBytes_AsString(__pyx_v_salt); if (unlikely(__pyx_t_5 == ((char *)NULL))) __PYX_ERR(0, 288, __pyx_L1_error)
+  __pyx_t_5 = PyBytes_AsString(__pyx_v_salt); if (unlikely(__pyx_t_5 == ((char *)NULL))) __PYX_ERR(0, 406, __pyx_L1_error)
   __pyx_v_msg2 = __pyx_t_5;
 
-  /* "sqlcycli/_auth.py":289
+  /* "sqlcycli/_auth.py":407
  *     salt: bytes = salt[0:SCRAMBLE_LENGTH]
  *     msg2: cython.pchar = bytes_to_chars(salt)
  *     salt_len: cython.Py_ssize_t = bytes_len(salt)             # <<<<<<<<<<<<<<
  *     i: cython.Py_ssize_t
  *     for i in range(pswd_len):
  */
-  __pyx_t_6 = PyBytes_Size(__pyx_v_salt); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 289, __pyx_L1_error)
+  __pyx_t_6 = PyBytes_Size(__pyx_v_salt); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 407, __pyx_L1_error)
   __pyx_v_salt_len = __pyx_t_6;
 
-  /* "sqlcycli/_auth.py":291
+  /* "sqlcycli/_auth.py":409
  *     salt_len: cython.Py_ssize_t = bytes_len(salt)
  *     i: cython.Py_ssize_t
  *     for i in range(pswd_len):             # <<<<<<<<<<<<<<
@@ -10794,7 +11449,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_i = __pyx_t_8;
 
-    /* "sqlcycli/_auth.py":292
+    /* "sqlcycli/_auth.py":410
  *     i: cython.Py_ssize_t
  *     for i in range(pswd_len):
  *         msg1[i] ^= msg2[i % salt_len]             # <<<<<<<<<<<<<<
@@ -10804,36 +11459,36 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
     __pyx_t_9 = __pyx_v_i;
     if (unlikely(__pyx_v_salt_len == 0)) {
       PyErr_SetString(PyExc_ZeroDivisionError, "integer division or modulo by zero");
-      __PYX_ERR(0, 292, __pyx_L1_error)
+      __PYX_ERR(0, 410, __pyx_L1_error)
     }
     (__pyx_v_msg1[__pyx_t_9]) = ((__pyx_v_msg1[__pyx_t_9]) ^ (__pyx_v_msg2[__Pyx_mod_Py_ssize_t(__pyx_v_i, __pyx_v_salt_len)]));
   }
 
-  /* "sqlcycli/_auth.py":293
+  /* "sqlcycli/_auth.py":411
  *     for i in range(pswd_len):
  *         msg1[i] ^= msg2[i % salt_len]
  *     message: bytes = bytes_fr_chars_wlen(msg1, pswd_len)             # <<<<<<<<<<<<<<
  * 
  *     # rsa encryption
  */
-  __pyx_t_4 = PyBytes_FromStringAndSize(__pyx_v_msg1, __pyx_v_pswd_len); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 293, __pyx_L1_error)
+  __pyx_t_4 = PyBytes_FromStringAndSize(__pyx_v_msg1, __pyx_v_pswd_len); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_message = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/_auth.py":296
+  /* "sqlcycli/_auth.py":414
  * 
  *     # rsa encryption
  *     rsa_key = serialization.load_pem_public_key(public_key, _default_backend())             # <<<<<<<<<<<<<<
  *     return rsa_key.encrypt(
  *         message,
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_serialization); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_serialization); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_load_pem_public_key); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_load_pem_public_key); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_default_backend); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_default_backend); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_12 = NULL;
   __pyx_t_13 = 0;
@@ -10853,7 +11508,7 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_12, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 0+__pyx_t_13);
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 296, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 414, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   }
@@ -10876,14 +11531,14 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+1-__pyx_t_13, 2+__pyx_t_13);
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 296, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 414, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   }
   __pyx_v_rsa_key = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/_auth.py":297
+  /* "sqlcycli/_auth.py":415
  *     # rsa encryption
  *     rsa_key = serialization.load_pem_public_key(public_key, _default_backend())
  *     return rsa_key.encrypt(             # <<<<<<<<<<<<<<
@@ -10891,41 +11546,41 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
  *         padding.OAEP(
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_rsa_key, __pyx_n_s_encrypt); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_rsa_key, __pyx_n_s_encrypt); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 415, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
 
-  /* "sqlcycli/_auth.py":299
+  /* "sqlcycli/_auth.py":417
  *     return rsa_key.encrypt(
  *         message,
  *         padding.OAEP(             # <<<<<<<<<<<<<<
  *             mgf=padding.MGF1(algorithm=hashes.SHA1()),
  *             algorithm=hashes.SHA1(),
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_padding); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_padding); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 417, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_OAEP); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_OAEP); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 417, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":300
+  /* "sqlcycli/_auth.py":418
  *         message,
  *         padding.OAEP(
  *             mgf=padding.MGF1(algorithm=hashes.SHA1()),             # <<<<<<<<<<<<<<
  *             algorithm=hashes.SHA1(),
  *             label=None,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_n_s_padding); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_n_s_padding); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_n_s_MGF1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_n_s_MGF1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_14);
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-  __pyx_t_12 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_n_s_hashes); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_n_s_hashes); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_16);
-  __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_n_s_SHA1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_n_s_SHA1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_17);
   __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
   __pyx_t_16 = NULL;
@@ -10946,29 +11601,29 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_16, NULL};
     __pyx_t_15 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+1-__pyx_t_13, 0+__pyx_t_13);
     __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-    if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 300, __pyx_L1_error)
+    if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
     __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
   }
-  if (PyDict_SetItem(__pyx_t_12, __pyx_n_s_algorithm, __pyx_t_15) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_n_s_algorithm, __pyx_t_15) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-  __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_14, __pyx_empty_tuple, __pyx_t_12); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_14, __pyx_empty_tuple, __pyx_t_12); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_15);
   __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_mgf, __pyx_t_15) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_mgf, __pyx_t_15) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
 
-  /* "sqlcycli/_auth.py":301
+  /* "sqlcycli/_auth.py":419
  *         padding.OAEP(
  *             mgf=padding.MGF1(algorithm=hashes.SHA1()),
  *             algorithm=hashes.SHA1(),             # <<<<<<<<<<<<<<
  *             label=None,
  *         ),
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_n_s_hashes); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_n_s_hashes); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_n_s_SHA1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_n_s_SHA1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_14);
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
   __pyx_t_12 = NULL;
@@ -10989,30 +11644,30 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_12, NULL};
     __pyx_t_15 = __Pyx_PyObject_FastCall(__pyx_t_14, __pyx_callargs+1-__pyx_t_13, 0+__pyx_t_13);
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 301, __pyx_L1_error)
+    if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 419, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
     __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
   }
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_algorithm, __pyx_t_15) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_algorithm, __pyx_t_15) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
 
-  /* "sqlcycli/_auth.py":302
+  /* "sqlcycli/_auth.py":420
  *             mgf=padding.MGF1(algorithm=hashes.SHA1()),
  *             algorithm=hashes.SHA1(),
  *             label=None,             # <<<<<<<<<<<<<<
  *         ),
  *     )
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_label, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_label, Py_None) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":299
+  /* "sqlcycli/_auth.py":417
  *     return rsa_key.encrypt(
  *         message,
  *         padding.OAEP(             # <<<<<<<<<<<<<<
  *             mgf=padding.MGF1(algorithm=hashes.SHA1()),
  *             algorithm=hashes.SHA1(),
  */
-  __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_11, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_11, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 417, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_15);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -11035,24 +11690,24 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(PyObject *__pyx_v_pas
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+1-__pyx_t_13, 2+__pyx_t_13);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 297, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 415, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   }
 
-  /* "sqlcycli/_auth.py":297
+  /* "sqlcycli/_auth.py":415
  *     # rsa encryption
  *     rsa_key = serialization.load_pem_public_key(public_key, _default_backend())
  *     return rsa_key.encrypt(             # <<<<<<<<<<<<<<
  *         message,
  *         padding.OAEP(
  */
-  if (!(likely(PyBytes_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_4))) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_4))) __PYX_ERR(0, 415, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":268
+  /* "sqlcycli/_auth.py":374
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -11091,7 +11746,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_4sha2_rsa_encrypt, "Encrypt password with salt and public_key `<'bytes'>`.\n\n    Used for sha256_password and caching_sha2_password.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_4sha2_rsa_encrypt, "Encrypt the password for full `sha256_password` or\n    full-path `caching_sha2_password` `<'bytes'>`.\n\n    Performs:\n    - 1. Append a NUL byte to `password`.\n    - 2. XOR the password bytes cyclically with `salt[:20]`.\n    - 3. Load the server's RSA public key (PEM) and perform OAEP(SHA1)\n         encryption on the XOR'd message.\n\n    :param password `<'bytes'>`: User's password as bytes.\n    :param salt `<'bytes'>`: Server-provided challenge (salt).\n    :param public_key `<'bytes'>`: PEM-encoded RSA public key sent by the server.\n    :returns `<'bytes'>`: The RSA-encrypted password blob to send to the server.\n\n    :raises `RuntimeError`: If the `cryptography` library is not available.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_5sha2_rsa_encrypt = {"sha2_rsa_encrypt", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_5sha2_rsa_encrypt, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_5_auth_4sha2_rsa_encrypt};
 static PyObject *__pyx_pw_8sqlcycli_5_auth_5sha2_rsa_encrypt(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -11143,7 +11798,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 268, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -11151,9 +11806,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 268, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("sha2_rsa_encrypt", 1, 3, 3, 1); __PYX_ERR(0, 268, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("sha2_rsa_encrypt", 1, 3, 3, 1); __PYX_ERR(0, 374, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -11161,14 +11816,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 268, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("sha2_rsa_encrypt", 1, 3, 3, 2); __PYX_ERR(0, 268, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("sha2_rsa_encrypt", 1, 3, 3, 2); __PYX_ERR(0, 374, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "sha2_rsa_encrypt") < 0)) __PYX_ERR(0, 268, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "sha2_rsa_encrypt") < 0)) __PYX_ERR(0, 374, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -11183,7 +11838,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("sha2_rsa_encrypt", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 268, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("sha2_rsa_encrypt", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 374, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11197,9 +11852,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 270, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_salt), (&PyBytes_Type), 0, "salt", 1))) __PYX_ERR(0, 270, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_public_key), (&PyBytes_Type), 0, "public_key", 1))) __PYX_ERR(0, 270, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 376, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_salt), (&PyBytes_Type), 0, "salt", 1))) __PYX_ERR(0, 376, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_public_key), (&PyBytes_Type), 0, "public_key", 1))) __PYX_ERR(0, 376, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_5_auth_4sha2_rsa_encrypt(__pyx_self, __pyx_v_password, __pyx_v_salt, __pyx_v_public_key);
 
   /* function exit code */
@@ -11226,7 +11881,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_4sha2_rsa_encrypt(CYTHON_UNUSED PyObj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("sha2_rsa_encrypt", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(__pyx_v_password, __pyx_v_salt, __pyx_v_public_key, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_sha2_rsa_encrypt(__pyx_v_password, __pyx_v_salt, __pyx_v_public_key, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 374, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -11243,7 +11898,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_4sha2_rsa_encrypt(CYTHON_UNUSED PyObj
   return __pyx_r;
 }
 
-/* "sqlcycli/_auth.py":307
+/* "sqlcycli/_auth.py":425
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -11289,50 +11944,50 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("ed25519_password", 1);
 
-  /* "sqlcycli/_auth.py":314
- *     Secret and public key are derived from password.
+  /* "sqlcycli/_auth.py":444
+ *     :raises `RuntimeError`: If the PyNaCl (`nacl`) library is not available.
  *     """
  *     if not NACL_AVAILABLE:             # <<<<<<<<<<<<<<
  *         raise RuntimeError(
- *             "The 'nacl (pynacl)' package is required "
+ *             "The 'nacl (pynacl)' library is required "
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_NACL_AVAILABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_NACL_AVAILABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = (!__pyx_t_2);
   if (unlikely(__pyx_t_3)) {
 
-    /* "sqlcycli/_auth.py":315
+    /* "sqlcycli/_auth.py":445
  *     """
  *     if not NACL_AVAILABLE:
  *         raise RuntimeError(             # <<<<<<<<<<<<<<
- *             "The 'nacl (pynacl)' package is required "
+ *             "The 'nacl (pynacl)' library is required "
  *             "for 'client_ed25519' authentication."
  */
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__10, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__12, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 445, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 315, __pyx_L1_error)
+    __PYX_ERR(0, 445, __pyx_L1_error)
 
-    /* "sqlcycli/_auth.py":314
- *     Secret and public key are derived from password.
+    /* "sqlcycli/_auth.py":444
+ *     :raises `RuntimeError`: If the PyNaCl (`nacl`) library is not available.
  *     """
  *     if not NACL_AVAILABLE:             # <<<<<<<<<<<<<<
  *         raise RuntimeError(
- *             "The 'nacl (pynacl)' package is required "
+ *             "The 'nacl (pynacl)' library is required "
  */
   }
 
-  /* "sqlcycli/_auth.py":320
+  /* "sqlcycli/_auth.py":450
  *         )
  *     # h = SHA512(password)
  *     h: bytes = _hashlib_sha512(password).digest()             # <<<<<<<<<<<<<<
  * 
  *     # s = prune(first_half(h))
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha512); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_hashlib_sha512); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -11352,11 +12007,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_password};
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_digest); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -11377,15 +12032,15 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 320, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 320, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 450, __pyx_L1_error)
   __pyx_v_h = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":323
+  /* "sqlcycli/_auth.py":453
  * 
  *     # s = prune(first_half(h))
  *     s32: bytearray = bytearray(h[0:32])             # <<<<<<<<<<<<<<
@@ -11394,17 +12049,17 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
  */
   if (unlikely(__pyx_v_h == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 323, __pyx_L1_error)
+    __PYX_ERR(0, 453, __pyx_L1_error)
   }
-  __pyx_t_1 = PySequence_GetSlice(__pyx_v_h, 0, 32); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L1_error)
+  __pyx_t_1 = PySequence_GetSlice(__pyx_v_h, 0, 32); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 453, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyByteArray_Type)), __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 323, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyByteArray_Type)), __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 453, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_s32 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":324
+  /* "sqlcycli/_auth.py":454
  *     # s = prune(first_half(h))
  *     s32: bytearray = bytearray(h[0:32])
  *     ba: cython.pchar = bytearray_to_chars(s32)             # <<<<<<<<<<<<<<
@@ -11413,83 +12068,83 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
  */
   __pyx_v_ba = PyByteArray_AS_STRING(__pyx_v_s32);
 
-  /* "sqlcycli/_auth.py":325
+  /* "sqlcycli/_auth.py":455
  *     s32: bytearray = bytearray(h[0:32])
  *     ba: cython.pchar = bytearray_to_chars(s32)
  *     ba0: bytes = utils.pack_uint8(ba[0] & 248)             # <<<<<<<<<<<<<<
  *     ba31: bytes = utils.pack_uint8((ba[31] & 127) | 64)
  *     ba_m: bytes = ba[1:31]
  */
-  __pyx_t_5 = __pyx_f_8sqlcycli_5utils_pack_uint8(((__pyx_v_ba[0]) & 0xF8)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 325, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_5utils_pack_uint8(((__pyx_v_ba[0]) & 0xF8)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 455, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_ba0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":326
+  /* "sqlcycli/_auth.py":456
  *     ba: cython.pchar = bytearray_to_chars(s32)
  *     ba0: bytes = utils.pack_uint8(ba[0] & 248)
  *     ba31: bytes = utils.pack_uint8((ba[31] & 127) | 64)             # <<<<<<<<<<<<<<
  *     ba_m: bytes = ba[1:31]
  *     s: bytes = ba0 + ba_m + ba31
  */
-  __pyx_t_5 = __pyx_f_8sqlcycli_5utils_pack_uint8((((__pyx_v_ba[31]) & 0x7F) | 64)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 326, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_5utils_pack_uint8((((__pyx_v_ba[31]) & 0x7F) | 64)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_ba31 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":327
+  /* "sqlcycli/_auth.py":457
  *     ba0: bytes = utils.pack_uint8(ba[0] & 248)
  *     ba31: bytes = utils.pack_uint8((ba[31] & 127) | 64)
  *     ba_m: bytes = ba[1:31]             # <<<<<<<<<<<<<<
  *     s: bytes = ba0 + ba_m + ba31
  * 
  */
-  __pyx_t_5 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_ba + 1, 31 - 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_ba + 1, 31 - 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 457, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_ba_m = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":328
+  /* "sqlcycli/_auth.py":458
  *     ba31: bytes = utils.pack_uint8((ba[31] & 127) | 64)
  *     ba_m: bytes = ba[1:31]
  *     s: bytes = ba0 + ba_m + ba31             # <<<<<<<<<<<<<<
  * 
  *     # r = SHA512(second_half(h) || M)
  */
-  __pyx_t_5 = PyNumber_Add(__pyx_v_ba0, __pyx_v_ba_m); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_5 = PyNumber_Add(__pyx_v_ba0, __pyx_v_ba_m); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_1 = PyNumber_Add(__pyx_t_5, __pyx_v_ba31); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_1 = PyNumber_Add(__pyx_t_5, __pyx_v_ba31); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_s = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":331
+  /* "sqlcycli/_auth.py":461
  * 
  *     # r = SHA512(second_half(h) || M)
  *     length = bytes_len(h)             # <<<<<<<<<<<<<<
  *     r = _hashlib_sha512(h[32:length] + scramble).digest()
  * 
  */
-  __pyx_t_8 = PyBytes_Size(__pyx_v_h); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_8 = PyBytes_Size(__pyx_v_h); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 461, __pyx_L1_error)
   __pyx_v_length = __pyx_t_8;
 
-  /* "sqlcycli/_auth.py":332
+  /* "sqlcycli/_auth.py":462
  *     # r = SHA512(second_half(h) || M)
  *     length = bytes_len(h)
  *     r = _hashlib_sha512(h[32:length] + scramble).digest()             # <<<<<<<<<<<<<<
  * 
  *     # R = encoded point [r]B
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha512); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha512); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (unlikely(__pyx_v_h == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 332, __pyx_L1_error)
+    __PYX_ERR(0, 462, __pyx_L1_error)
   }
-  __pyx_t_6 = PySequence_GetSlice(__pyx_v_h, 32, __pyx_v_length); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_6 = PySequence_GetSlice(__pyx_v_h, 32, __pyx_v_length); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_9 = PyNumber_Add(__pyx_t_6, __pyx_v_scramble); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_9 = PyNumber_Add(__pyx_t_6, __pyx_v_scramble); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_6 = NULL;
@@ -11511,11 +12166,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 332, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 462, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -11536,23 +12191,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 332, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 462, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_r = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":335
+  /* "sqlcycli/_auth.py":465
  * 
  *     # R = encoded point [r]B
  *     r = bindings.crypto_core_ed25519_scalar_reduce(r)             # <<<<<<<<<<<<<<
  *     R = bindings.crypto_scalarmult_ed25519_base_noclamp(r)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 335, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_core_ed25519_scalar_reduc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 335, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_core_ed25519_scalar_reduc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -11573,23 +12228,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_r};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF_SET(__pyx_v_r, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":336
+  /* "sqlcycli/_auth.py":466
  *     # R = encoded point [r]B
  *     r = bindings.crypto_core_ed25519_scalar_reduce(r)
  *     R = bindings.crypto_scalarmult_ed25519_base_noclamp(r)             # <<<<<<<<<<<<<<
  * 
  *     # A = encoded point [s]B
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_bindings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_bindings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_crypto_scalarmult_ed25519_base_n); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_crypto_scalarmult_ed25519_base_n); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -11610,23 +12265,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_r};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 336, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 466, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_R = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":339
+  /* "sqlcycli/_auth.py":469
  * 
  *     # A = encoded point [s]B
  *     A = bindings.crypto_scalarmult_ed25519_base_noclamp(s)             # <<<<<<<<<<<<<<
  * 
  *     # k = SHA512(R || A || M)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_scalarmult_ed25519_base_n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_scalarmult_ed25519_base_n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -11647,25 +12302,25 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_s};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 339, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 469, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __pyx_v_A = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":342
+  /* "sqlcycli/_auth.py":472
  * 
  *     # k = SHA512(R || A || M)
  *     k = _hashlib_sha512(R + A + scramble).digest()             # <<<<<<<<<<<<<<
  * 
  *     # S = (k * s + r) mod L
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha512); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_hashlib_sha512); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_9 = PyNumber_Add(__pyx_v_R, __pyx_v_A); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_9 = PyNumber_Add(__pyx_v_R, __pyx_v_A); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_6 = PyNumber_Add(__pyx_t_9, __pyx_v_scramble); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_6 = PyNumber_Add(__pyx_t_9, __pyx_v_scramble); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __pyx_t_9 = NULL;
@@ -11687,11 +12342,11 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 342, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_digest); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -11712,23 +12367,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 0+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 342, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_k = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":345
+  /* "sqlcycli/_auth.py":475
  * 
  *     # S = (k * s + r) mod L
  *     k = bindings.crypto_core_ed25519_scalar_reduce(k)             # <<<<<<<<<<<<<<
  *     ks = bindings.crypto_core_ed25519_scalar_mul(k, s)
  *     S = bindings.crypto_core_ed25519_scalar_add(ks, r)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 345, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 475, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_core_ed25519_scalar_reduc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 345, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_core_ed25519_scalar_reduc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 475, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -11749,23 +12404,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_k};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 345, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 475, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF_SET(__pyx_v_k, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":346
+  /* "sqlcycli/_auth.py":476
  *     # S = (k * s + r) mod L
  *     k = bindings.crypto_core_ed25519_scalar_reduce(k)
  *     ks = bindings.crypto_core_ed25519_scalar_mul(k, s)             # <<<<<<<<<<<<<<
  *     S = bindings.crypto_core_ed25519_scalar_add(ks, r)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_bindings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 346, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_bindings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_crypto_core_ed25519_scalar_mul); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 346, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_crypto_core_ed25519_scalar_mul); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -11786,23 +12441,23 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_v_k, __pyx_v_s};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 2+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 346, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_ks = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":347
+  /* "sqlcycli/_auth.py":477
  *     k = bindings.crypto_core_ed25519_scalar_reduce(k)
  *     ks = bindings.crypto_core_ed25519_scalar_mul(k, s)
  *     S = bindings.crypto_core_ed25519_scalar_add(ks, r)             # <<<<<<<<<<<<<<
  * 
  *     # signature = R || S
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_core_ed25519_scalar_add); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_crypto_core_ed25519_scalar_add); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -11823,27 +12478,27 @@ static PyObject *__pyx_f_8sqlcycli_5_auth_ed25519_password(PyObject *__pyx_v_pas
     PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_v_ks, __pyx_v_r};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 2+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 347, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 477, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __pyx_v_S = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_auth.py":350
+  /* "sqlcycli/_auth.py":480
  * 
  *     # signature = R || S
  *     return R + S             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyNumber_Add(__pyx_v_R, __pyx_v_S); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __pyx_t_1 = PyNumber_Add(__pyx_v_R, __pyx_v_S); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 480, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 350, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 480, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_auth.py":307
+  /* "sqlcycli/_auth.py":425
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -11886,7 +12541,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_6ed25519_password, "Sign a random scramble with elliptic curve Ed25519 `<'bytes'>`.\n\n    Secret and public key are derived from password.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_5_auth_6ed25519_password, "Generate an Ed25519 signature for the `client_ed25519` authentication plugin `<'bytes'>`.\n\n    Performs:\n    - 1. Compute SHA512(password) \342\206\222 h (64 bytes)\n    - 2. Derive secret scalar s by pruning the first 32 bytes of h.\n    - 3. Compute nonce r = SHA512(h[32:] + scramble), reduce to 32-byte scalar.\n    - 4. Compute R = r\302\267B, A = s\302\267B (public key).\n    - 5. Compute challenge k = SHA512(R\342\200\226A\342\200\226scramble), reduce to scalar.\n    - 6. Compute S = (k\302\267s + r) mod L.\n    - 7. Return concatenation R\342\200\226S.\n\n    :param password `<'bytes'>`: User's password as bytes.\n    :param scramble `<'bytes'>`: Server-provided random scramble bytes.\n    :returns `<'bytes'>`: A 64-byte Ed25519 signature (R\342\200\226S).\n    :raises `RuntimeError`: If the PyNaCl (`nacl`) library is not available.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_5_auth_7ed25519_password = {"ed25519_password", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_7ed25519_password, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_5_auth_6ed25519_password};
 static PyObject *__pyx_pw_8sqlcycli_5_auth_7ed25519_password(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -11935,7 +12590,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 307, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 425, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -11943,14 +12598,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 307, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 425, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("ed25519_password", 1, 2, 2, 1); __PYX_ERR(0, 307, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("ed25519_password", 1, 2, 2, 1); __PYX_ERR(0, 425, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "ed25519_password") < 0)) __PYX_ERR(0, 307, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "ed25519_password") < 0)) __PYX_ERR(0, 425, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -11963,7 +12618,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("ed25519_password", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 307, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("ed25519_password", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 425, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11977,8 +12632,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 309, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scramble), (&PyBytes_Type), 0, "scramble", 1))) __PYX_ERR(0, 309, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_password), (&PyBytes_Type), 0, "password", 1))) __PYX_ERR(0, 427, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scramble), (&PyBytes_Type), 0, "scramble", 1))) __PYX_ERR(0, 427, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_5_auth_6ed25519_password(__pyx_self, __pyx_v_password, __pyx_v_scramble);
 
   /* function exit code */
@@ -12005,7 +12660,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_6ed25519_password(CYTHON_UNUSED PyObj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("ed25519_password", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_ed25519_password(__pyx_v_password, __pyx_v_scramble, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5_auth_ed25519_password(__pyx_v_password, __pyx_v_scramble, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12178,7 +12833,7 @@ static PyObject *__pyx_pf_8sqlcycli_5_auth_8__pyx_unpickle_AuthPlugin(CYTHON_UNU
  */
   __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__11, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 4, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__13, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
@@ -12555,6 +13210,7 @@ static PyObject *__pyx_tp_new_8sqlcycli_5_auth_AuthPlugin(PyTypeObject *t, CYTHO
   #endif
   p = ((struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)o);
   p->__pyx_vtab = __pyx_vtabptr_8sqlcycli_5_auth_AuthPlugin;
+  p->_plugins = ((PyObject*)Py_None); Py_INCREF(Py_None);
   p->_mysql_native_password = Py_None; Py_INCREF(Py_None);
   p->_caching_sha2_password = Py_None; Py_INCREF(Py_None);
   p->_sha256_password = Py_None; Py_INCREF(Py_None);
@@ -12562,7 +13218,6 @@ static PyObject *__pyx_tp_new_8sqlcycli_5_auth_AuthPlugin(PyTypeObject *t, CYTHO
   p->_mysql_old_password = Py_None; Py_INCREF(Py_None);
   p->_mysql_clear_password = Py_None; Py_INCREF(Py_None);
   p->_dialog = Py_None; Py_INCREF(Py_None);
-  p->_plugins = ((PyObject*)Py_None); Py_INCREF(Py_None);
   return o;
 }
 
@@ -12576,6 +13231,7 @@ static void __pyx_tp_dealloc_8sqlcycli_5_auth_AuthPlugin(PyObject *o) {
   }
   #endif
   PyObject_GC_UnTrack(o);
+  Py_CLEAR(p->_plugins);
   Py_CLEAR(p->_mysql_native_password);
   Py_CLEAR(p->_caching_sha2_password);
   Py_CLEAR(p->_sha256_password);
@@ -12583,7 +13239,6 @@ static void __pyx_tp_dealloc_8sqlcycli_5_auth_AuthPlugin(PyObject *o) {
   Py_CLEAR(p->_mysql_old_password);
   Py_CLEAR(p->_mysql_clear_password);
   Py_CLEAR(p->_dialog);
-  Py_CLEAR(p->_plugins);
   #if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY
   (*Py_TYPE(o)->tp_free)(o);
   #else
@@ -12597,6 +13252,9 @@ static void __pyx_tp_dealloc_8sqlcycli_5_auth_AuthPlugin(PyObject *o) {
 static int __pyx_tp_traverse_8sqlcycli_5_auth_AuthPlugin(PyObject *o, visitproc v, void *a) {
   int e;
   struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *p = (struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)o;
+  if (p->_plugins) {
+    e = (*v)(p->_plugins, a); if (e) return e;
+  }
   if (p->_mysql_native_password) {
     e = (*v)(p->_mysql_native_password, a); if (e) return e;
   }
@@ -12618,15 +13276,15 @@ static int __pyx_tp_traverse_8sqlcycli_5_auth_AuthPlugin(PyObject *o, visitproc 
   if (p->_dialog) {
     e = (*v)(p->_dialog, a); if (e) return e;
   }
-  if (p->_plugins) {
-    e = (*v)(p->_plugins, a); if (e) return e;
-  }
   return 0;
 }
 
 static int __pyx_tp_clear_8sqlcycli_5_auth_AuthPlugin(PyObject *o) {
   PyObject* tmp;
   struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *p = (struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *)o;
+  tmp = ((PyObject*)p->_plugins);
+  p->_plugins = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  Py_XDECREF(tmp);
   tmp = ((PyObject*)p->_mysql_native_password);
   p->_mysql_native_password = Py_None; Py_INCREF(Py_None);
   Py_XDECREF(tmp);
@@ -12648,10 +13306,14 @@ static int __pyx_tp_clear_8sqlcycli_5_auth_AuthPlugin(PyObject *o) {
   tmp = ((PyObject*)p->_dialog);
   p->_dialog = Py_None; Py_INCREF(Py_None);
   Py_XDECREF(tmp);
-  tmp = ((PyObject*)p->_plugins);
-  p->_plugins = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  Py_XDECREF(tmp);
   return 0;
+}
+static PyObject *__pyx_sq_item_8sqlcycli_5_auth_AuthPlugin(PyObject *o, Py_ssize_t i) {
+  PyObject *r;
+  PyObject *x = PyInt_FromSsize_t(i); if(!x) return 0;
+  r = Py_TYPE(o)->tp_as_mapping->mp_subscript(o, x);
+  Py_DECREF(x);
+  return r;
 }
 
 static PyObject *__pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_native_password(PyObject *o, CYTHON_UNUSED void *x) {
@@ -12752,35 +13414,41 @@ static int __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_dialog(PyObject *o, PyObj
   }
 }
 
-static PyObject *__pyx_specialmethod___pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__(PyObject *self, CYTHON_UNUSED PyObject *arg) {
-  return __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__(self);
+static PyObject *__pyx_specialmethod___pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__(PyObject *self, CYTHON_UNUSED PyObject *arg) {
+  return __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__(self);
 }
 
 static PyMethodDef __pyx_methods_8sqlcycli_5_auth_AuthPlugin[] = {
-  {"__repr__", (PyCFunction)__pyx_specialmethod___pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__, METH_NOARGS|METH_COEXIST, 0},
-  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
-  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__repr__", (PyCFunction)__pyx_specialmethod___pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__, METH_NOARGS|METH_COEXIST, 0},
+  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_19__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_21__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {0, 0, 0, 0}
 };
 
 static struct PyGetSetDef __pyx_getsets_8sqlcycli_5_auth_AuthPlugin[] = {
-  {(char *)"mysql_native_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_native_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_mysql_native_password, (char *)PyDoc_STR("The handler for 'mysql_native_password' auth plugin `<'type'>`."), 0},
-  {(char *)"caching_sha2_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_caching_sha2_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_caching_sha2_password, (char *)PyDoc_STR("The handler for 'caching_sha2_password' auth plugin `<'type'>`."), 0},
-  {(char *)"sha256_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_sha256_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_sha256_password, (char *)PyDoc_STR("The handler for 'sha256_password' auth plugin `<'type'>`."), 0},
-  {(char *)"client_ed25519", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_client_ed25519, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_client_ed25519, (char *)PyDoc_STR("The handler for 'client_ed25519' auth plugin `<'type'>`."), 0},
-  {(char *)"mysql_old_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_old_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_mysql_old_password, (char *)PyDoc_STR("The handler for 'mysql_old_password' auth plugin `<'type'>`."), 0},
-  {(char *)"mysql_clear_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_clear_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_mysql_clear_password, (char *)PyDoc_STR("The handler for 'mysql_clear_password' auth plugin `<'type'>`."), 0},
-  {(char *)"dialog", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_dialog, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_dialog, (char *)PyDoc_STR("The handler for 'dialog' auth plugin `<'type'>`."), 0},
+  {(char *)"mysql_native_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_native_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_mysql_native_password, (char *)PyDoc_STR("Handler class for the `mysql_native_password` authentication plugin `<'type'>`."), 0},
+  {(char *)"caching_sha2_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_caching_sha2_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_caching_sha2_password, (char *)PyDoc_STR("Handler class for the `caching_sha2_password` authentication plugin `<'type'>`."), 0},
+  {(char *)"sha256_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_sha256_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_sha256_password, (char *)PyDoc_STR("Handler class for the `sha256_password` authentication plugin `<'type'>`."), 0},
+  {(char *)"client_ed25519", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_client_ed25519, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_client_ed25519, (char *)PyDoc_STR("Handler class for the `client_ed25519` authentication plugin `<'type'>`."), 0},
+  {(char *)"mysql_old_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_old_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_mysql_old_password, (char *)PyDoc_STR("Handler class for the `mysql_old_password` authentication plugin `<'type'>`."), 0},
+  {(char *)"mysql_clear_password", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_mysql_clear_password, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_mysql_clear_password, (char *)PyDoc_STR("Handler class for the `mysql_clear_password` authentication plugin `<'type'>`."), 0},
+  {(char *)"dialog", __pyx_getprop_8sqlcycli_5_auth_10AuthPlugin_dialog, __pyx_setprop_8sqlcycli_5_auth_10AuthPlugin_dialog, (char *)PyDoc_STR("Handler class for the `dialog` authentication plugin `<'type'>`."), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_8sqlcycli_5_auth_AuthPlugin_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_5_auth_AuthPlugin},
-  {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__},
-  {Py_nb_bool, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__bool__},
-  {Py_tp_doc, (void *)PyDoc_STR("Represents the authentication pluging handlers for MySQL.")},
+  {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__},
+  {Py_nb_bool, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15__bool__},
+  {Py_sq_length, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_17__len__},
+  {Py_sq_item, (void *)__pyx_sq_item_8sqlcycli_5_auth_AuthPlugin},
+  {Py_sq_contains, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__contains__},
+  {Py_mp_length, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_17__len__},
+  {Py_mp_subscript, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__getitem__},
+  {Py_tp_doc, (void *)PyDoc_STR("Registry and manager for MySQL authentication plugin handlers.\n\n    This class holds and validates handler classes for various MySQL\n    authentication methods (native, sha2, sha256, clear-text, dialog, etc.).\n    You can provide a custom mapping of plugin names to handler classes,\n    or rely on the built-in attributes and setters to register handlers\n    individually.\n    ")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_5_auth_AuthPlugin},
   {Py_tp_clear, (void *)__pyx_tp_clear_8sqlcycli_5_auth_AuthPlugin},
+  {Py_tp_iter, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_13__iter__},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_5_auth_AuthPlugin},
   {Py_tp_getset, (void *)__pyx_getsets_8sqlcycli_5_auth_AuthPlugin},
   {Py_tp_init, (void *)__pyx_pw_8sqlcycli_5_auth_10AuthPlugin_1__init__},
@@ -12809,7 +13477,7 @@ static PyNumberMethods __pyx_tp_as_number_AuthPlugin = {
   0, /*nb_negative*/
   0, /*nb_positive*/
   0, /*nb_absolute*/
-  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__bool__, /*nb_bool*/
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_15__bool__, /*nb_bool*/
   0, /*nb_invert*/
   0, /*nb_lshift*/
   0, /*nb_rshift*/
@@ -12858,6 +13526,25 @@ static PyNumberMethods __pyx_tp_as_number_AuthPlugin = {
   #endif
 };
 
+static PySequenceMethods __pyx_tp_as_sequence_AuthPlugin = {
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_17__len__, /*sq_length*/
+  0, /*sq_concat*/
+  0, /*sq_repeat*/
+  __pyx_sq_item_8sqlcycli_5_auth_AuthPlugin, /*sq_item*/
+  0, /*sq_slice*/
+  0, /*sq_ass_item*/
+  0, /*sq_ass_slice*/
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_11__contains__, /*sq_contains*/
+  0, /*sq_inplace_concat*/
+  0, /*sq_inplace_repeat*/
+};
+
+static PyMappingMethods __pyx_tp_as_mapping_AuthPlugin = {
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_17__len__, /*mp_length*/
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_9__getitem__, /*mp_subscript*/
+  0, /*mp_ass_subscript*/
+};
+
 static PyTypeObject __pyx_type_8sqlcycli_5_auth_AuthPlugin = {
   PyVarObject_HEAD_INIT(0, 0)
   "sqlcycli._auth.""AuthPlugin", /*tp_name*/
@@ -12878,10 +13565,10 @@ static PyTypeObject __pyx_type_8sqlcycli_5_auth_AuthPlugin = {
   #if PY_MAJOR_VERSION >= 3
   0, /*tp_as_async*/
   #endif
-  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_5__repr__, /*tp_repr*/
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_7__repr__, /*tp_repr*/
   &__pyx_tp_as_number_AuthPlugin, /*tp_as_number*/
-  0, /*tp_as_sequence*/
-  0, /*tp_as_mapping*/
+  &__pyx_tp_as_sequence_AuthPlugin, /*tp_as_sequence*/
+  &__pyx_tp_as_mapping_AuthPlugin, /*tp_as_mapping*/
   0, /*tp_hash*/
   0, /*tp_call*/
   0, /*tp_str*/
@@ -12889,12 +13576,12 @@ static PyTypeObject __pyx_type_8sqlcycli_5_auth_AuthPlugin = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("Represents the authentication pluging handlers for MySQL."), /*tp_doc*/
+  PyDoc_STR("Registry and manager for MySQL authentication plugin handlers.\n\n    This class holds and validates handler classes for various MySQL\n    authentication methods (native, sha2, sha256, clear-text, dialog, etc.).\n    You can provide a custom mapping of plugin names to handler classes,\n    or rely on the built-in attributes and setters to register handlers\n    individually.\n    "), /*tp_doc*/
   __pyx_tp_traverse_8sqlcycli_5_auth_AuthPlugin, /*tp_traverse*/
   __pyx_tp_clear_8sqlcycli_5_auth_AuthPlugin, /*tp_clear*/
   0, /*tp_richcompare*/
   0, /*tp_weaklistoffset*/
-  0, /*tp_iter*/
+  __pyx_pw_8sqlcycli_5_auth_10AuthPlugin_13__iter__, /*tp_iter*/
   0, /*tp_iternext*/
   __pyx_methods_8sqlcycli_5_auth_AuthPlugin, /*tp_methods*/
   0, /*tp_members*/
@@ -13137,6 +13824,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_AuthPlugin___reduce_cython, __pyx_k_AuthPlugin___reduce_cython, sizeof(__pyx_k_AuthPlugin___reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_AuthPlugin___setstate_cython, __pyx_k_AuthPlugin___setstate_cython, sizeof(__pyx_k_AuthPlugin___setstate_cython), 0, 0, 1, 1},
     {&__pyx_n_s_AuthPlugin_get, __pyx_k_AuthPlugin_get, sizeof(__pyx_k_AuthPlugin_get), 0, 0, 1, 1},
+    {&__pyx_n_s_AuthPlugin_set, __pyx_k_AuthPlugin_set, sizeof(__pyx_k_AuthPlugin_set), 0, 0, 1, 1},
+    {&__pyx_kp_u_Auth_plugin, __pyx_k_Auth_plugin, sizeof(__pyx_k_Auth_plugin), 0, 1, 0, 0},
     {&__pyx_kp_u_Auth_plugin_handler, __pyx_k_Auth_plugin_handler, sizeof(__pyx_k_Auth_plugin_handler), 0, 1, 0, 0},
     {&__pyx_kp_u_Auth_plugin_name, __pyx_k_Auth_plugin_name, sizeof(__pyx_k_Auth_plugin_name), 0, 1, 0, 0},
     {&__pyx_kp_u_Auth_plugins_must_be_type_of_di, __pyx_k_Auth_plugins_must_be_type_of_di, sizeof(__pyx_k_Auth_plugins_must_be_type_of_di), 0, 1, 0, 0},
@@ -13148,6 +13837,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0, __pyx_k_Incompatible_checksums_0x_x_vs_0, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0), 0, 0, 1, 0},
     {&__pyx_n_s_InvalidAuthPluginError, __pyx_k_InvalidAuthPluginError, sizeof(__pyx_k_InvalidAuthPluginError), 0, 0, 1, 1},
     {&__pyx_n_s_InvalidSQLArgsErorr, __pyx_k_InvalidSQLArgsErorr, sizeof(__pyx_k_InvalidSQLArgsErorr), 0, 0, 1, 1},
+    {&__pyx_n_s_Iterator, __pyx_k_Iterator, sizeof(__pyx_k_Iterator), 0, 0, 1, 1},
+    {&__pyx_n_s_KeyError, __pyx_k_KeyError, sizeof(__pyx_k_KeyError), 0, 0, 1, 1},
     {&__pyx_n_s_MGF1, __pyx_k_MGF1, sizeof(__pyx_k_MGF1), 0, 0, 1, 1},
     {&__pyx_n_s_NACL_AVAILABLE, __pyx_k_NACL_AVAILABLE, sizeof(__pyx_k_NACL_AVAILABLE), 0, 0, 1, 1},
     {&__pyx_n_s_NACL_AVAILABLE_C, __pyx_k_NACL_AVAILABLE_C, sizeof(__pyx_k_NACL_AVAILABLE_C), 0, 0, 1, 1},
@@ -13157,17 +13848,19 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_RuntimeError, __pyx_k_RuntimeError, sizeof(__pyx_k_RuntimeError), 0, 0, 1, 1},
     {&__pyx_n_s_SCRAMBLE_LENGTH, __pyx_k_SCRAMBLE_LENGTH, sizeof(__pyx_k_SCRAMBLE_LENGTH), 0, 0, 1, 1},
     {&__pyx_n_s_SHA1, __pyx_k_SHA1, sizeof(__pyx_k_SHA1), 0, 0, 1, 1},
-    {&__pyx_kp_u_The_cryptography_package_is_requ, __pyx_k_The_cryptography_package_is_requ, sizeof(__pyx_k_The_cryptography_package_is_requ), 0, 1, 0, 0},
-    {&__pyx_kp_u_The_nacl_pynacl_package_is_requi, __pyx_k_The_nacl_pynacl_package_is_requi, sizeof(__pyx_k_The_nacl_pynacl_package_is_requi), 0, 1, 0, 0},
+    {&__pyx_kp_u_The_cryptography_libarary_is_req, __pyx_k_The_cryptography_libarary_is_req, sizeof(__pyx_k_The_cryptography_libarary_is_req), 0, 1, 0, 0},
+    {&__pyx_kp_u_The_nacl_pynacl_library_is_requi, __pyx_k_The_nacl_pynacl_library_is_requi, sizeof(__pyx_k_The_nacl_pynacl_library_is_requi), 0, 1, 0, 0},
     {&__pyx_kp_u_With, __pyx_k_With, sizeof(__pyx_k_With), 0, 1, 0, 0},
-    {&__pyx_kp_u__12, __pyx_k__12, sizeof(__pyx_k__12), 0, 1, 0, 0},
+    {&__pyx_kp_b__11, __pyx_k__11, sizeof(__pyx_k__11), 0, 0, 0, 0},
+    {&__pyx_kp_u__14, __pyx_k__14, sizeof(__pyx_k__14), 0, 1, 0, 0},
     {&__pyx_kp_u__2, __pyx_k__2, sizeof(__pyx_k__2), 0, 1, 0, 0},
-    {&__pyx_n_s__28, __pyx_k__28, sizeof(__pyx_k__28), 0, 0, 1, 1},
     {&__pyx_kp_u__3, __pyx_k__3, sizeof(__pyx_k__3), 0, 1, 0, 0},
+    {&__pyx_n_s__32, __pyx_k__32, sizeof(__pyx_k__32), 0, 0, 1, 1},
     {&__pyx_kp_u__4, __pyx_k__4, sizeof(__pyx_k__4), 0, 1, 0, 0},
     {&__pyx_kp_u__5, __pyx_k__5, sizeof(__pyx_k__5), 0, 1, 0, 0},
     {&__pyx_kp_u__6, __pyx_k__6, sizeof(__pyx_k__6), 0, 1, 0, 0},
-    {&__pyx_kp_b__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 0, 0, 0},
+    {&__pyx_kp_u__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 1, 0, 0},
+    {&__pyx_kp_u__8, __pyx_k__8, sizeof(__pyx_k__8), 0, 1, 0, 0},
     {&__pyx_kp_b__9, __pyx_k__9, sizeof(__pyx_k__9), 0, 0, 0, 0},
     {&__pyx_n_s_algorithm, __pyx_k_algorithm, sizeof(__pyx_k_algorithm), 0, 0, 1, 1},
     {&__pyx_n_s_all, __pyx_k_all, sizeof(__pyx_k_all), 0, 0, 1, 1},
@@ -13204,6 +13897,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_genexpr, __pyx_k_genexpr, sizeof(__pyx_k_genexpr), 0, 0, 1, 1},
     {&__pyx_n_s_get, __pyx_k_get, sizeof(__pyx_k_get), 0, 0, 1, 1},
     {&__pyx_n_s_getstate, __pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 0, 1, 1},
+    {&__pyx_n_s_handler, __pyx_k_handler, sizeof(__pyx_k_handler), 0, 0, 1, 1},
     {&__pyx_n_s_hashes, __pyx_k_hashes, sizeof(__pyx_k_hashes), 0, 0, 1, 1},
     {&__pyx_n_s_hashlib, __pyx_k_hashlib, sizeof(__pyx_k_hashlib), 0, 0, 1, 1},
     {&__pyx_n_s_hashlib_sha1, __pyx_k_hashlib_sha1, sizeof(__pyx_k_hashlib_sha1), 0, 0, 1, 1},
@@ -13211,20 +13905,22 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_hashlib_sha512, __pyx_k_hashlib_sha512, sizeof(__pyx_k_hashlib_sha512), 0, 0, 1, 1},
     {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
     {&__pyx_n_s_is_coroutine, __pyx_k_is_coroutine, sizeof(__pyx_k_is_coroutine), 0, 0, 1, 1},
+    {&__pyx_kp_u_is_invalid_must_be_class_type, __pyx_k_is_invalid_must_be_class_type, sizeof(__pyx_k_is_invalid_must_be_class_type), 0, 1, 0, 0},
+    {&__pyx_kp_u_is_invalid_must_be_str_or_bytes, __pyx_k_is_invalid_must_be_str_or_bytes, sizeof(__pyx_k_is_invalid_must_be_str_or_bytes), 0, 1, 0, 0},
+    {&__pyx_kp_u_is_not_registered, __pyx_k_is_not_registered, sizeof(__pyx_k_is_not_registered), 0, 1, 0, 0},
     {&__pyx_kp_u_isenabled, __pyx_k_isenabled, sizeof(__pyx_k_isenabled), 0, 1, 0, 0},
     {&__pyx_n_s_items, __pyx_k_items, sizeof(__pyx_k_items), 0, 0, 1, 1},
     {&__pyx_n_s_label, __pyx_k_label, sizeof(__pyx_k_label), 0, 0, 1, 1},
     {&__pyx_n_s_load_pem_public_key, __pyx_k_load_pem_public_key, sizeof(__pyx_k_load_pem_public_key), 0, 0, 1, 1},
     {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
     {&__pyx_n_s_mgf, __pyx_k_mgf, sizeof(__pyx_k_mgf), 0, 0, 1, 1},
-    {&__pyx_kp_u_must_be_class_type_instead_of, __pyx_k_must_be_class_type_instead_of, sizeof(__pyx_k_must_be_class_type_instead_of), 0, 1, 0, 0},
-    {&__pyx_kp_u_must_be_type_of_str_bytes_inste, __pyx_k_must_be_type_of_str_bytes_inste, sizeof(__pyx_k_must_be_type_of_str_bytes_inste), 0, 1, 0, 0},
     {&__pyx_n_b_mysql_clear_password, __pyx_k_mysql_clear_password, sizeof(__pyx_k_mysql_clear_password), 0, 0, 0, 1},
     {&__pyx_n_b_mysql_native_password, __pyx_k_mysql_native_password, sizeof(__pyx_k_mysql_native_password), 0, 0, 0, 1},
     {&__pyx_n_b_mysql_old_password, __pyx_k_mysql_old_password, sizeof(__pyx_k_mysql_old_password), 0, 0, 0, 1},
     {&__pyx_n_s_nacl, __pyx_k_nacl, sizeof(__pyx_k_nacl), 0, 0, 1, 1},
     {&__pyx_n_s_name, __pyx_k_name, sizeof(__pyx_k_name), 0, 0, 1, 1},
     {&__pyx_n_s_new, __pyx_k_new, sizeof(__pyx_k_new), 0, 0, 1, 1},
+    {&__pyx_n_s_object, __pyx_k_object, sizeof(__pyx_k_object), 0, 0, 1, 1},
     {&__pyx_n_s_padding, __pyx_k_padding, sizeof(__pyx_k_padding), 0, 0, 1, 1},
     {&__pyx_n_s_password, __pyx_k_password, sizeof(__pyx_k_password), 0, 0, 1, 1},
     {&__pyx_n_s_pickle, __pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 0, 1, 1},
@@ -13244,7 +13940,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
     {&__pyx_n_s_repr___locals_genexpr, __pyx_k_repr___locals_genexpr, sizeof(__pyx_k_repr___locals_genexpr), 0, 0, 1, 1},
-    {&__pyx_kp_u_s_No_Handlers, __pyx_k_s_No_Handlers, sizeof(__pyx_k_s_No_Handlers), 0, 1, 0, 0},
+    {&__pyx_kp_u_s, __pyx_k_s, sizeof(__pyx_k_s), 0, 1, 0, 0},
     {&__pyx_n_s_salt, __pyx_k_salt, sizeof(__pyx_k_salt), 0, 0, 1, 1},
     {&__pyx_n_s_scramble, __pyx_k_scramble, sizeof(__pyx_k_scramble), 0, 0, 1, 1},
     {&__pyx_n_s_scramble_caching_sha2, __pyx_k_scramble_caching_sha2, sizeof(__pyx_k_scramble_caching_sha2), 0, 0, 1, 1},
@@ -13254,6 +13950,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
     {&__pyx_n_s_send, __pyx_k_send, sizeof(__pyx_k_send), 0, 0, 1, 1},
     {&__pyx_n_s_serialization, __pyx_k_serialization, sizeof(__pyx_k_serialization), 0, 0, 1, 1},
+    {&__pyx_n_s_set, __pyx_k_set, sizeof(__pyx_k_set), 0, 0, 1, 1},
     {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
     {&__pyx_n_s_setstate_cython, __pyx_k_setstate_cython, sizeof(__pyx_k_setstate_cython), 0, 0, 1, 1},
     {&__pyx_n_s_sha1, __pyx_k_sha1, sizeof(__pyx_k_sha1), 0, 0, 1, 1},
@@ -13266,21 +13963,25 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_sqlcycli__auth, __pyx_k_sqlcycli__auth, sizeof(__pyx_k_sqlcycli__auth), 0, 0, 1, 1},
     {&__pyx_kp_s_src_sqlcycli__auth_py, __pyx_k_src_sqlcycli__auth_py, sizeof(__pyx_k_src_sqlcycli__auth_py), 0, 0, 1, 0},
     {&__pyx_n_s_state, __pyx_k_state, sizeof(__pyx_k_state), 0, 0, 1, 1},
+    {&__pyx_kp_s_str_bytes, __pyx_k_str_bytes, sizeof(__pyx_k_str_bytes), 0, 0, 1, 0},
     {&__pyx_kp_s_stringsource, __pyx_k_stringsource, sizeof(__pyx_k_stringsource), 0, 0, 1, 0},
     {&__pyx_n_s_test, __pyx_k_test, sizeof(__pyx_k_test), 0, 0, 1, 1},
     {&__pyx_n_s_throw, __pyx_k_throw, sizeof(__pyx_k_throw), 0, 0, 1, 1},
+    {&__pyx_n_s_typing, __pyx_k_typing, sizeof(__pyx_k_typing), 0, 0, 1, 1},
     {&__pyx_n_s_update, __pyx_k_update, sizeof(__pyx_k_update), 0, 0, 1, 1},
     {&__pyx_n_s_use_setstate, __pyx_k_use_setstate, sizeof(__pyx_k_use_setstate), 0, 0, 1, 1},
     {&__pyx_n_s_utils, __pyx_k_utils, sizeof(__pyx_k_utils), 0, 0, 1, 1},
+    {&__pyx_n_s_values, __pyx_k_values, sizeof(__pyx_k_values), 0, 0, 1, 1},
     {0, 0, 0, 0, 0, 0, 0}
   };
   return __Pyx_InitStrings(__pyx_string_tab);
 }
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_n_s_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(0, 21, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 241, __pyx_L1_error)
-  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(0, 276, __pyx_L1_error)
+  __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_n_s_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 288, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(0, 394, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -13291,27 +13992,27 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "sqlcycli/_auth.py":276
+  /* "sqlcycli/_auth.py":394
  *     """
  *     if not CRYPTOGRAPHY_AVAILABLE:
  *         raise RuntimeError(             # <<<<<<<<<<<<<<
- *             "The 'cryptography' package is required for 'sha256_password' "
+ *             "The 'cryptography' libarary is required for 'sha256_password' "
  *             "or 'caching_sha2_password' authentication."
  */
-  __pyx_tuple__8 = PyTuple_Pack(1, __pyx_kp_u_The_cryptography_package_is_requ); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 276, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__8);
-  __Pyx_GIVEREF(__pyx_tuple__8);
+  __pyx_tuple__10 = PyTuple_Pack(1, __pyx_kp_u_The_cryptography_libarary_is_req); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__10);
+  __Pyx_GIVEREF(__pyx_tuple__10);
 
-  /* "sqlcycli/_auth.py":315
+  /* "sqlcycli/_auth.py":445
  *     """
  *     if not NACL_AVAILABLE:
  *         raise RuntimeError(             # <<<<<<<<<<<<<<
- *             "The 'nacl (pynacl)' package is required "
+ *             "The 'nacl (pynacl)' library is required "
  *             "for 'client_ed25519' authentication."
  */
-  __pyx_tuple__10 = PyTuple_Pack(1, __pyx_kp_u_The_nacl_pynacl_package_is_requi); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 315, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__10);
-  __Pyx_GIVEREF(__pyx_tuple__10);
+  __pyx_tuple__12 = PyTuple_Pack(1, __pyx_kp_u_The_nacl_pynacl_library_is_requi); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__12);
+  __Pyx_GIVEREF(__pyx_tuple__12);
 
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
@@ -13320,31 +14021,43 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         from pickle import PickleError as __pyx_PickleError
  *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x2b3a939, 0x4483f57, 0xd0cbb49) = (_caching_sha2_password, _client_ed25519, _dialog, _mysql_clear_password, _mysql_native_password, _mysql_old_password, _plugins, _sha256_password))" % __pyx_checksum
  */
-  __pyx_tuple__11 = PyTuple_Pack(3, __pyx_int_45328697, __pyx_int_71843671, __pyx_int_218938185); if (unlikely(!__pyx_tuple__11)) __PYX_ERR(2, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__11);
-  __Pyx_GIVEREF(__pyx_tuple__11);
-
-  /* "sqlcycli/_auth.py":190
- * 
- *     # Methods ---------------------------------------------------------------------------------
- *     @cython.ccall             # <<<<<<<<<<<<<<
- *     def get(self, plugin_name: bytes) -> object:
- *         """Get the handler for the plugin by name `<'type/None'>`."""
- */
-  __pyx_tuple__13 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_plugin_name); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_tuple__13 = PyTuple_Pack(3, __pyx_int_45328697, __pyx_int_71843671, __pyx_int_218938185); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(2, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__13);
   __Pyx_GIVEREF(__pyx_tuple__13);
-  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__13, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_get, 190, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 190, __pyx_L1_error)
+
+  /* "sqlcycli/_auth.py":187
+ * 
+ *     # Handler ---------------------------------------------------------------------------------
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def get(self, plugin_name: str | bytes) -> object:
+ *         """Retrieve the registered handler class for a given plugin name `<'type/None'>`.
+ */
+  __pyx_tuple__15 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_plugin_name); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__15);
+  __Pyx_GIVEREF(__pyx_tuple__15);
+  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_get, 187, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 187, __pyx_L1_error)
+
+  /* "sqlcycli/_auth.py":197
+ *         return self._plugins.get(self._validete_plugin_name(plugin_name))
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     @cython.exceptval(-1, check=False)
+ *     def set(
+ */
+  __pyx_tuple__17 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_plugin_name, __pyx_n_s_handler); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__17);
+  __Pyx_GIVEREF(__pyx_tuple__17);
+  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_set, 197, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 197, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_tuple__15 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(2, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__15);
-  __Pyx_GIVEREF(__pyx_tuple__15);
-  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __pyx_tuple__19 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__19);
+  __Pyx_GIVEREF(__pyx_tuple__19);
+  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(2, 1, __pyx_L1_error)
 
   /* "(tree fragment)":16
  *     else:
@@ -13352,65 +14065,65 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_AuthPlugin__set_state(self, __pyx_state)
  */
-  __pyx_tuple__17 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(2, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__17);
-  __Pyx_GIVEREF(__pyx_tuple__17);
-  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(2, 16, __pyx_L1_error)
+  __pyx_tuple__21 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(2, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__21);
+  __Pyx_GIVEREF(__pyx_tuple__21);
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(2, 16, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":223
+  /* "sqlcycli/_auth.py":308
  * 
  * # Password ------------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * @cython.boundscheck(True)
  * def scramble_native_password(password: bytes, salt: bytes) -> bytes:
  */
-  __pyx_tuple__19 = PyTuple_Pack(2, __pyx_n_s_password, __pyx_n_s_salt); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 223, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__19);
-  __Pyx_GIVEREF(__pyx_tuple__19);
-  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_scramble_native_password, 223, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_tuple__23 = PyTuple_Pack(2, __pyx_n_s_password, __pyx_n_s_salt); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__23);
+  __Pyx_GIVEREF(__pyx_tuple__23);
+  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_scramble_native_password, 308, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 308, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":246
+  /* "sqlcycli/_auth.py":343
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def scramble_caching_sha2(password: bytes, salt: bytes) -> bytes:
- *     """Scramble algorithm used in cached_sha2_password fast path `<'bytes'>`.
+ *     """Compute the fast-path scramble for `caching_sha2_password` authentication `<'bytes'>`.
  */
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_scramble_caching_sha2, 246, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_scramble_caching_sha2, 343, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 343, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":268
+  /* "sqlcycli/_auth.py":374
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * @cython.boundscheck(True)
  * def sha2_rsa_encrypt(password: bytes, salt: bytes, public_key: bytes) -> bytes:
  */
-  __pyx_tuple__22 = PyTuple_Pack(3, __pyx_n_s_password, __pyx_n_s_salt, __pyx_n_s_public_key); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 268, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__22);
-  __Pyx_GIVEREF(__pyx_tuple__22);
-  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_sha2_rsa_encrypt, 268, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_tuple__26 = PyTuple_Pack(3, __pyx_n_s_password, __pyx_n_s_salt, __pyx_n_s_public_key); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(0, 374, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__26);
+  __Pyx_GIVEREF(__pyx_tuple__26);
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_sha2_rsa_encrypt, 374, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 374, __pyx_L1_error)
 
-  /* "sqlcycli/_auth.py":307
+  /* "sqlcycli/_auth.py":425
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * @cython.boundscheck(True)
  * def ed25519_password(password: bytes, scramble: bytes) -> bytes:
  */
-  __pyx_tuple__24 = PyTuple_Pack(2, __pyx_n_s_password, __pyx_n_s_scramble); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 307, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__24);
-  __Pyx_GIVEREF(__pyx_tuple__24);
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_ed25519_password, 307, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_tuple__28 = PyTuple_Pack(2, __pyx_n_s_password, __pyx_n_s_scramble); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 425, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__28);
+  __Pyx_GIVEREF(__pyx_tuple__28);
+  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__28, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__auth_py, __pyx_n_s_ed25519_password, 425, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 425, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_AuthPlugin(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_tuple__26 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(2, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__26);
-  __Pyx_GIVEREF(__pyx_tuple__26);
-  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_AuthPlugin, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __pyx_tuple__30 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__30);
+  __Pyx_GIVEREF(__pyx_tuple__30);
+  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_AuthPlugin, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -13422,6 +14135,8 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
 static CYTHON_SMALL_CODE int __Pyx_InitConstants(void) {
   __pyx_umethod_PyDict_Type_get.type = (PyObject*)&PyDict_Type;
   __pyx_umethod_PyDict_Type_get.method_name = &__pyx_n_s_get;
+  __pyx_umethod_PyDict_Type_values.type = (PyObject*)&PyDict_Type;
+  __pyx_umethod_PyDict_Type_values.method_name = &__pyx_n_s_values;
   if (__Pyx_CreateStringTabAndInitStrings() < 0) __PYX_ERR(0, 1, __pyx_L1_error);
   __pyx_int_45328697 = PyInt_FromLong(45328697L); if (unlikely(!__pyx_int_45328697)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_71843671 = PyInt_FromLong(71843671L); if (unlikely(!__pyx_int_71843671)) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -13497,16 +14212,19 @@ static int __Pyx_modinit_type_init_code(void) {
   /*--- Type init code ---*/
   __pyx_vtabptr_8sqlcycli_5_auth_AuthPlugin = &__pyx_vtable_8sqlcycli_5_auth_AuthPlugin;
   __pyx_vtable_8sqlcycli_5_auth_AuthPlugin.get = (PyObject *(*)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_5_auth_10AuthPlugin_get;
+  __pyx_vtable_8sqlcycli_5_auth_AuthPlugin.set = (int (*)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_5_auth_10AuthPlugin_set;
+  __pyx_vtable_8sqlcycli_5_auth_AuthPlugin._validete_plugin_name = (PyObject *(*)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *))__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validete_plugin_name;
+  __pyx_vtable_8sqlcycli_5_auth_AuthPlugin._validate_plugin_handler = (PyObject *(*)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *))__pyx_f_8sqlcycli_5_auth_10AuthPlugin__validate_plugin_handler;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_5_auth_AuthPlugin = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_5_auth_AuthPlugin_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_5_auth_AuthPlugin)) __PYX_ERR(0, 53, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_5_auth_AuthPlugin_spec, __pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_5_auth_AuthPlugin = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_5_auth_AuthPlugin_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_5_auth_AuthPlugin)) __PYX_ERR(0, 57, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_5_auth_AuthPlugin_spec, __pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_5_auth_AuthPlugin = &__pyx_type_8sqlcycli_5_auth_AuthPlugin;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_5_auth_AuthPlugin->tp_print = 0;
@@ -13518,7 +14236,7 @@ static int __Pyx_modinit_type_init_code(void) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 53, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 57, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_8sqlcycli_5_auth_10AuthPlugin___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_8sqlcycli_5_auth_10AuthPlugin___init__.doc = __pyx_doc_8sqlcycli_5_auth_10AuthPlugin___init__;
@@ -13526,24 +14244,24 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_vtabptr_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_vtabptr_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_AuthPlugin, (PyObject *) __pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_AuthPlugin, (PyObject *) __pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_5_auth_AuthPlugin) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_5_auth___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr)) __PYX_ERR(0, 215, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_5_auth___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_5_auth___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr)) __PYX_ERR(0, 282, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_5_auth___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 282, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr = &__pyx_type_8sqlcycli_5_auth___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 282, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_5_auth___pyx_scope_struct__genexpr->tp_print = 0;
@@ -13584,8 +14302,8 @@ static int __Pyx_modinit_type_import_code(void) {
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_ptype_8sqlcycli_7charset_Charset = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charset", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charset), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charset),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charset) __PYX_ERR(4, 4, __pyx_L1_error)
   __pyx_vtabptr_8sqlcycli_7charset_Charset = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charset*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charset); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charset)) __PYX_ERR(4, 4, __pyx_L1_error)
-  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(4, 15, __pyx_L1_error)
-  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(4, 15, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(4, 16, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(4, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -13925,7 +14643,7 @@ if (!__Pyx_RefNanny) {
   if (__Pyx_patch_abc() < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/_auth.py":15
+  /* "sqlcycli/_auth.py":18
  * 
  * # Python imports
  * try:             # <<<<<<<<<<<<<<
@@ -13941,86 +14659,86 @@ if (!__Pyx_RefNanny) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "sqlcycli/_auth.py":16
+      /* "sqlcycli/_auth.py":19
  * # Python imports
  * try:
  *     from cryptography.hazmat.primitives.asymmetric import padding             # <<<<<<<<<<<<<<
  *     from cryptography.hazmat.primitives import hashes, serialization
  *     from cryptography.hazmat.backends import default_backend as _default_backend
  */
-      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L2_error)
+      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_n_s_padding);
       __Pyx_GIVEREF(__pyx_n_s_padding);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_n_s_padding)) __PYX_ERR(0, 16, __pyx_L2_error);
-      __pyx_t_5 = __Pyx_Import(__pyx_n_s_cryptography_hazmat_primitives_a, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 16, __pyx_L2_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_n_s_padding)) __PYX_ERR(0, 19, __pyx_L2_error);
+      __pyx_t_5 = __Pyx_Import(__pyx_n_s_cryptography_hazmat_primitives_a, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 19, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_padding); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L2_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_padding); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_padding, __pyx_t_4) < 0) __PYX_ERR(0, 16, __pyx_L2_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_padding, __pyx_t_4) < 0) __PYX_ERR(0, 19, __pyx_L2_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "sqlcycli/_auth.py":17
+      /* "sqlcycli/_auth.py":20
  * try:
  *     from cryptography.hazmat.primitives.asymmetric import padding
  *     from cryptography.hazmat.primitives import hashes, serialization             # <<<<<<<<<<<<<<
  *     from cryptography.hazmat.backends import default_backend as _default_backend
  * 
  */
-      __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 17, __pyx_L2_error)
+      __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_INCREF(__pyx_n_s_hashes);
       __Pyx_GIVEREF(__pyx_n_s_hashes);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_n_s_hashes)) __PYX_ERR(0, 17, __pyx_L2_error);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_n_s_hashes)) __PYX_ERR(0, 20, __pyx_L2_error);
       __Pyx_INCREF(__pyx_n_s_serialization);
       __Pyx_GIVEREF(__pyx_n_s_serialization);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_n_s_serialization)) __PYX_ERR(0, 17, __pyx_L2_error);
-      __pyx_t_4 = __Pyx_Import(__pyx_n_s_cryptography_hazmat_primitives, __pyx_t_5, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L2_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_n_s_serialization)) __PYX_ERR(0, 20, __pyx_L2_error);
+      __pyx_t_4 = __Pyx_Import(__pyx_n_s_cryptography_hazmat_primitives, __pyx_t_5, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_n_s_hashes); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 17, __pyx_L2_error)
+      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_n_s_hashes); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashes, __pyx_t_5) < 0) __PYX_ERR(0, 17, __pyx_L2_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashes, __pyx_t_5) < 0) __PYX_ERR(0, 20, __pyx_L2_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_n_s_serialization); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 17, __pyx_L2_error)
+      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_n_s_serialization); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_serialization, __pyx_t_5) < 0) __PYX_ERR(0, 17, __pyx_L2_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_serialization, __pyx_t_5) < 0) __PYX_ERR(0, 20, __pyx_L2_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "sqlcycli/_auth.py":18
+      /* "sqlcycli/_auth.py":21
  *     from cryptography.hazmat.primitives.asymmetric import padding
  *     from cryptography.hazmat.primitives import hashes, serialization
  *     from cryptography.hazmat.backends import default_backend as _default_backend             # <<<<<<<<<<<<<<
  * 
  *     CRYPTOGRAPHY_AVAILABLE: cython.bint = True
  */
-      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L2_error)
+      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_n_s_default_backend_2);
       __Pyx_GIVEREF(__pyx_n_s_default_backend_2);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_n_s_default_backend_2)) __PYX_ERR(0, 18, __pyx_L2_error);
-      __pyx_t_5 = __Pyx_Import(__pyx_n_s_cryptography_hazmat_backends, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 18, __pyx_L2_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_n_s_default_backend_2)) __PYX_ERR(0, 21, __pyx_L2_error);
+      __pyx_t_5 = __Pyx_Import(__pyx_n_s_cryptography_hazmat_backends, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_default_backend_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L2_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_default_backend_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L2_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_default_backend, __pyx_t_4) < 0) __PYX_ERR(0, 18, __pyx_L2_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_default_backend, __pyx_t_4) < 0) __PYX_ERR(0, 21, __pyx_L2_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "sqlcycli/_auth.py":20
+      /* "sqlcycli/_auth.py":23
  *     from cryptography.hazmat.backends import default_backend as _default_backend
  * 
  *     CRYPTOGRAPHY_AVAILABLE: cython.bint = True             # <<<<<<<<<<<<<<
  * except ImportError:
  *     CRYPTOGRAPHY_AVAILABLE: cython.bint = False
  */
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_CRYPTOGRAPHY_AVAILABLE, Py_True) < 0) __PYX_ERR(0, 20, __pyx_L2_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_CRYPTOGRAPHY_AVAILABLE, Py_True) < 0) __PYX_ERR(0, 23, __pyx_L2_error)
 
-      /* "sqlcycli/_auth.py":15
+      /* "sqlcycli/_auth.py":18
  * 
  * # Python imports
  * try:             # <<<<<<<<<<<<<<
@@ -14036,7 +14754,7 @@ if (!__Pyx_RefNanny) {
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "sqlcycli/_auth.py":21
+    /* "sqlcycli/_auth.py":24
  * 
  *     CRYPTOGRAPHY_AVAILABLE: cython.bint = True
  * except ImportError:             # <<<<<<<<<<<<<<
@@ -14046,19 +14764,19 @@ if (!__Pyx_RefNanny) {
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
     if (__pyx_t_6) {
       __Pyx_AddTraceback("sqlcycli._auth", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_7) < 0) __PYX_ERR(0, 21, __pyx_L4_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_7) < 0) __PYX_ERR(0, 24, __pyx_L4_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "sqlcycli/_auth.py":22
+      /* "sqlcycli/_auth.py":25
  *     CRYPTOGRAPHY_AVAILABLE: cython.bint = True
  * except ImportError:
  *     CRYPTOGRAPHY_AVAILABLE: cython.bint = False             # <<<<<<<<<<<<<<
  * # MariaDB's client_ed25519-plugin
  * # https://mariadb.com/kb/en/library/connection/#client_ed25519-plugin
  */
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_CRYPTOGRAPHY_AVAILABLE, Py_False) < 0) __PYX_ERR(0, 22, __pyx_L4_except_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_CRYPTOGRAPHY_AVAILABLE, Py_False) < 0) __PYX_ERR(0, 25, __pyx_L4_except_error)
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -14066,7 +14784,7 @@ if (!__Pyx_RefNanny) {
     }
     goto __pyx_L4_except_error;
 
-    /* "sqlcycli/_auth.py":15
+    /* "sqlcycli/_auth.py":18
  * 
  * # Python imports
  * try:             # <<<<<<<<<<<<<<
@@ -14087,7 +14805,7 @@ if (!__Pyx_RefNanny) {
     __pyx_L7_try_end:;
   }
 
-  /* "sqlcycli/_auth.py":25
+  /* "sqlcycli/_auth.py":28
  * # MariaDB's client_ed25519-plugin
  * # https://mariadb.com/kb/en/library/connection/#client_ed25519-plugin
  * try:             # <<<<<<<<<<<<<<
@@ -14103,37 +14821,37 @@ if (!__Pyx_RefNanny) {
     __Pyx_XGOTREF(__pyx_t_1);
     /*try:*/ {
 
-      /* "sqlcycli/_auth.py":26
+      /* "sqlcycli/_auth.py":29
  * # https://mariadb.com/kb/en/library/connection/#client_ed25519-plugin
  * try:
  *     from nacl import bindings             # <<<<<<<<<<<<<<
  * 
  *     NACL_AVAILABLE: cython.bint = True
  */
-      __pyx_t_7 = PyList_New(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 26, __pyx_L10_error)
+      __pyx_t_7 = PyList_New(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 29, __pyx_L10_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_INCREF(__pyx_n_s_bindings);
       __Pyx_GIVEREF(__pyx_n_s_bindings);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_n_s_bindings)) __PYX_ERR(0, 26, __pyx_L10_error);
-      __pyx_t_4 = __Pyx_Import(__pyx_n_s_nacl, __pyx_t_7, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L10_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_n_s_bindings)) __PYX_ERR(0, 29, __pyx_L10_error);
+      __pyx_t_4 = __Pyx_Import(__pyx_n_s_nacl, __pyx_t_7, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L10_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 26, __pyx_L10_error)
+      __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_n_s_bindings); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 29, __pyx_L10_error)
       __Pyx_GOTREF(__pyx_t_7);
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_bindings, __pyx_t_7) < 0) __PYX_ERR(0, 26, __pyx_L10_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_bindings, __pyx_t_7) < 0) __PYX_ERR(0, 29, __pyx_L10_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "sqlcycli/_auth.py":28
+      /* "sqlcycli/_auth.py":31
  *     from nacl import bindings
  * 
  *     NACL_AVAILABLE: cython.bint = True             # <<<<<<<<<<<<<<
  * except ImportError:
  *     NACL_AVAILABLE: cython.bint = False
  */
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_NACL_AVAILABLE, Py_True) < 0) __PYX_ERR(0, 28, __pyx_L10_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_NACL_AVAILABLE, Py_True) < 0) __PYX_ERR(0, 31, __pyx_L10_error)
 
-      /* "sqlcycli/_auth.py":25
+      /* "sqlcycli/_auth.py":28
  * # MariaDB's client_ed25519-plugin
  * # https://mariadb.com/kb/en/library/connection/#client_ed25519-plugin
  * try:             # <<<<<<<<<<<<<<
@@ -14150,7 +14868,7 @@ if (!__Pyx_RefNanny) {
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "sqlcycli/_auth.py":29
+    /* "sqlcycli/_auth.py":32
  * 
  *     NACL_AVAILABLE: cython.bint = True
  * except ImportError:             # <<<<<<<<<<<<<<
@@ -14160,19 +14878,19 @@ if (!__Pyx_RefNanny) {
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
     if (__pyx_t_6) {
       __Pyx_AddTraceback("sqlcycli._auth", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_5) < 0) __PYX_ERR(0, 29, __pyx_L12_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_5) < 0) __PYX_ERR(0, 32, __pyx_L12_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "sqlcycli/_auth.py":30
+      /* "sqlcycli/_auth.py":33
  *     NACL_AVAILABLE: cython.bint = True
  * except ImportError:
  *     NACL_AVAILABLE: cython.bint = False             # <<<<<<<<<<<<<<
  * 
- * from hashlib import (
+ * from typing import Iterator
  */
-      if (PyDict_SetItem(__pyx_d, __pyx_n_s_NACL_AVAILABLE, Py_False) < 0) __PYX_ERR(0, 30, __pyx_L12_except_error)
+      if (PyDict_SetItem(__pyx_d, __pyx_n_s_NACL_AVAILABLE, Py_False) < 0) __PYX_ERR(0, 33, __pyx_L12_except_error)
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -14180,7 +14898,7 @@ if (!__Pyx_RefNanny) {
     }
     goto __pyx_L12_except_error;
 
-    /* "sqlcycli/_auth.py":25
+    /* "sqlcycli/_auth.py":28
  * # MariaDB's client_ed25519-plugin
  * # https://mariadb.com/kb/en/library/connection/#client_ed25519-plugin
  * try:             # <<<<<<<<<<<<<<
@@ -14201,105 +14919,126 @@ if (!__Pyx_RefNanny) {
     __pyx_L15_try_end:;
   }
 
-  /* "sqlcycli/_auth.py":33
+  /* "sqlcycli/_auth.py":35
+ *     NACL_AVAILABLE: cython.bint = False
  * 
+ * from typing import Iterator             # <<<<<<<<<<<<<<
+ * from hashlib import (
+ *     sha1 as _hashlib_sha1,
+ */
+  __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_INCREF(__pyx_n_s_Iterator);
+  __Pyx_GIVEREF(__pyx_n_s_Iterator);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_n_s_Iterator)) __PYX_ERR(0, 35, __pyx_L1_error);
+  __pyx_t_7 = __Pyx_Import(__pyx_n_s_typing, __pyx_t_5, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_7, __pyx_n_s_Iterator); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_Iterator, __pyx_t_5) < 0) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "sqlcycli/_auth.py":37
+ * from typing import Iterator
  * from hashlib import (
  *     sha1 as _hashlib_sha1,             # <<<<<<<<<<<<<<
  *     sha256 as _hashlib_sha256,
  *     sha512 as _hashlib_sha512,
  */
-  __pyx_t_5 = PyList_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_7 = PyList_New(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   __Pyx_INCREF(__pyx_n_s_sha1);
   __Pyx_GIVEREF(__pyx_n_s_sha1);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_n_s_sha1)) __PYX_ERR(0, 33, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_n_s_sha1)) __PYX_ERR(0, 37, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_s_sha256);
   __Pyx_GIVEREF(__pyx_n_s_sha256);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_n_s_sha256)) __PYX_ERR(0, 33, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 1, __pyx_n_s_sha256)) __PYX_ERR(0, 37, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_s_sha512);
   __Pyx_GIVEREF(__pyx_n_s_sha512);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 2, __pyx_n_s_sha512)) __PYX_ERR(0, 33, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 2, __pyx_n_s_sha512)) __PYX_ERR(0, 37, __pyx_L1_error);
 
-  /* "sqlcycli/_auth.py":32
- *     NACL_AVAILABLE: cython.bint = False
+  /* "sqlcycli/_auth.py":36
  * 
+ * from typing import Iterator
  * from hashlib import (             # <<<<<<<<<<<<<<
  *     sha1 as _hashlib_sha1,
  *     sha256 as _hashlib_sha256,
  */
-  __pyx_t_7 = __Pyx_Import(__pyx_n_s_hashlib, __pyx_t_5, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 32, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_7, __pyx_n_s_sha1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Import(__pyx_n_s_hashlib, __pyx_t_7, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashlib_sha1, __pyx_t_5) < 0) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_7, __pyx_n_s_sha256); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashlib_sha256, __pyx_t_5) < 0) __PYX_ERR(0, 34, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_7, __pyx_n_s_sha512); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashlib_sha512, __pyx_t_5) < 0) __PYX_ERR(0, 35, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_sha1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashlib_sha1, __pyx_t_7) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_sha256); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashlib_sha256, __pyx_t_7) < 0) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_sha512); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_hashlib_sha512, __pyx_t_7) < 0) __PYX_ERR(0, 39, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":37
+  /* "sqlcycli/_auth.py":41
  *     sha512 as _hashlib_sha512,
  * )
  * from sqlcycli import utils, errors             # <<<<<<<<<<<<<<
  * 
  * __all__ = [
  */
-  __pyx_t_7 = PyList_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_INCREF(__pyx_n_s_utils);
   __Pyx_GIVEREF(__pyx_n_s_utils);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_n_s_utils)) __PYX_ERR(0, 37, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_n_s_utils)) __PYX_ERR(0, 41, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_s_errors);
   __Pyx_GIVEREF(__pyx_n_s_errors);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 1, __pyx_n_s_errors)) __PYX_ERR(0, 37, __pyx_L1_error);
-  __pyx_t_5 = __Pyx_Import(__pyx_n_s_sqlcycli, __pyx_t_7, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_utils); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_n_s_errors)) __PYX_ERR(0, 41, __pyx_L1_error);
+  __pyx_t_7 = __Pyx_Import(__pyx_n_s_sqlcycli, __pyx_t_5, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_utils, __pyx_t_7) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_5, __pyx_n_s_errors); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_errors, __pyx_t_7) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_7, __pyx_n_s_utils); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_utils, __pyx_t_5) < 0) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_7, __pyx_n_s_errors); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_errors, __pyx_t_5) < 0) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/_auth.py":39
+  /* "sqlcycli/_auth.py":43
  * from sqlcycli import utils, errors
  * 
  * __all__ = [             # <<<<<<<<<<<<<<
  *     "AuthPlugin",
  *     "scramble_native_password",
  */
-  __pyx_t_5 = PyList_New(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 39, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_7 = PyList_New(5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   __Pyx_INCREF(__pyx_n_u_AuthPlugin);
   __Pyx_GIVEREF(__pyx_n_u_AuthPlugin);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_n_u_AuthPlugin)) __PYX_ERR(0, 39, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_n_u_AuthPlugin)) __PYX_ERR(0, 43, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_scramble_native_password);
   __Pyx_GIVEREF(__pyx_n_u_scramble_native_password);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_n_u_scramble_native_password)) __PYX_ERR(0, 39, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 1, __pyx_n_u_scramble_native_password)) __PYX_ERR(0, 43, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_scramble_caching_sha2);
   __Pyx_GIVEREF(__pyx_n_u_scramble_caching_sha2);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 2, __pyx_n_u_scramble_caching_sha2)) __PYX_ERR(0, 39, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 2, __pyx_n_u_scramble_caching_sha2)) __PYX_ERR(0, 43, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_sha2_rsa_encrypt);
   __Pyx_GIVEREF(__pyx_n_u_sha2_rsa_encrypt);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 3, __pyx_n_u_sha2_rsa_encrypt)) __PYX_ERR(0, 39, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 3, __pyx_n_u_sha2_rsa_encrypt)) __PYX_ERR(0, 43, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_ed25519_password);
   __Pyx_GIVEREF(__pyx_n_u_ed25519_password);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 4, __pyx_n_u_ed25519_password)) __PYX_ERR(0, 39, __pyx_L1_error);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_all, __pyx_t_5) < 0) __PYX_ERR(0, 39, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 4, __pyx_n_u_ed25519_password)) __PYX_ERR(0, 43, __pyx_L1_error);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_all, __pyx_t_7) < 0) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/_auth.py":48
+  /* "sqlcycli/_auth.py":52
  * 
  * # Constants -----------------------------------------------------------------------------------
  * SCRAMBLE_LENGTH: cython.int = 20             # <<<<<<<<<<<<<<
@@ -14308,21 +15047,40 @@ if (!__Pyx_RefNanny) {
  */
   __pyx_v_8sqlcycli_5_auth_SCRAMBLE_LENGTH = 20;
 
-  /* "sqlcycli/_auth.py":190
+  /* "sqlcycli/_auth.py":187
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Handler ---------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
- *     def get(self, plugin_name: bytes) -> object:
- *         """Get the handler for the plugin by name `<'type/None'>`."""
+ *     def get(self, plugin_name: str | bytes) -> object:
+ *         """Retrieve the registered handler class for a given plugin name `<'type/None'>`.
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_plugin_name, __pyx_kp_s_str_bytes) < 0) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_3get, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin_get, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_plugin_name, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 190, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_3get, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin_get, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_7);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_n_s_get, __pyx_t_5) < 0) __PYX_ERR(0, 187, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  PyType_Modified(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin);
+
+  /* "sqlcycli/_auth.py":197
+ *         return self._plugins.get(self._validete_plugin_name(plugin_name))
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     @cython.exceptval(-1, check=False)
+ *     def set(
+ */
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_plugin_name, __pyx_kp_s_str_bytes) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_handler, __pyx_n_s_object) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_5set, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin_set, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_n_s_get, __pyx_t_7) < 0) __PYX_ERR(0, 190, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_n_s_set, __pyx_t_7) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin);
 
@@ -14331,7 +15089,7 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_9__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin___reduce_cython, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_19__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin___reduce_cython, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_n_s_reduce_cython, __pyx_t_7) < 0) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -14343,83 +15101,83 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_AuthPlugin__set_state(self, __pyx_state)
  */
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_11__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin___setstate_cython, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 16, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_10AuthPlugin_21__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AuthPlugin___setstate_cython, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_5_auth_AuthPlugin, __pyx_n_s_setstate_cython, __pyx_t_7) < 0) __PYX_ERR(2, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_5_auth_AuthPlugin);
 
-  /* "sqlcycli/_auth.py":223
+  /* "sqlcycli/_auth.py":308
  * 
  * # Password ------------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * @cython.boundscheck(True)
  * def scramble_native_password(password: bytes, salt: bytes) -> bytes:
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 223, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_salt, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 223, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_1scramble_native_password, 0, __pyx_n_s_scramble_native_password, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 223, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 308, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_salt, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_1scramble_native_password, 0, __pyx_n_s_scramble_native_password, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_scramble_native_password, __pyx_t_5) < 0) __PYX_ERR(0, 223, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_scramble_native_password, __pyx_t_5) < 0) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":246
+  /* "sqlcycli/_auth.py":343
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def scramble_caching_sha2(password: bytes, salt: bytes) -> bytes:
- *     """Scramble algorithm used in cached_sha2_password fast path `<'bytes'>`.
+ *     """Compute the fast-path scramble for `caching_sha2_password` authentication `<'bytes'>`.
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 343, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_salt, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_3scramble_caching_sha2, 0, __pyx_n_s_scramble_caching_sha2, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 246, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 343, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_salt, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 343, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_3scramble_caching_sha2, 0, __pyx_n_s_scramble_caching_sha2, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 343, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_scramble_caching_sha2, __pyx_t_7) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_scramble_caching_sha2, __pyx_t_7) < 0) __PYX_ERR(0, 343, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/_auth.py":268
+  /* "sqlcycli/_auth.py":374
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * @cython.boundscheck(True)
  * def sha2_rsa_encrypt(password: bytes, salt: bytes, public_key: bytes) -> bytes:
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 374, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 268, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_salt, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 268, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_public_key, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 268, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_5sha2_rsa_encrypt, 0, __pyx_n_s_sha2_rsa_encrypt, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__23)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 268, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 374, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_salt, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 374, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_public_key, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 374, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_5sha2_rsa_encrypt, 0, __pyx_n_s_sha2_rsa_encrypt, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 374, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_sha2_rsa_encrypt, __pyx_t_5) < 0) __PYX_ERR(0, 268, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_sha2_rsa_encrypt, __pyx_t_5) < 0) __PYX_ERR(0, 374, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "sqlcycli/_auth.py":307
+  /* "sqlcycli/_auth.py":425
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * @cython.boundscheck(True)
  * def ed25519_password(password: bytes, scramble: bytes) -> bytes:
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 307, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_scramble, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 307, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_7ed25519_password, 0, __pyx_n_s_ed25519_password, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 307, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_password, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 425, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_scramble, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 425, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_7ed25519_password, 0, __pyx_n_s_ed25519_password, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_ed25519_password, __pyx_t_7) < 0) __PYX_ERR(0, 307, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_ed25519_password, __pyx_t_7) < 0) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
   /* "(tree fragment)":1
@@ -14427,7 +15185,7 @@ if (!__Pyx_RefNanny) {
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_9__pyx_unpickle_AuthPlugin, 0, __pyx_n_s_pyx_unpickle_AuthPlugin, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_5_auth_9__pyx_unpickle_AuthPlugin, 0, __pyx_n_s_pyx_unpickle_AuthPlugin, NULL, __pyx_n_s_sqlcycli__auth, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_AuthPlugin, __pyx_t_7) < 0) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -16463,33 +17221,6 @@ static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObjec
     return value;
 }
 
-/* ArgTypeTest */
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact)
-{
-    __Pyx_TypeName type_name;
-    __Pyx_TypeName obj_type_name;
-    if (unlikely(!type)) {
-        PyErr_SetString(PyExc_SystemError, "Missing type object");
-        return 0;
-    }
-    else if (exact) {
-        #if PY_MAJOR_VERSION == 2
-        if ((type == &PyBaseString_Type) && likely(__Pyx_PyBaseString_CheckExact(obj))) return 1;
-        #endif
-    }
-    else {
-        if (likely(__Pyx_TypeCheck(obj, type))) return 1;
-    }
-    type_name = __Pyx_PyType_GetName(type);
-    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
-    PyErr_Format(PyExc_TypeError,
-        "Argument '%.200s' has incorrect type (expected " __Pyx_FMT_TYPENAME
-        ", got " __Pyx_FMT_TYPENAME ")", name, type_name, obj_type_name);
-    __Pyx_DECREF_TypeName(type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    return 0;
-}
-
 /* RaiseUnboundLocalError */
 static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname) {
     PyErr_Format(PyExc_UnboundLocalError, "local variable '%s' referenced before assignment", varname);
@@ -16523,6 +17254,33 @@ static void __Pyx_Generator_Replace_StopIteration(int in_async_gen) {
         in_async_gen ? "async generator raised StopIteration" :
         #endif
         "generator raised StopIteration");
+}
+
+/* CallUnboundCMethod0 */
+static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObject* self) {
+    PyObject *args, *result = NULL;
+    if (unlikely(!cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_ASSUME_SAFE_MACROS
+    args = PyTuple_New(1);
+    if (unlikely(!args)) goto bad;
+    Py_INCREF(self);
+    PyTuple_SET_ITEM(args, 0, self);
+#else
+    args = PyTuple_Pack(1, self);
+    if (unlikely(!args)) goto bad;
+#endif
+    result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
+    Py_DECREF(args);
+bad:
+    return result;
+}
+
+/* py_dict_values */
+static CYTHON_INLINE PyObject* __Pyx_PyDict_Values(PyObject* d) {
+    if (PY_MAJOR_VERSION >= 3)
+        return __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyDict_Type_values, d);
+    else
+        return PyDict_Values(d);
 }
 
 /* KeywordStringCheck */
@@ -16631,6 +17389,33 @@ static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject
 #endif
 }
 
+/* ArgTypeTest */
+static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact)
+{
+    __Pyx_TypeName type_name;
+    __Pyx_TypeName obj_type_name;
+    if (unlikely(!type)) {
+        PyErr_SetString(PyExc_SystemError, "Missing type object");
+        return 0;
+    }
+    else if (exact) {
+        #if PY_MAJOR_VERSION == 2
+        if ((type == &PyBaseString_Type) && likely(__Pyx_PyBaseString_CheckExact(obj))) return 1;
+        #endif
+    }
+    else {
+        if (likely(__Pyx_TypeCheck(obj, type))) return 1;
+    }
+    type_name = __Pyx_PyType_GetName(type);
+    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
+    PyErr_Format(PyExc_TypeError,
+        "Argument '%.200s' has incorrect type (expected " __Pyx_FMT_TYPENAME
+        ", got " __Pyx_FMT_TYPENAME ")", name, type_name, obj_type_name);
+    __Pyx_DECREF_TypeName(type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    return 0;
+}
+
 /* ModInt[Py_ssize_t] */
 static CYTHON_INLINE Py_ssize_t __Pyx_mod_Py_ssize_t(Py_ssize_t a, Py_ssize_t b) {
     Py_ssize_t r = a % b;
@@ -16709,7 +17494,7 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
         if (unlikely(!module_name_str)) { goto modbad; }
         module_name = PyUnicode_FromString(module_name_str);
         if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__12);
+        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__14);
         if (unlikely(!module_dot)) { goto modbad; }
         full_name = PyUnicode_Concat(module_dot, name);
         if (unlikely(!full_name)) { goto modbad; }
@@ -19130,273 +19915,6 @@ raise_neg_overflow:
     return (long) -1;
 }
 
-/* CIntFromPy */
-static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *x) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const int neg_one = (int) -1, const_zero = (int) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-#if PY_MAJOR_VERSION < 3
-    if (likely(PyInt_Check(x))) {
-        if ((sizeof(int) < sizeof(long))) {
-            __PYX_VERIFY_RETURN_INT(int, long, PyInt_AS_LONG(x))
-        } else {
-            long val = PyInt_AS_LONG(x);
-            if (is_unsigned && unlikely(val < 0)) {
-                goto raise_neg_overflow;
-            }
-            return (int) val;
-        }
-    }
-#endif
-    if (unlikely(!PyLong_Check(x))) {
-        int val;
-        PyObject *tmp = __Pyx_PyNumber_IntOrLong(x);
-        if (!tmp) return (int) -1;
-        val = __Pyx_PyInt_As_int(tmp);
-        Py_DECREF(tmp);
-        return val;
-    }
-    if (is_unsigned) {
-#if CYTHON_USE_PYLONG_INTERNALS
-        if (unlikely(__Pyx_PyLong_IsNeg(x))) {
-            goto raise_neg_overflow;
-        } else if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_upylong, __Pyx_PyLong_CompactValueUnsigned(x))
-        } else {
-            const digit* digits = __Pyx_PyLong_Digits(x);
-            assert(__Pyx_PyLong_DigitCount(x) > 1);
-            switch (__Pyx_PyLong_DigitCount(x)) {
-                case 2:
-                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) >= 2 * PyLong_SHIFT)) {
-                            return (int) (((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
-                        }
-                    }
-                    break;
-                case 3:
-                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) >= 3 * PyLong_SHIFT)) {
-                            return (int) (((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
-                        }
-                    }
-                    break;
-                case 4:
-                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) >= 4 * PyLong_SHIFT)) {
-                            return (int) (((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
-                        }
-                    }
-                    break;
-            }
-        }
-#endif
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A7
-        if (unlikely(Py_SIZE(x) < 0)) {
-            goto raise_neg_overflow;
-        }
-#else
-        {
-            int result = PyObject_RichCompareBool(x, Py_False, Py_LT);
-            if (unlikely(result < 0))
-                return (int) -1;
-            if (unlikely(result == 1))
-                goto raise_neg_overflow;
-        }
-#endif
-        if ((sizeof(int) <= sizeof(unsigned long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned long, PyLong_AsUnsignedLong(x))
-#ifdef HAVE_LONG_LONG
-        } else if ((sizeof(int) <= sizeof(unsigned PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned PY_LONG_LONG, PyLong_AsUnsignedLongLong(x))
-#endif
-        }
-    } else {
-#if CYTHON_USE_PYLONG_INTERNALS
-        if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_pylong, __Pyx_PyLong_CompactValue(x))
-        } else {
-            const digit* digits = __Pyx_PyLong_Digits(x);
-            assert(__Pyx_PyLong_DigitCount(x) > 1);
-            switch (__Pyx_PyLong_SignedDigitCount(x)) {
-                case -2:
-                    if ((8 * sizeof(int) - 1 > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
-                            return (int) (((int)-1)*(((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case 2:
-                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
-                            return (int) ((((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case -3:
-                    if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
-                            return (int) (((int)-1)*(((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case 3:
-                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
-                            return (int) ((((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case -4:
-                    if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
-                            return (int) (((int)-1)*(((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case 4:
-                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
-                            return (int) ((((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-            }
-        }
-#endif
-        if ((sizeof(int) <= sizeof(long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, long, PyLong_AsLong(x))
-#ifdef HAVE_LONG_LONG
-        } else if ((sizeof(int) <= sizeof(PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, PY_LONG_LONG, PyLong_AsLongLong(x))
-#endif
-        }
-    }
-    {
-        int val;
-        int ret = -1;
-#if PY_VERSION_HEX >= 0x030d00A6 && !CYTHON_COMPILING_IN_LIMITED_API
-        Py_ssize_t bytes_copied = PyLong_AsNativeBytes(
-            x, &val, sizeof(val), Py_ASNATIVEBYTES_NATIVE_ENDIAN | (is_unsigned ? Py_ASNATIVEBYTES_UNSIGNED_BUFFER | Py_ASNATIVEBYTES_REJECT_NEGATIVE : 0));
-        if (unlikely(bytes_copied == -1)) {
-        } else if (unlikely(bytes_copied > (Py_ssize_t) sizeof(val))) {
-            goto raise_overflow;
-        } else {
-            ret = 0;
-        }
-#elif PY_VERSION_HEX < 0x030d0000 && !(CYTHON_COMPILING_IN_PYPY || CYTHON_COMPILING_IN_LIMITED_API) || defined(_PyLong_AsByteArray)
-        int one = 1; int is_little = (int)*(unsigned char *)&one;
-        unsigned char *bytes = (unsigned char *)&val;
-        ret = _PyLong_AsByteArray((PyLongObject *)x,
-                                    bytes, sizeof(val),
-                                    is_little, !is_unsigned);
-#else
-        PyObject *v;
-        PyObject *stepval = NULL, *mask = NULL, *shift = NULL;
-        int bits, remaining_bits, is_negative = 0;
-        int chunk_size = (sizeof(long) < 8) ? 30 : 62;
-        if (likely(PyLong_CheckExact(x))) {
-            v = __Pyx_NewRef(x);
-        } else {
-            v = PyNumber_Long(x);
-            if (unlikely(!v)) return (int) -1;
-            assert(PyLong_CheckExact(v));
-        }
-        {
-            int result = PyObject_RichCompareBool(v, Py_False, Py_LT);
-            if (unlikely(result < 0)) {
-                Py_DECREF(v);
-                return (int) -1;
-            }
-            is_negative = result == 1;
-        }
-        if (is_unsigned && unlikely(is_negative)) {
-            Py_DECREF(v);
-            goto raise_neg_overflow;
-        } else if (is_negative) {
-            stepval = PyNumber_Invert(v);
-            Py_DECREF(v);
-            if (unlikely(!stepval))
-                return (int) -1;
-        } else {
-            stepval = v;
-        }
-        v = NULL;
-        val = (int) 0;
-        mask = PyLong_FromLong((1L << chunk_size) - 1); if (unlikely(!mask)) goto done;
-        shift = PyLong_FromLong(chunk_size); if (unlikely(!shift)) goto done;
-        for (bits = 0; bits < (int) sizeof(int) * 8 - chunk_size; bits += chunk_size) {
-            PyObject *tmp, *digit;
-            long idigit;
-            digit = PyNumber_And(stepval, mask);
-            if (unlikely(!digit)) goto done;
-            idigit = PyLong_AsLong(digit);
-            Py_DECREF(digit);
-            if (unlikely(idigit < 0)) goto done;
-            val |= ((int) idigit) << bits;
-            tmp = PyNumber_Rshift(stepval, shift);
-            if (unlikely(!tmp)) goto done;
-            Py_DECREF(stepval); stepval = tmp;
-        }
-        Py_DECREF(shift); shift = NULL;
-        Py_DECREF(mask); mask = NULL;
-        {
-            long idigit = PyLong_AsLong(stepval);
-            if (unlikely(idigit < 0)) goto done;
-            remaining_bits = ((int) sizeof(int) * 8) - bits - (is_unsigned ? 0 : 1);
-            if (unlikely(idigit >= (1L << remaining_bits)))
-                goto raise_overflow;
-            val |= ((int) idigit) << bits;
-        }
-        if (!is_unsigned) {
-            if (unlikely(val & (((int) 1) << (sizeof(int) * 8 - 1))))
-                goto raise_overflow;
-            if (is_negative)
-                val = ~val;
-        }
-        ret = 0;
-    done:
-        Py_XDECREF(shift);
-        Py_XDECREF(mask);
-        Py_XDECREF(stepval);
-#endif
-        if (unlikely(ret))
-            return (int) -1;
-        return val;
-    }
-raise_overflow:
-    PyErr_SetString(PyExc_OverflowError,
-        "value too large to convert to int");
-    return (int) -1;
-raise_neg_overflow:
-    PyErr_SetString(PyExc_OverflowError,
-        "can't convert negative value to int");
-    return (int) -1;
-}
-
 /* CIntToPy */
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
@@ -19745,11 +20263,278 @@ __Pyx_PyType_GetName(PyTypeObject* tp)
     if (unlikely(name == NULL) || unlikely(!PyUnicode_Check(name))) {
         PyErr_Clear();
         Py_XDECREF(name);
-        name = __Pyx_NewRef(__pyx_n_s__28);
+        name = __Pyx_NewRef(__pyx_n_s__32);
     }
     return name;
 }
 #endif
+
+/* CIntFromPy */
+static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *x) {
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
+    const int neg_one = (int) -1, const_zero = (int) 0;
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic pop
+#endif
+    const int is_unsigned = neg_one > const_zero;
+#if PY_MAJOR_VERSION < 3
+    if (likely(PyInt_Check(x))) {
+        if ((sizeof(int) < sizeof(long))) {
+            __PYX_VERIFY_RETURN_INT(int, long, PyInt_AS_LONG(x))
+        } else {
+            long val = PyInt_AS_LONG(x);
+            if (is_unsigned && unlikely(val < 0)) {
+                goto raise_neg_overflow;
+            }
+            return (int) val;
+        }
+    }
+#endif
+    if (unlikely(!PyLong_Check(x))) {
+        int val;
+        PyObject *tmp = __Pyx_PyNumber_IntOrLong(x);
+        if (!tmp) return (int) -1;
+        val = __Pyx_PyInt_As_int(tmp);
+        Py_DECREF(tmp);
+        return val;
+    }
+    if (is_unsigned) {
+#if CYTHON_USE_PYLONG_INTERNALS
+        if (unlikely(__Pyx_PyLong_IsNeg(x))) {
+            goto raise_neg_overflow;
+        } else if (__Pyx_PyLong_IsCompact(x)) {
+            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_upylong, __Pyx_PyLong_CompactValueUnsigned(x))
+        } else {
+            const digit* digits = __Pyx_PyLong_Digits(x);
+            assert(__Pyx_PyLong_DigitCount(x) > 1);
+            switch (__Pyx_PyLong_DigitCount(x)) {
+                case 2:
+                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) >= 2 * PyLong_SHIFT)) {
+                            return (int) (((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
+                        }
+                    }
+                    break;
+                case 3:
+                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) >= 3 * PyLong_SHIFT)) {
+                            return (int) (((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
+                        }
+                    }
+                    break;
+                case 4:
+                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) >= 4 * PyLong_SHIFT)) {
+                            return (int) (((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
+                        }
+                    }
+                    break;
+            }
+        }
+#endif
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A7
+        if (unlikely(Py_SIZE(x) < 0)) {
+            goto raise_neg_overflow;
+        }
+#else
+        {
+            int result = PyObject_RichCompareBool(x, Py_False, Py_LT);
+            if (unlikely(result < 0))
+                return (int) -1;
+            if (unlikely(result == 1))
+                goto raise_neg_overflow;
+        }
+#endif
+        if ((sizeof(int) <= sizeof(unsigned long))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned long, PyLong_AsUnsignedLong(x))
+#ifdef HAVE_LONG_LONG
+        } else if ((sizeof(int) <= sizeof(unsigned PY_LONG_LONG))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned PY_LONG_LONG, PyLong_AsUnsignedLongLong(x))
+#endif
+        }
+    } else {
+#if CYTHON_USE_PYLONG_INTERNALS
+        if (__Pyx_PyLong_IsCompact(x)) {
+            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_pylong, __Pyx_PyLong_CompactValue(x))
+        } else {
+            const digit* digits = __Pyx_PyLong_Digits(x);
+            assert(__Pyx_PyLong_DigitCount(x) > 1);
+            switch (__Pyx_PyLong_SignedDigitCount(x)) {
+                case -2:
+                    if ((8 * sizeof(int) - 1 > 1 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
+                            return (int) (((int)-1)*(((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
+                        }
+                    }
+                    break;
+                case 2:
+                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
+                            return (int) ((((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
+                        }
+                    }
+                    break;
+                case -3:
+                    if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
+                            return (int) (((int)-1)*(((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
+                        }
+                    }
+                    break;
+                case 3:
+                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
+                            return (int) ((((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
+                        }
+                    }
+                    break;
+                case -4:
+                    if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
+                            return (int) (((int)-1)*(((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
+                        }
+                    }
+                    break;
+                case 4:
+                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
+                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
+                            return (int) ((((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
+                        }
+                    }
+                    break;
+            }
+        }
+#endif
+        if ((sizeof(int) <= sizeof(long))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, long, PyLong_AsLong(x))
+#ifdef HAVE_LONG_LONG
+        } else if ((sizeof(int) <= sizeof(PY_LONG_LONG))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, PY_LONG_LONG, PyLong_AsLongLong(x))
+#endif
+        }
+    }
+    {
+        int val;
+        int ret = -1;
+#if PY_VERSION_HEX >= 0x030d00A6 && !CYTHON_COMPILING_IN_LIMITED_API
+        Py_ssize_t bytes_copied = PyLong_AsNativeBytes(
+            x, &val, sizeof(val), Py_ASNATIVEBYTES_NATIVE_ENDIAN | (is_unsigned ? Py_ASNATIVEBYTES_UNSIGNED_BUFFER | Py_ASNATIVEBYTES_REJECT_NEGATIVE : 0));
+        if (unlikely(bytes_copied == -1)) {
+        } else if (unlikely(bytes_copied > (Py_ssize_t) sizeof(val))) {
+            goto raise_overflow;
+        } else {
+            ret = 0;
+        }
+#elif PY_VERSION_HEX < 0x030d0000 && !(CYTHON_COMPILING_IN_PYPY || CYTHON_COMPILING_IN_LIMITED_API) || defined(_PyLong_AsByteArray)
+        int one = 1; int is_little = (int)*(unsigned char *)&one;
+        unsigned char *bytes = (unsigned char *)&val;
+        ret = _PyLong_AsByteArray((PyLongObject *)x,
+                                    bytes, sizeof(val),
+                                    is_little, !is_unsigned);
+#else
+        PyObject *v;
+        PyObject *stepval = NULL, *mask = NULL, *shift = NULL;
+        int bits, remaining_bits, is_negative = 0;
+        int chunk_size = (sizeof(long) < 8) ? 30 : 62;
+        if (likely(PyLong_CheckExact(x))) {
+            v = __Pyx_NewRef(x);
+        } else {
+            v = PyNumber_Long(x);
+            if (unlikely(!v)) return (int) -1;
+            assert(PyLong_CheckExact(v));
+        }
+        {
+            int result = PyObject_RichCompareBool(v, Py_False, Py_LT);
+            if (unlikely(result < 0)) {
+                Py_DECREF(v);
+                return (int) -1;
+            }
+            is_negative = result == 1;
+        }
+        if (is_unsigned && unlikely(is_negative)) {
+            Py_DECREF(v);
+            goto raise_neg_overflow;
+        } else if (is_negative) {
+            stepval = PyNumber_Invert(v);
+            Py_DECREF(v);
+            if (unlikely(!stepval))
+                return (int) -1;
+        } else {
+            stepval = v;
+        }
+        v = NULL;
+        val = (int) 0;
+        mask = PyLong_FromLong((1L << chunk_size) - 1); if (unlikely(!mask)) goto done;
+        shift = PyLong_FromLong(chunk_size); if (unlikely(!shift)) goto done;
+        for (bits = 0; bits < (int) sizeof(int) * 8 - chunk_size; bits += chunk_size) {
+            PyObject *tmp, *digit;
+            long idigit;
+            digit = PyNumber_And(stepval, mask);
+            if (unlikely(!digit)) goto done;
+            idigit = PyLong_AsLong(digit);
+            Py_DECREF(digit);
+            if (unlikely(idigit < 0)) goto done;
+            val |= ((int) idigit) << bits;
+            tmp = PyNumber_Rshift(stepval, shift);
+            if (unlikely(!tmp)) goto done;
+            Py_DECREF(stepval); stepval = tmp;
+        }
+        Py_DECREF(shift); shift = NULL;
+        Py_DECREF(mask); mask = NULL;
+        {
+            long idigit = PyLong_AsLong(stepval);
+            if (unlikely(idigit < 0)) goto done;
+            remaining_bits = ((int) sizeof(int) * 8) - bits - (is_unsigned ? 0 : 1);
+            if (unlikely(idigit >= (1L << remaining_bits)))
+                goto raise_overflow;
+            val |= ((int) idigit) << bits;
+        }
+        if (!is_unsigned) {
+            if (unlikely(val & (((int) 1) << (sizeof(int) * 8 - 1))))
+                goto raise_overflow;
+            if (is_negative)
+                val = ~val;
+        }
+        ret = 0;
+    done:
+        Py_XDECREF(shift);
+        Py_XDECREF(mask);
+        Py_XDECREF(stepval);
+#endif
+        if (unlikely(ret))
+            return (int) -1;
+        return val;
+    }
+raise_overflow:
+    PyErr_SetString(PyExc_OverflowError,
+        "value too large to convert to int");
+    return (int) -1;
+raise_neg_overflow:
+    PyErr_SetString(PyExc_OverflowError,
+        "can't convert negative value to int");
+    return (int) -1;
+}
 
 /* FastTypeChecks */
 #if CYTHON_COMPILING_IN_CPYTHON

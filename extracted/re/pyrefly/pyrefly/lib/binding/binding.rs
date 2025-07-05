@@ -120,24 +120,24 @@ pub enum AnyIdx {
     KeyYieldFrom(Idx<KeyYieldFrom>),
 }
 
-impl AnyIdx {
-    pub fn kind(&self) -> &'static str {
+impl DisplayWith<Bindings> for AnyIdx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         match self {
-            Self::Key(..) => "Key",
-            Self::KeyExpect(..) => "KeyExpect",
-            Self::KeyClass(..) => "KeyClass",
-            Self::KeyTParams(..) => "KeyTParams",
-            Self::KeyClassField(..) => "KeyClassField",
-            Self::KeyVariance(..) => "KeyVariance",
-            Self::KeyClassSynthesizedFields(..) => "KeyClassSynthesizedFields",
-            Self::KeyExport(..) => "KeyExport",
-            Self::KeyFunction(..) => "KeyFunction",
-            Self::KeyAnnotation(..) => "KeyAnnotation",
-            Self::KeyClassMetadata(..) => "KeyClassMetadata",
-            Self::KeyClassMro(..) => "KeyClassMro",
-            Self::KeyLegacyTypeParam(..) => "KeyLegacyTypeParam",
-            Self::KeyYield(..) => "KeyYield",
-            Self::KeyYieldFrom(..) => "KeyYieldFrom",
+            Self::Key(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyExpect(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClass(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyTParams(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassField(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyVariance(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyExport(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyFunction(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyAnnotation(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassMetadata(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassMro(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyLegacyTypeParam(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyYield(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyYieldFrom(idx) => write!(f, "{}", ctx.display(*idx)),
         }
     }
 }
@@ -281,6 +281,8 @@ pub enum Key {
     /// Used for `import foo.x` (the `foo` might not be literally present with `.` modules),
     /// and `from foo import *` (the names are injected from the exports)
     Import(Name, TextRange),
+    /// I am a module-level global variable like `__file__` or `__doc__`.
+    Global(Name),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
     /// I am a name assignment that is also a first use of some other name assign.
@@ -335,6 +337,7 @@ impl Ranged for Key {
     fn range(&self) -> TextRange {
         match self {
             Self::Import(_, r) => *r,
+            Self::Global(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
             Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
@@ -362,6 +365,7 @@ impl DisplayWith<ModuleInfo> for Key {
 
         match self {
             Self::Import(n, r) => write!(f, "Key::Import({n} {})", ctx.display(r)),
+            Self::Global(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
             Self::UpstreamPinnedDefinition(x) => {
                 write!(f, "Key::UpstreamPinnedDefinition({})", short(x))
@@ -1088,9 +1092,8 @@ pub enum Binding {
     /// Binding for a lambda parameter.
     LambdaParameter(Var),
     /// Binding for a function parameter. We either have an annotation, or we will determine the
-    /// parameter type when solving the function type. To ensure the parameter is solved before it
-    /// can be observed as a Var, we include the function key and force it to be solved first.
-    FunctionParameter(Either<Idx<KeyAnnotation>, (Var, Idx<KeyFunction>)>),
+    /// parameter type when solving the function type.
+    FunctionParameter(Either<Idx<KeyAnnotation>, Var>),
     /// The result of a `super()` call.
     SuperInstance(SuperStyle, TextRange),
     /// The result of assigning to an attribute. This operation cannot change the *type* of the
@@ -1285,7 +1288,7 @@ impl DisplayWith<Bindings> for Binding {
                 "FunctionParameter({})",
                 match x {
                     Either::Left(k) => ctx.display(*k).to_string(),
-                    Either::Right((x, k)) => format!("{x}, {}", ctx.display(*k)),
+                    Either::Right(x) => x.to_string(),
                 }
             ),
             Self::SuperInstance(SuperStyle::ExplicitArgs(cls, obj), _range) => {

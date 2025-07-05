@@ -90,7 +90,21 @@ impl Exports {
             module_info.path().is_init(),
             sys_info,
         );
+        definitions.inject_globals();
         definitions.ensure_dunder_all(module_info.path().style());
+        if module_info.name() == ModuleName::builtins() {
+            // The `builtins` module is a bit weird. It has no `__all__` in TypeShed,
+            // if you do `from builtins import *` it behaves weirdly, and things that
+            // would otherwise be hidden show up.
+            //
+            // Eventually it would be good to make TypeShed the source of truth, but
+            // until then, manually extend the synthetic `__all__` to match runtime.
+            definitions.extend_dunder_all(&[
+                Name::new_static("__build_class__"),
+                Name::new_static("__import__"),
+            ]);
+        }
+
         Self(Arc::new(ExportsInner {
             definitions,
             wildcard: Calculation::new(),
@@ -155,6 +169,11 @@ impl Exports {
                         location: definition.range,
                         symbol_kind: None,
                         docstring: definition.docstring.clone(),
+                    }),
+                    DefinitionStyle::Global => ExportLocation::ThisModule(Export {
+                        location: definition.range,
+                        symbol_kind: Some(SymbolKind::Constant),
+                        docstring: None,
                     }),
                     DefinitionStyle::ImportAs(from)
                     | DefinitionStyle::ImportAsEq(from)

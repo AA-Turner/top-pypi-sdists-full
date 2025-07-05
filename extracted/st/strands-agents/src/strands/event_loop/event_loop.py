@@ -11,8 +11,9 @@ The event loop allows agents to:
 import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import Any, Generator, Optional
+from typing import Any, AsyncGenerator, Optional
 
 from opentelemetry import trace
 
@@ -20,7 +21,6 @@ from ..telemetry.metrics import EventLoopMetrics, Trace
 from ..telemetry.tracer import get_tracer
 from ..tools.executor import run_tools, validate_and_prepare_tools
 from ..types.content import Message, Messages
-from ..types.event_loop import ParallelToolExecutorInterface
 from ..types.exceptions import ContextWindowOverflowException, EventLoopException, ModelThrottledException
 from ..types.models import Model
 from ..types.streaming import Metrics, StopReason
@@ -35,17 +35,17 @@ INITIAL_DELAY = 4
 MAX_DELAY = 240  # 4 minutes
 
 
-def event_loop_cycle(
+async def event_loop_cycle(
     model: Model,
     system_prompt: Optional[str],
     messages: Messages,
     tool_config: Optional[ToolConfig],
     tool_handler: Optional[ToolHandler],
-    tool_execution_handler: Optional[ParallelToolExecutorInterface],
+    thread_pool: Optional[ThreadPoolExecutor],
     event_loop_metrics: EventLoopMetrics,
     event_loop_parent_span: Optional[trace.Span],
     kwargs: dict[str, Any],
-) -> Generator[dict[str, Any], None, None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Execute a single cycle of the event loop.
 
     This core function processes a single conversation turn, handling model inference, tool execution, and error
@@ -65,7 +65,7 @@ def event_loop_cycle(
         messages: Conversation history messages.
         tool_config: Configuration for available tools.
         tool_handler: Handler for executing tools.
-        tool_execution_handler: Optional handler for parallel tool execution.
+        thread_pool: Optional thread pool for parallel tool execution.
         event_loop_metrics: Metrics tracking object for the event loop.
         event_loop_parent_span: Span for the parent of this event loop.
         kwargs: Additional arguments including:
@@ -132,7 +132,7 @@ def event_loop_cycle(
         try:
             # TODO: To maintain backwards compatability, we need to combine the stream event with kwargs before yielding
             #       to the callback handler. This will be revisited when migrating to strongly typed events.
-            for event in stream_messages(model, system_prompt, messages, tool_config):
+            async for event in stream_messages(model, system_prompt, messages, tool_config):
                 if "callback" in event:
                     yield {"callback": {**event["callback"], **(kwargs if "delta" in event["callback"] else {})}}
 
@@ -202,7 +202,7 @@ def event_loop_cycle(
                 )
 
             # Handle tool execution
-            yield from _handle_tool_execution(
+            events = _handle_tool_execution(
                 stop_reason,
                 message,
                 model,
@@ -210,7 +210,7 @@ def event_loop_cycle(
                 messages,
                 tool_config,
                 tool_handler,
-                tool_execution_handler,
+                thread_pool,
                 event_loop_metrics,
                 event_loop_parent_span,
                 cycle_trace,
@@ -218,6 +218,9 @@ def event_loop_cycle(
                 cycle_start_time,
                 kwargs,
             )
+            async for event in events:
+                yield event
+
             return
 
         # End the cycle and return results
@@ -250,17 +253,17 @@ def event_loop_cycle(
     yield {"stop": (stop_reason, message, event_loop_metrics, kwargs["request_state"])}
 
 
-def recurse_event_loop(
+async def recurse_event_loop(
     model: Model,
     system_prompt: Optional[str],
     messages: Messages,
     tool_config: Optional[ToolConfig],
     tool_handler: Optional[ToolHandler],
-    tool_execution_handler: Optional[ParallelToolExecutorInterface],
+    thread_pool: Optional[ThreadPoolExecutor],
     event_loop_metrics: EventLoopMetrics,
     event_loop_parent_span: Optional[trace.Span],
     kwargs: dict[str, Any],
-) -> Generator[dict[str, Any], None, None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Make a recursive call to event_loop_cycle with the current state.
 
     This function is used when the event loop needs to continue processing after tool execution.
@@ -271,7 +274,7 @@ def recurse_event_loop(
         messages: Conversation history messages
         tool_config: Configuration for available tools
         tool_handler: Handler for tool execution
-        tool_execution_handler: Optional handler for parallel tool execution.
+        thread_pool: Optional thread pool for parallel tool execution.
         event_loop_metrics: Metrics tracking object for the event loop.
         event_loop_parent_span: Span for the parent of this event loop.
         kwargs: Arguments to pass through event_loop_cycle
@@ -292,22 +295,25 @@ def recurse_event_loop(
     cycle_trace.add_child(recursive_trace)
 
     yield {"callback": {"start": True}}
-    yield from event_loop_cycle(
+
+    events = event_loop_cycle(
         model=model,
         system_prompt=system_prompt,
         messages=messages,
         tool_config=tool_config,
         tool_handler=tool_handler,
-        tool_execution_handler=tool_execution_handler,
+        thread_pool=thread_pool,
         event_loop_metrics=event_loop_metrics,
         event_loop_parent_span=event_loop_parent_span,
         kwargs=kwargs,
     )
+    async for event in events:
+        yield event
 
     recursive_trace.end()
 
 
-def _handle_tool_execution(
+async def _handle_tool_execution(
     stop_reason: StopReason,
     message: Message,
     model: Model,
@@ -315,14 +321,14 @@ def _handle_tool_execution(
     messages: Messages,
     tool_config: ToolConfig,
     tool_handler: ToolHandler,
-    tool_execution_handler: Optional[ParallelToolExecutorInterface],
+    thread_pool: Optional[ThreadPoolExecutor],
     event_loop_metrics: EventLoopMetrics,
     event_loop_parent_span: Optional[trace.Span],
     cycle_trace: Trace,
     cycle_span: Any,
     cycle_start_time: float,
     kwargs: dict[str, Any],
-) -> Generator[dict[str, Any], None, None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     tool_uses: list[ToolUse] = []
     tool_results: list[ToolResult] = []
     invalid_tool_use_ids: list[str] = []
@@ -331,20 +337,20 @@ def _handle_tool_execution(
     Handles the execution of tools requested by the model during an event loop cycle.
 
     Args:
-        stop_reason (StopReason): The reason the model stopped generating.
-        message (Message): The message from the model that may contain tool use requests.
-        model (Model): The model provider instance.
-        system_prompt (Optional[str]): The system prompt instructions for the model.
-        messages (Messages): The conversation history messages.
-        tool_config (ToolConfig): Configuration for available tools.
-        tool_handler (ToolHandler): Handler for tool execution.
-        tool_execution_handler (Optional[ParallelToolExecutorInterface]): Optional handler for parallel tool execution.
-        event_loop_metrics (EventLoopMetrics): Metrics tracking object for the event loop.
-        event_loop_parent_span (Any): Span for the parent of this event loop.
-        cycle_trace (Trace): Trace object for the current event loop cycle.
-        cycle_span (Any): Span object for tracing the cycle (type may vary).
-        cycle_start_time (float): Start time of the current cycle.
-        kwargs (dict[str, Any]): Additional keyword arguments, including request state.
+        stop_reason: The reason the model stopped generating.
+        message: The message from the model that may contain tool use requests.
+        model: The model provider instance.
+        system_prompt: The system prompt instructions for the model.
+        messages: The conversation history messages.
+        tool_config: Configuration for available tools.
+        tool_handler: Handler for tool execution.
+        thread_pool: Optional thread pool for parallel tool execution.
+        event_loop_metrics: Metrics tracking object for the event loop.
+        event_loop_parent_span: Span for the parent of this event loop.
+        cycle_trace: Trace object for the current event loop cycle.
+        cycle_span: Span object for tracing the cycle (type may vary).
+        cycle_start_time: Start time of the current cycle.
+        kwargs: Additional keyword arguments, including request state.
 
     Yields:
         Tool invocation events along with events yielded from a recursive call to the event loop. The last event is a
@@ -369,7 +375,7 @@ def _handle_tool_execution(
         kwargs=kwargs,
     )
 
-    yield from run_tools(
+    tool_events = run_tools(
         handler=tool_handler_process,
         tool_uses=tool_uses,
         event_loop_metrics=event_loop_metrics,
@@ -377,8 +383,10 @@ def _handle_tool_execution(
         tool_results=tool_results,
         cycle_trace=cycle_trace,
         parent_span=cycle_span,
-        parallel_tool_executor=tool_execution_handler,
+        thread_pool=thread_pool,
     )
+    for tool_event in tool_events:
+        yield tool_event
 
     # Store parent cycle ID for the next cycle
     kwargs["event_loop_parent_cycle_id"] = kwargs["event_loop_cycle_id"]
@@ -400,14 +408,16 @@ def _handle_tool_execution(
         yield {"stop": (stop_reason, message, event_loop_metrics, kwargs["request_state"])}
         return
 
-    yield from recurse_event_loop(
+    events = recurse_event_loop(
         model=model,
         system_prompt=system_prompt,
         messages=messages,
         tool_config=tool_config,
         tool_handler=tool_handler,
-        tool_execution_handler=tool_execution_handler,
+        thread_pool=thread_pool,
         event_loop_metrics=event_loop_metrics,
         event_loop_parent_span=event_loop_parent_span,
         kwargs=kwargs,
     )
+    async for event in events:
+        yield event

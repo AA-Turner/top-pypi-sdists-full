@@ -1,5 +1,5 @@
 # pyOCD debugger
-# Copyright (c) 2018-2019 Arm Limited
+# Copyright (c) 2018-2019,2025 Arm Limited
 # Copyright (c) 2021-2023 Chris Reed
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -94,6 +94,9 @@ class RamBuilder(MemoryBuilder):
         if progress_cb is not None:
             progress_cb(1.0)
 
+        if kwargs.get("no_reset", False) is False:
+            target.reset_and_halt()
+
         # Return some performance numbers.
         return ProgrammingInfo(
             program_time=time() - start_time,
@@ -135,7 +138,7 @@ class MemoryLoader:
     _progress_offset: float
     _current_progress_fraction: float
 
-    _chip_erase: Optional[bool]
+    _chip_erase: Optional[str]
     _smart_flash: Optional[bool]
     _trust_crc: Optional[bool]
     _keep_unwritten: Optional[bool]
@@ -144,7 +147,7 @@ class MemoryLoader:
     def __init__(self,
             session: "Session",
             progress: Optional[ProgressCallback] = None,
-            chip_erase: Optional[bool] = None,
+            chip_erase: Optional[str] = None,
             smart_flash: Optional[bool] = None,
             trust_crc: Optional[bool] = None,
             keep_unwritten: Optional[bool] = None,
@@ -226,7 +229,7 @@ class MemoryLoader:
         """
         while len(data):
             # Look up the memory region for this address.
-            region = self._map.get_region_for_address(address)
+            region = self._map.get_region_for_address(address, self._session.target.selected_core.node_name)
             if region is None:
                 raise ValueError("no memory region defined for address 0x%08x" % address)
 

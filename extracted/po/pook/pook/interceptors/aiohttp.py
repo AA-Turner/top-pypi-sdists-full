@@ -95,11 +95,11 @@ class AIOHTTPInterceptor(BaseInterceptor):
         if not kw.get("params"):
             req.url = str(full_url)
         else:
-            req.url = (
-                str(full_url)
-                + "?"
-                + urlencode([(x, y) for x, y in kw["params"].items()])
-            )
+            # Transform params as a list of tuple
+            params = kw["params"]
+            if isinstance(params, dict):
+                params = [(x, y) for x, y in kw["params"].items()]
+            req.url = str(full_url) + "?" + urlencode(params)
 
         # If a json payload is provided, serialize it for JSONMatcher support
         if json_body := kw.get("json"):
@@ -139,7 +139,9 @@ class AIOHTTPInterceptor(BaseInterceptor):
         _res.reason = http_reasons.get(res._status)
 
         # Add response headers
-        _res._raw_headers = tuple(headers)
+        _res._raw_headers = tuple(
+            [(bytes(k, "utf-8"), bytes(v, "utf-8")) for k, v in headers]
+        )
         _res._headers = multidict.CIMultiDictProxy(multidict.CIMultiDict(headers))
 
         if res._body:

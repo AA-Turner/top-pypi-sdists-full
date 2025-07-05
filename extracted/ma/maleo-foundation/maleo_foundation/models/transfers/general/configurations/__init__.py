@@ -1,5 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field
-from maleo_foundation.utils.logging import MiddlewareLogger, ServiceLogger
+from maleo_foundation.utils.logging import (
+    ApplicationLogger,
+    CacheLogger,
+    DatabaseLogger,
+    MiddlewareLogger,
+    RepositoryLogger,
+    ServiceLogger
+)
 from .cache import CacheConfigurations
 from .client import ClientConfigurations
 from .database import DatabaseConfigurations
@@ -18,7 +25,9 @@ class Configurations(BaseModel):
 class Loggers(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    application: ServiceLogger = Field(..., description="Application logger")
-    repository: ServiceLogger = Field(..., description="Repository logger")
-    database: ServiceLogger = Field(..., description="Database logger")
+    application: ApplicationLogger = Field(..., description="Application logger")
+    cache: CacheLogger = Field(..., description="Cache logger")
+    database: DatabaseLogger = Field(..., description="Database logger")
     middleware: MiddlewareLogger = Field(..., description="Middleware logger")
+    repository: RepositoryLogger = Field(..., description="Repository logger")
+    service: ServiceLogger = Field(..., description="Service logger")

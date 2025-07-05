@@ -1,51 +1,29 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: daytona_sdk
-Version: 0.21.7
+Version: 0.21.8
 Summary: Python SDK for Daytona
-Author-email: "Daytona Platforms Inc." <support@daytona.io>
 License: Apache-2.0
-Project-URL: Documentation, https://www.daytona.io/docs
-Project-URL: Repository, https://github.com/daytonaio/daytona
-Project-URL: Issues, https://github.com/daytonaio/daytona/issues
 Keywords: daytona,sdk
+Author: Daytona Platforms Inc.
+Author-email: support@daytona.io
+Requires-Python: >=3.8,<4.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.10
+Requires-Dist: Deprecated (>=1.2.18,<2.0.0)
+Requires-Dist: aioboto3 (>=13.0.0,<15.0.0)
+Requires-Dist: aiofiles (>=24.1.0,<24.2.0)
+Requires-Dist: boto3 (>=1.0.0,<2.0.0)
+Requires-Dist: daytona-api-client (==0.21.8)
+Requires-Dist: daytona-api-client-async (==0.21.8)
+Requires-Dist: environs (>=10.0.0,<15.0.0)
+Requires-Dist: httpx (>=0.28.0,<0.29.0)
+Requires-Dist: pydantic (>=2.4.2,<3.0.0)
+Requires-Dist: toml (>=0.10.0,<0.11.0)
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: daytona_api_client<0.22.0,>=0.21.7
-Requires-Dist: daytona_api_client_async<0.22.0,>=0.21.7
-Requires-Dist: environs<10.0.0,>=9.5.0
-Requires-Dist: marshmallow<4.0.0,>=3.19.0
-Requires-Dist: pydantic<3.0.0,>=2.4.2
-Requires-Dist: python-dateutil<3.0.0,>=2.8.2
-Requires-Dist: urllib3<3.0.0,>=2.0.7
-Requires-Dist: Deprecated<2.0.0,>=1.2.18
-Requires-Dist: httpx<0.29.0,>=0.28.0
-Requires-Dist: aiofiles<24.2.0,>=24.1.0
-Requires-Dist: aiohttp<4.0.0,>=3.12.0
-Requires-Dist: aiohttp_retry<3.0.0,>=2.9.0
-Requires-Dist: toml<0.11.0,>=0.10.0
-Requires-Dist: aioboto3<15.0.0,>=14.0.0
-Requires-Dist: boto3<2.0.0,>=1.0.0
-Requires-Dist: importlib-metadata<6.0.0,>=1.0.0; python_version < "3.8"
-Provides-Extra: dev
-Requires-Dist: pydoc-markdown>=4.8.2; extra == "dev"
-Requires-Dist: build>=1.0.3; extra == "dev"
-Requires-Dist: wheel>=0.41.2; extra == "dev"
-Requires-Dist: setuptools>=68.0.0; extra == "dev"
-Requires-Dist: twine>=4.0.2; extra == "dev"
-Requires-Dist: nbqa<2.0.0,>=1.9.1; extra == "dev"
-Requires-Dist: black[jupyter]<24.0.0,>=23.1.0; extra == "dev"
-Requires-Dist: pylint<4.0.0,>=3.3.4; extra == "dev"
-Requires-Dist: isort<6.0.0,>=5.10.0; extra == "dev"
-Requires-Dist: matplotlib<3.11.0,>=3.10.0; extra == "dev"
-Requires-Dist: unasync<0.7.0,>=0.6.0; extra == "dev"
-Dynamic: license-file
 
 # Daytona SDK for Python
 
@@ -187,3 +165,4 @@ completions = lsp.completions('path/to/file.ts', {"line": 10, "character": 15})
 Daytona is Open Source under the [Apache License 2.0](/libs/sdk-python/LICENSE), and is the [copyright of its contributors](/NOTICE). If you would like to contribute to the software, read the Developer Certificate of Origin Version 1.1 (https://developercertificate.org/). Afterwards, navigate to the [contributing guide](/CONTRIBUTING.md) to get started.
 
 Code in [\_sync](/libs/sdk-python/src/daytona/_sync/) directory shouldn't be edited directly. It should be generated from the corresponding async code in the [\_async](/libs/sdk-python/src/daytona/_async/) directory using the [sync_generator.py](/libs/sdk-python/scripts/sync_generator.py) script.
+

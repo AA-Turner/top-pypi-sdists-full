@@ -16,7 +16,7 @@ from dateutil import tz
 from termcolor import colored
 
 from ..data_sources import DataSource
-from ..entities import Asset, Order, Position
+from ..entities import Asset, Order, Position, Quote
 from ..trading_builtins import SafeList
 
 # Consolidate errors from different brokers into a single class that can be easily caught even
@@ -1378,6 +1378,27 @@ class Broker(ABC):
                 if self._is_stream_subscribed is True:
                     break
         return
+
+    def get_quote(self, asset: Asset, quote: Asset = None, exchange: str = None) -> Quote:
+        """
+        Get the latest quote for an asset.
+        Returns a Quote object with bid, ask, last, and other fields if available.
+
+        Parameters
+        ----------
+        asset : Asset object
+            The asset for which the quote is needed.
+        quote : Asset object, optional
+            The quote asset for cryptocurrency pairs.
+        exchange : str, optional
+            The exchange to get the quote from.
+
+        Returns
+        -------
+        Quote
+            A Quote object with the quote information.
+        """
+        return self.data_source.get_quote(asset, quote, exchange)
 
     def export_trade_events_to_csv(self, filename):
         if len(self._trade_event_log_df) > 0:

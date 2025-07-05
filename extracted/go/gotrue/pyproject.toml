@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gotrue"
-version = "2.12.2" # {x-release-please-version}
+version = "2.12.3" # {x-release-please-version}
 description = "Python Client Library for Supabase Auth"
 authors = ["Joel Lee <joel@joellee.org>"]
 homepage = "https://github.com/supabase/auth-py"
@@ -19,23 +19,41 @@ python = "^3.9"
 httpx = { version = ">=0.26,<0.29", extras = ["http2"] }
 pydantic = ">=1.10,<3"
 pyjwt = "^2.10.1"
-pytest-mock = "^3.14.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
-flake8 = "^7.3.0"
-black = "^25.1.0"
-isort = "^6.0.1"
+pytest-mock = "^3.14.0"
 pre-commit = "^4.2.0"
 pytest-cov = "^6.2.1"
 pytest-depends = "^1.0.1"
 pytest-asyncio = "^1.0.0"
 Faker = "^37.4.0"
 unasync-cli = { git = "https://github.com/supabase-community/unasync-cli.git", branch = "main" }
-
-[tool.poetry.group.dev.dependencies]
 pygithub = ">=1.57,<3.0"
 respx = ">=0.20.2,<0.23.0"
+ruff = "^0.12.1"
+
+[tool.ruff.lint]
+select = [
+  # pycodestyle
+  "E",
+  # Pyflakes
+  "F",
+  # pyupgrade
+  "UP",
+  # flake8-bugbear
+  # "B",
+  # flake8-simplify
+  # "SIM",
+  # isort
+  "I",
+]
+ignore = ["F401", "F403", "F841", "E712", "E501", "E402", "E722", "E731", "UP006", "UP035"]
+# isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

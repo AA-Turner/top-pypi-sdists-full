@@ -1,5 +1,5 @@
 # pyOCD debugger
-# Copyright (c) 2006-2020 Arm Limited
+# Copyright (c) 2006-2020,2025 Arm Limited
 # Copyright (c) 2021-2022 Chris Reed
 # Copyright (c) 2022 Clay McClure
 # SPDX-License-Identifier: Apache-2.0
@@ -108,7 +108,7 @@ class GDBServer(threading.Thread):
     ## Timer delay for sending the notification that the server is listening.
     START_LISTENING_NOTIFY_DELAY = 0.03 # 30 ms
 
-    def __init__(self, session, core=None):
+    def __init__(self, session, core=None, port=None):
         super().__init__()
         self.session = session
         self.board = session.board
@@ -120,9 +120,13 @@ class GDBServer(threading.Thread):
             self.target = self.board.target.cores[core]
         self.name = "gdb-server-core%d" % self.core
 
-        self.port = session.options.get('gdbserver_port')
-        if self.port != 0:
-            self.port += self.core
+        if port is None:
+            self.port = session.options.get('gdbserver_port')
+            if self.port != 0:
+                self.port += self.core
+        else:
+            self.port = port
+
         self.telnet_port = session.options.get('telnet_port')
         if self.telnet_port != 0:
             self.telnet_port += self.core
@@ -136,6 +140,8 @@ class GDBServer(threading.Thread):
         self.semihost_use_syscalls = session.options.get('semihost_use_syscalls') # Not subscribed.
         self.serve_local_only = session.options.get('serve_local_only') # Not subscribed.
         self.report_core = session.options.get('report_core_number')
+        self.soft_bkpt_as_hard = session.options.get('soft_bkpt_as_hard')
+
         # Subscribe to changes for those of the above options that make sense to change at runtime.
         self.session.options.subscribe(self._option_did_change, [
                 'vector_catch',
@@ -143,6 +149,7 @@ class GDBServer(threading.Thread):
                 'persist',
                 'enable_semihosting',
                 'report_core_number',
+                'soft_bkpt_as_hard',
                 ])
 
         self.packet_size = 2048
@@ -325,7 +332,7 @@ class GDBServer(threading.Thread):
 
                 while not self.shutdown_event.is_set():
                     connected = self.abstract_socket.connect()
-                    if connected != None:
+                    if connected is not None:
                         self.packet_io = GDBServerPacketIOThread(self.abstract_socket)
                         break
 
@@ -464,7 +471,8 @@ class GDBServer(threading.Thread):
         # handle software breakpoint Z0/z0
         if data[1:2] == b'0':
             if data[0:1] == b'Z':
-                if not self.target.set_breakpoint(addr, Target.BreakpointType.SW):
+                bkpt_type = Target.BreakpointType.HW if self.soft_bkpt_as_hard else Target.BreakpointType.SW
+                if not self.target.set_breakpoint(addr, bkpt_type):
                     return self.create_rsp_packet(b'E01') #EPERM
             else:
                 self.target.remove_breakpoint(addr)
@@ -795,6 +803,10 @@ class GDBServer(threading.Thread):
         ops = data.split(b':')[0]
         LOG.debug("flash op: %s", ops)
 
+        # Select current core
+        if self.board.target.selected_core != self.core:
+            self.board.target.selected_core = self.core
+
         if ops == b'FlashErase':
             return self.create_rsp_packet(b"OK")
 
@@ -950,7 +962,7 @@ class GDBServer(threading.Thread):
                 # Must return an empty packet for an unrecognized qXfer.
                 return self.create_rsp_packet(b"")
 
-        elif query[0].startswith(b'C'):
+        elif query[0] == b'C':
             if not self.is_threading_enabled():
                 return self.create_rsp_packet(b"QC1")
             else:
@@ -1266,4 +1278,5 @@ class GDBServer(threading.Thread):
             LOG.info("Semihosting %s", ('enabled' if self.enable_semihosting else 'disabled'))
         elif notification.event == 'report_core_number':
             self.report_core = notification.data.new_value
-
+        elif notification.event == 'soft_bkpt_as_hard':
+            self.soft_bkpt_as_hard = notification.data.new_value

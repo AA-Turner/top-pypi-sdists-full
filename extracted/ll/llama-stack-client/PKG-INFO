@@ -1,12 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: llama_stack_client
-Version: 0.2.13
+Version: 0.2.14
 Summary: The official Python library for the llama-stack-client API
-Project-URL: Homepage, https://github.com/meta-llama/llama-stack-client-python
-Project-URL: Repository, https://github.com/meta-llama/llama-stack-client-python
+Project-URL: Homepage, https://github.com/llamastack/llama-stack-client-python
+Project-URL: Repository, https://github.com/llamastack/llama-stack-client-python
 Author-email: Meta Llama <llama-oss@meta.com>
-License-Expression: Apache-2.0
-License-File: LICENSE
+License: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
@@ -50,7 +49,7 @@ It is generated with [Stainless](https://www.stainlessapi.com/).
 
 For starting up a Llama Stack server, please checkout our guides in our [llama-stack](https://github.com/meta-llama/llama-stack/blob/main/docs/resources/llama-stack-spec.html) repo.
 
-The REST API documentation can be found on our [llama-stack OpenAPI spec](https://github.com/meta-llama/llama-stack/blob/main/docs/resources/llama-stack-spec.html). The full API of this library can be found in [api.md](https://github.com/meta-llama/llama-stack-client-python/tree/main/api.md).
+The REST API documentation can be found on our [llama-stack OpenAPI spec](https://github.com/meta-llama/llama-stack/blob/main/docs/resources/llama-stack-spec.html). The full API of this library can be found in [api.md](https://github.com/llamastack/llama-stack-client-python/tree/main/api.md).
 
 You can find more example apps with client SDKs to talk with the Llama Stack server in our [llama-stack-apps](https://github.com/meta-llama/llama-stack-apps/tree/main) repo.
 
@@ -62,7 +61,7 @@ pip install llama-stack-client
 
 ## Usage
 
-The full API of this library can be found in [api.md](https://github.com/meta-llama/llama-stack-client-python/tree/main/api.md). You may find basic client examples in our [llama-stack-apps](https://github.com/meta-llama/llama-stack-apps/tree/main) repo.
+The full API of this library can be found in [api.md](https://github.com/llamastack/llama-stack-client-python/tree/main/api.md). You may find basic client examples in our [llama-stack-apps](https://github.com/meta-llama/llama-stack-apps/tree/main) repo.
 
 ```python
 from llama_stack_client import LlamaStackClient
@@ -78,6 +77,8 @@ response = client.chat.completions.create(
 )
 print(response)
 ```
+
+While you can provide an `api_key` keyword argument, we recommend using [python-dotenv](https://pypi.org/project/python-dotenv/) to add `LLAMA_STACK_CLIENT_API_KEY="My API Key"` to your `.env` file so that your API Key is not stored in source control.
 
 After installing the `llama-stack-client` package, you can also use the [`llama-stack-client` CLI](https://github.com/meta-llama/llama-stack/tree/main/llama-stack-client) to interact with the Llama Stack server.
 ```bash
@@ -248,7 +249,7 @@ client.with_options(timeout=5.0).agents.sessions.create(
 
 On timeout, an `APITimeoutError` is thrown.
 
-Note that requests that time out are [retried twice by default](https://github.com/meta-llama/llama-stack-client-python/tree/main/#retries).
+Note that requests that time out are [retried twice by default](https://github.com/llamastack/llama-stack-client-python/tree/main/#retries).
 
 ## Advanced
 

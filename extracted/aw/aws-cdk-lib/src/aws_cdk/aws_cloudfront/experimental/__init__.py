@@ -641,6 +641,7 @@ class EdgeFunction(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -648,6 +649,7 @@ class EdgeFunction(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Return the given named metric for this Lambda Return the given named metric for this Function.
 
@@ -655,6 +657,7 @@ class EdgeFunction(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -662,6 +665,7 @@ class EdgeFunction(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e35fb51736b3036c83dc4af9104a7ec11601ff54bef98bdf17e2325a3a1d9f89)
@@ -670,6 +674,7 @@ class EdgeFunction(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -677,6 +682,7 @@ class EdgeFunction(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
@@ -688,6 +694,7 @@ class EdgeFunction(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -695,6 +702,7 @@ class EdgeFunction(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the Duration of this Lambda How long execution of this Lambda takes.
 
@@ -703,6 +711,7 @@ class EdgeFunction(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -710,11 +719,13 @@ class EdgeFunction(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -722,6 +733,7 @@ class EdgeFunction(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricDuration", [props]))
@@ -733,6 +745,7 @@ class EdgeFunction(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -740,6 +753,7 @@ class EdgeFunction(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''How many invocations of this Lambda fail.
 
@@ -748,6 +762,7 @@ class EdgeFunction(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -755,11 +770,13 @@ class EdgeFunction(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -767,6 +784,7 @@ class EdgeFunction(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricErrors", [props]))
@@ -778,6 +796,7 @@ class EdgeFunction(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -785,6 +804,7 @@ class EdgeFunction(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the number of invocations of this Lambda How often this Lambda is invoked.
 
@@ -793,6 +813,7 @@ class EdgeFunction(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -800,11 +821,13 @@ class EdgeFunction(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -812,6 +835,7 @@ class EdgeFunction(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricInvocations", [props]))
@@ -823,6 +847,7 @@ class EdgeFunction(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -830,6 +855,7 @@ class EdgeFunction(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the number of throttled invocations of this Lambda How often this Lambda is throttled.
 
@@ -838,6 +864,7 @@ class EdgeFunction(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -845,11 +872,13 @@ class EdgeFunction(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -857,6 +886,7 @@ class EdgeFunction(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottles", [props]))
@@ -2203,6 +2233,7 @@ def _typecheckingstub__e35fb51736b3036c83dc4af9104a7ec11601ff54bef98bdf17e2325a3
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -2210,6 +2241,7 @@ def _typecheckingstub__e35fb51736b3036c83dc4af9104a7ec11601ff54bef98bdf17e2325a3
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -41,3 +41,9 @@ VISIBLE_STATUSES: List[BaseEnums.StatusType] = [
     BaseEnums.StatusType.ACTIVE,
     BaseEnums.StatusType.INACTIVE
 ]
+VOLATILE_TOKEN_FIELDS: BaseTypes.ListOfStrings = [
+    "iat",
+    "iat_dt",
+    "exp",
+    "exp_dt"
+]

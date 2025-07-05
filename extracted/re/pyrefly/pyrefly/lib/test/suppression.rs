@@ -129,7 +129,7 @@ testcase!(
     r#"
 def foo() -> str:
   # pyrefly: ignore[bad-return, bad-assignment]
-  return 1  # E: Returned type `Literal[1]` is not assignable to declared return type `str`
+  return 1
 "#,
 );
 
@@ -139,6 +139,15 @@ testcase!(
 def foo() -> str:
   # pyrefly: ignore[bad-return]
   # pyrefly: ignore[bad-argument-type]
+  return len(1)
+"#,
+);
+
+testcase!(
+    test_pyrefly_suppression_typed_multiple_codes_line,
+    r#"
+def foo() -> str:
+  # pyrefly: ignore[bad-return] # pyrefly: ignore[bad-argument-type]
   return len(1)
 "#,
 );

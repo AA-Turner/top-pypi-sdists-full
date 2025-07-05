@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: poetry-dynamic-versioning
-Version: 1.8.2
+Version: 1.9.0
 Summary: Plugin for Poetry to enable dynamic versioning based on VCS tags
 Home-page: https://github.com/mtkennerly/poetry-dynamic-versioning
 License: MIT
@@ -27,7 +27,7 @@ Classifier: Topic :: Software Development :: Version Control :: Bazaar
 Classifier: Topic :: Software Development :: Version Control :: Git
 Classifier: Topic :: Software Development :: Version Control :: Mercurial
 Provides-Extra: plugin
-Requires-Dist: dunamai (>=1.23.0,<2.0.0)
+Requires-Dist: dunamai (>=1.25.0,<2.0.0)
 Requires-Dist: jinja2 (>=2.11.1,<4)
 Requires-Dist: poetry (>=1.2.0) ; extra == "plugin"
 Requires-Dist: tomlkit (>=0.4)
@@ -263,6 +263,12 @@ In your pyproject.toml file, you may configure the following options:
     then the format will be validated against the style's rules.
     If `style` is unset, the default output format will follow PEP 440,
     but a custom `format` will only be validated if `style` is set explicitly.
+
+    Regardless of the style you choose,
+    the dynamic version is ultimately subject to Poetry's validation as well,
+    and Poetry is designed around PEP 440 versions.
+    Poetry can usually understand SemVer/etc input,
+    but sometimes, Poetry may reject an otherwise valid version format.
   * `latest-tag` (boolean, default: false):
     If true, then only check the latest tag for a version,
     rather than looking through all the tags until a suitable one is found to match the `pattern`.
@@ -296,6 +302,12 @@ In your pyproject.toml file, you may configure the following options:
   * `full-commit` (boolean, default: false):
     If true, get the full commit hash instead of the short form.
     This is only used for Git and Mercurial.
+  * `commit-length` (integer, default: unset):
+    Use this many characters from the start of the full commit hash.
+  * `commit-prefix` (string, default: unset):
+    Add this prefix to the commit ID when serializing.
+    This can be helpful when an all-numeric commit would be misinterpreted.
+    For example, "g" is a common prefix for Git commits.
   * `strict` (boolean, default: false):
     If true, then fail instead of falling back to 0.0.0 when there are no tags.
   * `fix-shallow-repository` (boolean, default: false):
@@ -303,8 +315,9 @@ In your pyproject.toml file, you may configure the following options:
     Currently, this only supports Git and will run `git fetch --unshallow`.
   * `ignore-untracked` (boolean, default: false):
     If true, ignore untracked files when determining whether the repository is dirty.
-  * `commit-length` (integer, default: unset):
-    Use this many characters from the start of the full commit hash.
+  * `escape-with` (string, default: unset):
+    When escaping, replace invalid characters with this substitution.
+    The default is simply to remove invalid characters.
 * `[tool.poetry-dynamic-versioning.substitution]`:
   Insert the dynamic version into additional files other than just pyproject.toml.
   These changes will be reverted when the plugin deactivates.

@@ -8141,6 +8141,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8148,6 +8149,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the number of Errors executing all Lambdas.
 
@@ -8155,6 +8157,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8162,6 +8165,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8172,6 +8176,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8179,12 +8184,14 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the conditional check failed requests.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8192,6 +8199,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8202,6 +8210,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8209,12 +8218,14 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed read capacity units.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8222,6 +8233,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8232,6 +8244,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8239,12 +8252,14 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed write capacity units.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8252,6 +8267,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8262,6 +8278,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8269,12 +8286,14 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the successful request latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8282,6 +8301,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8293,6 +8313,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8300,6 +8321,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''Metric for the system errors this table.
 
@@ -8307,6 +8329,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8314,6 +8337,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8324,6 +8348,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8331,12 +8356,14 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''(deprecated) Metric for throttled requests.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8344,6 +8371,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :deprecated: use ``metricThrottledRequestsForOperations``
 
@@ -8359,6 +8387,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8366,6 +8395,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''Metric for throttled requests.
 
@@ -8373,6 +8403,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8380,6 +8411,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8390,6 +8422,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8397,12 +8430,14 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the user errors.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8410,6 +8445,7 @@ class ITable(_IResource_c80c4260, typing_extensions.Protocol):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         ...
 
@@ -8589,6 +8625,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8596,6 +8633,7 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the number of Errors executing all Lambdas.
 
@@ -8603,6 +8641,7 @@ class _ITableProxy(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8610,6 +8649,7 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44aae7bfccb81f7147f788917765a21288aff5fe772bb7c0c84ceb7a7f83c6a4)
@@ -8618,6 +8658,7 @@ class _ITableProxy(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8625,6 +8666,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
@@ -8636,6 +8678,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8643,12 +8686,14 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the conditional check failed requests.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8656,11 +8701,13 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8668,6 +8715,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConditionalCheckFailedRequests", [props]))
@@ -8679,6 +8727,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8686,12 +8735,14 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed read capacity units.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8699,11 +8750,13 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8711,6 +8764,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConsumedReadCapacityUnits", [props]))
@@ -8722,6 +8776,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8729,12 +8784,14 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed write capacity units.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8742,11 +8799,13 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8754,6 +8813,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConsumedWriteCapacityUnits", [props]))
@@ -8765,6 +8825,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8772,12 +8833,14 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the successful request latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8785,11 +8848,13 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8797,6 +8862,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSuccessfulRequestLatency", [props]))
@@ -8809,6 +8875,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8816,6 +8883,7 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''Metric for the system errors this table.
 
@@ -8823,6 +8891,7 @@ class _ITableProxy(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8830,12 +8899,14 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = SystemErrorsForOperationsMetricOptions(
             operations=operations,
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8843,6 +8914,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricSystemErrorsForOperations", [props]))
@@ -8854,6 +8926,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8861,12 +8934,14 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''(deprecated) Metric for throttled requests.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8874,6 +8949,7 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :deprecated: use ``metricThrottledRequestsForOperations``
 
@@ -8883,6 +8959,7 @@ class _ITableProxy(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8890,6 +8967,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottledRequests", [props]))
@@ -8902,6 +8980,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8909,6 +8988,7 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''Metric for throttled requests.
 
@@ -8916,6 +8996,7 @@ class _ITableProxy(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8923,12 +9004,14 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = OperationsMetricOptions(
             operations=operations,
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8936,6 +9019,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricThrottledRequestsForOperations", [props]))
@@ -8947,6 +9031,7 @@ class _ITableProxy(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8954,12 +9039,14 @@ class _ITableProxy(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the user errors.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -8967,11 +9054,13 @@ class _ITableProxy(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -8979,6 +9068,7 @@ class _ITableProxy(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricUserErrors", [props]))
@@ -9810,6 +9900,7 @@ class StreamViewType(enum.Enum):
         "account": "account",
         "color": "color",
         "dimensions_map": "dimensionsMap",
+        "id": "id",
         "label": "label",
         "period": "period",
         "region": "region",
@@ -9817,6 +9908,7 @@ class StreamViewType(enum.Enum):
         "stack_region": "stackRegion",
         "statistic": "statistic",
         "unit": "unit",
+        "visible": "visible",
         "operations": "operations",
     },
 )
@@ -9827,6 +9919,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -9834,6 +9927,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
         operations: typing.Optional[typing.Sequence[Operation]] = None,
     ) -> None:
         '''Options for configuring a system errors metric that considers multiple operations.
@@ -9841,6 +9935,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -9848,6 +9943,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         :param operations: The operations to apply the metric to. Default: - All operations available by DynamoDB tables will be considered.
 
         :exampleMetadata: fixture=_generated
@@ -9866,6 +9962,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
                 dimensions_map={
                     "dimensions_map_key": "dimensionsMap"
                 },
+                id="id",
                 label="label",
                 operations=[dynamodb.Operation.GET_ITEM],
                 period=cdk.Duration.minutes(30),
@@ -9873,7 +9970,8 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
                 stack_account="stackAccount",
                 stack_region="stackRegion",
                 statistic="statistic",
-                unit=cloudwatch.Unit.SECONDS
+                unit=cloudwatch.Unit.SECONDS,
+                visible=False
             )
         '''
         if __debug__:
@@ -9881,6 +9979,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -9888,6 +9987,7 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
             check_type(argname="argument stack_region", value=stack_region, expected_type=type_hints["stack_region"])
             check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
             check_type(argname="argument operations", value=operations, expected_type=type_hints["operations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if account is not None:
@@ -9896,6 +9996,8 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
             self._values["color"] = color
         if dimensions_map is not None:
             self._values["dimensions_map"] = dimensions_map
+        if id is not None:
+            self._values["id"] = id
         if label is not None:
             self._values["label"] = label
         if period is not None:
@@ -9910,6 +10012,8 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
             self._values["statistic"] = statistic
         if unit is not None:
             self._values["unit"] = unit
+        if visible is not None:
+            self._values["visible"] = visible
         if operations is not None:
             self._values["operations"] = operations
 
@@ -9941,6 +10045,19 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
         '''
         result = self._values.get("dimensions_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''Unique identifier for this metric when used in dashboard widgets.
+
+        The id can be used as a variable to represent this metric in math expressions.
+        Valid characters are letters, numbers, and underscore. The first character
+        must be a lowercase letter.
+
+        :default: - No ID
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
@@ -10038,6 +10155,18 @@ class SystemErrorsForOperationsMetricOptions(_MetricOptions_1788b62f):
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[_Unit_61bc6f70], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def operations(self) -> typing.Optional[typing.List[Operation]]:
@@ -10608,6 +10737,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10615,6 +10745,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Return the given named metric for this Table.
 
@@ -10625,6 +10756,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10632,6 +10764,7 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b1ff6b5154d6682d8764a47052a06d5305d9f6a41c79c8c293c1994970bd818)
@@ -10640,6 +10773,7 @@ class TableBase(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10647,6 +10781,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
@@ -10658,6 +10793,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10665,6 +10801,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the conditional check failed requests this table.
 
@@ -10674,6 +10811,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10681,11 +10819,13 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10693,6 +10833,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConditionalCheckFailedRequests", [props]))
@@ -10704,6 +10845,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10711,6 +10853,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed read capacity units this table.
 
@@ -10720,6 +10863,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10727,11 +10871,13 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10739,6 +10885,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConsumedReadCapacityUnits", [props]))
@@ -10750,6 +10897,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10757,6 +10905,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed write capacity units this table.
 
@@ -10766,6 +10915,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10773,11 +10923,13 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10785,6 +10937,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConsumedWriteCapacityUnits", [props]))
@@ -10796,6 +10949,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10803,6 +10957,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the successful request latency this table.
 
@@ -10812,6 +10967,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10819,11 +10975,13 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10831,6 +10989,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSuccessfulRequestLatency", [props]))
@@ -10842,6 +11001,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10849,12 +11009,14 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''(deprecated) Metric for the system errors this table.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10862,6 +11024,7 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :deprecated: use ``metricSystemErrorsForOperations``.
 
@@ -10871,6 +11034,7 @@ class TableBase(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10878,6 +11042,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSystemErrors", [props]))
@@ -10890,6 +11055,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10897,6 +11063,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''Metric for the system errors this table.
 
@@ -10908,6 +11075,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10915,12 +11083,14 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = SystemErrorsForOperationsMetricOptions(
             operations=operations,
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10928,6 +11098,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricSystemErrorsForOperations", [props]))
@@ -10939,6 +11110,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10946,6 +11118,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''(deprecated) How many requests are throttled on this table.
 
@@ -10954,6 +11127,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10961,6 +11135,7 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :deprecated: Do not use this function. It returns an invalid metric. Use ``metricThrottledRequestsForOperation`` instead.
 
@@ -10970,6 +11145,7 @@ class TableBase(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -10977,6 +11153,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottledRequests", [props]))
@@ -10989,6 +11166,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10996,6 +11174,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''How many requests are throttled on this table, for the given operation.
 
@@ -11005,6 +11184,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11012,6 +11192,7 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95d33a70a83403322cdc035963638859f588f5d47bae922a6083d3acdae99d8c)
@@ -11020,6 +11201,7 @@ class TableBase(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11027,6 +11209,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottledRequestsForOperation", [operation, props]))
@@ -11039,6 +11222,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11046,6 +11230,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''How many requests are throttled on this table.
 
@@ -11057,6 +11242,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11064,12 +11250,14 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = OperationsMetricOptions(
             operations=operations,
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11077,6 +11265,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricThrottledRequestsForOperations", [props]))
@@ -11088,6 +11277,7 @@ class TableBase(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11095,6 +11285,7 @@ class TableBase(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the user errors.
 
@@ -11107,6 +11298,7 @@ class TableBase(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11114,11 +11306,13 @@ class TableBase(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11126,6 +11320,7 @@ class TableBase(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricUserErrors", [props]))
@@ -11454,6 +11649,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11461,6 +11657,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Return the given named metric for this table.
 
@@ -11471,6 +11668,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11478,6 +11676,7 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9d12f99f3c2bb32f060be7bea286ff36b58ea207a391685b9ca44957b9fecd8)
@@ -11486,6 +11685,7 @@ class TableBaseV2(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11493,6 +11693,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
@@ -11504,6 +11705,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11511,6 +11713,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the conditional check failed requests for this table.
 
@@ -11520,6 +11723,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11527,11 +11731,13 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11539,6 +11745,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConditionalCheckFailedRequests", [props]))
@@ -11550,6 +11757,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11557,6 +11765,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed read capacity units for this table.
 
@@ -11566,6 +11775,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11573,11 +11783,13 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11585,6 +11797,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConsumedReadCapacityUnits", [props]))
@@ -11596,6 +11809,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11603,6 +11817,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the consumed write capacity units for this table.
 
@@ -11612,6 +11827,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11619,11 +11835,13 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11631,6 +11849,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricConsumedWriteCapacityUnits", [props]))
@@ -11642,6 +11861,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11649,6 +11869,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the successful request latency for this table.
 
@@ -11658,6 +11879,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11665,11 +11887,13 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11677,6 +11901,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSuccessfulRequestLatency", [props]))
@@ -11688,6 +11913,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11695,12 +11921,14 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''(deprecated) Metric for the system errors this table.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11708,6 +11936,7 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :deprecated: use ``metricSystemErrorsForOperations``.
 
@@ -11717,6 +11946,7 @@ class TableBaseV2(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11724,6 +11954,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSystemErrors", [props]))
@@ -11736,6 +11967,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11743,6 +11975,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''Metric for the system errors for this table. This will sum errors across all possible operations.
 
@@ -11753,6 +11986,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11760,12 +11994,14 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = SystemErrorsForOperationsMetricOptions(
             operations=operations,
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11773,6 +12009,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricSystemErrorsForOperations", [props]))
@@ -11784,6 +12021,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11791,6 +12029,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''(deprecated) How many requests are throttled on this table.
 
@@ -11800,6 +12039,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11807,6 +12047,7 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :deprecated: Do not use this function. It returns an invalid metric. Use ``metricThrottledRequestsForOperation`` instead.
 
@@ -11816,6 +12057,7 @@ class TableBaseV2(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11823,6 +12065,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottledRequests", [props]))
@@ -11836,6 +12079,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11843,6 +12087,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''How many requests are throttled on this table for the given operation.
 
@@ -11854,6 +12099,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11861,6 +12107,7 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77d4ef5bc85980ee36c06595f45b530b92a1b51437a40ca9dc19d75ed320f4b0)
@@ -11870,6 +12117,7 @@ class TableBaseV2(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11877,6 +12125,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricThrottledRequestsForOperation", [operation, props]))
@@ -11889,6 +12138,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11896,6 +12146,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _IMetric_c7fd29de:
         '''How many requests are throttled on this table. This will sum errors across all possible operations.
 
@@ -11906,6 +12157,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11913,12 +12165,14 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = OperationsMetricOptions(
             operations=operations,
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11926,6 +12180,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_IMetric_c7fd29de, jsii.invoke(self, "metricThrottledRequestsForOperations", [props]))
@@ -11937,6 +12192,7 @@ class TableBaseV2(
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -11944,6 +12200,7 @@ class TableBaseV2(
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> _Metric_e396a4dc:
         '''Metric for the user errors for this table.
 
@@ -11956,6 +12213,7 @@ class TableBaseV2(
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -11963,11 +12221,13 @@ class TableBaseV2(
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = _MetricOptions_1788b62f(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -11975,6 +12235,7 @@ class TableBaseV2(
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricUserErrors", [props]))
@@ -15131,6 +15392,7 @@ class LocalSecondaryIndexProps(SecondaryIndexProps):
         "account": "account",
         "color": "color",
         "dimensions_map": "dimensionsMap",
+        "id": "id",
         "label": "label",
         "period": "period",
         "region": "region",
@@ -15138,6 +15400,7 @@ class LocalSecondaryIndexProps(SecondaryIndexProps):
         "stack_region": "stackRegion",
         "statistic": "statistic",
         "unit": "unit",
+        "visible": "visible",
         "operations": "operations",
     },
 )
@@ -15148,6 +15411,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -15155,6 +15419,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
         operations: typing.Optional[typing.Sequence[Operation]] = None,
     ) -> None:
         '''Options for configuring metrics that considers multiple operations.
@@ -15162,6 +15427,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -15169,6 +15435,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         :param operations: The operations to apply the metric to. Default: - All operations available by DynamoDB tables will be considered.
 
         :exampleMetadata: fixture=_generated
@@ -15187,6 +15454,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
                 dimensions_map={
                     "dimensions_map_key": "dimensionsMap"
                 },
+                id="id",
                 label="label",
                 operations=[dynamodb.Operation.GET_ITEM],
                 period=cdk.Duration.minutes(30),
@@ -15194,7 +15462,8 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
                 stack_account="stackAccount",
                 stack_region="stackRegion",
                 statistic="statistic",
-                unit=cloudwatch.Unit.SECONDS
+                unit=cloudwatch.Unit.SECONDS,
+                visible=False
             )
         '''
         if __debug__:
@@ -15202,6 +15471,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -15209,6 +15479,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
             check_type(argname="argument stack_region", value=stack_region, expected_type=type_hints["stack_region"])
             check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
             check_type(argname="argument operations", value=operations, expected_type=type_hints["operations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if account is not None:
@@ -15217,6 +15488,8 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
             self._values["color"] = color
         if dimensions_map is not None:
             self._values["dimensions_map"] = dimensions_map
+        if id is not None:
+            self._values["id"] = id
         if label is not None:
             self._values["label"] = label
         if period is not None:
@@ -15231,6 +15504,8 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
             self._values["statistic"] = statistic
         if unit is not None:
             self._values["unit"] = unit
+        if visible is not None:
+            self._values["visible"] = visible
         if operations is not None:
             self._values["operations"] = operations
 
@@ -15262,6 +15537,19 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         '''
         result = self._values.get("dimensions_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''Unique identifier for this metric when used in dashboard widgets.
+
+        The id can be used as a variable to represent this metric in math expressions.
+        Valid characters are letters, numbers, and underscore. The first character
+        must be a lowercase letter.
+
+        :default: - No ID
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
@@ -15359,6 +15647,18 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[_Unit_61bc6f70], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def operations(self) -> typing.Optional[typing.List[Operation]]:
@@ -16916,6 +17216,7 @@ def _typecheckingstub__44aae7bfccb81f7147f788917765a21288aff5fe772bb7c0c84ceb7a7
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -16923,6 +17224,7 @@ def _typecheckingstub__44aae7bfccb81f7147f788917765a21288aff5fe772bb7c0c84ceb7a7
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16985,6 +17287,7 @@ def _typecheckingstub__cdad33b4389e90fa83c3fbfb70fd12ef2e9a72ee375dc3e96dcbef610
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -16992,6 +17295,7 @@ def _typecheckingstub__cdad33b4389e90fa83c3fbfb70fd12ef2e9a72ee375dc3e96dcbef610
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
     operations: typing.Optional[typing.Sequence[Operation]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17098,6 +17402,7 @@ def _typecheckingstub__1b1ff6b5154d6682d8764a47052a06d5305d9f6a41c79c8c293c19949
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17105,6 +17410,7 @@ def _typecheckingstub__1b1ff6b5154d6682d8764a47052a06d5305d9f6a41c79c8c293c19949
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17115,6 +17421,7 @@ def _typecheckingstub__95d33a70a83403322cdc035963638859f588f5d47bae922a6083d3acd
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17122,6 +17429,7 @@ def _typecheckingstub__95d33a70a83403322cdc035963638859f588f5d47bae922a6083d3acd
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17206,6 +17514,7 @@ def _typecheckingstub__b9d12f99f3c2bb32f060be7bea286ff36b58ea207a391685b9ca44957
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17213,6 +17522,7 @@ def _typecheckingstub__b9d12f99f3c2bb32f060be7bea286ff36b58ea207a391685b9ca44957
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17224,6 +17534,7 @@ def _typecheckingstub__77d4ef5bc85980ee36c06595f45b530b92a1b51437a40ca9dc19d75ed
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17231,6 +17542,7 @@ def _typecheckingstub__77d4ef5bc85980ee36c06595f45b530b92a1b51437a40ca9dc19d75ed
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17498,6 +17810,7 @@ def _typecheckingstub__323fc564f2052282a189a09de9130b5d9a855212d7bd5a514ddb98a52
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17505,6 +17818,7 @@ def _typecheckingstub__323fc564f2052282a189a09de9130b5d9a855212d7bd5a514ddb98a52
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
     operations: typing.Optional[typing.Sequence[Operation]] = None,
 ) -> None:
     """Type checking stubs"""

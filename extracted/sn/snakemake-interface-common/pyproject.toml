@@ -1,10 +1,10 @@
 [project]
 name = "snakemake-interface-common"
-version = "1.20.0"
+version = "1.20.1"
 description = "Common functions and classes for Snakemake and its plugins"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = ["argparse-dataclass>=2.0.0", "ConfigArgParse>=1.7", "packaging >=25.0,<26.0"]
+dependencies = ["argparse-dataclass>=2.0.0", "ConfigArgParse>=1.7", "packaging >=24.0,<26.0"]
 
 [[project.authors]]
 name = "Johannes Koester"

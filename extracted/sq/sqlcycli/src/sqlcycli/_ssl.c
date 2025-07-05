@@ -1522,7 +1522,7 @@ struct __pyx_obj_8sqlcycli_4_ssl_SSL {
 };
 
 
-/* "sqlcycli/_ssl.py":227
+/* "sqlcycli/_ssl.py":226
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items()),             # <<<<<<<<<<<<<<
@@ -1542,7 +1542,7 @@ struct __pyx_obj_8sqlcycli_4_ssl___pyx_scope_struct__genexpr {
  * # SSL -----------------------------------------------------------------------------------------
  * @cython.cclass
  * class SSL:             # <<<<<<<<<<<<<<
- *     """Represents the SSL Configuration for MySQL.
+ *     """Configure and produce an SSLContext for MySQL connections.
  * 
  */
 
@@ -3322,7 +3322,7 @@ static int __pyx_f_8sqlcycli_4_ssl_is_ssl(PyObject *__pyx_v_obj, CYTHON_UNUSED i
 
   /* "sqlcycli/_ssl.py":32
  * def is_ssl(obj: object) -> cython.bint:
- *     """Check if the 'obj' is an instance of 'SSL' `<'bool'>`."""
+ *     """Determine if the pass-in object is a `sqlcycli.SSL` configuration. `<'bool'>`."""
  *     return isinstance(obj, SSL) if SSL_ENABLED_C else False             # <<<<<<<<<<<<<<
  * 
  * 
@@ -3357,7 +3357,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_4_ssl_is_ssl, "Check if the 'obj' is an instance of 'SSL' `<'bool'>`.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_4_ssl_is_ssl, "Determine if the pass-in object is a `sqlcycli.SSL` configuration. `<'bool'>`.");
 static PyMethodDef __pyx_mdef_8sqlcycli_4_ssl_1is_ssl = {"is_ssl", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_4_ssl_1is_ssl, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_4_ssl_is_ssl};
 static PyObject *__pyx_pw_8sqlcycli_4_ssl_1is_ssl(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -3503,7 +3503,7 @@ static int __pyx_f_8sqlcycli_4_ssl_is_ssl_ctx(PyObject *__pyx_v_obj, CYTHON_UNUS
 
   /* "sqlcycli/_ssl.py":39
  * def is_ssl_ctx(obj: object) -> cython.bint:
- *     """Check if the 'obj' is an instance of 'ssl.SSLContext' `<'bool'>`."""
+ *     """Determine if the pass-in object is a `ssl.SSLContext` configuration. `<'bool'>`."""
  *     return isinstance(obj, _py_ssl.SSLContext) if SSL_ENABLED_C else False             # <<<<<<<<<<<<<<
  * 
  * 
@@ -3550,7 +3550,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_4_ssl_2is_ssl_ctx, "Check if the 'obj' is an instance of 'ssl.SSLContext' `<'bool'>`.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_4_ssl_2is_ssl_ctx, "Determine if the pass-in object is a `ssl.SSLContext` configuration. `<'bool'>`.");
 static PyMethodDef __pyx_mdef_8sqlcycli_4_ssl_3is_ssl_ctx = {"is_ssl_ctx", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_4_ssl_3is_ssl_ctx, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_4_ssl_2is_ssl_ctx};
 static PyObject *__pyx_pw_8sqlcycli_4_ssl_3is_ssl_ctx(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -3667,7 +3667,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_2is_ssl_ctx(CYTHON_UNUSED PyObject *__
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":67
+/* "sqlcycli/_ssl.py":64
  *     _context: object
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -3677,7 +3677,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_2is_ssl_ctx(CYTHON_UNUSED PyObject *__
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_4_ssl_3SSL___init__, "The SSL Configuration for MySQL\n\n        It takes the responsibility of creating the SSLContext\n        for MySQL from 'PyMySQL' package's <'Connection'> class.\n\n        :param ca_file `<'str/bytes/Path'>`: The path to the file that contains a PEM-formatted CA certificate. Defaults to `None`.\n        :param ca_path `<'str/bytes/Path'>`: The path to the directory contains CA certificate files. Defaults to `None`.\n        :param cert_file: `<'str/bytes/Path'>`: The path to the file that contains a PEM-formatted client certificate. Defaults to `None`.\n        :param cert_key: `<'str/bytes/Path'>`: The path to the file that contains a PEM-formatted private key for the client certificate. Defaults to `None`.\n        :param cert_key_password: `<'str/bytes/bytearray'>`: The password for the client certificate private key. Defaults to `None`.\n        :param verify_server_identity: `<'bool'>`: Whether to verify the server's identity. Defaults to `False`.\n        :param verify_server_mode: `<'bool/str'>`: How to verify the server's certificate. Defaults to `None`.\n        :param cipher: `<'str'>`: The cipher to use for the SSL communication. Defaults to `None`.\n\n        ## Notice\n        Please access the final <'SSLContext'> through `context` attribute.\n        If Python `ssl` module is not available, a `RuntimeWarning` will be\n        issued and the context attribute will be `None`.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_4_ssl_3SSL___init__, "Configure and produce an SSLContext for MySQL connections.\n\n        Handles CA certificates, client cert/key, verification modes, and cipher\n        suites. Access the resulting `ssl.SSLContext` via the `context` property.\n        If Python's `ssl` module is unavailable, a warning is issued and `context`\n        property will always be `None`.\n\n        :param ca_file `<'str/bytes/Path'>`: Path to a PEM-formatted CA certificate file.. Defaults to `None`.\n        :param ca_path `<'str/bytes/Path'>`: Path to a directory of CA certificate files. Defaults to `None`.\n        :param cert_file: `<'str/bytes/Path'>`: Path to a PEM-formatted client certificate file. Defaults to `None`.\n        :param cert_key: `<'str/bytes/Path'>`: Path to a PEM-formatted private key for the client certificate. Defaults to `None`.\n        :param cert_key_password: `<'str/bytes/bytearray'>`: Password for the private key, if encrypted.. Defaults to `None`.\n        :param verify_server_identity: `<'bool'>`: Whether to verify the server's hostname against its certificate. Defaults to `False`.\n        :param verify_server_mode: `<'bool/str'>`: Certificate verification mode. Defaults to `None`.\n        :param cipher: `<'str'>`: OpenSSL cipher string to restrict the cipher suites. Defaults to `None`.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_4_ssl_3SSL___init__;
 #endif
@@ -3708,7 +3708,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_ca_file,&__pyx_n_s_ca_path,&__pyx_n_s_cert_file,&__pyx_n_s_cert_key,&__pyx_n_s_cert_key_password,&__pyx_n_s_verify_identity,&__pyx_n_s_verify_mode,&__pyx_n_s_cipher,0};
 
-    /* "sqlcycli/_ssl.py":69
+    /* "sqlcycli/_ssl.py":66
  *     def __init__(
  *         self,
  *         ca_file: str | bytes | PathLike | None = None,             # <<<<<<<<<<<<<<
@@ -3717,7 +3717,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[0] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
 
-    /* "sqlcycli/_ssl.py":70
+    /* "sqlcycli/_ssl.py":67
  *         self,
  *         ca_file: str | bytes | PathLike | None = None,
  *         ca_path: str | bytes | PathLike | None = None,             # <<<<<<<<<<<<<<
@@ -3726,7 +3726,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[1] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
 
-    /* "sqlcycli/_ssl.py":71
+    /* "sqlcycli/_ssl.py":68
  *         ca_file: str | bytes | PathLike | None = None,
  *         ca_path: str | bytes | PathLike | None = None,
  *         cert_file: str | bytes | PathLike | None = None,             # <<<<<<<<<<<<<<
@@ -3735,7 +3735,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[2] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
 
-    /* "sqlcycli/_ssl.py":72
+    /* "sqlcycli/_ssl.py":69
  *         ca_path: str | bytes | PathLike | None = None,
  *         cert_file: str | bytes | PathLike | None = None,
  *         cert_key: str | bytes | PathLike | None = None,             # <<<<<<<<<<<<<<
@@ -3744,7 +3744,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[3] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
 
-    /* "sqlcycli/_ssl.py":73
+    /* "sqlcycli/_ssl.py":70
  *         cert_file: str | bytes | PathLike | None = None,
  *         cert_key: str | bytes | PathLike | None = None,
  *         cert_key_password: str | bytes | bytearray | None = None,             # <<<<<<<<<<<<<<
@@ -3753,7 +3753,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[4] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
 
-    /* "sqlcycli/_ssl.py":74
+    /* "sqlcycli/_ssl.py":71
  *         cert_key: str | bytes | PathLike | None = None,
  *         cert_key_password: str | bytes | bytearray | None = None,
  *         verify_identity: bool = True,             # <<<<<<<<<<<<<<
@@ -3762,7 +3762,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[5] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_True));
 
-    /* "sqlcycli/_ssl.py":75
+    /* "sqlcycli/_ssl.py":72
  *         cert_key_password: str | bytes | bytearray | None = None,
  *         verify_identity: bool = True,
  *         verify_mode: bool | Literal["Required", "Optional", "None"] | None = None,             # <<<<<<<<<<<<<<
@@ -3771,12 +3771,12 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
  */
     values[6] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
 
-    /* "sqlcycli/_ssl.py":76
+    /* "sqlcycli/_ssl.py":73
  *         verify_identity: bool = True,
  *         verify_mode: bool | Literal["Required", "Optional", "None"] | None = None,
  *         cipher: str | None = None,             # <<<<<<<<<<<<<<
  *     ) -> None:
- *         """The SSL Configuration for MySQL
+ *         """Configure and produce an SSLContext for MySQL connections.
  */
     values[7] = __Pyx_Arg_NewRef_VARARGS(((PyObject *)Py_None));
     if (__pyx_kwds) {
@@ -3807,61 +3807,61 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_ca_file);
           if (value) { values[0] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_ca_path);
           if (value) { values[1] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_cert_file);
           if (value) { values[2] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_cert_key);
           if (value) { values[3] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_cert_key_password);
           if (value) { values[4] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  5:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_verify_identity);
           if (value) { values[5] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  6:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_verify_mode);
           if (value) { values[6] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  7:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_cipher);
           if (value) { values[7] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 67, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 64, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -3896,7 +3896,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 8, __pyx_nargs); __PYX_ERR(0, 67, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 8, __pyx_nargs); __PYX_ERR(0, 64, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3912,7 +3912,7 @@ static int __pyx_pw_8sqlcycli_4_ssl_3SSL_1__init__(PyObject *__pyx_v_self, PyObj
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(((struct __pyx_obj_8sqlcycli_4_ssl_SSL *)__pyx_v_self), __pyx_v_ca_file, __pyx_v_ca_path, __pyx_v_cert_file, __pyx_v_cert_key, __pyx_v_cert_key_password, __pyx_v_verify_identity, __pyx_v_verify_mode, __pyx_v_cipher);
 
-  /* "sqlcycli/_ssl.py":67
+  /* "sqlcycli/_ssl.py":64
  *     _context: object
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -3965,8 +3965,8 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/_ssl.py":97
- *         issued and the context attribute will be `None`.
+  /* "sqlcycli/_ssl.py":91
+ *         :param cipher: `<'str'>`: OpenSSL cipher string to restrict the cipher suites. Defaults to `None`.
  *         """
  *         self._has_ca = ca_file is not None or ca_path is not None             # <<<<<<<<<<<<<<
  *         self._ca_file = self._validate_path(ca_file, "ca_file")
@@ -3983,14 +3983,14 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __pyx_L3_bool_binop_done:;
   __pyx_v_self->_has_ca = __pyx_t_1;
 
-  /* "sqlcycli/_ssl.py":98
+  /* "sqlcycli/_ssl.py":92
  *         """
  *         self._has_ca = ca_file is not None or ca_path is not None
  *         self._ca_file = self._validate_path(ca_file, "ca_file")             # <<<<<<<<<<<<<<
  *         self._ca_path = self._validate_path(ca_path, "ca_path")
  *         self._cert_file = self._validate_path(cert_file, "cert_file")
  */
-  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_ca_file, __pyx_n_u_ca_file); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_ca_file, __pyx_n_u_ca_file); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_3);
   __Pyx_GOTREF(__pyx_v_self->_ca_file);
@@ -3998,14 +3998,14 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __pyx_v_self->_ca_file = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":99
+  /* "sqlcycli/_ssl.py":93
  *         self._has_ca = ca_file is not None or ca_path is not None
  *         self._ca_file = self._validate_path(ca_file, "ca_file")
  *         self._ca_path = self._validate_path(ca_path, "ca_path")             # <<<<<<<<<<<<<<
  *         self._cert_file = self._validate_path(cert_file, "cert_file")
  *         self._cert_key = self._validate_path(cert_key, "cert_key")
  */
-  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_ca_path, __pyx_n_u_ca_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_ca_path, __pyx_n_u_ca_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_3);
   __Pyx_GOTREF(__pyx_v_self->_ca_path);
@@ -4013,14 +4013,14 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __pyx_v_self->_ca_path = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":100
+  /* "sqlcycli/_ssl.py":94
  *         self._ca_file = self._validate_path(ca_file, "ca_file")
  *         self._ca_path = self._validate_path(ca_path, "ca_path")
  *         self._cert_file = self._validate_path(cert_file, "cert_file")             # <<<<<<<<<<<<<<
  *         self._cert_key = self._validate_path(cert_key, "cert_key")
  *         self._cert_key_password = cert_key_password
  */
-  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_cert_file, __pyx_n_u_cert_file); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_cert_file, __pyx_n_u_cert_file); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_3);
   __Pyx_GOTREF(__pyx_v_self->_cert_file);
@@ -4028,14 +4028,14 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __pyx_v_self->_cert_file = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":101
+  /* "sqlcycli/_ssl.py":95
  *         self._ca_path = self._validate_path(ca_path, "ca_path")
  *         self._cert_file = self._validate_path(cert_file, "cert_file")
  *         self._cert_key = self._validate_path(cert_key, "cert_key")             # <<<<<<<<<<<<<<
  *         self._cert_key_password = cert_key_password
  *         self._verify_identity = self._has_ca and bool(verify_identity)
  */
-  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_cert_key, __pyx_n_u_cert_key); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(__pyx_v_self, __pyx_v_cert_key, __pyx_n_u_cert_key); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_3);
   __Pyx_GOTREF(__pyx_v_self->_cert_key);
@@ -4043,7 +4043,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __pyx_v_self->_cert_key = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":102
+  /* "sqlcycli/_ssl.py":96
  *         self._cert_file = self._validate_path(cert_file, "cert_file")
  *         self._cert_key = self._validate_path(cert_key, "cert_key")
  *         self._cert_key_password = cert_key_password             # <<<<<<<<<<<<<<
@@ -4056,7 +4056,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __Pyx_DECREF(__pyx_v_self->_cert_key_password);
   __pyx_v_self->_cert_key_password = __pyx_v_cert_key_password;
 
-  /* "sqlcycli/_ssl.py":103
+  /* "sqlcycli/_ssl.py":97
  *         self._cert_key = self._validate_path(cert_key, "cert_key")
  *         self._cert_key_password = cert_key_password
  *         self._verify_identity = self._has_ca and bool(verify_identity)             # <<<<<<<<<<<<<<
@@ -4068,12 +4068,12 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
     __pyx_t_1 = __pyx_v_self->_has_ca;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_verify_identity); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_verify_identity); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
   __pyx_t_1 = (!(!__pyx_t_2));
   __pyx_L5_bool_binop_done:;
   __pyx_v_self->_verify_identity = __pyx_t_1;
 
-  /* "sqlcycli/_ssl.py":104
+  /* "sqlcycli/_ssl.py":98
  *         self._cert_key_password = cert_key_password
  *         self._verify_identity = self._has_ca and bool(verify_identity)
  *         self._verify_mode = verify_mode             # <<<<<<<<<<<<<<
@@ -4086,7 +4086,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __Pyx_DECREF(__pyx_v_self->_verify_mode);
   __pyx_v_self->_verify_mode = __pyx_v_verify_mode;
 
-  /* "sqlcycli/_ssl.py":105
+  /* "sqlcycli/_ssl.py":99
  *         self._verify_identity = self._has_ca and bool(verify_identity)
  *         self._verify_mode = verify_mode
  *         self._cipher = cipher             # <<<<<<<<<<<<<<
@@ -4099,7 +4099,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   __Pyx_DECREF(__pyx_v_self->_cipher);
   __pyx_v_self->_cipher = __pyx_v_cipher;
 
-  /* "sqlcycli/_ssl.py":106
+  /* "sqlcycli/_ssl.py":100
  *         self._verify_mode = verify_mode
  *         self._cipher = cipher
  *         if SSL_ENABLED_C:             # <<<<<<<<<<<<<<
@@ -4108,7 +4108,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
  */
   if (__pyx_v_8sqlcycli_4_ssl_SSL_ENABLED_C) {
 
-    /* "sqlcycli/_ssl.py":107
+    /* "sqlcycli/_ssl.py":101
  *         self._cipher = cipher
  *         if SSL_ENABLED_C:
  *             try:             # <<<<<<<<<<<<<<
@@ -4124,16 +4124,16 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
       __Pyx_XGOTREF(__pyx_t_6);
       /*try:*/ {
 
-        /* "sqlcycli/_ssl.py":108
+        /* "sqlcycli/_ssl.py":102
  *         if SSL_ENABLED_C:
  *             try:
  *                 self._create_ssl_context()             # <<<<<<<<<<<<<<
  *             except Exception as err:
  *                 raise errors.InvalidSSLConfigError(
  */
-        __pyx_t_1 = __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(__pyx_v_self); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 108, __pyx_L8_error)
+        __pyx_t_1 = __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(__pyx_v_self); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 102, __pyx_L8_error)
 
-        /* "sqlcycli/_ssl.py":107
+        /* "sqlcycli/_ssl.py":101
  *         self._cipher = cipher
  *         if SSL_ENABLED_C:
  *             try:             # <<<<<<<<<<<<<<
@@ -4148,7 +4148,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
       __pyx_L8_error:;
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "sqlcycli/_ssl.py":109
+      /* "sqlcycli/_ssl.py":103
  *             try:
  *                 self._create_ssl_context()
  *             except Exception as err:             # <<<<<<<<<<<<<<
@@ -4158,7 +4158,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
       if (__pyx_t_7) {
         __Pyx_AddTraceback("sqlcycli._ssl.SSL.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_8, &__pyx_t_9) < 0) __PYX_ERR(0, 109, __pyx_L10_except_error)
+        if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_8, &__pyx_t_9) < 0) __PYX_ERR(0, 103, __pyx_L10_except_error)
         __Pyx_XGOTREF(__pyx_t_3);
         __Pyx_XGOTREF(__pyx_t_8);
         __Pyx_XGOTREF(__pyx_t_9);
@@ -4166,27 +4166,27 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
         __pyx_v_err = __pyx_t_8;
         /*try:*/ {
 
-          /* "sqlcycli/_ssl.py":110
+          /* "sqlcycli/_ssl.py":104
  *                 self._create_ssl_context()
  *             except Exception as err:
  *                 raise errors.InvalidSSLConfigError(             # <<<<<<<<<<<<<<
  *                     "<'%s'>\nSSL settings is invalid.\nError: %s"
  *                     % (self.__class__.__name__, err)
  */
-          __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_errors); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 110, __pyx_L19_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_errors); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 104, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_11);
-          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_n_s_InvalidSSLConfigError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 110, __pyx_L19_error)
+          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_n_s_InvalidSSLConfigError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 104, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-          /* "sqlcycli/_ssl.py":111
+          /* "sqlcycli/_ssl.py":105
  *             except Exception as err:
  *                 raise errors.InvalidSSLConfigError(
  *                     "<'%s'>\nSSL settings is invalid.\nError: %s"             # <<<<<<<<<<<<<<
  *                     % (self.__class__.__name__, err)
  *                 ) from err
  */
-          __pyx_t_11 = PyTuple_New(4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 111, __pyx_L19_error)
+          __pyx_t_11 = PyTuple_New(4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 105, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
@@ -4195,19 +4195,19 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
           __Pyx_GIVEREF(__pyx_kp_u_);
           PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_kp_u_);
 
-          /* "sqlcycli/_ssl.py":112
+          /* "sqlcycli/_ssl.py":106
  *                 raise errors.InvalidSSLConfigError(
  *                     "<'%s'>\nSSL settings is invalid.\nError: %s"
  *                     % (self.__class__.__name__, err)             # <<<<<<<<<<<<<<
  *                 ) from err
  *         else:
  */
-          __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L19_error)
+          __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 106, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_15);
-          __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_name); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 112, __pyx_L19_error)
+          __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_name); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 106, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_16);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_16), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L19_error)
+          __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_16), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 106, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
@@ -4219,7 +4219,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
           __pyx_t_13 += 35;
           __Pyx_GIVEREF(__pyx_kp_u_SSL_settings_is_invalid_Error);
           PyTuple_SET_ITEM(__pyx_t_11, 2, __pyx_kp_u_SSL_settings_is_invalid_Error);
-          __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L19_error)
+          __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 106, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -4227,14 +4227,14 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
           PyTuple_SET_ITEM(__pyx_t_11, 3, __pyx_t_15);
           __pyx_t_15 = 0;
 
-          /* "sqlcycli/_ssl.py":111
+          /* "sqlcycli/_ssl.py":105
  *             except Exception as err:
  *                 raise errors.InvalidSSLConfigError(
  *                     "<'%s'>\nSSL settings is invalid.\nError: %s"             # <<<<<<<<<<<<<<
  *                     % (self.__class__.__name__, err)
  *                 ) from err
  */
-          __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_11, 4, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 111, __pyx_L19_error)
+          __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_11, 4, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 105, __pyx_L19_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
           __pyx_t_11 = NULL;
@@ -4256,12 +4256,12 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
             __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+1-__pyx_t_17, 1+__pyx_t_17);
             __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 110, __pyx_L19_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 104, __pyx_L19_error)
             __Pyx_GOTREF(__pyx_t_10);
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
           }
 
-          /* "sqlcycli/_ssl.py":113
+          /* "sqlcycli/_ssl.py":107
  *                     "<'%s'>\nSSL settings is invalid.\nError: %s"
  *                     % (self.__class__.__name__, err)
  *                 ) from err             # <<<<<<<<<<<<<<
@@ -4270,10 +4270,10 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
  */
           __Pyx_Raise(__pyx_t_10, 0, 0, __pyx_v_err);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __PYX_ERR(0, 110, __pyx_L19_error)
+          __PYX_ERR(0, 104, __pyx_L19_error)
         }
 
-        /* "sqlcycli/_ssl.py":109
+        /* "sqlcycli/_ssl.py":103
  *             try:
  *                 self._create_ssl_context()
  *             except Exception as err:             # <<<<<<<<<<<<<<
@@ -4321,7 +4321,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
       }
       goto __pyx_L10_except_error;
 
-      /* "sqlcycli/_ssl.py":107
+      /* "sqlcycli/_ssl.py":101
  *         self._cipher = cipher
  *         if SSL_ENABLED_C:
  *             try:             # <<<<<<<<<<<<<<
@@ -4337,7 +4337,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
       __pyx_L13_try_end:;
     }
 
-    /* "sqlcycli/_ssl.py":106
+    /* "sqlcycli/_ssl.py":100
  *         self._verify_mode = verify_mode
  *         self._cipher = cipher
  *         if SSL_ENABLED_C:             # <<<<<<<<<<<<<<
@@ -4347,7 +4347,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
     goto __pyx_L7;
   }
 
-  /* "sqlcycli/_ssl.py":115
+  /* "sqlcycli/_ssl.py":109
  *                 ) from err
  *         else:
  *             self._context = None             # <<<<<<<<<<<<<<
@@ -4361,36 +4361,36 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
     __Pyx_DECREF(__pyx_v_self->_context);
     __pyx_v_self->_context = Py_None;
 
-    /* "sqlcycli/_ssl.py":116
+    /* "sqlcycli/_ssl.py":110
  *         else:
  *             self._context = None
  *             warnings.warn(             # <<<<<<<<<<<<<<
  *                 "<'%s'> Python 'ssl' module is not available."
  *                 % self.__class__.__name__,
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_warnings); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 116, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_warnings); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_warn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_warn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "sqlcycli/_ssl.py":118
+    /* "sqlcycli/_ssl.py":112
  *             warnings.warn(
  *                 "<'%s'> Python 'ssl' module is not available."
  *                 % self.__class__.__name__,             # <<<<<<<<<<<<<<
  *                 RuntimeWarning,
  *             )
  */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 118, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 118, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s_Python_ssl_module_is_not_avai, __pyx_t_10); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 118, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s_Python_ssl_module_is_not_avai, __pyx_t_10); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-    /* "sqlcycli/_ssl.py":119
+    /* "sqlcycli/_ssl.py":113
  *                 "<'%s'> Python 'ssl' module is not available."
  *                 % self.__class__.__name__,
  *                 RuntimeWarning,             # <<<<<<<<<<<<<<
@@ -4416,7 +4416,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
       __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_17, 2+__pyx_t_17);
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 116, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 110, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -4424,7 +4424,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   }
   __pyx_L7:;
 
-  /* "sqlcycli/_ssl.py":67
+  /* "sqlcycli/_ssl.py":64
  *     _context: object
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -4452,12 +4452,12 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL___init__(struct __pyx_obj_8sqlcycli_4_s
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":123
+/* "sqlcycli/_ssl.py":117
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def context(self) -> object | None:
- *         """Access the generated `<'SSLContext'>`.
+ *         """Retrieve the configured SSLContext `<'SSLContext/None'>`."""
  */
 
 /* Python wrapper */
@@ -4480,24 +4480,24 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_7context___get__(struct __pyx_obj
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_ssl.py":130
- *         If Python `ssl` module is not available, returns `None`.
- *         """
+  /* "sqlcycli/_ssl.py":120
+ *     def context(self) -> object | None:
+ *         """Retrieve the configured SSLContext `<'SSLContext/None'>`."""
  *         return self._context             # <<<<<<<<<<<<<<
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Internal --------------------------------------------------------------------------------
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_self->_context);
   __pyx_r = __pyx_v_self->_context;
   goto __pyx_L0;
 
-  /* "sqlcycli/_ssl.py":123
+  /* "sqlcycli/_ssl.py":117
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def context(self) -> object | None:
- *         """Access the generated `<'SSLContext'>`.
+ *         """Retrieve the configured SSLContext `<'SSLContext/None'>`."""
  */
 
   /* function exit code */
@@ -4507,9 +4507,9 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_7context___get__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":133
+/* "sqlcycli/_ssl.py":123
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Internal --------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     @cython.inline(True)
  *     @cython.exceptval(-1, check=False)
@@ -4531,58 +4531,58 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_create_ssl_context", 1);
 
-  /* "sqlcycli/_ssl.py":139
- *         """(cfunc) Generate the 'SSLContext'."""
+  /* "sqlcycli/_ssl.py":133
+ *         """
  *         # . ca certificate
  *         context = _py_ssl.create_default_context(             # <<<<<<<<<<<<<<
  *             cafile=self._ca_file, capath=self._ca_path
  *         )
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_create_default_context); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_create_default_context); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/_ssl.py":140
+  /* "sqlcycli/_ssl.py":134
  *         # . ca certificate
  *         context = _py_ssl.create_default_context(
  *             cafile=self._ca_file, capath=self._ca_path             # <<<<<<<<<<<<<<
  *         )
  *         # . check hostname
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_cafile, __pyx_v_self->_ca_file) < 0) __PYX_ERR(0, 140, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_capath, __pyx_v_self->_ca_path) < 0) __PYX_ERR(0, 140, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_cafile, __pyx_v_self->_ca_file) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_capath, __pyx_v_self->_ca_path) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":139
- *         """(cfunc) Generate the 'SSLContext'."""
+  /* "sqlcycli/_ssl.py":133
+ *         """
  *         # . ca certificate
  *         context = _py_ssl.create_default_context(             # <<<<<<<<<<<<<<
  *             cafile=self._ca_file, capath=self._ca_path
  *         )
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_context = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":143
+  /* "sqlcycli/_ssl.py":137
  *         )
  *         # . check hostname
  *         context.check_hostname = self._verify_identity             # <<<<<<<<<<<<<<
  *         # . verify mode
  *         if self._verify_mode is None:
  */
-  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_verify_identity); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_verify_identity); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 137, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_check_hostname, __pyx_t_3) < 0) __PYX_ERR(0, 143, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_check_hostname, __pyx_t_3) < 0) __PYX_ERR(0, 137, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":145
+  /* "sqlcycli/_ssl.py":139
  *         context.check_hostname = self._verify_identity
  *         # . verify mode
  *         if self._verify_mode is None:             # <<<<<<<<<<<<<<
@@ -4592,7 +4592,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   __pyx_t_4 = (__pyx_v_self->_verify_mode == Py_None);
   if (__pyx_t_4) {
 
-    /* "sqlcycli/_ssl.py":146
+    /* "sqlcycli/_ssl.py":140
  *         # . verify mode
  *         if self._verify_mode is None:
  *             if self._has_ca:             # <<<<<<<<<<<<<<
@@ -4601,22 +4601,22 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  */
     if (__pyx_v_self->_has_ca) {
 
-      /* "sqlcycli/_ssl.py":147
+      /* "sqlcycli/_ssl.py":141
  *         if self._verify_mode is None:
  *             if self._has_ca:
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED             # <<<<<<<<<<<<<<
  *                 self._verify_mode = "Required"
  *             else:
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 141, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_REQUIRED); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_REQUIRED); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 147, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 141, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "sqlcycli/_ssl.py":148
+      /* "sqlcycli/_ssl.py":142
  *             if self._has_ca:
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED
  *                 self._verify_mode = "Required"             # <<<<<<<<<<<<<<
@@ -4629,7 +4629,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       __Pyx_DECREF(__pyx_v_self->_verify_mode);
       __pyx_v_self->_verify_mode = __pyx_n_u_Required;
 
-      /* "sqlcycli/_ssl.py":146
+      /* "sqlcycli/_ssl.py":140
  *         # . verify mode
  *         if self._verify_mode is None:
  *             if self._has_ca:             # <<<<<<<<<<<<<<
@@ -4639,7 +4639,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       goto __pyx_L4;
     }
 
-    /* "sqlcycli/_ssl.py":150
+    /* "sqlcycli/_ssl.py":144
  *                 self._verify_mode = "Required"
  *             else:
  *                 context.verify_mode = _py_ssl.CERT_NONE             # <<<<<<<<<<<<<<
@@ -4647,15 +4647,15 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  *         elif isinstance(self._verify_mode, bool):
  */
     /*else*/ {
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 150, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 150, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 144, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "sqlcycli/_ssl.py":151
+      /* "sqlcycli/_ssl.py":145
  *             else:
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"             # <<<<<<<<<<<<<<
@@ -4670,7 +4670,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     }
     __pyx_L4:;
 
-    /* "sqlcycli/_ssl.py":145
+    /* "sqlcycli/_ssl.py":139
  *         context.check_hostname = self._verify_identity
  *         # . verify mode
  *         if self._verify_mode is None:             # <<<<<<<<<<<<<<
@@ -4680,7 +4680,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     goto __pyx_L3;
   }
 
-  /* "sqlcycli/_ssl.py":152
+  /* "sqlcycli/_ssl.py":146
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"
  *         elif isinstance(self._verify_mode, bool):             # <<<<<<<<<<<<<<
@@ -4691,37 +4691,37 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = ((PyObject*)&PyBool_Type);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_4 = PyObject_IsInstance(__pyx_t_3, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_4 = PyObject_IsInstance(__pyx_t_3, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 146, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
 
-    /* "sqlcycli/_ssl.py":153
+    /* "sqlcycli/_ssl.py":147
  *                 self._verify_mode = "None"
  *         elif isinstance(self._verify_mode, bool):
  *             if self._verify_mode:             # <<<<<<<<<<<<<<
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED
  *                 self._verify_mode = "Required"
  */
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_self->_verify_mode); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 153, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_self->_verify_mode); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
     if (__pyx_t_4) {
 
-      /* "sqlcycli/_ssl.py":154
+      /* "sqlcycli/_ssl.py":148
  *         elif isinstance(self._verify_mode, bool):
  *             if self._verify_mode:
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED             # <<<<<<<<<<<<<<
  *                 self._verify_mode = "Required"
  *             else:
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_REQUIRED); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_REQUIRED); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 154, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 148, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "sqlcycli/_ssl.py":155
+      /* "sqlcycli/_ssl.py":149
  *             if self._verify_mode:
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED
  *                 self._verify_mode = "Required"             # <<<<<<<<<<<<<<
@@ -4734,7 +4734,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       __Pyx_DECREF(__pyx_v_self->_verify_mode);
       __pyx_v_self->_verify_mode = __pyx_n_u_Required;
 
-      /* "sqlcycli/_ssl.py":153
+      /* "sqlcycli/_ssl.py":147
  *                 self._verify_mode = "None"
  *         elif isinstance(self._verify_mode, bool):
  *             if self._verify_mode:             # <<<<<<<<<<<<<<
@@ -4744,7 +4744,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       goto __pyx_L5;
     }
 
-    /* "sqlcycli/_ssl.py":157
+    /* "sqlcycli/_ssl.py":151
  *                 self._verify_mode = "Required"
  *             else:
  *                 context.verify_mode = _py_ssl.CERT_NONE             # <<<<<<<<<<<<<<
@@ -4752,15 +4752,15 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  *         else:
  */
     /*else*/ {
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 157, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 157, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "sqlcycli/_ssl.py":158
+      /* "sqlcycli/_ssl.py":152
  *             else:
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"             # <<<<<<<<<<<<<<
@@ -4775,7 +4775,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     }
     __pyx_L5:;
 
-    /* "sqlcycli/_ssl.py":152
+    /* "sqlcycli/_ssl.py":146
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"
  *         elif isinstance(self._verify_mode, bool):             # <<<<<<<<<<<<<<
@@ -4785,7 +4785,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     goto __pyx_L3;
   }
 
-  /* "sqlcycli/_ssl.py":160
+  /* "sqlcycli/_ssl.py":154
  *                 self._verify_mode = "None"
  *         else:
  *             if isinstance(self._verify_mode, str):             # <<<<<<<<<<<<<<
@@ -4799,14 +4799,14 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_4) {
 
-      /* "sqlcycli/_ssl.py":161
+      /* "sqlcycli/_ssl.py":155
  *         else:
  *             if isinstance(self._verify_mode, str):
  *                 self._verify_mode = self._verify_mode.lower()             # <<<<<<<<<<<<<<
  *             if self._verify_mode in ("none", "0", "false", "no"):
  *                 context.verify_mode = _py_ssl.CERT_NONE
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->_verify_mode, __pyx_n_s_lower); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 161, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->_verify_mode, __pyx_n_s_lower); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_2 = NULL;
       __pyx_t_5 = 0;
@@ -4826,7 +4826,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
         PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 161, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       }
@@ -4836,7 +4836,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       __pyx_v_self->_verify_mode = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "sqlcycli/_ssl.py":160
+      /* "sqlcycli/_ssl.py":154
  *                 self._verify_mode = "None"
  *         else:
  *             if isinstance(self._verify_mode, str):             # <<<<<<<<<<<<<<
@@ -4845,7 +4845,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  */
     }
 
-    /* "sqlcycli/_ssl.py":162
+    /* "sqlcycli/_ssl.py":156
  *             if isinstance(self._verify_mode, str):
  *                 self._verify_mode = self._verify_mode.lower()
  *             if self._verify_mode in ("none", "0", "false", "no"):             # <<<<<<<<<<<<<<
@@ -4854,47 +4854,47 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  */
     __Pyx_INCREF(__pyx_v_self->_verify_mode);
     __pyx_t_1 = __pyx_v_self->_verify_mode;
-    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_none, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_none, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
     if (!__pyx_t_6) {
     } else {
       __pyx_t_4 = __pyx_t_6;
       goto __pyx_L8_bool_binop_done;
     }
-    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
     if (!__pyx_t_6) {
     } else {
       __pyx_t_4 = __pyx_t_6;
       goto __pyx_L8_bool_binop_done;
     }
-    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_false, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_false, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
     if (!__pyx_t_6) {
     } else {
       __pyx_t_4 = __pyx_t_6;
       goto __pyx_L8_bool_binop_done;
     }
-    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_no, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_no, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
     __pyx_t_4 = __pyx_t_6;
     __pyx_L8_bool_binop_done:;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_6 = __pyx_t_4;
     if (__pyx_t_6) {
 
-      /* "sqlcycli/_ssl.py":163
+      /* "sqlcycli/_ssl.py":157
  *                 self._verify_mode = self._verify_mode.lower()
  *             if self._verify_mode in ("none", "0", "false", "no"):
  *                 context.verify_mode = _py_ssl.CERT_NONE             # <<<<<<<<<<<<<<
  *                 self._verify_mode = "None"
  *             elif self._verify_mode == "optional":
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 163, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 157, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 163, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 157, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "sqlcycli/_ssl.py":164
+      /* "sqlcycli/_ssl.py":158
  *             if self._verify_mode in ("none", "0", "false", "no"):
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"             # <<<<<<<<<<<<<<
@@ -4907,7 +4907,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       __Pyx_DECREF(__pyx_v_self->_verify_mode);
       __pyx_v_self->_verify_mode = __pyx_n_u_None;
 
-      /* "sqlcycli/_ssl.py":162
+      /* "sqlcycli/_ssl.py":156
  *             if isinstance(self._verify_mode, str):
  *                 self._verify_mode = self._verify_mode.lower()
  *             if self._verify_mode in ("none", "0", "false", "no"):             # <<<<<<<<<<<<<<
@@ -4917,32 +4917,32 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       goto __pyx_L7;
     }
 
-    /* "sqlcycli/_ssl.py":165
+    /* "sqlcycli/_ssl.py":159
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"
  *             elif self._verify_mode == "optional":             # <<<<<<<<<<<<<<
  *                 context.verify_mode = _py_ssl.CERT_OPTIONAL
  *                 self._verify_mode = "Optional"
  */
-    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_verify_mode, __pyx_n_u_optional, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_verify_mode, __pyx_n_u_optional, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 159, __pyx_L1_error)
     if (__pyx_t_6) {
 
-      /* "sqlcycli/_ssl.py":166
+      /* "sqlcycli/_ssl.py":160
  *                 self._verify_mode = "None"
  *             elif self._verify_mode == "optional":
  *                 context.verify_mode = _py_ssl.CERT_OPTIONAL             # <<<<<<<<<<<<<<
  *                 self._verify_mode = "Optional"
  *             elif self._has_ca or self._verify_mode in ("required", "1", "true", "yes"):
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 166, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 160, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_OPTIONAL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_OPTIONAL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 166, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 160, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "sqlcycli/_ssl.py":167
+      /* "sqlcycli/_ssl.py":161
  *             elif self._verify_mode == "optional":
  *                 context.verify_mode = _py_ssl.CERT_OPTIONAL
  *                 self._verify_mode = "Optional"             # <<<<<<<<<<<<<<
@@ -4955,7 +4955,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       __Pyx_DECREF(__pyx_v_self->_verify_mode);
       __pyx_v_self->_verify_mode = __pyx_n_u_Optional;
 
-      /* "sqlcycli/_ssl.py":165
+      /* "sqlcycli/_ssl.py":159
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"
  *             elif self._verify_mode == "optional":             # <<<<<<<<<<<<<<
@@ -4965,7 +4965,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       goto __pyx_L7;
     }
 
-    /* "sqlcycli/_ssl.py":168
+    /* "sqlcycli/_ssl.py":162
  *                 context.verify_mode = _py_ssl.CERT_OPTIONAL
  *                 self._verify_mode = "Optional"
  *             elif self._has_ca or self._verify_mode in ("required", "1", "true", "yes"):             # <<<<<<<<<<<<<<
@@ -4979,25 +4979,25 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     }
     __Pyx_INCREF(__pyx_v_self->_verify_mode);
     __pyx_t_1 = __pyx_v_self->_verify_mode;
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_required, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_required, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
     if (!__pyx_t_7) {
     } else {
       __pyx_t_4 = __pyx_t_7;
       goto __pyx_L14_bool_binop_done;
     }
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
     if (!__pyx_t_7) {
     } else {
       __pyx_t_4 = __pyx_t_7;
       goto __pyx_L14_bool_binop_done;
     }
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_true, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_true, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
     if (!__pyx_t_7) {
     } else {
       __pyx_t_4 = __pyx_t_7;
       goto __pyx_L14_bool_binop_done;
     }
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_yes, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_yes, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
     __pyx_t_4 = __pyx_t_7;
     __pyx_L14_bool_binop_done:;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -5006,22 +5006,22 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
     __pyx_L12_bool_binop_done:;
     if (__pyx_t_6) {
 
-      /* "sqlcycli/_ssl.py":169
+      /* "sqlcycli/_ssl.py":163
  *                 self._verify_mode = "Optional"
  *             elif self._has_ca or self._verify_mode in ("required", "1", "true", "yes"):
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED             # <<<<<<<<<<<<<<
  *                 self._verify_mode = "Required"
  *             else:
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_REQUIRED); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 169, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_CERT_REQUIRED); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 163, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 169, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_3) < 0) __PYX_ERR(0, 163, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "sqlcycli/_ssl.py":170
+      /* "sqlcycli/_ssl.py":164
  *             elif self._has_ca or self._verify_mode in ("required", "1", "true", "yes"):
  *                 context.verify_mode = _py_ssl.CERT_REQUIRED
  *                 self._verify_mode = "Required"             # <<<<<<<<<<<<<<
@@ -5034,7 +5034,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       __Pyx_DECREF(__pyx_v_self->_verify_mode);
       __pyx_v_self->_verify_mode = __pyx_n_u_Required;
 
-      /* "sqlcycli/_ssl.py":168
+      /* "sqlcycli/_ssl.py":162
  *                 context.verify_mode = _py_ssl.CERT_OPTIONAL
  *                 self._verify_mode = "Optional"
  *             elif self._has_ca or self._verify_mode in ("required", "1", "true", "yes"):             # <<<<<<<<<<<<<<
@@ -5044,7 +5044,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       goto __pyx_L7;
     }
 
-    /* "sqlcycli/_ssl.py":172
+    /* "sqlcycli/_ssl.py":166
  *                 self._verify_mode = "Required"
  *             else:
  *                 context.verify_mode = _py_ssl.CERT_NONE             # <<<<<<<<<<<<<<
@@ -5052,15 +5052,15 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  *         # . client certificate
  */
     /*else*/ {
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 172, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_py_ssl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 166, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CERT_NONE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 172, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_context, __pyx_n_s_verify_mode, __pyx_t_1) < 0) __PYX_ERR(0, 166, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "sqlcycli/_ssl.py":173
+      /* "sqlcycli/_ssl.py":167
  *             else:
  *                 context.verify_mode = _py_ssl.CERT_NONE
  *                 self._verify_mode = "None"             # <<<<<<<<<<<<<<
@@ -5077,7 +5077,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   }
   __pyx_L3:;
 
-  /* "sqlcycli/_ssl.py":175
+  /* "sqlcycli/_ssl.py":169
  *                 self._verify_mode = "None"
  *         # . client certificate
  *         if self._cert_file is not None:             # <<<<<<<<<<<<<<
@@ -5087,59 +5087,59 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   __pyx_t_6 = (__pyx_v_self->_cert_file != Py_None);
   if (__pyx_t_6) {
 
-    /* "sqlcycli/_ssl.py":176
+    /* "sqlcycli/_ssl.py":170
  *         # . client certificate
  *         if self._cert_file is not None:
  *             context.load_cert_chain(             # <<<<<<<<<<<<<<
  *                 certfile=self._cert_file,
  *                 keyfile=self._cert_key,
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_context, __pyx_n_s_load_cert_chain); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 176, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_context, __pyx_n_s_load_cert_chain); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "sqlcycli/_ssl.py":177
+    /* "sqlcycli/_ssl.py":171
  *         if self._cert_file is not None:
  *             context.load_cert_chain(
  *                 certfile=self._cert_file,             # <<<<<<<<<<<<<<
  *                 keyfile=self._cert_key,
  *                 password=self._cert_key_password,
  */
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_certfile, __pyx_v_self->_cert_file) < 0) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_certfile, __pyx_v_self->_cert_file) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
 
-    /* "sqlcycli/_ssl.py":178
+    /* "sqlcycli/_ssl.py":172
  *             context.load_cert_chain(
  *                 certfile=self._cert_file,
  *                 keyfile=self._cert_key,             # <<<<<<<<<<<<<<
  *                 password=self._cert_key_password,
  *             )
  */
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_keyfile, __pyx_v_self->_cert_key) < 0) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_keyfile, __pyx_v_self->_cert_key) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
 
-    /* "sqlcycli/_ssl.py":179
+    /* "sqlcycli/_ssl.py":173
  *                 certfile=self._cert_file,
  *                 keyfile=self._cert_key,
  *                 password=self._cert_key_password,             # <<<<<<<<<<<<<<
  *             )
  *         # . cipher
  */
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_password, __pyx_v_self->_cert_key_password) < 0) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_password, __pyx_v_self->_cert_key_password) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
 
-    /* "sqlcycli/_ssl.py":176
+    /* "sqlcycli/_ssl.py":170
  *         # . client certificate
  *         if self._cert_file is not None:
  *             context.load_cert_chain(             # <<<<<<<<<<<<<<
  *                 certfile=self._cert_file,
  *                 keyfile=self._cert_key,
  */
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 176, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "sqlcycli/_ssl.py":175
+    /* "sqlcycli/_ssl.py":169
  *                 self._verify_mode = "None"
  *         # . client certificate
  *         if self._cert_file is not None:             # <<<<<<<<<<<<<<
@@ -5148,7 +5148,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  */
   }
 
-  /* "sqlcycli/_ssl.py":182
+  /* "sqlcycli/_ssl.py":176
  *             )
  *         # . cipher
  *         if self._cipher is not None:             # <<<<<<<<<<<<<<
@@ -5158,14 +5158,14 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   __pyx_t_6 = (__pyx_v_self->_cipher != Py_None);
   if (__pyx_t_6) {
 
-    /* "sqlcycli/_ssl.py":183
+    /* "sqlcycli/_ssl.py":177
  *         # . cipher
  *         if self._cipher is not None:
  *             context.set_ciphers(self._cipher)             # <<<<<<<<<<<<<<
  *         # . set context
  *         self._context = context
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_context, __pyx_n_s_set_ciphers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_context, __pyx_n_s_set_ciphers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = NULL;
     __pyx_t_5 = 0;
@@ -5185,13 +5185,13 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
       PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_self->_cipher};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 183, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 177, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "sqlcycli/_ssl.py":182
+    /* "sqlcycli/_ssl.py":176
  *             )
  *         # . cipher
  *         if self._cipher is not None:             # <<<<<<<<<<<<<<
@@ -5200,7 +5200,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
  */
   }
 
-  /* "sqlcycli/_ssl.py":185
+  /* "sqlcycli/_ssl.py":179
  *             context.set_ciphers(self._cipher)
  *         # . set context
  *         self._context = context             # <<<<<<<<<<<<<<
@@ -5213,7 +5213,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   __Pyx_DECREF(__pyx_v_self->_context);
   __pyx_v_self->_context = __pyx_v_context;
 
-  /* "sqlcycli/_ssl.py":186
+  /* "sqlcycli/_ssl.py":180
  *         # . set context
  *         self._context = context
  *         return True             # <<<<<<<<<<<<<<
@@ -5223,9 +5223,9 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/_ssl.py":133
+  /* "sqlcycli/_ssl.py":123
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Internal --------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     @cython.inline(True)
  *     @cython.exceptval(-1, check=False)
@@ -5244,7 +5244,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_4_ssl_3SSL__create_ssl_context(struct
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":188
+/* "sqlcycli/_ssl.py":182
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -5287,9 +5287,9 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
   __Pyx_RefNannySetupContext("_validate_path", 0);
   __Pyx_INCREF(__pyx_v_path);
 
-  /* "sqlcycli/_ssl.py":194
- *         If user or $HOME is unknown, do nothing. Only
- *         applies to <'str'> or <'Path'> objects."""
+  /* "sqlcycli/_ssl.py":192
+ *         :param arg_name `<'str'>`: Name of the parameter for error messages.
+ *         """
  *         if path is None:             # <<<<<<<<<<<<<<
  *             return None
  *         try:
@@ -5297,8 +5297,8 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
   __pyx_t_1 = (__pyx_v_path == Py_None);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/_ssl.py":195
- *         applies to <'str'> or <'Path'> objects."""
+    /* "sqlcycli/_ssl.py":193
+ *         """
  *         if path is None:
  *             return None             # <<<<<<<<<<<<<<
  *         try:
@@ -5308,16 +5308,16 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/_ssl.py":194
- *         If user or $HOME is unknown, do nothing. Only
- *         applies to <'str'> or <'Path'> objects."""
+    /* "sqlcycli/_ssl.py":192
+ *         :param arg_name `<'str'>`: Name of the parameter for error messages.
+ *         """
  *         if path is None:             # <<<<<<<<<<<<<<
  *             return None
  *         try:
  */
   }
 
-  /* "sqlcycli/_ssl.py":196
+  /* "sqlcycli/_ssl.py":194
  *         if path is None:
  *             return None
  *         try:             # <<<<<<<<<<<<<<
@@ -5333,19 +5333,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "sqlcycli/_ssl.py":197
+      /* "sqlcycli/_ssl.py":195
  *             return None
  *         try:
  *             path = os.path.expanduser(path)             # <<<<<<<<<<<<<<
  *         except Exception as err:
  *             raise errors.InvalidSSLConfigError(
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 197, __pyx_L4_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 195, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 197, __pyx_L4_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 195, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_expanduser); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 197, __pyx_L4_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_expanduser); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 195, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_7 = NULL;
@@ -5366,14 +5366,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_path};
         __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 197, __pyx_L4_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_path, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "sqlcycli/_ssl.py":196
+      /* "sqlcycli/_ssl.py":194
  *         if path is None:
  *             return None
  *         try:             # <<<<<<<<<<<<<<
@@ -5390,7 +5390,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "sqlcycli/_ssl.py":198
+    /* "sqlcycli/_ssl.py":196
  *         try:
  *             path = os.path.expanduser(path)
  *         except Exception as err:             # <<<<<<<<<<<<<<
@@ -5400,7 +5400,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("sqlcycli._ssl.SSL._validate_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 198, __pyx_L6_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 196, __pyx_L6_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
@@ -5408,27 +5408,27 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
       __pyx_v_err = __pyx_t_6;
       /*try:*/ {
 
-        /* "sqlcycli/_ssl.py":199
+        /* "sqlcycli/_ssl.py":197
  *             path = os.path.expanduser(path)
  *         except Exception as err:
  *             raise errors.InvalidSSLConfigError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_errors); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 199, __pyx_L15_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_errors); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 197, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_n_s_InvalidSSLConfigError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 199, __pyx_L15_error)
+        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_n_s_InvalidSSLConfigError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 197, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-        /* "sqlcycli/_ssl.py":200
+        /* "sqlcycli/_ssl.py":198
  *         except Exception as err:
  *             raise errors.InvalidSSLConfigError(
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"             # <<<<<<<<<<<<<<
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  */
-        __pyx_t_11 = PyTuple_New(8); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 200, __pyx_L15_error)
+        __pyx_t_11 = PyTuple_New(8); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 198, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_13 = 0;
         __pyx_t_14 = 127;
@@ -5437,19 +5437,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
         __Pyx_GIVEREF(__pyx_kp_u_);
         PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_kp_u_);
 
-        /* "sqlcycli/_ssl.py":201
+        /* "sqlcycli/_ssl.py":199
  *             raise errors.InvalidSSLConfigError(
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)             # <<<<<<<<<<<<<<
  *             ) from err
  *         if not os.path.exists(path):
  */
-        __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 201, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 199, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
-        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_name); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 201, __pyx_L15_error)
+        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_name); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 199, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_16);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_16), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 201, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_16), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 199, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
@@ -5470,7 +5470,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
         __pyx_t_13 += 15;
         __Pyx_GIVEREF(__pyx_kp_u_is_invalid);
         PyTuple_SET_ITEM(__pyx_t_11, 4, __pyx_kp_u_is_invalid);
-        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 201, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 199, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -5481,7 +5481,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
         __pyx_t_13 += 10;
         __Pyx_GIVEREF(__pyx_kp_u_Error);
         PyTuple_SET_ITEM(__pyx_t_11, 6, __pyx_kp_u_Error);
-        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 201, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 199, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -5489,14 +5489,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
         PyTuple_SET_ITEM(__pyx_t_11, 7, __pyx_t_15);
         __pyx_t_15 = 0;
 
-        /* "sqlcycli/_ssl.py":200
+        /* "sqlcycli/_ssl.py":198
  *         except Exception as err:
  *             raise errors.InvalidSSLConfigError(
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"             # <<<<<<<<<<<<<<
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  */
-        __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_11, 8, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 200, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_11, 8, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 198, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __pyx_t_11 = NULL;
@@ -5518,12 +5518,12 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
           __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 199, __pyx_L15_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 197, __pyx_L15_error)
           __Pyx_GOTREF(__pyx_t_10);
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         }
 
-        /* "sqlcycli/_ssl.py":202
+        /* "sqlcycli/_ssl.py":200
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err             # <<<<<<<<<<<<<<
@@ -5532,10 +5532,10 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
  */
         __Pyx_Raise(__pyx_t_10, 0, 0, __pyx_v_err);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 199, __pyx_L15_error)
+        __PYX_ERR(0, 197, __pyx_L15_error)
       }
 
-      /* "sqlcycli/_ssl.py":198
+      /* "sqlcycli/_ssl.py":196
  *         try:
  *             path = os.path.expanduser(path)
  *         except Exception as err:             # <<<<<<<<<<<<<<
@@ -5583,7 +5583,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     }
     goto __pyx_L6_except_error;
 
-    /* "sqlcycli/_ssl.py":196
+    /* "sqlcycli/_ssl.py":194
  *         if path is None:
  *             return None
  *         try:             # <<<<<<<<<<<<<<
@@ -5599,19 +5599,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __pyx_L9_try_end:;
   }
 
-  /* "sqlcycli/_ssl.py":203
+  /* "sqlcycli/_ssl.py":201
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  *         if not os.path.exists(path):             # <<<<<<<<<<<<<<
  *             raise errors.SSLConfigFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_exists); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_exists); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -5632,36 +5632,36 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_path};
     __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 203, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 203, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_25 = (!__pyx_t_1);
   if (unlikely(__pyx_t_25)) {
 
-    /* "sqlcycli/_ssl.py":204
+    /* "sqlcycli/_ssl.py":202
  *             ) from err
  *         if not os.path.exists(path):
  *             raise errors.SSLConfigFileNotFoundError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."
  *                 % (self.__class__.__name__, arg_name, path)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_errors); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 204, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_errors); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 202, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_SSLConfigFileNotFoundError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 204, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_SSLConfigFileNotFoundError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "sqlcycli/_ssl.py":205
+    /* "sqlcycli/_ssl.py":203
  *         if not os.path.exists(path):
  *             raise errors.SSLConfigFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, arg_name, path)
  *             )
  */
-    __pyx_t_6 = PyTuple_New(7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 205, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_13 = 0;
     __pyx_t_14 = 127;
@@ -5670,19 +5670,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __Pyx_GIVEREF(__pyx_kp_u_);
     PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_kp_u_);
 
-    /* "sqlcycli/_ssl.py":206
+    /* "sqlcycli/_ssl.py":204
  *             raise errors.SSLConfigFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."
  *                 % (self.__class__.__name__, arg_name, path)             # <<<<<<<<<<<<<<
  *             )
  *         return path
  */
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_12), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_12), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) : __pyx_t_14;
@@ -5703,7 +5703,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __pyx_t_13 += 19;
     __Pyx_GIVEREF(__pyx_kp_u_does_not_exist);
     PyTuple_SET_ITEM(__pyx_t_6, 4, __pyx_kp_u_does_not_exist);
-    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) : __pyx_t_14;
     __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10);
@@ -5715,14 +5715,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
     __Pyx_GIVEREF(__pyx_kp_u__2);
     PyTuple_SET_ITEM(__pyx_t_6, 6, __pyx_kp_u__2);
 
-    /* "sqlcycli/_ssl.py":205
+    /* "sqlcycli/_ssl.py":203
  *         if not os.path.exists(path):
  *             raise errors.SSLConfigFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, arg_name, path)
  *             )
  */
-    __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_6, 7, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 205, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_6, 7, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_6 = NULL;
@@ -5744,15 +5744,15 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
       __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 204, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 202, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
     __Pyx_Raise(__pyx_t_7, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __PYX_ERR(0, 204, __pyx_L1_error)
+    __PYX_ERR(0, 202, __pyx_L1_error)
 
-    /* "sqlcycli/_ssl.py":203
+    /* "sqlcycli/_ssl.py":201
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  *         if not os.path.exists(path):             # <<<<<<<<<<<<<<
@@ -5761,19 +5761,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
  */
   }
 
-  /* "sqlcycli/_ssl.py":208
+  /* "sqlcycli/_ssl.py":206
  *                 % (self.__class__.__name__, arg_name, path)
  *             )
  *         return path             # <<<<<<<<<<<<<<
  * 
- *     def __repr__(self) -> str:
+ *     # Special Methods -------------------------------------------------------------------------
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_path);
   __pyx_r = __pyx_v_path;
   goto __pyx_L0;
 
-  /* "sqlcycli/_ssl.py":188
+  /* "sqlcycli/_ssl.py":182
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -5801,9 +5801,9 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_4_ssl_3SSL__validate_path(struc
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":210
- *         return path
+/* "sqlcycli/_ssl.py":209
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
  *         if self._context is None:
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__
@@ -5825,7 +5825,7 @@ static PyObject *__pyx_pw_8sqlcycli_4_ssl_3SSL_3__repr__(PyObject *__pyx_v_self)
 }
 static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_ssl.py":227
+/* "sqlcycli/_ssl.py":226
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items()),             # <<<<<<<<<<<<<<
@@ -5845,7 +5845,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_8__repr___genexpr(CYTHON_UNUSED P
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_4_ssl___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 227, __pyx_L1_error)
+    __PYX_ERR(0, 226, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -5853,7 +5853,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_8__repr___genexpr(CYTHON_UNUSED P
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli__ssl); if (unlikely(!gen)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli__ssl); if (unlikely(!gen)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -5896,12 +5896,12 @@ static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_Corout
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 227, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 227, __pyx_L1_error) }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 226, __pyx_L1_error) }
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -5909,7 +5909,7 @@ static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_Corout
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 227, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -5920,11 +5920,11 @@ static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_Corout
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_8 = 0;
     __pyx_t_9 = 127;
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
@@ -5943,7 +5943,7 @@ static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_Corout
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_v);
       __pyx_t_5 = __pyx_cur_scope->__pyx_v_v;
     }
-    __pyx_t_11 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_5), __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_5), __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) : __pyx_t_9;
@@ -5951,10 +5951,10 @@ static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_Corout
     __Pyx_GIVEREF(__pyx_t_11);
     PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_11);
     __pyx_t_11 = 0;
-    __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_11))) __PYX_ERR(0, 227, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_11))) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -5981,9 +5981,9 @@ static PyObject *__pyx_gb_8sqlcycli_4_ssl_3SSL_8__repr___2generator(__pyx_Corout
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":210
- *         return path
+/* "sqlcycli/_ssl.py":209
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
  *         if self._context is None:
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__
@@ -6005,8 +6005,8 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "sqlcycli/_ssl.py":211
- * 
+  /* "sqlcycli/_ssl.py":210
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:
  *         if self._context is None:             # <<<<<<<<<<<<<<
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__
@@ -6015,7 +6015,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
   __pyx_t_1 = (__pyx_v_self->_context == Py_None);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/_ssl.py":212
+    /* "sqlcycli/_ssl.py":211
  *     def __repr__(self) -> str:
  *         if self._context is None:
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__             # <<<<<<<<<<<<<<
@@ -6023,20 +6023,20 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
  *             "has_ca": self._has_ca,
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 211, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 212, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s_SSL_Disabled, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s_SSL_Disabled, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 211, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/_ssl.py":211
- * 
+    /* "sqlcycli/_ssl.py":210
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:
  *         if self._context is None:             # <<<<<<<<<<<<<<
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__
@@ -6044,98 +6044,98 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
  */
   }
 
-  /* "sqlcycli/_ssl.py":214
+  /* "sqlcycli/_ssl.py":213
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__
  *         reprs = {
  *             "has_ca": self._has_ca,             # <<<<<<<<<<<<<<
  *             "ca_file": self._ca_file,
  *             "ca_path": self._ca_path,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_has_ca); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_has_ca); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_has_ca, __pyx_t_3) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_has_ca, __pyx_t_3) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":215
+  /* "sqlcycli/_ssl.py":214
  *         reprs = {
  *             "has_ca": self._has_ca,
  *             "ca_file": self._ca_file,             # <<<<<<<<<<<<<<
  *             "ca_path": self._ca_path,
  *             "cert_file": self._cert_file,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_ca_file, __pyx_v_self->_ca_file) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_ca_file, __pyx_v_self->_ca_file) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":216
+  /* "sqlcycli/_ssl.py":215
  *             "has_ca": self._has_ca,
  *             "ca_file": self._ca_file,
  *             "ca_path": self._ca_path,             # <<<<<<<<<<<<<<
  *             "cert_file": self._cert_file,
  *             "cert_key": self._cert_key,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_ca_path, __pyx_v_self->_ca_path) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_ca_path, __pyx_v_self->_ca_path) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":217
+  /* "sqlcycli/_ssl.py":216
  *             "ca_file": self._ca_file,
  *             "ca_path": self._ca_path,
  *             "cert_file": self._cert_file,             # <<<<<<<<<<<<<<
  *             "cert_key": self._cert_key,
  *             "cert_key_password": self._cert_key_password,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cert_file, __pyx_v_self->_cert_file) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cert_file, __pyx_v_self->_cert_file) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":218
+  /* "sqlcycli/_ssl.py":217
  *             "ca_path": self._ca_path,
  *             "cert_file": self._cert_file,
  *             "cert_key": self._cert_key,             # <<<<<<<<<<<<<<
  *             "cert_key_password": self._cert_key_password,
  *             "verify_identity": self._verify_identity,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cert_key, __pyx_v_self->_cert_key) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cert_key, __pyx_v_self->_cert_key) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":219
+  /* "sqlcycli/_ssl.py":218
  *             "cert_file": self._cert_file,
  *             "cert_key": self._cert_key,
  *             "cert_key_password": self._cert_key_password,             # <<<<<<<<<<<<<<
  *             "verify_identity": self._verify_identity,
  *             "verify_mode": self._verify_mode,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cert_key_password, __pyx_v_self->_cert_key_password) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cert_key_password, __pyx_v_self->_cert_key_password) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":220
+  /* "sqlcycli/_ssl.py":219
  *             "cert_key": self._cert_key,
  *             "cert_key_password": self._cert_key_password,
  *             "verify_identity": self._verify_identity,             # <<<<<<<<<<<<<<
  *             "verify_mode": self._verify_mode,
  *             "cipher": self._cipher,
  */
-  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_verify_identity); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_verify_identity); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_verify_identity, __pyx_t_3) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_verify_identity, __pyx_t_3) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_ssl.py":221
+  /* "sqlcycli/_ssl.py":220
  *             "cert_key_password": self._cert_key_password,
  *             "verify_identity": self._verify_identity,
  *             "verify_mode": self._verify_mode,             # <<<<<<<<<<<<<<
  *             "cipher": self._cipher,
  *         }
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_verify_mode, __pyx_v_self->_verify_mode) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_verify_mode, __pyx_v_self->_verify_mode) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "sqlcycli/_ssl.py":222
+  /* "sqlcycli/_ssl.py":221
  *             "verify_identity": self._verify_identity,
  *             "verify_mode": self._verify_mode,
  *             "cipher": self._cipher,             # <<<<<<<<<<<<<<
  *         }
  *         # fmt: off
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cipher, __pyx_v_self->_cipher) < 0) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_cipher, __pyx_v_self->_cipher) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
   __pyx_v_reprs = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/_ssl.py":225
+  /* "sqlcycli/_ssl.py":224
  *         }
  *         # fmt: off
  *         return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
@@ -6143,7 +6143,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items()),
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = 0;
   __pyx_t_5 = 127;
@@ -6152,19 +6152,19 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
   __Pyx_GIVEREF(__pyx_kp_u__4);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__4);
 
-  /* "sqlcycli/_ssl.py":226
+  /* "sqlcycli/_ssl.py":225
  *         # fmt: off
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,             # <<<<<<<<<<<<<<
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items()),
  *         )
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_6), __pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_6), __pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) : __pyx_t_5;
@@ -6177,19 +6177,19 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
   __Pyx_GIVEREF(__pyx_kp_u__5);
   PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_kp_u__5);
 
-  /* "sqlcycli/_ssl.py":227
+  /* "sqlcycli/_ssl.py":226
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items()),             # <<<<<<<<<<<<<<
  *         )
  *         # fmt: on
  */
-  __pyx_t_3 = __pyx_pf_8sqlcycli_4_ssl_3SSL_8__repr___genexpr(NULL, __pyx_v_reprs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_3 = __pyx_pf_8sqlcycli_4_ssl_3SSL_8__repr___genexpr(NULL, __pyx_v_reprs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_Generator_Next(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Generator_Next(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyUnicode_Join(__pyx_kp_u__6, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Join(__pyx_kp_u__6, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) : __pyx_t_5;
@@ -6202,23 +6202,23 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
   __Pyx_GIVEREF(__pyx_kp_u__7);
   PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u__7);
 
-  /* "sqlcycli/_ssl.py":225
+  /* "sqlcycli/_ssl.py":224
  *         }
  *         # fmt: off
  *         return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items()),
  */
-  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_ssl.py":210
- *         return path
+  /* "sqlcycli/_ssl.py":209
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
  *         if self._context is None:
  *             return "<%s(SSL Disabled)>." % self.__class__.__name__
@@ -6239,7 +6239,7 @@ static PyObject *__pyx_pf_8sqlcycli_4_ssl_3SSL_2__repr__(struct __pyx_obj_8sqlcy
   return __pyx_r;
 }
 
-/* "sqlcycli/_ssl.py":231
+/* "sqlcycli/_ssl.py":230
  *         # fmt: on
  * 
  *     def __bool__(self) -> bool:             # <<<<<<<<<<<<<<
@@ -6267,7 +6267,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL_4__bool__(struct __pyx_obj_8sqlcycli_4_
   int __pyx_t_1;
   int __pyx_t_2;
 
-  /* "sqlcycli/_ssl.py":232
+  /* "sqlcycli/_ssl.py":231
  * 
  *     def __bool__(self) -> bool:
  *         return self._context is not None and (             # <<<<<<<<<<<<<<
@@ -6281,7 +6281,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL_4__bool__(struct __pyx_obj_8sqlcycli_4_
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "sqlcycli/_ssl.py":233
+  /* "sqlcycli/_ssl.py":232
  *     def __bool__(self) -> bool:
  *         return self._context is not None and (
  *             self._has_ca or self._cert_file is not None             # <<<<<<<<<<<<<<
@@ -6298,7 +6298,7 @@ static int __pyx_pf_8sqlcycli_4_ssl_3SSL_4__bool__(struct __pyx_obj_8sqlcycli_4_
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "sqlcycli/_ssl.py":231
+  /* "sqlcycli/_ssl.py":230
  *         # fmt: on
  * 
  *     def __bool__(self) -> bool:             # <<<<<<<<<<<<<<
@@ -7447,7 +7447,7 @@ static PyMethodDef __pyx_methods_8sqlcycli_4_ssl_SSL[] = {
 };
 
 static struct PyGetSetDef __pyx_getsets_8sqlcycli_4_ssl_SSL[] = {
-  {(char *)"context", __pyx_getprop_8sqlcycli_4_ssl_3SSL_context, 0, (char *)PyDoc_STR("Access the generated `<'SSLContext'>`.\n\n        ## Notice\n        If Python `ssl` module is not available, returns `None`.\n        "), 0},
+  {(char *)"context", __pyx_getprop_8sqlcycli_4_ssl_3SSL_context, 0, (char *)PyDoc_STR("Retrieve the configured SSLContext `<'SSLContext/None'>`."), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
@@ -7455,7 +7455,7 @@ static PyType_Slot __pyx_type_8sqlcycli_4_ssl_SSL_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_4_ssl_SSL},
   {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_4_ssl_3SSL_3__repr__},
   {Py_nb_bool, (void *)__pyx_pw_8sqlcycli_4_ssl_3SSL_5__bool__},
-  {Py_tp_doc, (void *)PyDoc_STR("Represents the SSL Configuration for MySQL.\n\n    It takes the responsibility of creating the SSLContext\n    for MySQL from 'PyMySQL' package's <'Connection'> class.\n\n    ## Notice\n    Please access the generated <'SSLContext'> through `context` attribute.\n    If Python `ssl` module is not available, a `RuntimeWarning` will be\n    issued and the context attribute will be `None`.\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("Configure and produce an SSLContext for MySQL connections.\n\n    Handles CA certificates, client cert/key, verification modes, and cipher\n    suites. Access the resulting `ssl.SSLContext` via the `context` property.\n    If Python's `ssl` module is unavailable, a warning is issued and `context`\n    property will always be `None`.\n    ")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_4_ssl_SSL},
   {Py_tp_clear, (void *)__pyx_tp_clear_8sqlcycli_4_ssl_SSL},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_4_ssl_SSL},
@@ -7566,7 +7566,7 @@ static PyTypeObject __pyx_type_8sqlcycli_4_ssl_SSL = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("Represents the SSL Configuration for MySQL.\n\n    It takes the responsibility of creating the SSLContext\n    for MySQL from 'PyMySQL' package's <'Connection'> class.\n\n    ## Notice\n    Please access the generated <'SSLContext'> through `context` attribute.\n    If Python `ssl` module is not available, a `RuntimeWarning` will be\n    issued and the context attribute will be `None`.\n    "), /*tp_doc*/
+  PyDoc_STR("Configure and produce an SSLContext for MySQL connections.\n\n    Handles CA certificates, client cert/key, verification modes, and cipher\n    suites. Access the resulting `ssl.SSLContext` via the `context` property.\n    If Python's `ssl` module is unavailable, a warning is issued and `context`\n    property will always be `None`.\n    "), /*tp_doc*/
   __pyx_tp_traverse_8sqlcycli_4_ssl_SSL, /*tp_traverse*/
   __pyx_tp_clear_8sqlcycli_4_ssl_SSL, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -7954,7 +7954,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_n_s_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(0, 22, __pyx_L1_error)
-  __pyx_builtin_RuntimeWarning = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeWarning); if (!__pyx_builtin_RuntimeWarning) __PYX_ERR(0, 119, __pyx_L1_error)
+  __pyx_builtin_RuntimeWarning = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeWarning); if (!__pyx_builtin_RuntimeWarning) __PYX_ERR(0, 113, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -8146,15 +8146,15 @@ static int __Pyx_modinit_type_init_code(void) {
   if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_4_ssl_SSL) < 0) __PYX_ERR(0, 44, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_4_ssl___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr)) __PYX_ERR(0, 227, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_4_ssl___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_4_ssl___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr)) __PYX_ERR(0, 226, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_4_ssl___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 226, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr = &__pyx_type_8sqlcycli_4_ssl___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 226, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_4_ssl___pyx_scope_struct__genexpr->tp_print = 0;

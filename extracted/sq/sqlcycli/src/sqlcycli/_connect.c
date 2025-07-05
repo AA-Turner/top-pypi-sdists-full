@@ -1518,6 +1518,7 @@ struct __pyx_obj_8sqlcycli_10connection_SSDfCursor;
 struct __pyx_obj_8sqlcycli_10connection_CursorManager;
 struct __pyx_obj_8sqlcycli_10connection_TransactionManager;
 struct __pyx_obj_8sqlcycli_10connection_BaseConnection;
+struct __pyx_obj_8sqlcycli_10connection_Connection;
 struct __pyx_obj_8sqlcycli_3aio_10connection_MysqlResult;
 struct __pyx_obj_8sqlcycli_3aio_10connection_Cursor;
 struct __pyx_obj_8sqlcycli_3aio_10connection_DictCursor;
@@ -1528,6 +1529,7 @@ struct __pyx_obj_8sqlcycli_3aio_10connection_SSDfCursor;
 struct __pyx_obj_8sqlcycli_3aio_10connection_CursorManager;
 struct __pyx_obj_8sqlcycli_3aio_10connection_TransactionManager;
 struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection;
+struct __pyx_obj_8sqlcycli_3aio_10connection_Connection;
 struct __pyx_obj_8sqlcycli_3aio_4pool_PoolConnection;
 struct __pyx_obj_8sqlcycli_3aio_4pool_PoolSyncConnection;
 struct __pyx_obj_8sqlcycli_3aio_4pool_PoolConnectionManager;
@@ -1535,7 +1537,7 @@ struct __pyx_obj_8sqlcycli_3aio_4pool_PoolTransactionManager;
 struct __pyx_obj_8sqlcycli_3aio_4pool_Pool;
 struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager;
 struct __pyx_obj_8sqlcycli_8_connect_PoolManager;
-struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn;
+struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn;
 struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__;
 struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__;
 struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool;
@@ -1605,7 +1607,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_6Cursor_scroll {
   PyObject *mode;
 };
 
-/* "connection.pxd":193
+/* "connection.pxd":194
  *     cdef inline bint _setup_internal(self) except -1
  *     # Cursor
  *     cpdef Cursor cursor(self, object cursor=?)             # <<<<<<<<<<<<<<
@@ -1617,7 +1619,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_14BaseConnection_cursor {
   PyObject *cursor;
 };
 
-/* "connection.pxd":194
+/* "connection.pxd":195
  *     # Cursor
  *     cpdef Cursor cursor(self, object cursor=?)
  *     cpdef TransactionManager transaction(self, object cursor=?)             # <<<<<<<<<<<<<<
@@ -1629,7 +1631,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_14BaseConnection_transaction {
   PyObject *cursor;
 };
 
-/* "connection.pxd":197
+/* "connection.pxd":198
  *     cdef inline type _validate_cursor(self, object cursor)
  *     # Query
  *     cpdef unsigned long long query(self, str sql, bint unbuffered=?)             # <<<<<<<<<<<<<<
@@ -1641,7 +1643,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_14BaseConnection_query {
   int unbuffered;
 };
 
-/* "connection.pxd":207
+/* "connection.pxd":208
  *     cpdef tuple show_warnings(self)
  *     cpdef bint select_database(self, str db) except -1
  *     cpdef object escape_args(self, object args, bint many=?, bint itemize=?)             # <<<<<<<<<<<<<<
@@ -1654,7 +1656,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_14BaseConnection_escape_args {
   int itemize;
 };
 
-/* "connection.pxd":210
+/* "connection.pxd":211
  *     cpdef bytes encode_sql(self, str sql)
  *     # . client
  *     cpdef bint set_charset(self, str charset, object collation=?) except -1             # <<<<<<<<<<<<<<
@@ -1666,7 +1668,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_14BaseConnection_set_charset {
   PyObject *collation;
 };
 
-/* "connection.pxd":247
+/* "connection.pxd":248
  *     cpdef bint closed(self) except -1
  *     cpdef bint kill(self, int thread_id) except -1
  *     cpdef bint ping(self, bint reconnect=?) except -1             # <<<<<<<<<<<<<<
@@ -1678,7 +1680,7 @@ struct __pyx_opt_args_8sqlcycli_10connection_14BaseConnection_ping {
   int reconnect;
 };
 
-/* "connection.pxd":261
+/* "connection.pxd":262
  *     cdef inline bint _set_use_time(self) except -1
  *     # Read
  *     cpdef unsigned long long next_result(self, bint unbuffered=?)             # <<<<<<<<<<<<<<
@@ -1708,7 +1710,7 @@ struct __pyx_opt_args_8sqlcycli_3aio_10connection_6Cursor_mogrify {
   int itemize;
 };
 
-/* "connection.pxd":170
+/* "connection.pxd":171
  *     cdef inline bint _setup_internal(self) except -1
  *     # Cursor
  *     cpdef CursorManager cursor(self, object cursor=?)             # <<<<<<<<<<<<<<
@@ -1720,7 +1722,7 @@ struct __pyx_opt_args_8sqlcycli_3aio_10connection_14BaseConnection_cursor {
   PyObject *cursor;
 };
 
-/* "connection.pxd":171
+/* "connection.pxd":172
  *     # Cursor
  *     cpdef CursorManager cursor(self, object cursor=?)
  *     cpdef TransactionManager transaction(self, object cursor=?)             # <<<<<<<<<<<<<<
@@ -1732,7 +1734,7 @@ struct __pyx_opt_args_8sqlcycli_3aio_10connection_14BaseConnection_transaction {
   PyObject *cursor;
 };
 
-/* "connection.pxd":174
+/* "connection.pxd":175
  *     cdef inline type _validate_cursor(self, object cursor)
  *     # Query
  *     cpdef object escape_args(self, object args, bint many=?, bint itemize=?)             # <<<<<<<<<<<<<<
@@ -1865,10 +1867,11 @@ struct __pyx_obj_8sqlcycli_7charset_Charset {
   PyObject *_encoding;
   char *_encoding_c;
   int _is_default;
+  Py_ssize_t _hashcode;
 };
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1890,11 +1893,12 @@ struct __pyx_obj_8sqlcycli_7charset_Charsets {
  * # Auth Plugin
  * cdef class AuthPlugin:             # <<<<<<<<<<<<<<
  *     cdef:
- *         object _mysql_native_password
+ *         # . plugins registry
  */
 struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin {
   PyObject_HEAD
   struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *__pyx_vtab;
+  PyObject *_plugins;
   PyObject *_mysql_native_password;
   PyObject *_caching_sha2_password;
   PyObject *_sha256_password;
@@ -1902,7 +1906,6 @@ struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin {
   PyObject *_mysql_old_password;
   PyObject *_mysql_clear_password;
   PyObject *_dialog;
-  PyObject *_plugins;
 };
 
 
@@ -2071,7 +2074,7 @@ struct __pyx_obj_8sqlcycli_10connection_SSDfCursor {
 
 /* "connection.pxd":104
  * 
- * # Connection
+ * # Cursor Manager
  * cdef class CursorManager:             # <<<<<<<<<<<<<<
  *     cdef:
  *         BaseConnection _conn
@@ -2098,9 +2101,9 @@ struct __pyx_obj_8sqlcycli_10connection_TransactionManager {
 };
 
 
-/* "connection.pxd":116
- *     pass
+/* "connection.pxd":117
  * 
+ * # Connection
  * cdef class BaseConnection:             # <<<<<<<<<<<<<<
  *     cdef:
  *         # Basic
@@ -2165,6 +2168,17 @@ struct __pyx_obj_8sqlcycli_10connection_BaseConnection {
   unsigned int _next_seq_id;
   PyObject *_reader;
   PyObject *_writer;
+};
+
+
+/* "connection.pxd":270
+ *     cdef inline bytes _read_bytes(self, unsigned int size)
+ * 
+ * cdef class Connection(BaseConnection):             # <<<<<<<<<<<<<<
+ *     pass
+ */
+struct __pyx_obj_8sqlcycli_10connection_Connection {
+  struct __pyx_obj_8sqlcycli_10connection_BaseConnection __pyx_base;
 };
 
 
@@ -2283,7 +2297,7 @@ struct __pyx_obj_8sqlcycli_3aio_10connection_SSDfCursor {
 
 /* "connection.pxd":81
  * 
- * # Connection
+ * # Cursor Manager
  * cdef class CursorManager:             # <<<<<<<<<<<<<<
  *     cdef:
  *         BaseConnection _conn
@@ -2309,9 +2323,9 @@ struct __pyx_obj_8sqlcycli_3aio_10connection_TransactionManager {
 };
 
 
-/* "connection.pxd":91
- *     pass
+/* "connection.pxd":92
  * 
+ * # Connection
  * cdef class BaseConnection:             # <<<<<<<<<<<<<<
  *     cdef:
  *         # Basic
@@ -2377,6 +2391,17 @@ struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection {
   PyObject *_reader;
   PyObject *_writer;
   PyObject *_loop;
+};
+
+
+/* "connection.pxd":201
+ *     cdef inline bint _set_use_time(self) except -1
+ * 
+ * cdef class Connection(BaseConnection):             # <<<<<<<<<<<<<<
+ *     pass
+ */
+struct __pyx_obj_8sqlcycli_3aio_10connection_Connection {
+  struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection __pyx_base;
 };
 
 
@@ -2531,25 +2556,25 @@ struct __pyx_obj_8sqlcycli_8_connect_PoolManager {
 };
 
 
-/* "sqlcycli/_connect.py":70
+/* "sqlcycli/_connect.py":71
  * 
  *     # Async -------------------------------------------------------------------------------------
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
+ *     async def _create_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
  *         conn: async_conn.BaseConnection = async_conn.Connection(
  */
-struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn {
+struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn {
   PyObject_HEAD
   struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_v_conn;
   struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self;
 };
 
 
-/* "sqlcycli/_connect.py":83
- *         return self._acquire_async_conn().__await__()
+/* "sqlcycli/_connect.py":84
+ *         return self._create_async_conn().__await__()
  * 
  *     async def __aenter__(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         self._conn_async = await self._acquire_async_conn()
+ *         self._conn_async = await self._create_async_conn()
  *         return self._conn_async
  */
 struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ {
@@ -2558,7 +2583,7 @@ struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ {
 };
 
 
-/* "sqlcycli/_connect.py":87
+/* "sqlcycli/_connect.py":88
  *         return self._conn_async
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -2574,12 +2599,12 @@ struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ {
 };
 
 
-/* "sqlcycli/_connect.py":272
+/* "sqlcycli/_connect.py":273
  * 
  *     # Async -------------------------------------------------------------------------------------
  *     async def _create_and_fill_pool(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
- *         pool: aio_pool.Pool = aio_pool.Pool(
+ *         """(internal) Create a new pool and fill with free
+ *         connections up to `Pool.min_size` limit `<'Pool'>`.
  */
 struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool {
   PyObject_HEAD
@@ -2588,7 +2613,7 @@ struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool 
 };
 
 
-/* "sqlcycli/_connect.py":283
+/* "sqlcycli/_connect.py":286
  *         return self._create_and_fill_pool().__await__()
  * 
  *     async def __aenter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
@@ -2601,7 +2626,7 @@ struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__ {
 };
 
 
-/* "sqlcycli/_connect.py":287
+/* "sqlcycli/_connect.py":290
  *         return self._pool
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -2632,7 +2657,7 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charset {
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcycli_7charset_Charset;
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -2642,10 +2667,10 @@ static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcyc
 
 struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
   int (*add)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *, int __pyx_skip_dispatch);
-  int (*_add_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
   PyObject *(*_gen_charset_n_collate_key)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
@@ -2660,11 +2685,14 @@ static struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *__pyx_vtabptr_8sqlcy
  * # Auth Plugin
  * cdef class AuthPlugin:             # <<<<<<<<<<<<<<
  *     cdef:
- *         object _mysql_native_password
+ *         # . plugins registry
  */
 
 struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin {
   PyObject *(*get)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, int __pyx_skip_dispatch);
+  int (*set)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *, int __pyx_skip_dispatch);
+  PyObject *(*_validete_plugin_name)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *);
+  PyObject *(*_validate_plugin_handler)(struct __pyx_obj_8sqlcycli_5_auth_AuthPlugin *, PyObject *, PyObject *);
 };
 static struct __pyx_vtabstruct_8sqlcycli_5_auth_AuthPlugin *__pyx_vtabptr_8sqlcycli_5_auth_AuthPlugin;
 
@@ -2860,7 +2888,7 @@ static struct __pyx_vtabstruct_8sqlcycli_10connection_SSDfCursor *__pyx_vtabptr_
 
 /* "connection.pxd":104
  * 
- * # Connection
+ * # Cursor Manager
  * cdef class CursorManager:             # <<<<<<<<<<<<<<
  *     cdef:
  *         BaseConnection _conn
@@ -2887,9 +2915,9 @@ struct __pyx_vtabstruct_8sqlcycli_10connection_TransactionManager {
 static struct __pyx_vtabstruct_8sqlcycli_10connection_TransactionManager *__pyx_vtabptr_8sqlcycli_10connection_TransactionManager;
 
 
-/* "connection.pxd":116
- *     pass
+/* "connection.pxd":117
  * 
+ * # Connection
  * cdef class BaseConnection:             # <<<<<<<<<<<<<<
  *     cdef:
  *         # Basic
@@ -2968,6 +2996,19 @@ struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection {
   PyObject *(*_read_bytes)(struct __pyx_obj_8sqlcycli_10connection_BaseConnection *, unsigned int);
 };
 static struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *__pyx_vtabptr_8sqlcycli_10connection_BaseConnection;
+
+
+/* "connection.pxd":270
+ *     cdef inline bytes _read_bytes(self, unsigned int size)
+ * 
+ * cdef class Connection(BaseConnection):             # <<<<<<<<<<<<<<
+ *     pass
+ */
+
+struct __pyx_vtabstruct_8sqlcycli_10connection_Connection {
+  struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection __pyx_base;
+};
+static struct __pyx_vtabstruct_8sqlcycli_10connection_Connection *__pyx_vtabptr_8sqlcycli_10connection_Connection;
 
 
 /* "connection.pxd":7
@@ -3081,9 +3122,9 @@ struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_SSDfCursor {
 static struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_SSDfCursor *__pyx_vtabptr_8sqlcycli_3aio_10connection_SSDfCursor;
 
 
-/* "connection.pxd":91
- *     pass
+/* "connection.pxd":92
  * 
+ * # Connection
  * cdef class BaseConnection:             # <<<<<<<<<<<<<<
  *     cdef:
  *         # Basic
@@ -3118,6 +3159,19 @@ struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection {
   int (*_set_use_time)(struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *);
 };
 static struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection *__pyx_vtabptr_8sqlcycli_3aio_10connection_BaseConnection;
+
+
+/* "connection.pxd":201
+ *     cdef inline bint _set_use_time(self) except -1
+ * 
+ * cdef class Connection(BaseConnection):             # <<<<<<<<<<<<<<
+ *     pass
+ */
+
+struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_Connection {
+  struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection __pyx_base;
+};
+static struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_Connection *__pyx_vtabptr_8sqlcycli_3aio_10connection_Connection;
 
 
 /* "pool.pxd":12
@@ -3206,10 +3260,10 @@ struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool {
   PyObject *(*release)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *, PyObject *, int __pyx_skip_dispatch);
   struct __pyx_obj_8sqlcycli_3aio_4pool_PoolSyncConnection *(*_acquire_sync_conn)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *);
   int (*_release_sync_conn)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *, struct __pyx_obj_8sqlcycli_3aio_4pool_PoolSyncConnection *);
+  int (*_close_sync_conn)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *);
   PyObject *(*close)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *, int __pyx_skip_dispatch);
   int (*terminate)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *, int __pyx_skip_dispatch);
   int (*closed)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *, int __pyx_skip_dispatch);
-  int (*_close_sync_conn)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *);
   int (*_verify_open)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *);
   PyObject *(*escape_args)(struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *, PyObject *, int __pyx_skip_dispatch, struct __pyx_opt_args_8sqlcycli_3aio_4pool_4Pool_escape_args *__pyx_optional_args);
 };
@@ -3382,14 +3436,6 @@ static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *nam
 /* KeywordStringCheck.proto */
 static int __Pyx_CheckKeywordStrings(PyObject *kw, const char* function_name, int kw_allowed);
 
-/* PyErrExceptionMatches.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
-#else
-#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
-#endif
-
 /* PyThreadStateGet.proto */
 #if CYTHON_FAST_THREAD_STATE
 #define __Pyx_PyThreadState_declare  PyThreadState *__pyx_tstate;
@@ -3431,66 +3477,6 @@ static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject 
 #define __Pyx_ErrFetchInState(tstate, type, value, tb)  PyErr_Fetch(type, value, tb)
 #define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
 #define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
-#endif
-
-/* PyObjectGetAttrStr.proto */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
-#else
-#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
-#endif
-
-/* PyObjectGetAttrStrNoError.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
-
-/* GetBuiltinName.proto */
-static PyObject *__Pyx_GetBuiltinName(PyObject *name);
-
-/* PyDictVersioning.proto */
-#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
-#define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
-#define __PYX_GET_DICT_VERSION(dict)  (((PyDictObject*)(dict))->ma_version_tag)
-#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)\
-    (version_var) = __PYX_GET_DICT_VERSION(dict);\
-    (cache_var) = (value);
-#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP) {\
-    static PY_UINT64_T __pyx_dict_version = 0;\
-    static PyObject *__pyx_dict_cached_value = NULL;\
-    if (likely(__PYX_GET_DICT_VERSION(DICT) == __pyx_dict_version)) {\
-        (VAR) = __pyx_dict_cached_value;\
-    } else {\
-        (VAR) = __pyx_dict_cached_value = (LOOKUP);\
-        __pyx_dict_version = __PYX_GET_DICT_VERSION(DICT);\
-    }\
-}
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj);
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj);
-static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version);
-#else
-#define __PYX_GET_DICT_VERSION(dict)  (0)
-#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)
-#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP)  (VAR) = (LOOKUP);
-#endif
-
-/* GetModuleGlobalName.proto */
-#if CYTHON_USE_DICT_VERSIONS
-#define __Pyx_GetModuleGlobalName(var, name)  do {\
-    static PY_UINT64_T __pyx_dict_version = 0;\
-    static PyObject *__pyx_dict_cached_value = NULL;\
-    (var) = (likely(__pyx_dict_version == __PYX_GET_DICT_VERSION(__pyx_d))) ?\
-        (likely(__pyx_dict_cached_value) ? __Pyx_NewRef(__pyx_dict_cached_value) : __Pyx_GetBuiltinName(name)) :\
-        __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
-} while(0)
-#define __Pyx_GetModuleGlobalNameUncached(var, name)  do {\
-    PY_UINT64_T __pyx_dict_version;\
-    PyObject *__pyx_dict_cached_value;\
-    (var) = __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
-} while(0)
-static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value);
-#else
-#define __Pyx_GetModuleGlobalName(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
-#define __Pyx_GetModuleGlobalNameUncached(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
-static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
 #endif
 
 /* IterFinish.proto */
@@ -3553,6 +3539,13 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func);
 /* PyObjectCallOneArg.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
 
+/* PyObjectGetAttrStr.proto */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
+#else
+#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
+#endif
+
 /* PyObjectGetMethod.proto */
 static int __Pyx_PyObject_GetMethod(PyObject *obj, PyObject *name, PyObject **method);
 
@@ -3594,9 +3587,6 @@ static CYTHON_INLINE int __Pyx_dict_iter_next(PyObject* dict_or_iter, Py_ssize_t
 
 /* MergeKeywords.proto */
 static int __Pyx_MergeKeywords(PyObject *kwdict, PyObject *source_mapping);
-
-/* ExtTypeTest.proto */
-static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
 
 /* IncludeStructmemberH.proto */
 #include <structmember.h>
@@ -3648,6 +3638,17 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyOb
 
 /* PyObjectCallMethod1.proto */
 static PyObject* __Pyx_PyObject_CallMethod1(PyObject* obj, PyObject* method_name, PyObject* arg);
+
+/* PyErrExceptionMatches.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
+#else
+#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
+#endif
+
+/* PyObjectGetAttrStrNoError.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
 
 /* CoroutineBase.proto */
 struct __pyx_CoroutineObject;
@@ -3763,6 +3764,9 @@ static int __Pyx_GetException(PyObject **type, PyObject **value, PyObject **tb);
 /* pep479.proto */
 static void __Pyx_Generator_Replace_StopIteration(int in_async_gen);
 
+/* ExtTypeTest.proto */
+static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
+
 /* WriteUnraisableException.proto */
 static void __Pyx_WriteUnraisable(const char *name, int clineno,
                                   int lineno, const char *filename,
@@ -3770,6 +3774,56 @@ static void __Pyx_WriteUnraisable(const char *name, int clineno,
 
 /* GetAttr3.proto */
 static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
+
+/* GetBuiltinName.proto */
+static PyObject *__Pyx_GetBuiltinName(PyObject *name);
+
+/* PyDictVersioning.proto */
+#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
+#define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
+#define __PYX_GET_DICT_VERSION(dict)  (((PyDictObject*)(dict))->ma_version_tag)
+#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)\
+    (version_var) = __PYX_GET_DICT_VERSION(dict);\
+    (cache_var) = (value);
+#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP) {\
+    static PY_UINT64_T __pyx_dict_version = 0;\
+    static PyObject *__pyx_dict_cached_value = NULL;\
+    if (likely(__PYX_GET_DICT_VERSION(DICT) == __pyx_dict_version)) {\
+        (VAR) = __pyx_dict_cached_value;\
+    } else {\
+        (VAR) = __pyx_dict_cached_value = (LOOKUP);\
+        __pyx_dict_version = __PYX_GET_DICT_VERSION(DICT);\
+    }\
+}
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj);
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj);
+static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version);
+#else
+#define __PYX_GET_DICT_VERSION(dict)  (0)
+#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)
+#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP)  (VAR) = (LOOKUP);
+#endif
+
+/* GetModuleGlobalName.proto */
+#if CYTHON_USE_DICT_VERSIONS
+#define __Pyx_GetModuleGlobalName(var, name)  do {\
+    static PY_UINT64_T __pyx_dict_version = 0;\
+    static PyObject *__pyx_dict_cached_value = NULL;\
+    (var) = (likely(__pyx_dict_version == __PYX_GET_DICT_VERSION(__pyx_d))) ?\
+        (likely(__pyx_dict_cached_value) ? __Pyx_NewRef(__pyx_dict_cached_value) : __Pyx_GetBuiltinName(name)) :\
+        __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
+} while(0)
+#define __Pyx_GetModuleGlobalNameUncached(var, name)  do {\
+    PY_UINT64_T __pyx_dict_version;\
+    PyObject *__pyx_dict_cached_value;\
+    (var) = __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
+} while(0)
+static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value);
+#else
+#define __Pyx_GetModuleGlobalName(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
+#define __Pyx_GetModuleGlobalNameUncached(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
+static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
+#endif
 
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
@@ -4143,6 +4197,7 @@ static const char __pyx_k_enable[] = "enable";
 static const char __pyx_k_exc_tb[] = "exc_tb";
 static const char __pyx_k_import[] = "__import__";
 static const char __pyx_k_kwargs[] = "kwargs";
+static const char __pyx_k_pandas[] = "pandas";
 static const char __pyx_k_pickle[] = "pickle";
 static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_return[] = "return";
@@ -4171,6 +4226,7 @@ static const char __pyx_k_setstate[] = "__setstate__";
 static const char __pyx_k_sql_mode[] = "sql_mode";
 static const char __pyx_k_sqlcycli[] = "sqlcycli";
 static const char __pyx_k_str_None[] = "str | None";
+static const char __pyx_k_DataFrame[] = "DataFrame";
 static const char __pyx_k_Generator[] = "Generator";
 static const char __pyx_k_bool_None[] = "bool | None";
 static const char __pyx_k_collation[] = "collation";
@@ -4180,7 +4236,6 @@ static const char __pyx_k_pyx_state[] = "__pyx_state";
 static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
 static const char __pyx_k_sync_conn[] = "sync_conn";
 static const char __pyx_k_AuthPlugin[] = "AuthPlugin";
-static const char __pyx_k_Connection[] = "Connection";
 static const char __pyx_k_OptionFile[] = "OptionFile";
 static const char __pyx_k_async_conn[] = "async_conn";
 static const char __pyx_k_autocommit[] = "autocommit";
@@ -4221,15 +4276,15 @@ static const char __pyx_k_SSL_object_None[] = "SSL | object | None";
 static const char __pyx_k_connect_timeout[] = "connect_timeout";
 static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
-static const char __pyx_k_connect_line_100[] = "connect (line 100)";
+static const char __pyx_k_connect_line_101[] = "connect (line 101)";
 static const char __pyx_k_AbstractEventLoop[] = "AbstractEventLoop";
 static const char __pyx_k_ConnectionManager[] = "ConnectionManager";
+static const char __pyx_k_create_async_conn[] = "_create_async_conn";
 static const char __pyx_k_execution_timeout[] = "execution_timeout";
 static const char __pyx_k_lock_wait_timeout[] = "lock_wait_timeout";
 static const char __pyx_k_server_public_key[] = "server_public_key";
 static const char __pyx_k_sqlcycli__connect[] = "sqlcycli._connect";
 static const char __pyx_k_PoolManager___exit[] = "PoolManager.__exit__";
-static const char __pyx_k_acquire_async_conn[] = "_acquire_async_conn";
 static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_max_allowed_packet[] = "max_allowed_packet";
@@ -4251,21 +4306,21 @@ static const char __pyx_k_ConnectionManager___aenter[] = "ConnectionManager.__ae
 static const char __pyx_k_PoolManager___reduce_cython[] = "PoolManager.__reduce_cython__";
 static const char __pyx_k_PoolManager___setstate_cython[] = "PoolManager.__setstate_cython__";
 static const char __pyx_k_pyx_unpickle_ConnectionManager[] = "__pyx_unpickle_ConnectionManager";
-static const char __pyx_k_Connect_to_the_server_and_acquir[] = "Connect to the server and acquire a `sync` or `async`\n    connection through context manager `<'ConnectionManager'>`.\n\n    :param host `<'str/None'>`: The host of the server. Defaults to `'localhost'`.\n    :param port `<'int'>`: The port of the server. Defaults to `3306`.\n    :param user `<'str/bytes/None'>`: The username to login as. Defaults to `None`.\n    :param password `<'str/bytes/None'>`: The password for login authentication. Defaults to `None`.\n    :param database `<'str/bytes/None'>`: The default database to use by the connection. Defaults to `None`.\n    :param charset `<'str/None'>`: The character set for the connection. Defaults to `'utf8mb4'`.\n    :param collation `<'str/None'>`: The collation for the connection. Defaults to `None`.\n    :param connect_timeout `<'int'>`: Set timeout (in seconds) for establishing the connection. Defaults to `5`.\n    :param read_timeout `<'int/None>`: Set SESSION 'net_read_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param write_timeout `<'int/None>`: Set SESSION 'net_write_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param wait_timeout `<'int/None>`: Set SESSION 'wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param interactive_timeout `<'int/None>`: Set SESSION 'interactive_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param lock_wait_timeout `<'int/None>`: Set SESSION 'innodb_lock_wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param execution_timeout `<'int/None>`: Set SESSION 'max_execution_time' (in milliseconds). Defaults to `None` (use GLOBAL settings).\n    :param bind_address `<'str/None'>`: The interface from which to connect to the host. Accept both hostname or IP address. Defaults to `None`.\n    :param unix_socket `<'str/None'>`: The unix socket for establishing connection rather than TCP/IP. Defaults to `None`.\n    :param autocommit `<'bool/None'>`: The autocommit m""ode for the connection. `None` means use server default. Defaults to `False`.\n    :param local_infile `<'bool'>`: Enable/Disable LOAD DATA LOCAL command. Defaults to `False`.\n    :param max_allowed_packet `<'int/str/None'>`: The max size of packet sent to server in bytes. Defaults to `None` (16MB).\n    :param sql_mode `<'str/None'>`: The default SQL_MODE for the connection. Defaults to `None`.\n    :param init_command `<'str/None'>`: The initial SQL statement to run when connection is established. Defaults to `None`.\n    :param cursor `<'type[Cursor]/None'>`: The default cursor type (class) to use. Defaults to `<'Cursor'>`.\n            Also accepts: 'tuple' => 'Cursor' / 'dict' => 'DictCursor' / 'DataFrame' => 'DfCursor'.\n\n    :param client_flag `<'int'>`: Custom flags to sent to server, see 'constants.CLIENT'. Defaults to `0`.\n    :param program_name `<'str/None'>`: The program name for the connection. Defaults to `None`.\n    :param option_file `<'OptionFile/PathLike/None>`: The MySQL option file to load connection parameters. Defaults to `None`.\n        - Recommand use <'OptionFile'> to load MySQL option file.\n        - If passed str/bytes/PathLike argument, it will be automatically converted\n            to <'OptionFile'>, with option group defaults to 'client'.\n\n    :param ssl `<'SSL/ssl.SSLContext/None'>`: The SSL configuration for the connection. Defaults to `None`.\n        - Supports both <'SSL'> or pre-configured <'ssl.SSLContext'> object.\n\n    :param auth_plugin `<'AuthPlugin/dict/None'>`: The authentication plugins handlers. Defaults to `None`.\n        - Recommand use <'AuthPlugin'> to setup MySQL authentication plugin handlers.\n        - If passed dict argument, it will be automatically converted to <'AuthPlugin'>.\n\n    :param server_public_key `<'bytes/None'>`: The public key for the server authentication. Defaults to `None`.\n    :param use_decimal `<'bool'>`: If `True` use <'Decimal'> to represent DECIMAL column data, else use <'flo""at'>. Defaults to `False`.\n    :param decode_bit `<'bool'>`: If `True` decode BIT column data to <'int'>, else keep as original bytes. Defaults to `False`.\n    :param decode_json `<'bool'>`: If `True` deserialize JSON column data, else keep as original json string. Defaults to `False`.\n    :param loop `<'AbstractEventLoop/None'>`: The event loop for the `async` connection. Defaults to `None`.\n        - Only applicable for `async` connection. `sync` connection will ignore this argument.\n\n    ## Example (sync):\n    >>> with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            with conn.cursor() as cur:\n                cur.execute(\"SELECT 1\")\n\n    ## Example (async):\n    >>> async with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            async with conn.cursor() as cur:\n                await cur.execute(\"SELECT 1\")\n    ";
+static const char __pyx_k_ConnectionManager__create_async[] = "ConnectionManager._create_async_conn";
 static const char __pyx_k_ConnectionManager___reduce_cytho[] = "ConnectionManager.__reduce_cython__";
 static const char __pyx_k_ConnectionManager___setstate_cyt[] = "ConnectionManager.__setstate_cython__";
-static const char __pyx_k_ConnectionManager__acquire_async[] = "ConnectionManager._acquire_async_conn";
+static const char __pyx_k_Establish_a_sync_async_connectio[] = "Establish a [sync/async] connection to the server\n    through context manager `<'ConnectionManager'>`.\n\n    :param host `<'str/None'>`: The host of the server. Defaults to `'localhost'`.\n    :param port `<'int'>`: The port of the server. Defaults to `3306`.\n    :param user `<'str/bytes/None'>`: The username to login as. Defaults to `None`.\n    :param password `<'str/bytes/None'>`: The password for login authentication. Defaults to `None`.\n    :param database `<'str/bytes/None'>`: The default database to use by the connection. Defaults to `None`.\n    :param charset `<'str/None'>`: The character set for the connection. Defaults to `'utf8mb4'`.\n    :param collation `<'str/None'>`: The collation for the connection. Defaults to `None`.\n    :param connect_timeout `<'int'>`: Set timeout (in seconds) for establishing the connection. Defaults to `5`.\n    :param read_timeout `<'int/None>`: Set SESSION 'net_read_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param write_timeout `<'int/None>`: Set SESSION 'net_write_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param wait_timeout `<'int/None>`: Set SESSION 'wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param interactive_timeout `<'int/None>`: Set SESSION 'interactive_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param lock_wait_timeout `<'int/None>`: Set SESSION 'innodb_lock_wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param execution_timeout `<'int/None>`: Set SESSION 'max_execution_time' (in milliseconds). Defaults to `None` (use GLOBAL settings).\n    :param bind_address `<'str/None'>`: The interface from which to connect to the host. Accept both hostname or IP address. Defaults to `None`.\n    :param unix_socket `<'str/None'>`: The unix socket for establishing connection rather than TCP/IP. Defaults to `None`.\n    :param autocommit `<'bool/None'>`: The autocommit mode for the con""nection. `None` means use server default. Defaults to `False`.\n    :param local_infile `<'bool'>`: Enable/Disable LOAD DATA LOCAL command. Defaults to `False`.\n    :param max_allowed_packet `<'int/str/None'>`: The max size of packet sent to server in bytes. Defaults to `None` (16MB).\n    :param sql_mode `<'str/None'>`: The default SQL_MODE for the connection. Defaults to `None`.\n    :param init_command `<'str/None'>`: The initial SQL statement to run when connection is established. Defaults to `None`.\n    :param cursor `<'type[Cursor]/None'>`: The default cursor class (type) to use. Defaults to `<'Cursor'>`.\n        Determines the data type of the fetched result set.\n        Also accepts: 1. `tuple` => `Cursor`; 2. `dict` => `DictCursor`; 3. `DataFrame` => `DfCursor`;\n\n    :param client_flag `<'int'>`: Custom flags to sent to server, see 'constants.CLIENT'. Defaults to `0`.\n    :param program_name `<'str/None'>`: The program name for the connection. Defaults to `None`.\n    :param option_file `<'OptionFile/PathLike/None>`: The MySQL option file to load connection parameters. Defaults to `None`.\n        - Recommand use <'OptionFile'> to load MySQL option file.\n        - If passed str/bytes/PathLike argument, it will be automatically converted\n            to <'OptionFile'>, with option group defaults to 'client'.\n\n    :param ssl `<'SSL/ssl.SSLContext/None'>`: The SSL configuration for the connection. Defaults to `None`.\n        - Supports both `sqlcycli.SSL` or pre-configured `ssl.SSLContext` object.\n\n    :param auth_plugin `<'AuthPlugin/dict/None'>`: The authentication plugins handlers. Defaults to `None`.\n        - Recommand use <'AuthPlugin'> to setup MySQL authentication plugin handlers.\n        - If passed dict argument, it will be automatically converted to <'AuthPlugin'>.\n\n    :param server_public_key `<'bytes/None'>`: The public key for the server authentication. Defaults to `None`.\n    :param use_decimal `<'bool'>`: DECIMAL columns are ""decoded as `decimal.Decimal` if `True`, else as `float`. Defaults to `False`.\n    :param decode_bit `<'bool'>`: BIT columns are decoded as `int` if `True`, else kept as the original `bytes`. Defaults to `False`.\n    :param decode_json `<'bool'>`: JSON columns are deserialized if `True`, else kept as the original JSON string. Defaults to `False`.\n    :param loop `<'AbstractEventLoop/None'>`: The event loop for the [async] connection. Defaults to `None`.\n\n    ## Example (sync):\n    >>> with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            with conn.cursor() as cur:\n                cur.execute(\"SELECT 1\")\n\n    ## Example (async):\n    >>> async with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            async with conn.cursor() as cur:\n                await cur.execute(\"SELECT 1\")\n    ";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0xf8c89a5, 0xba95af5, 0x1dd7cd6) = (_conn_async, _conn_sync, _cursor, _kwargs, _loop))";
 static const char __pyx_k_PoolManager__create_and_fill_poo[] = "PoolManager._create_and_fill_pool";
 static const char __pyx_k_dict_str_bytes_type_AuthPlugin_N[] = "dict[str | bytes, type] | AuthPlugin | None";
 static const char __pyx_k_str_bytes_PathLike_OptionFile_No[] = "str | bytes | PathLike | OptionFile | None";
-static const char __pyx_k_type_sync_conn_Cursor_async_conn[] = "type[sync_conn.Cursor | async_conn.Cursor] | None";
+static const char __pyx_k_type_sync_conn_Cursor_tuple_dict[] = "type[sync_conn.Cursor | tuple | dict | DataFrame] | None";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0_2[] = "Incompatible checksums (0x%x vs (0x38db538, 0x999e05e, 0x9638734) = (_cursor, _kwargs, _pool))";
 /* #### Code section: decls ### */
 static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self, PyObject *__pyx_v_kwargs, PyObject *__pyx_v_cursor, PyObject *__pyx_v_loop); /* proto */
 static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_2__enter__(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_4__exit__(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_exc_type, CYTHON_UNUSED PyObject *__pyx_v_exc_val, CYTHON_UNUSED PyObject *__pyx_v_exc_tb); /* proto */
-static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_6_acquire_async_conn(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self); /* proto */
+static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_6_create_async_conn(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_9__await__(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self); /* proto */
 static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_11__aenter__(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_14__aexit__(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_exc_type, CYTHON_UNUSED PyObject *__pyx_v_exc_val, CYTHON_UNUSED PyObject *__pyx_v_exc_tb); /* proto */
@@ -4288,7 +4343,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_4__pyx_unpickle_ConnectionManager(
 static PyObject *__pyx_pf_8sqlcycli_8_connect_6__pyx_unpickle_PoolManager(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_8sqlcycli_8_connect_ConnectionManager(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_8sqlcycli_8_connect_PoolManager(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
-static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -4346,6 +4401,7 @@ typedef struct {
   PyTypeObject *__pyx_ptype_8sqlcycli_10connection_CursorManager;
   PyTypeObject *__pyx_ptype_8sqlcycli_10connection_TransactionManager;
   PyTypeObject *__pyx_ptype_8sqlcycli_10connection_BaseConnection;
+  PyTypeObject *__pyx_ptype_8sqlcycli_10connection_Connection;
   #if CYTHON_USE_MODULE_STATE
   #endif
   #if CYTHON_USE_MODULE_STATE
@@ -4360,6 +4416,7 @@ typedef struct {
   PyTypeObject *__pyx_ptype_8sqlcycli_3aio_10connection_CursorManager;
   PyTypeObject *__pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager;
   PyTypeObject *__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection;
+  PyTypeObject *__pyx_ptype_8sqlcycli_3aio_10connection_Connection;
   #if CYTHON_USE_MODULE_STATE
   #endif
   PyTypeObject *__pyx_ptype_8sqlcycli_3aio_4pool_PoolConnection;
@@ -4372,7 +4429,7 @@ typedef struct {
   #if CYTHON_USE_MODULE_STATE
   PyObject *__pyx_type_8sqlcycli_8_connect_ConnectionManager;
   PyObject *__pyx_type_8sqlcycli_8_connect_PoolManager;
-  PyObject *__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn;
+  PyObject *__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn;
   PyObject *__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__;
   PyObject *__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__;
   PyObject *__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool;
@@ -4381,7 +4438,7 @@ typedef struct {
   #endif
   PyTypeObject *__pyx_ptype_8sqlcycli_8_connect_ConnectionManager;
   PyTypeObject *__pyx_ptype_8sqlcycli_8_connect_PoolManager;
-  PyTypeObject *__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn;
+  PyTypeObject *__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn;
   PyTypeObject *__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__;
   PyTypeObject *__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__;
   PyTypeObject *__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool;
@@ -4391,8 +4448,6 @@ typedef struct {
   PyObject *__pyx_kp_s_AbstractEventLoop_None;
   PyObject *__pyx_n_s_Any;
   PyObject *__pyx_n_s_AuthPlugin;
-  PyObject *__pyx_kp_u_Connect_to_the_server_and_acquir;
-  PyObject *__pyx_n_s_Connection;
   PyObject *__pyx_n_s_ConnectionManager;
   PyObject *__pyx_n_u_ConnectionManager;
   PyObject *__pyx_n_s_ConnectionManager___aenter;
@@ -4401,7 +4456,9 @@ typedef struct {
   PyObject *__pyx_n_s_ConnectionManager___exit;
   PyObject *__pyx_n_s_ConnectionManager___reduce_cytho;
   PyObject *__pyx_n_s_ConnectionManager___setstate_cyt;
-  PyObject *__pyx_n_s_ConnectionManager__acquire_async;
+  PyObject *__pyx_n_s_ConnectionManager__create_async;
+  PyObject *__pyx_n_s_DataFrame;
+  PyObject *__pyx_kp_u_Establish_a_sync_async_connectio;
   PyObject *__pyx_n_s_Generator;
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0;
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2;
@@ -4421,7 +4478,6 @@ typedef struct {
   PyObject *__pyx_kp_s_SSL_object_None;
   PyObject *__pyx_kp_u__10;
   PyObject *__pyx_n_s__35;
-  PyObject *__pyx_n_s_acquire_async_conn;
   PyObject *__pyx_n_s_aenter;
   PyObject *__pyx_n_s_aexit;
   PyObject *__pyx_n_s_aio_pool;
@@ -4454,11 +4510,12 @@ typedef struct {
   PyObject *__pyx_n_s_conn;
   PyObject *__pyx_n_s_connect;
   PyObject *__pyx_n_u_connect;
-  PyObject *__pyx_kp_u_connect_line_100;
+  PyObject *__pyx_kp_u_connect_line_101;
   PyObject *__pyx_n_s_connect_timeout;
   PyObject *__pyx_n_u_connect_timeout;
   PyObject *__pyx_n_s_connection;
   PyObject *__pyx_n_s_create_and_fill_pool;
+  PyObject *__pyx_n_s_create_async_conn;
   PyObject *__pyx_n_s_create_pool;
   PyObject *__pyx_n_u_create_pool;
   PyObject *__pyx_n_s_cursor;
@@ -4516,6 +4573,7 @@ typedef struct {
   PyObject *__pyx_n_s_option_file;
   PyObject *__pyx_n_u_option_file;
   PyObject *__pyx_n_s_os;
+  PyObject *__pyx_n_s_pandas;
   PyObject *__pyx_n_s_password;
   PyObject *__pyx_n_u_password;
   PyObject *__pyx_n_s_pickle;
@@ -4566,7 +4624,7 @@ typedef struct {
   PyObject *__pyx_kp_s_sync_conn_BaseConnection;
   PyObject *__pyx_n_s_test;
   PyObject *__pyx_n_s_throw;
-  PyObject *__pyx_kp_s_type_sync_conn_Cursor_async_conn;
+  PyObject *__pyx_kp_s_type_sync_conn_Cursor_tuple_dict;
   PyObject *__pyx_n_s_typing;
   PyObject *__pyx_n_s_unix_socket;
   PyObject *__pyx_n_u_unix_socket;
@@ -4682,6 +4740,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_10connection_CursorManager);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_10connection_TransactionManager);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_10connection_BaseConnection);
+  Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_10connection_Connection);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_MysqlResult);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_Cursor);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_DictCursor);
@@ -4692,6 +4751,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_CursorManager);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection);
+  Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_Connection);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_4pool_PoolConnection);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_4pool_PoolSyncConnection);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_3aio_4pool_PoolConnectionManager);
@@ -4701,8 +4761,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_8_connect_ConnectionManager);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_8_connect_PoolManager);
   Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_8_connect_PoolManager);
-  Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn);
-  Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn);
+  Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn);
+  Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__);
   Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__);
@@ -4717,8 +4777,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_s_AbstractEventLoop_None);
   Py_CLEAR(clear_module_state->__pyx_n_s_Any);
   Py_CLEAR(clear_module_state->__pyx_n_s_AuthPlugin);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Connect_to_the_server_and_acquir);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Connection);
   Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager);
   Py_CLEAR(clear_module_state->__pyx_n_u_ConnectionManager);
   Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager___aenter);
@@ -4727,7 +4785,9 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager___exit);
   Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager___reduce_cytho);
   Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager___setstate_cyt);
-  Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager__acquire_async);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConnectionManager__create_async);
+  Py_CLEAR(clear_module_state->__pyx_n_s_DataFrame);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Establish_a_sync_async_connectio);
   Py_CLEAR(clear_module_state->__pyx_n_s_Generator);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2);
@@ -4747,7 +4807,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_s_SSL_object_None);
   Py_CLEAR(clear_module_state->__pyx_kp_u__10);
   Py_CLEAR(clear_module_state->__pyx_n_s__35);
-  Py_CLEAR(clear_module_state->__pyx_n_s_acquire_async_conn);
   Py_CLEAR(clear_module_state->__pyx_n_s_aenter);
   Py_CLEAR(clear_module_state->__pyx_n_s_aexit);
   Py_CLEAR(clear_module_state->__pyx_n_s_aio_pool);
@@ -4780,11 +4839,12 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_conn);
   Py_CLEAR(clear_module_state->__pyx_n_s_connect);
   Py_CLEAR(clear_module_state->__pyx_n_u_connect);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_connect_line_100);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_connect_line_101);
   Py_CLEAR(clear_module_state->__pyx_n_s_connect_timeout);
   Py_CLEAR(clear_module_state->__pyx_n_u_connect_timeout);
   Py_CLEAR(clear_module_state->__pyx_n_s_connection);
   Py_CLEAR(clear_module_state->__pyx_n_s_create_and_fill_pool);
+  Py_CLEAR(clear_module_state->__pyx_n_s_create_async_conn);
   Py_CLEAR(clear_module_state->__pyx_n_s_create_pool);
   Py_CLEAR(clear_module_state->__pyx_n_u_create_pool);
   Py_CLEAR(clear_module_state->__pyx_n_s_cursor);
@@ -4842,6 +4902,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_option_file);
   Py_CLEAR(clear_module_state->__pyx_n_u_option_file);
   Py_CLEAR(clear_module_state->__pyx_n_s_os);
+  Py_CLEAR(clear_module_state->__pyx_n_s_pandas);
   Py_CLEAR(clear_module_state->__pyx_n_s_password);
   Py_CLEAR(clear_module_state->__pyx_n_u_password);
   Py_CLEAR(clear_module_state->__pyx_n_s_pickle);
@@ -4892,7 +4953,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_s_sync_conn_BaseConnection);
   Py_CLEAR(clear_module_state->__pyx_n_s_test);
   Py_CLEAR(clear_module_state->__pyx_n_s_throw);
-  Py_CLEAR(clear_module_state->__pyx_kp_s_type_sync_conn_Cursor_async_conn);
+  Py_CLEAR(clear_module_state->__pyx_kp_s_type_sync_conn_Cursor_tuple_dict);
   Py_CLEAR(clear_module_state->__pyx_n_s_typing);
   Py_CLEAR(clear_module_state->__pyx_n_s_unix_socket);
   Py_CLEAR(clear_module_state->__pyx_n_u_unix_socket);
@@ -4986,6 +5047,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_10connection_CursorManager);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_10connection_TransactionManager);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_10connection_BaseConnection);
+  Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_10connection_Connection);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_MysqlResult);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_Cursor);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_DictCursor);
@@ -4996,6 +5058,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_CursorManager);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection);
+  Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_10connection_Connection);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_4pool_PoolConnection);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_4pool_PoolSyncConnection);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_3aio_4pool_PoolConnectionManager);
@@ -5005,8 +5068,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_8_connect_ConnectionManager);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_8_connect_PoolManager);
   Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_8_connect_PoolManager);
-  Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn);
-  Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn);
+  Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn);
+  Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__);
   Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__);
@@ -5021,8 +5084,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_s_AbstractEventLoop_None);
   Py_VISIT(traverse_module_state->__pyx_n_s_Any);
   Py_VISIT(traverse_module_state->__pyx_n_s_AuthPlugin);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Connect_to_the_server_and_acquir);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Connection);
   Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager);
   Py_VISIT(traverse_module_state->__pyx_n_u_ConnectionManager);
   Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager___aenter);
@@ -5031,7 +5092,9 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager___exit);
   Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager___reduce_cytho);
   Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager___setstate_cyt);
-  Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager__acquire_async);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConnectionManager__create_async);
+  Py_VISIT(traverse_module_state->__pyx_n_s_DataFrame);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Establish_a_sync_async_connectio);
   Py_VISIT(traverse_module_state->__pyx_n_s_Generator);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2);
@@ -5051,7 +5114,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_s_SSL_object_None);
   Py_VISIT(traverse_module_state->__pyx_kp_u__10);
   Py_VISIT(traverse_module_state->__pyx_n_s__35);
-  Py_VISIT(traverse_module_state->__pyx_n_s_acquire_async_conn);
   Py_VISIT(traverse_module_state->__pyx_n_s_aenter);
   Py_VISIT(traverse_module_state->__pyx_n_s_aexit);
   Py_VISIT(traverse_module_state->__pyx_n_s_aio_pool);
@@ -5084,11 +5146,12 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_conn);
   Py_VISIT(traverse_module_state->__pyx_n_s_connect);
   Py_VISIT(traverse_module_state->__pyx_n_u_connect);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_connect_line_100);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_connect_line_101);
   Py_VISIT(traverse_module_state->__pyx_n_s_connect_timeout);
   Py_VISIT(traverse_module_state->__pyx_n_u_connect_timeout);
   Py_VISIT(traverse_module_state->__pyx_n_s_connection);
   Py_VISIT(traverse_module_state->__pyx_n_s_create_and_fill_pool);
+  Py_VISIT(traverse_module_state->__pyx_n_s_create_async_conn);
   Py_VISIT(traverse_module_state->__pyx_n_s_create_pool);
   Py_VISIT(traverse_module_state->__pyx_n_u_create_pool);
   Py_VISIT(traverse_module_state->__pyx_n_s_cursor);
@@ -5146,6 +5209,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_option_file);
   Py_VISIT(traverse_module_state->__pyx_n_u_option_file);
   Py_VISIT(traverse_module_state->__pyx_n_s_os);
+  Py_VISIT(traverse_module_state->__pyx_n_s_pandas);
   Py_VISIT(traverse_module_state->__pyx_n_s_password);
   Py_VISIT(traverse_module_state->__pyx_n_u_password);
   Py_VISIT(traverse_module_state->__pyx_n_s_pickle);
@@ -5196,7 +5260,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_s_sync_conn_BaseConnection);
   Py_VISIT(traverse_module_state->__pyx_n_s_test);
   Py_VISIT(traverse_module_state->__pyx_n_s_throw);
-  Py_VISIT(traverse_module_state->__pyx_kp_s_type_sync_conn_Cursor_async_conn);
+  Py_VISIT(traverse_module_state->__pyx_kp_s_type_sync_conn_Cursor_tuple_dict);
   Py_VISIT(traverse_module_state->__pyx_n_s_typing);
   Py_VISIT(traverse_module_state->__pyx_n_s_unix_socket);
   Py_VISIT(traverse_module_state->__pyx_n_u_unix_socket);
@@ -5308,6 +5372,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_ptype_8sqlcycli_10connection_CursorManager __pyx_mstate_global->__pyx_ptype_8sqlcycli_10connection_CursorManager
 #define __pyx_ptype_8sqlcycli_10connection_TransactionManager __pyx_mstate_global->__pyx_ptype_8sqlcycli_10connection_TransactionManager
 #define __pyx_ptype_8sqlcycli_10connection_BaseConnection __pyx_mstate_global->__pyx_ptype_8sqlcycli_10connection_BaseConnection
+#define __pyx_ptype_8sqlcycli_10connection_Connection __pyx_mstate_global->__pyx_ptype_8sqlcycli_10connection_Connection
 #if CYTHON_USE_MODULE_STATE
 #endif
 #if CYTHON_USE_MODULE_STATE
@@ -5322,6 +5387,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_ptype_8sqlcycli_3aio_10connection_CursorManager __pyx_mstate_global->__pyx_ptype_8sqlcycli_3aio_10connection_CursorManager
 #define __pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager __pyx_mstate_global->__pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager
 #define __pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection __pyx_mstate_global->__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection
+#define __pyx_ptype_8sqlcycli_3aio_10connection_Connection __pyx_mstate_global->__pyx_ptype_8sqlcycli_3aio_10connection_Connection
 #if CYTHON_USE_MODULE_STATE
 #endif
 #define __pyx_ptype_8sqlcycli_3aio_4pool_PoolConnection __pyx_mstate_global->__pyx_ptype_8sqlcycli_3aio_4pool_PoolConnection
@@ -5334,7 +5400,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #if CYTHON_USE_MODULE_STATE
 #define __pyx_type_8sqlcycli_8_connect_ConnectionManager __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect_ConnectionManager
 #define __pyx_type_8sqlcycli_8_connect_PoolManager __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect_PoolManager
-#define __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn
+#define __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn
 #define __pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__
 #define __pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__
 #define __pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool __pyx_mstate_global->__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool
@@ -5343,7 +5409,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #endif
 #define __pyx_ptype_8sqlcycli_8_connect_ConnectionManager __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect_ConnectionManager
 #define __pyx_ptype_8sqlcycli_8_connect_PoolManager __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect_PoolManager
-#define __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn
+#define __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn
 #define __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__
 #define __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__
 #define __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool __pyx_mstate_global->__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool
@@ -5353,8 +5419,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_s_AbstractEventLoop_None __pyx_mstate_global->__pyx_kp_s_AbstractEventLoop_None
 #define __pyx_n_s_Any __pyx_mstate_global->__pyx_n_s_Any
 #define __pyx_n_s_AuthPlugin __pyx_mstate_global->__pyx_n_s_AuthPlugin
-#define __pyx_kp_u_Connect_to_the_server_and_acquir __pyx_mstate_global->__pyx_kp_u_Connect_to_the_server_and_acquir
-#define __pyx_n_s_Connection __pyx_mstate_global->__pyx_n_s_Connection
 #define __pyx_n_s_ConnectionManager __pyx_mstate_global->__pyx_n_s_ConnectionManager
 #define __pyx_n_u_ConnectionManager __pyx_mstate_global->__pyx_n_u_ConnectionManager
 #define __pyx_n_s_ConnectionManager___aenter __pyx_mstate_global->__pyx_n_s_ConnectionManager___aenter
@@ -5363,7 +5427,9 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_ConnectionManager___exit __pyx_mstate_global->__pyx_n_s_ConnectionManager___exit
 #define __pyx_n_s_ConnectionManager___reduce_cytho __pyx_mstate_global->__pyx_n_s_ConnectionManager___reduce_cytho
 #define __pyx_n_s_ConnectionManager___setstate_cyt __pyx_mstate_global->__pyx_n_s_ConnectionManager___setstate_cyt
-#define __pyx_n_s_ConnectionManager__acquire_async __pyx_mstate_global->__pyx_n_s_ConnectionManager__acquire_async
+#define __pyx_n_s_ConnectionManager__create_async __pyx_mstate_global->__pyx_n_s_ConnectionManager__create_async
+#define __pyx_n_s_DataFrame __pyx_mstate_global->__pyx_n_s_DataFrame
+#define __pyx_kp_u_Establish_a_sync_async_connectio __pyx_mstate_global->__pyx_kp_u_Establish_a_sync_async_connectio
 #define __pyx_n_s_Generator __pyx_mstate_global->__pyx_n_s_Generator
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2
@@ -5383,7 +5449,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_s_SSL_object_None __pyx_mstate_global->__pyx_kp_s_SSL_object_None
 #define __pyx_kp_u__10 __pyx_mstate_global->__pyx_kp_u__10
 #define __pyx_n_s__35 __pyx_mstate_global->__pyx_n_s__35
-#define __pyx_n_s_acquire_async_conn __pyx_mstate_global->__pyx_n_s_acquire_async_conn
 #define __pyx_n_s_aenter __pyx_mstate_global->__pyx_n_s_aenter
 #define __pyx_n_s_aexit __pyx_mstate_global->__pyx_n_s_aexit
 #define __pyx_n_s_aio_pool __pyx_mstate_global->__pyx_n_s_aio_pool
@@ -5416,11 +5481,12 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_conn __pyx_mstate_global->__pyx_n_s_conn
 #define __pyx_n_s_connect __pyx_mstate_global->__pyx_n_s_connect
 #define __pyx_n_u_connect __pyx_mstate_global->__pyx_n_u_connect
-#define __pyx_kp_u_connect_line_100 __pyx_mstate_global->__pyx_kp_u_connect_line_100
+#define __pyx_kp_u_connect_line_101 __pyx_mstate_global->__pyx_kp_u_connect_line_101
 #define __pyx_n_s_connect_timeout __pyx_mstate_global->__pyx_n_s_connect_timeout
 #define __pyx_n_u_connect_timeout __pyx_mstate_global->__pyx_n_u_connect_timeout
 #define __pyx_n_s_connection __pyx_mstate_global->__pyx_n_s_connection
 #define __pyx_n_s_create_and_fill_pool __pyx_mstate_global->__pyx_n_s_create_and_fill_pool
+#define __pyx_n_s_create_async_conn __pyx_mstate_global->__pyx_n_s_create_async_conn
 #define __pyx_n_s_create_pool __pyx_mstate_global->__pyx_n_s_create_pool
 #define __pyx_n_u_create_pool __pyx_mstate_global->__pyx_n_u_create_pool
 #define __pyx_n_s_cursor __pyx_mstate_global->__pyx_n_s_cursor
@@ -5478,6 +5544,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_option_file __pyx_mstate_global->__pyx_n_s_option_file
 #define __pyx_n_u_option_file __pyx_mstate_global->__pyx_n_u_option_file
 #define __pyx_n_s_os __pyx_mstate_global->__pyx_n_s_os
+#define __pyx_n_s_pandas __pyx_mstate_global->__pyx_n_s_pandas
 #define __pyx_n_s_password __pyx_mstate_global->__pyx_n_s_password
 #define __pyx_n_u_password __pyx_mstate_global->__pyx_n_u_password
 #define __pyx_n_s_pickle __pyx_mstate_global->__pyx_n_s_pickle
@@ -5528,7 +5595,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_s_sync_conn_BaseConnection __pyx_mstate_global->__pyx_kp_s_sync_conn_BaseConnection
 #define __pyx_n_s_test __pyx_mstate_global->__pyx_n_s_test
 #define __pyx_n_s_throw __pyx_mstate_global->__pyx_n_s_throw
-#define __pyx_kp_s_type_sync_conn_Cursor_async_conn __pyx_mstate_global->__pyx_kp_s_type_sync_conn_Cursor_async_conn
+#define __pyx_kp_s_type_sync_conn_Cursor_tuple_dict __pyx_mstate_global->__pyx_kp_s_type_sync_conn_Cursor_tuple_dict
 #define __pyx_n_s_typing __pyx_mstate_global->__pyx_n_s_typing
 #define __pyx_n_s_unix_socket __pyx_mstate_global->__pyx_n_s_unix_socket
 #define __pyx_n_u_unix_socket __pyx_mstate_global->__pyx_n_u_unix_socket
@@ -5589,7 +5656,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__34 __pyx_mstate_global->__pyx_codeobj__34
 /* #### Code section: module_code ### */
 
-/* "sqlcycli/_connect.py":36
+/* "sqlcycli/_connect.py":37
  *     _loop: AbstractEventLoop
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -5599,7 +5666,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_8_connect_17ConnectionManager_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_17ConnectionManager___init__, "The Context Manager for both `sync` and `async` Connection.\n\n        For information about the arguments, please\n        refer to the 'connect()' function.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_17ConnectionManager___init__, "The context manager for creating and closing a [sync/async] connection.\n\n        - For detail information about the arguments,\n          please refer to the `connect()` function.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_8_connect_17ConnectionManager___init__;
 #endif
@@ -5643,7 +5710,7 @@ static int __pyx_pw_8sqlcycli_8_connect_17ConnectionManager_1__init__(PyObject *
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 36, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 37, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -5651,9 +5718,9 @@ static int __pyx_pw_8sqlcycli_8_connect_17ConnectionManager_1__init__(PyObject *
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 36, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 37, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, 1); __PYX_ERR(0, 36, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, 1); __PYX_ERR(0, 37, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -5661,14 +5728,14 @@ static int __pyx_pw_8sqlcycli_8_connect_17ConnectionManager_1__init__(PyObject *
           (void)__Pyx_Arg_NewRef_VARARGS(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 36, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 37, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, 2); __PYX_ERR(0, 36, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, 2); __PYX_ERR(0, 37, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 36, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 37, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -5683,7 +5750,7 @@ static int __pyx_pw_8sqlcycli_8_connect_17ConnectionManager_1__init__(PyObject *
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 36, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 37, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5697,7 +5764,7 @@ static int __pyx_pw_8sqlcycli_8_connect_17ConnectionManager_1__init__(PyObject *
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_kwargs), (&PyDict_Type), 0, "kwargs", 1))) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_kwargs), (&PyDict_Type), 0, "kwargs", 1))) __PYX_ERR(0, 39, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(((struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *)__pyx_v_self), __pyx_v_kwargs, __pyx_v_cursor, __pyx_v_loop);
 
   /* function exit code */
@@ -5720,7 +5787,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/_connect.py":48
+  /* "sqlcycli/_connect.py":49
  *         """
  *         # Connection
  *         self._conn_sync = None             # <<<<<<<<<<<<<<
@@ -5733,7 +5800,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   __Pyx_DECREF((PyObject *)__pyx_v_self->_conn_sync);
   __pyx_v_self->_conn_sync = ((struct __pyx_obj_8sqlcycli_10connection_BaseConnection *)Py_None);
 
-  /* "sqlcycli/_connect.py":49
+  /* "sqlcycli/_connect.py":50
  *         # Connection
  *         self._conn_sync = None
  *         self._conn_async = None             # <<<<<<<<<<<<<<
@@ -5746,7 +5813,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   __Pyx_DECREF((PyObject *)__pyx_v_self->_conn_async);
   __pyx_v_self->_conn_async = ((struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *)Py_None);
 
-  /* "sqlcycli/_connect.py":51
+  /* "sqlcycli/_connect.py":52
  *         self._conn_async = None
  *         # Arguments
  *         self._kwargs = kwargs             # <<<<<<<<<<<<<<
@@ -5759,7 +5826,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   __Pyx_DECREF(__pyx_v_self->_kwargs);
   __pyx_v_self->_kwargs = __pyx_v_kwargs;
 
-  /* "sqlcycli/_connect.py":52
+  /* "sqlcycli/_connect.py":53
  *         # Arguments
  *         self._kwargs = kwargs
  *         self._cursor = cursor             # <<<<<<<<<<<<<<
@@ -5772,7 +5839,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   __Pyx_DECREF(__pyx_v_self->_cursor);
   __pyx_v_self->_cursor = __pyx_v_cursor;
 
-  /* "sqlcycli/_connect.py":53
+  /* "sqlcycli/_connect.py":54
  *         self._kwargs = kwargs
  *         self._cursor = cursor
  *         self._loop = loop             # <<<<<<<<<<<<<<
@@ -5785,7 +5852,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   __Pyx_DECREF(__pyx_v_self->_loop);
   __pyx_v_self->_loop = __pyx_v_loop;
 
-  /* "sqlcycli/_connect.py":36
+  /* "sqlcycli/_connect.py":37
  *     _loop: AbstractEventLoop
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -5799,7 +5866,7 @@ static int __pyx_pf_8sqlcycli_8_connect_17ConnectionManager___init__(struct __py
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":56
+/* "sqlcycli/_connect.py":57
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> sync_conn.BaseConnection:             # <<<<<<<<<<<<<<
@@ -5856,46 +5923,32 @@ static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycl
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  int __pyx_t_6;
+  int __pyx_t_5;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__enter__", 1);
 
-  /* "sqlcycli/_connect.py":57
- *     # Sync --------------------------------------------------------------------------------------
- *     def __enter__(self) -> sync_conn.BaseConnection:
- *         conn: sync_conn.BaseConnection = sync_conn.Connection(             # <<<<<<<<<<<<<<
- *             cursor=aio_pool.validate_sync_cursor(self._cursor),
- *             **self._kwargs,
- */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_sync_conn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_Connection); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "sqlcycli/_connect.py":58
+  /* "sqlcycli/_connect.py":59
  *     def __enter__(self) -> sync_conn.BaseConnection:
  *         conn: sync_conn.BaseConnection = sync_conn.Connection(
  *             cursor=aio_pool.validate_sync_cursor(self._cursor),             # <<<<<<<<<<<<<<
  *             **self._kwargs,
  *         )
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __pyx_v_self->_cursor;
-  __Pyx_INCREF(__pyx_t_4);
-  __pyx_t_5 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_sync_cursor(__pyx_t_4, 0)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __pyx_v_self->_cursor;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_4 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_sync_cursor(__pyx_t_3, 0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_t_4) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_cursor, __pyx_t_5) < 0) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_1 = __pyx_t_3;
-  __pyx_t_3 = 0;
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":59
+  /* "sqlcycli/_connect.py":60
  *         conn: sync_conn.BaseConnection = sync_conn.Connection(
  *             cursor=aio_pool.validate_sync_cursor(self._cursor),
  *             **self._kwargs,             # <<<<<<<<<<<<<<
@@ -5904,35 +5957,33 @@ static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycl
  */
   if (unlikely(__pyx_v_self->_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 59, __pyx_L1_error)
+    __PYX_ERR(0, 60, __pyx_L1_error)
   }
-  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
+  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 60, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":57
+  /* "sqlcycli/_connect.py":58
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> sync_conn.BaseConnection:
  *         conn: sync_conn.BaseConnection = sync_conn.Connection(             # <<<<<<<<<<<<<<
  *             cursor=aio_pool.validate_sync_cursor(self._cursor),
  *             **self._kwargs,
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_10connection_Connection), __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_ptype_8sqlcycli_10connection_BaseConnection))))) __PYX_ERR(0, 57, __pyx_L1_error)
-  __pyx_v_conn = ((struct __pyx_obj_8sqlcycli_10connection_BaseConnection *)__pyx_t_3);
-  __pyx_t_3 = 0;
+  __pyx_v_conn = ((struct __pyx_obj_8sqlcycli_10connection_BaseConnection *)__pyx_t_2);
+  __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":61
+  /* "sqlcycli/_connect.py":62
  *             **self._kwargs,
  *         )
  *         conn.connect()             # <<<<<<<<<<<<<<
  *         self._conn_sync = conn
  *         return self._conn_sync
  */
-  __pyx_t_6 = ((struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *)__pyx_v_conn->__pyx_vtab)->connect(__pyx_v_conn, 0); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_5 = ((struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *)__pyx_v_conn->__pyx_vtab)->connect(__pyx_v_conn, 0); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 62, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":62
+  /* "sqlcycli/_connect.py":63
  *         )
  *         conn.connect()
  *         self._conn_sync = conn             # <<<<<<<<<<<<<<
@@ -5945,7 +5996,7 @@ static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycl
   __Pyx_DECREF((PyObject *)__pyx_v_self->_conn_sync);
   __pyx_v_self->_conn_sync = __pyx_v_conn;
 
-  /* "sqlcycli/_connect.py":63
+  /* "sqlcycli/_connect.py":64
  *         conn.connect()
  *         self._conn_sync = conn
  *         return self._conn_sync             # <<<<<<<<<<<<<<
@@ -5957,7 +6008,7 @@ static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycl
   __pyx_r = __pyx_v_self->_conn_sync;
   goto __pyx_L0;
 
-  /* "sqlcycli/_connect.py":56
+  /* "sqlcycli/_connect.py":57
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> sync_conn.BaseConnection:             # <<<<<<<<<<<<<<
@@ -5971,7 +6022,6 @@ static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycl
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_AddTraceback("sqlcycli._connect.ConnectionManager.__enter__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -5981,7 +6031,7 @@ static struct __pyx_obj_8sqlcycli_10connection_BaseConnection *__pyx_pf_8sqlcycl
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":65
+/* "sqlcycli/_connect.py":66
  *         return self._conn_sync
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -6048,7 +6098,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 66, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -6056,9 +6106,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 66, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 1); __PYX_ERR(0, 65, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 1); __PYX_ERR(0, 66, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -6066,14 +6116,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 66, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 2); __PYX_ERR(0, 65, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 2); __PYX_ERR(0, 66, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__exit__") < 0)) __PYX_ERR(0, 65, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__exit__") < 0)) __PYX_ERR(0, 66, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -6088,7 +6138,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 65, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 66, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6124,16 +6174,16 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_4__exit__(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__exit__", 1);
 
-  /* "sqlcycli/_connect.py":66
+  /* "sqlcycli/_connect.py":67
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):
  *         self._conn_sync.close()             # <<<<<<<<<<<<<<
  *         self._conn_sync = None
  * 
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *)__pyx_v_self->_conn_sync->__pyx_vtab)->close(__pyx_v_self->_conn_sync, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *)__pyx_v_self->_conn_sync->__pyx_vtab)->close(__pyx_v_self->_conn_sync, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 67, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":67
+  /* "sqlcycli/_connect.py":68
  *     def __exit__(self, exc_type, exc_val, exc_tb):
  *         self._conn_sync.close()
  *         self._conn_sync = None             # <<<<<<<<<<<<<<
@@ -6146,7 +6196,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_4__exit__(stru
   __Pyx_DECREF((PyObject *)__pyx_v_self->_conn_sync);
   __pyx_v_self->_conn_sync = ((struct __pyx_obj_8sqlcycli_10connection_BaseConnection *)Py_None);
 
-  /* "sqlcycli/_connect.py":65
+  /* "sqlcycli/_connect.py":66
  *         return self._conn_sync
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -6167,25 +6217,25 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_4__exit__(stru
 }
 static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_connect.py":70
+/* "sqlcycli/_connect.py":71
  * 
  *     # Async -------------------------------------------------------------------------------------
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
+ *     async def _create_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
  *         conn: async_conn.BaseConnection = async_conn.Connection(
  */
 
 /* Python wrapper */
-static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_acquire_async_conn(PyObject *__pyx_v_self, 
+static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_create_async_conn(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_17ConnectionManager_6_acquire_async_conn, "(internal) Acquire an `async` connection `<'BaseConnection'>`.");
-static PyMethodDef __pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_7_acquire_async_conn = {"_acquire_async_conn", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_acquire_async_conn, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_17ConnectionManager_6_acquire_async_conn};
-static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_acquire_async_conn(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_17ConnectionManager_6_create_async_conn, "(internal) Acquire an [async] connection `<'BaseConnection'>`.");
+static PyMethodDef __pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_7_create_async_conn = {"_create_async_conn", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_create_async_conn, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_17ConnectionManager_6_create_async_conn};
+static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_create_async_conn(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6198,7 +6248,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("_acquire_async_conn (wrapper)", 0);
+  __Pyx_RefNannySetupContext("_create_async_conn (wrapper)", 0);
   #if !CYTHON_METH_FASTCALL
   #if CYTHON_ASSUME_SAFE_MACROS
   __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
@@ -6208,28 +6258,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   if (unlikely(__pyx_nargs > 0)) {
-    __Pyx_RaiseArgtupleInvalid("_acquire_async_conn", 1, 0, 0, __pyx_nargs); return NULL;}
-  if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_acquire_async_conn", 0))) return NULL;
-  __pyx_r = __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_6_acquire_async_conn(((struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *)__pyx_v_self));
+    __Pyx_RaiseArgtupleInvalid("_create_async_conn", 1, 0, 0, __pyx_nargs); return NULL;}
+  if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_create_async_conn", 0))) return NULL;
+  __pyx_r = __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_6_create_async_conn(((struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_6_acquire_async_conn(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self) {
-  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *__pyx_cur_scope;
+static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_6_create_async_conn(struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_v_self) {
+  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *__pyx_cur_scope;
   struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_acquire_async_conn", 0);
-  __pyx_cur_scope = (struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *)__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn, __pyx_empty_tuple, NULL);
+  __Pyx_RefNannySetupContext("_create_async_conn", 0);
+  __pyx_cur_scope = (struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *)__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn, __pyx_empty_tuple, NULL);
   if (unlikely(!__pyx_cur_scope)) {
-    __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *)Py_None);
+    __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 70, __pyx_L1_error)
+    __PYX_ERR(0, 71, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -6237,7 +6287,7 @@ static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sq
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator, __pyx_codeobj_, (PyObject *) __pyx_cur_scope, __pyx_n_s_acquire_async_conn, __pyx_n_s_ConnectionManager__acquire_async, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 70, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator, __pyx_codeobj_, (PyObject *) __pyx_cur_scope, __pyx_n_s_create_async_conn, __pyx_n_s_ConnectionManager__create_async, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -6245,7 +6295,7 @@ static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sq
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_AddTraceback("sqlcycli._connect.ConnectionManager._acquire_async_conn", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._connect.ConnectionManager._create_async_conn", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __Pyx_DECREF((PyObject *)__pyx_cur_scope);
   __Pyx_XGIVEREF((PyObject *)__pyx_r);
@@ -6255,19 +6305,18 @@ static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sq
 
 static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
-  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *__pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *)__pyx_generator->closure);
+  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *__pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  unsigned int __pyx_t_6;
+  unsigned int __pyx_t_5;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("_acquire_async_conn", 0);
+  __Pyx_RefNannySetupContext("_create_async_conn", 0);
   switch (__pyx_generator->resume_label) {
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
@@ -6276,50 +6325,37 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__p
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 71, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":72
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
- *         conn: async_conn.BaseConnection = async_conn.Connection(             # <<<<<<<<<<<<<<
- *             cursor=aio_pool.validate_async_cursor(self._cursor),
- *             loop=self._loop,
- */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_async_conn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_Connection); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "sqlcycli/_connect.py":73
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
+  /* "sqlcycli/_connect.py":74
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
  *         conn: async_conn.BaseConnection = async_conn.Connection(
  *             cursor=aio_pool.validate_async_cursor(self._cursor),             # <<<<<<<<<<<<<<
  *             loop=self._loop,
  *             **self._kwargs,
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 73, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __pyx_cur_scope->__pyx_v_self->_cursor;
-  __Pyx_INCREF(__pyx_t_4);
-  __pyx_t_5 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_async_cursor(__pyx_t_4, 0)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 73, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __pyx_cur_scope->__pyx_v_self->_cursor;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_4 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_async_cursor(__pyx_t_3, 0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_t_4) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_cursor, __pyx_t_5) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "sqlcycli/_connect.py":74
+  /* "sqlcycli/_connect.py":75
  *         conn: async_conn.BaseConnection = async_conn.Connection(
  *             cursor=aio_pool.validate_async_cursor(self._cursor),
  *             loop=self._loop,             # <<<<<<<<<<<<<<
  *             **self._kwargs,
  *         )
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_loop, __pyx_cur_scope->__pyx_v_self->_loop) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
-  __pyx_t_1 = __pyx_t_3;
-  __pyx_t_3 = 0;
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_loop, __pyx_cur_scope->__pyx_v_self->_loop) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":75
+  /* "sqlcycli/_connect.py":76
  *             cursor=aio_pool.validate_async_cursor(self._cursor),
  *             loop=self._loop,
  *             **self._kwargs,             # <<<<<<<<<<<<<<
@@ -6328,59 +6364,57 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__p
  */
   if (unlikely(__pyx_cur_scope->__pyx_v_self->_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 75, __pyx_L1_error)
+    __PYX_ERR(0, 76, __pyx_L1_error)
   }
-  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_cur_scope->__pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_cur_scope->__pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 76, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":72
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
+  /* "sqlcycli/_connect.py":73
+ *     async def _create_async_conn(self) -> async_conn.BaseConnection:
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
  *         conn: async_conn.BaseConnection = async_conn.Connection(             # <<<<<<<<<<<<<<
  *             cursor=aio_pool.validate_async_cursor(self._cursor),
  *             loop=self._loop,
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_3aio_10connection_Connection), __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection))))) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GIVEREF(__pyx_t_3);
-  __pyx_cur_scope->__pyx_v_conn = ((struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *)__pyx_t_3);
-  __pyx_t_3 = 0;
+  __Pyx_GIVEREF(__pyx_t_2);
+  __pyx_cur_scope->__pyx_v_conn = ((struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *)__pyx_t_2);
+  __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":77
+  /* "sqlcycli/_connect.py":78
  *             **self._kwargs,
  *         )
  *         await conn.connect()             # <<<<<<<<<<<<<<
  *         return conn
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_conn), __pyx_n_s_connect); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_conn), __pyx_n_s_connect); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = NULL;
-  __pyx_t_6 = 0;
+  __pyx_t_4 = NULL;
+  __pyx_t_5 = 0;
   #if CYTHON_UNPACK_METHODS
   if (likely(PyMethod_Check(__pyx_t_1))) {
-    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_1);
-    if (likely(__pyx_t_2)) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_1);
+    if (likely(__pyx_t_4)) {
       PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_1);
-      __Pyx_INCREF(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(function);
       __Pyx_DECREF_SET(__pyx_t_1, function);
-      __pyx_t_6 = 1;
+      __pyx_t_5 = 1;
     }
   }
   #endif
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
-    __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 77, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
+    __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
-  __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_3);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_2);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_XGOTREF(__pyx_r);
   if (likely(__pyx_r)) {
     __Pyx_XGIVEREF(__pyx_r);
@@ -6390,16 +6424,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__p
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 77, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 78, __pyx_L1_error)
   } else {
     PyObject* exc_type = __Pyx_PyErr_CurrentExceptionType();
     if (exc_type) {
       if (likely(exc_type == PyExc_StopIteration || (exc_type != PyExc_GeneratorExit && __Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))) PyErr_Clear();
-      else __PYX_ERR(0, 77, __pyx_L1_error)
+      else __PYX_ERR(0, 78, __pyx_L1_error)
     }
   }
 
-  /* "sqlcycli/_connect.py":78
+  /* "sqlcycli/_connect.py":79
  *         )
  *         await conn.connect()
  *         return conn             # <<<<<<<<<<<<<<
@@ -6411,11 +6445,11 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__p
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "sqlcycli/_connect.py":70
+  /* "sqlcycli/_connect.py":71
  * 
  *     # Async -------------------------------------------------------------------------------------
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
+ *     async def _create_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
  *         conn: async_conn.BaseConnection = async_conn.Connection(
  */
 
@@ -6426,8 +6460,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__p
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_AddTraceback("_acquire_async_conn", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("_create_async_conn", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_r); __pyx_r = 0;
   #if !CYTHON_USE_EXC_INFO_STACK
@@ -6439,11 +6472,11 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_8generator(__p
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":80
+/* "sqlcycli/_connect.py":81
  *         return conn
  * 
  *     def __await__(self) -> Generator[Any, Any, async_conn.BaseConnection]:             # <<<<<<<<<<<<<<
- *         return self._acquire_async_conn().__await__()
+ *         return self._create_async_conn().__await__()
  * 
  */
 
@@ -6475,15 +6508,15 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_9__await__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__await__", 1);
 
-  /* "sqlcycli/_connect.py":81
+  /* "sqlcycli/_connect.py":82
  * 
  *     def __await__(self) -> Generator[Any, Any, async_conn.BaseConnection]:
- *         return self._acquire_async_conn().__await__()             # <<<<<<<<<<<<<<
+ *         return self._create_async_conn().__await__()             # <<<<<<<<<<<<<<
  * 
  *     async def __aenter__(self) -> async_conn.BaseConnection:
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_acquire_async_conn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_create_async_conn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -6503,11 +6536,11 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_9__await__(str
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_await); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_await); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -6528,7 +6561,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_9__await__(str
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -6536,11 +6569,11 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_9__await__(str
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_connect.py":80
+  /* "sqlcycli/_connect.py":81
  *         return conn
  * 
  *     def __await__(self) -> Generator[Any, Any, async_conn.BaseConnection]:             # <<<<<<<<<<<<<<
- *         return self._acquire_async_conn().__await__()
+ *         return self._create_async_conn().__await__()
  * 
  */
 
@@ -6559,11 +6592,11 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_9__await__(str
 }
 static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_connect.py":83
- *         return self._acquire_async_conn().__await__()
+/* "sqlcycli/_connect.py":84
+ *         return self._create_async_conn().__await__()
  * 
  *     async def __aenter__(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         self._conn_async = await self._acquire_async_conn()
+ *         self._conn_async = await self._create_async_conn()
  *         return self._conn_async
  */
 
@@ -6620,7 +6653,7 @@ static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sq
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 83, __pyx_L1_error)
+    __PYX_ERR(0, 84, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -6628,7 +6661,7 @@ static struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *__pyx_pf_8sq
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1, __pyx_codeobj__2, (PyObject *) __pyx_cur_scope, __pyx_n_s_aenter, __pyx_n_s_ConnectionManager___aenter, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1, __pyx_codeobj__2, (PyObject *) __pyx_cur_scope, __pyx_n_s_aenter, __pyx_n_s_ConnectionManager___aenter, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -6665,16 +6698,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1(_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 83, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 84, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":84
+  /* "sqlcycli/_connect.py":85
  * 
  *     async def __aenter__(self) -> async_conn.BaseConnection:
- *         self._conn_async = await self._acquire_async_conn()             # <<<<<<<<<<<<<<
+ *         self._conn_async = await self._create_async_conn()             # <<<<<<<<<<<<<<
  *         return self._conn_async
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_acquire_async_conn); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_create_async_conn); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -6694,7 +6727,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1(_
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -6709,23 +6742,23 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1(_
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 84, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 85, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else {
     __pyx_t_1 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection))))) __PYX_ERR(0, 84, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection))))) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_cur_scope->__pyx_v_self->_conn_async);
   __Pyx_DECREF((PyObject *)__pyx_cur_scope->__pyx_v_self->_conn_async);
   __pyx_cur_scope->__pyx_v_self->_conn_async = ((struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_connect.py":85
+  /* "sqlcycli/_connect.py":86
  *     async def __aenter__(self) -> async_conn.BaseConnection:
- *         self._conn_async = await self._acquire_async_conn()
+ *         self._conn_async = await self._create_async_conn()
  *         return self._conn_async             # <<<<<<<<<<<<<<
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -6735,11 +6768,11 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1(_
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "sqlcycli/_connect.py":83
- *         return self._acquire_async_conn().__await__()
+  /* "sqlcycli/_connect.py":84
+ *         return self._create_async_conn().__await__()
  * 
  *     async def __aenter__(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         self._conn_async = await self._acquire_async_conn()
+ *         self._conn_async = await self._create_async_conn()
  *         return self._conn_async
  */
 
@@ -6762,7 +6795,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_13generator1(_
 }
 static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_connect.py":87
+/* "sqlcycli/_connect.py":88
  *         return self._conn_async
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -6829,7 +6862,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 88, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -6837,9 +6870,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 88, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 1); __PYX_ERR(0, 87, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 1); __PYX_ERR(0, 88, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -6847,14 +6880,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 88, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 2); __PYX_ERR(0, 87, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 2); __PYX_ERR(0, 88, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__aexit__") < 0)) __PYX_ERR(0, 87, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__aexit__") < 0)) __PYX_ERR(0, 88, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -6869,7 +6902,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 87, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 88, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6908,7 +6941,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_14__aexit__(st
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 87, __pyx_L1_error)
+    __PYX_ERR(0, 88, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -6925,7 +6958,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_14__aexit__(st
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_exc_tb);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_exc_tb);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2, __pyx_codeobj__3, (PyObject *) __pyx_cur_scope, __pyx_n_s_aexit, __pyx_n_s_ConnectionManager___aexit, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 87, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2, __pyx_codeobj__3, (PyObject *) __pyx_cur_scope, __pyx_n_s_aexit, __pyx_n_s_ConnectionManager___aexit, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 88, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -6962,16 +6995,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2(_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 88, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":88
+  /* "sqlcycli/_connect.py":89
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):
  *         await self._conn_async.close()             # <<<<<<<<<<<<<<
  *         self._conn_async = None
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self->_conn_async), __pyx_n_s_close); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self->_conn_async), __pyx_n_s_close); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -6991,7 +7024,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2(_
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -7006,16 +7039,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2(_
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 88, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 89, __pyx_L1_error)
   } else {
     PyObject* exc_type = __Pyx_PyErr_CurrentExceptionType();
     if (exc_type) {
       if (likely(exc_type == PyExc_StopIteration || (exc_type != PyExc_GeneratorExit && __Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))) PyErr_Clear();
-      else __PYX_ERR(0, 88, __pyx_L1_error)
+      else __PYX_ERR(0, 89, __pyx_L1_error)
     }
   }
 
-  /* "sqlcycli/_connect.py":89
+  /* "sqlcycli/_connect.py":90
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):
  *         await self._conn_async.close()
  *         self._conn_async = None             # <<<<<<<<<<<<<<
@@ -7029,7 +7062,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2(_
   __pyx_cur_scope->__pyx_v_self->_conn_async = ((struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *)Py_None);
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "sqlcycli/_connect.py":87
+  /* "sqlcycli/_connect.py":88
  *         return self._conn_async
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -7057,7 +7090,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_17ConnectionManager_16generator2(_
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":91
+/* "sqlcycli/_connect.py":92
  *         self._conn_async = None
  * 
  *     def __del__(self):             # <<<<<<<<<<<<<<
@@ -7086,7 +7119,7 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__del__", 1);
 
-  /* "sqlcycli/_connect.py":92
+  /* "sqlcycli/_connect.py":93
  * 
  *     def __del__(self):
  *         if self._conn_sync is not None:             # <<<<<<<<<<<<<<
@@ -7096,16 +7129,16 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
   __pyx_t_1 = (((PyObject *)__pyx_v_self->_conn_sync) != Py_None);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/_connect.py":93
+    /* "sqlcycli/_connect.py":94
  *     def __del__(self):
  *         if self._conn_sync is not None:
  *             self._conn_sync.force_close()             # <<<<<<<<<<<<<<
  *             self._conn_sync = None
  *         if self._conn_async is not None:
  */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *)__pyx_v_self->_conn_sync->__pyx_vtab)->force_close(__pyx_v_self->_conn_sync, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 93, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection *)__pyx_v_self->_conn_sync->__pyx_vtab)->force_close(__pyx_v_self->_conn_sync, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 94, __pyx_L1_error)
 
-    /* "sqlcycli/_connect.py":94
+    /* "sqlcycli/_connect.py":95
  *         if self._conn_sync is not None:
  *             self._conn_sync.force_close()
  *             self._conn_sync = None             # <<<<<<<<<<<<<<
@@ -7118,7 +7151,7 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
     __Pyx_DECREF((PyObject *)__pyx_v_self->_conn_sync);
     __pyx_v_self->_conn_sync = ((struct __pyx_obj_8sqlcycli_10connection_BaseConnection *)Py_None);
 
-    /* "sqlcycli/_connect.py":92
+    /* "sqlcycli/_connect.py":93
  * 
  *     def __del__(self):
  *         if self._conn_sync is not None:             # <<<<<<<<<<<<<<
@@ -7127,7 +7160,7 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
  */
   }
 
-  /* "sqlcycli/_connect.py":95
+  /* "sqlcycli/_connect.py":96
  *             self._conn_sync.force_close()
  *             self._conn_sync = None
  *         if self._conn_async is not None:             # <<<<<<<<<<<<<<
@@ -7137,16 +7170,16 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
   __pyx_t_1 = (((PyObject *)__pyx_v_self->_conn_async) != Py_None);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/_connect.py":96
+    /* "sqlcycli/_connect.py":97
  *             self._conn_sync = None
  *         if self._conn_async is not None:
  *             self._conn_async.force_close()             # <<<<<<<<<<<<<<
  *             self._conn_async = None
  * 
  */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection *)__pyx_v_self->_conn_async->__pyx_vtab)->force_close(__pyx_v_self->_conn_async, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection *)__pyx_v_self->_conn_async->__pyx_vtab)->force_close(__pyx_v_self->_conn_async, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 97, __pyx_L1_error)
 
-    /* "sqlcycli/_connect.py":97
+    /* "sqlcycli/_connect.py":98
  *         if self._conn_async is not None:
  *             self._conn_async.force_close()
  *             self._conn_async = None             # <<<<<<<<<<<<<<
@@ -7159,7 +7192,7 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
     __Pyx_DECREF((PyObject *)__pyx_v_self->_conn_async);
     __pyx_v_self->_conn_async = ((struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection *)Py_None);
 
-    /* "sqlcycli/_connect.py":95
+    /* "sqlcycli/_connect.py":96
  *             self._conn_sync.force_close()
  *             self._conn_sync = None
  *         if self._conn_async is not None:             # <<<<<<<<<<<<<<
@@ -7168,7 +7201,7 @@ static void __pyx_pf_8sqlcycli_8_connect_17ConnectionManager_17__del__(struct __
  */
   }
 
-  /* "sqlcycli/_connect.py":91
+  /* "sqlcycli/_connect.py":92
  *         self._conn_async = None
  * 
  *     def __del__(self):             # <<<<<<<<<<<<<<
@@ -7624,7 +7657,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_17ConnectionManager_21__setstate_c
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":100
+/* "sqlcycli/_connect.py":101
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -7643,7 +7676,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
   PyObject *__pyx_v_host = ((PyObject *)__pyx_n_u_localhost);
   PyObject *__pyx_v_port = ((PyObject *)__pyx_int_3306);
 
-  /* "sqlcycli/_connect.py":104
+  /* "sqlcycli/_connect.py":105
  *     host: str | None = "localhost",
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -7652,7 +7685,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_user = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":105
+  /* "sqlcycli/_connect.py":106
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -7661,7 +7694,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_password = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":106
+  /* "sqlcycli/_connect.py":107
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,
  *     database: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -7671,7 +7704,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
   PyObject *__pyx_v_database = ((PyObject *)Py_None);
   PyObject *__pyx_v_charset = ((PyObject *)__pyx_n_u_utf8mb4);
 
-  /* "sqlcycli/_connect.py":109
+  /* "sqlcycli/_connect.py":110
  *     *,
  *     charset: str | None = "utf8mb4",
  *     collation: str | None = None,             # <<<<<<<<<<<<<<
@@ -7681,7 +7714,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
   PyObject *__pyx_v_collation = ((PyObject *)Py_None);
   PyObject *__pyx_v_connect_timeout = ((PyObject *)__pyx_int_5);
 
-  /* "sqlcycli/_connect.py":111
+  /* "sqlcycli/_connect.py":112
  *     collation: str | None = None,
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -7690,7 +7723,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_read_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":112
+  /* "sqlcycli/_connect.py":113
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -7699,7 +7732,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_write_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":113
+  /* "sqlcycli/_connect.py":114
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -7708,7 +7741,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_wait_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":114
+  /* "sqlcycli/_connect.py":115
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -7717,7 +7750,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_interactive_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":115
+  /* "sqlcycli/_connect.py":116
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -7726,7 +7759,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_lock_wait_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":116
+  /* "sqlcycli/_connect.py":117
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -7735,7 +7768,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_execution_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":117
+  /* "sqlcycli/_connect.py":118
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,             # <<<<<<<<<<<<<<
@@ -7744,7 +7777,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_bind_address = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":118
+  /* "sqlcycli/_connect.py":119
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,             # <<<<<<<<<<<<<<
@@ -7753,7 +7786,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_unix_socket = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":119
+  /* "sqlcycli/_connect.py":120
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,             # <<<<<<<<<<<<<<
@@ -7762,7 +7795,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_autocommit = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":120
+  /* "sqlcycli/_connect.py":121
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,             # <<<<<<<<<<<<<<
@@ -7771,7 +7804,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_local_infile = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":121
+  /* "sqlcycli/_connect.py":122
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,             # <<<<<<<<<<<<<<
@@ -7780,28 +7813,28 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_max_allowed_packet = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":122
+  /* "sqlcycli/_connect.py":123
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,             # <<<<<<<<<<<<<<
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  */
   PyObject *__pyx_v_sql_mode = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":123
+  /* "sqlcycli/_connect.py":124
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,             # <<<<<<<<<<<<<<
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  */
   PyObject *__pyx_v_init_command = ((PyObject *)Py_None);
   PyObject *__pyx_v_cursor = __pyx_k__4;
   PyObject *__pyx_v_client_flag = ((PyObject *)__pyx_int_0);
 
-  /* "sqlcycli/_connect.py":126
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+  /* "sqlcycli/_connect.py":127
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,             # <<<<<<<<<<<<<<
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
@@ -7809,7 +7842,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_program_name = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":127
+  /* "sqlcycli/_connect.py":128
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,             # <<<<<<<<<<<<<<
@@ -7818,7 +7851,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_option_file = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":128
+  /* "sqlcycli/_connect.py":129
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,             # <<<<<<<<<<<<<<
@@ -7827,7 +7860,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_ssl = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":129
+  /* "sqlcycli/_connect.py":130
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,             # <<<<<<<<<<<<<<
@@ -7836,7 +7869,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_auth_plugin = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":130
+  /* "sqlcycli/_connect.py":131
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,             # <<<<<<<<<<<<<<
@@ -7845,7 +7878,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_server_public_key = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":131
+  /* "sqlcycli/_connect.py":132
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,             # <<<<<<<<<<<<<<
@@ -7854,7 +7887,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_use_decimal = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":132
+  /* "sqlcycli/_connect.py":133
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,             # <<<<<<<<<<<<<<
@@ -7863,7 +7896,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_decode_bit = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":133
+  /* "sqlcycli/_connect.py":134
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  *     decode_json: bool = False,             # <<<<<<<<<<<<<<
@@ -7872,12 +7905,12 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   PyObject *__pyx_v_decode_json = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":134
+  /* "sqlcycli/_connect.py":135
  *     decode_bit: bool = False,
  *     decode_json: bool = False,
  *     loop: AbstractEventLoop | None = None,             # <<<<<<<<<<<<<<
  * ) -> ConnectionManager:
- *     """Connect to the server and acquire a `sync` or `async`
+ *     """Establish a [sync/async] connection to the server
  */
   PyObject *__pyx_v_loop = ((PyObject *)Py_None);
   struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_r = NULL;
@@ -7987,7 +8020,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
     }
   }
 
-  /* "sqlcycli/_connect.py":194
+  /* "sqlcycli/_connect.py":195
  *                 await cur.execute("SELECT 1")
  *     """
  *     return ConnectionManager(             # <<<<<<<<<<<<<<
@@ -7996,304 +8029,304 @@ static struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *__pyx_f_8sqlcycli
  */
   __Pyx_XDECREF((PyObject *)__pyx_r);
 
-  /* "sqlcycli/_connect.py":196
+  /* "sqlcycli/_connect.py":197
  *     return ConnectionManager(
  *         {
  *             "host": host,             # <<<<<<<<<<<<<<
  *             "port": port,
  *             "user": user,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(30); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(30); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host, __pyx_v_host) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host, __pyx_v_host) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":197
+  /* "sqlcycli/_connect.py":198
  *         {
  *             "host": host,
  *             "port": port,             # <<<<<<<<<<<<<<
  *             "user": user,
  *             "password": password,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_port, __pyx_v_port) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_port, __pyx_v_port) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":198
+  /* "sqlcycli/_connect.py":199
  *             "host": host,
  *             "port": port,
  *             "user": user,             # <<<<<<<<<<<<<<
  *             "password": password,
  *             "database": database,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_user, __pyx_v_user) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_user, __pyx_v_user) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":199
+  /* "sqlcycli/_connect.py":200
  *             "port": port,
  *             "user": user,
  *             "password": password,             # <<<<<<<<<<<<<<
  *             "database": database,
  *             "charset": charset,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_password, __pyx_v_password) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_password, __pyx_v_password) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":200
+  /* "sqlcycli/_connect.py":201
  *             "user": user,
  *             "password": password,
  *             "database": database,             # <<<<<<<<<<<<<<
  *             "charset": charset,
  *             "collation": collation,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_database, __pyx_v_database) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_database, __pyx_v_database) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":201
+  /* "sqlcycli/_connect.py":202
  *             "password": password,
  *             "database": database,
  *             "charset": charset,             # <<<<<<<<<<<<<<
  *             "collation": collation,
  *             "connect_timeout": connect_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charset, __pyx_v_charset) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charset, __pyx_v_charset) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":202
+  /* "sqlcycli/_connect.py":203
  *             "database": database,
  *             "charset": charset,
  *             "collation": collation,             # <<<<<<<<<<<<<<
  *             "connect_timeout": connect_timeout,
  *             "read_timeout": read_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_collation, __pyx_v_collation) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_collation, __pyx_v_collation) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":203
+  /* "sqlcycli/_connect.py":204
  *             "charset": charset,
  *             "collation": collation,
  *             "connect_timeout": connect_timeout,             # <<<<<<<<<<<<<<
  *             "read_timeout": read_timeout,
  *             "write_timeout": write_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_connect_timeout, __pyx_v_connect_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_connect_timeout, __pyx_v_connect_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":204
+  /* "sqlcycli/_connect.py":205
  *             "collation": collation,
  *             "connect_timeout": connect_timeout,
  *             "read_timeout": read_timeout,             # <<<<<<<<<<<<<<
  *             "write_timeout": write_timeout,
  *             "wait_timeout": wait_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_read_timeout, __pyx_v_read_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_read_timeout, __pyx_v_read_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":205
+  /* "sqlcycli/_connect.py":206
  *             "connect_timeout": connect_timeout,
  *             "read_timeout": read_timeout,
  *             "write_timeout": write_timeout,             # <<<<<<<<<<<<<<
  *             "wait_timeout": wait_timeout,
  *             "interactive_timeout": interactive_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_write_timeout, __pyx_v_write_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_write_timeout, __pyx_v_write_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":206
+  /* "sqlcycli/_connect.py":207
  *             "read_timeout": read_timeout,
  *             "write_timeout": write_timeout,
  *             "wait_timeout": wait_timeout,             # <<<<<<<<<<<<<<
  *             "interactive_timeout": interactive_timeout,
  *             "lock_wait_timeout": lock_wait_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_wait_timeout, __pyx_v_wait_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_wait_timeout, __pyx_v_wait_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":207
+  /* "sqlcycli/_connect.py":208
  *             "write_timeout": write_timeout,
  *             "wait_timeout": wait_timeout,
  *             "interactive_timeout": interactive_timeout,             # <<<<<<<<<<<<<<
  *             "lock_wait_timeout": lock_wait_timeout,
  *             "execution_timeout": execution_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_interactive_timeout, __pyx_v_interactive_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_interactive_timeout, __pyx_v_interactive_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":208
+  /* "sqlcycli/_connect.py":209
  *             "wait_timeout": wait_timeout,
  *             "interactive_timeout": interactive_timeout,
  *             "lock_wait_timeout": lock_wait_timeout,             # <<<<<<<<<<<<<<
  *             "execution_timeout": execution_timeout,
  *             "bind_address": bind_address,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_lock_wait_timeout, __pyx_v_lock_wait_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_lock_wait_timeout, __pyx_v_lock_wait_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":209
+  /* "sqlcycli/_connect.py":210
  *             "interactive_timeout": interactive_timeout,
  *             "lock_wait_timeout": lock_wait_timeout,
  *             "execution_timeout": execution_timeout,             # <<<<<<<<<<<<<<
  *             "bind_address": bind_address,
  *             "unix_socket": unix_socket,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_execution_timeout, __pyx_v_execution_timeout) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_execution_timeout, __pyx_v_execution_timeout) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":210
+  /* "sqlcycli/_connect.py":211
  *             "lock_wait_timeout": lock_wait_timeout,
  *             "execution_timeout": execution_timeout,
  *             "bind_address": bind_address,             # <<<<<<<<<<<<<<
  *             "unix_socket": unix_socket,
  *             "autocommit": autocommit,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_bind_address, __pyx_v_bind_address) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_bind_address, __pyx_v_bind_address) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":211
+  /* "sqlcycli/_connect.py":212
  *             "execution_timeout": execution_timeout,
  *             "bind_address": bind_address,
  *             "unix_socket": unix_socket,             # <<<<<<<<<<<<<<
  *             "autocommit": autocommit,
  *             "local_infile": local_infile,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unix_socket, __pyx_v_unix_socket) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unix_socket, __pyx_v_unix_socket) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":212
+  /* "sqlcycli/_connect.py":213
  *             "bind_address": bind_address,
  *             "unix_socket": unix_socket,
  *             "autocommit": autocommit,             # <<<<<<<<<<<<<<
  *             "local_infile": local_infile,
  *             "max_allowed_packet": max_allowed_packet,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_autocommit, __pyx_v_autocommit) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_autocommit, __pyx_v_autocommit) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":213
+  /* "sqlcycli/_connect.py":214
  *             "unix_socket": unix_socket,
  *             "autocommit": autocommit,
  *             "local_infile": local_infile,             # <<<<<<<<<<<<<<
  *             "max_allowed_packet": max_allowed_packet,
  *             "sql_mode": sql_mode,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_local_infile, __pyx_v_local_infile) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_local_infile, __pyx_v_local_infile) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":214
+  /* "sqlcycli/_connect.py":215
  *             "autocommit": autocommit,
  *             "local_infile": local_infile,
  *             "max_allowed_packet": max_allowed_packet,             # <<<<<<<<<<<<<<
  *             "sql_mode": sql_mode,
  *             "init_command": init_command,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_allowed_packet, __pyx_v_max_allowed_packet) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_allowed_packet, __pyx_v_max_allowed_packet) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":215
+  /* "sqlcycli/_connect.py":216
  *             "local_infile": local_infile,
  *             "max_allowed_packet": max_allowed_packet,
  *             "sql_mode": sql_mode,             # <<<<<<<<<<<<<<
  *             "init_command": init_command,
  *             "client_flag": client_flag,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sql_mode, __pyx_v_sql_mode) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sql_mode, __pyx_v_sql_mode) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":216
+  /* "sqlcycli/_connect.py":217
  *             "max_allowed_packet": max_allowed_packet,
  *             "sql_mode": sql_mode,
  *             "init_command": init_command,             # <<<<<<<<<<<<<<
  *             "client_flag": client_flag,
  *             "program_name": program_name,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_init_command, __pyx_v_init_command) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_init_command, __pyx_v_init_command) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":217
+  /* "sqlcycli/_connect.py":218
  *             "sql_mode": sql_mode,
  *             "init_command": init_command,
  *             "client_flag": client_flag,             # <<<<<<<<<<<<<<
  *             "program_name": program_name,
  *             "option_file": option_file,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_client_flag, __pyx_v_client_flag) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_client_flag, __pyx_v_client_flag) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":218
+  /* "sqlcycli/_connect.py":219
  *             "init_command": init_command,
  *             "client_flag": client_flag,
  *             "program_name": program_name,             # <<<<<<<<<<<<<<
  *             "option_file": option_file,
  *             "ssl": ssl,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_program_name, __pyx_v_program_name) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_program_name, __pyx_v_program_name) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":219
+  /* "sqlcycli/_connect.py":220
  *             "client_flag": client_flag,
  *             "program_name": program_name,
  *             "option_file": option_file,             # <<<<<<<<<<<<<<
  *             "ssl": ssl,
  *             "auth_plugin": auth_plugin,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_option_file, __pyx_v_option_file) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_option_file, __pyx_v_option_file) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":220
+  /* "sqlcycli/_connect.py":221
  *             "program_name": program_name,
  *             "option_file": option_file,
  *             "ssl": ssl,             # <<<<<<<<<<<<<<
  *             "auth_plugin": auth_plugin,
  *             "server_public_key": server_public_key,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ssl, __pyx_v_ssl) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ssl, __pyx_v_ssl) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":221
+  /* "sqlcycli/_connect.py":222
  *             "option_file": option_file,
  *             "ssl": ssl,
  *             "auth_plugin": auth_plugin,             # <<<<<<<<<<<<<<
  *             "server_public_key": server_public_key,
  *             "use_decimal": use_decimal,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_auth_plugin, __pyx_v_auth_plugin) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_auth_plugin, __pyx_v_auth_plugin) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":222
+  /* "sqlcycli/_connect.py":223
  *             "ssl": ssl,
  *             "auth_plugin": auth_plugin,
  *             "server_public_key": server_public_key,             # <<<<<<<<<<<<<<
  *             "use_decimal": use_decimal,
  *             "decode_bit": decode_bit,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_server_public_key, __pyx_v_server_public_key) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_server_public_key, __pyx_v_server_public_key) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":223
+  /* "sqlcycli/_connect.py":224
  *             "auth_plugin": auth_plugin,
  *             "server_public_key": server_public_key,
  *             "use_decimal": use_decimal,             # <<<<<<<<<<<<<<
  *             "decode_bit": decode_bit,
  *             "decode_json": decode_json,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_use_decimal, __pyx_v_use_decimal) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_use_decimal, __pyx_v_use_decimal) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":224
+  /* "sqlcycli/_connect.py":225
  *             "server_public_key": server_public_key,
  *             "use_decimal": use_decimal,
  *             "decode_bit": decode_bit,             # <<<<<<<<<<<<<<
  *             "decode_json": decode_json,
  *         },
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_bit, __pyx_v_decode_bit) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_bit, __pyx_v_decode_bit) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":225
+  /* "sqlcycli/_connect.py":226
  *             "use_decimal": use_decimal,
  *             "decode_bit": decode_bit,
  *             "decode_json": decode_json,             # <<<<<<<<<<<<<<
  *         },
  *         cursor,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_json, __pyx_v_decode_json) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_json, __pyx_v_decode_json) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":194
+  /* "sqlcycli/_connect.py":195
  *                 await cur.execute("SELECT 1")
  *     """
  *     return ConnectionManager(             # <<<<<<<<<<<<<<
  *         {
  *             "host": host,
  */
-  __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_cursor);
   __Pyx_GIVEREF(__pyx_v_cursor);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_cursor)) __PYX_ERR(0, 194, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_cursor)) __PYX_ERR(0, 195, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_loop);
   __Pyx_GIVEREF(__pyx_v_loop);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_v_loop)) __PYX_ERR(0, 194, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_v_loop)) __PYX_ERR(0, 195, __pyx_L1_error);
   __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager), __pyx_t_2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager), __pyx_t_2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = ((struct __pyx_obj_8sqlcycli_8_connect_ConnectionManager *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_connect.py":100
+  /* "sqlcycli/_connect.py":101
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -8321,7 +8354,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_connect, "Connect to the server and acquire a `sync` or `async`\n    connection through context manager `<'ConnectionManager'>`.\n\n    :param host `<'str/None'>`: The host of the server. Defaults to `'localhost'`.\n    :param port `<'int'>`: The port of the server. Defaults to `3306`.\n    :param user `<'str/bytes/None'>`: The username to login as. Defaults to `None`.\n    :param password `<'str/bytes/None'>`: The password for login authentication. Defaults to `None`.\n    :param database `<'str/bytes/None'>`: The default database to use by the connection. Defaults to `None`.\n    :param charset `<'str/None'>`: The character set for the connection. Defaults to `'utf8mb4'`.\n    :param collation `<'str/None'>`: The collation for the connection. Defaults to `None`.\n    :param connect_timeout `<'int'>`: Set timeout (in seconds) for establishing the connection. Defaults to `5`.\n    :param read_timeout `<'int/None>`: Set SESSION 'net_read_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param write_timeout `<'int/None>`: Set SESSION 'net_write_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param wait_timeout `<'int/None>`: Set SESSION 'wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param interactive_timeout `<'int/None>`: Set SESSION 'interactive_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param lock_wait_timeout `<'int/None>`: Set SESSION 'innodb_lock_wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param execution_timeout `<'int/None>`: Set SESSION 'max_execution_time' (in milliseconds). Defaults to `None` (use GLOBAL settings).\n    :param bind_address `<'str/None'>`: The interface from which to connect to the host. Accept both hostname or IP address. Defaults to `None`.\n    :param unix_socket `<'str/None'>`: The unix socket for establishing connection rather than TCP/IP. Defaults to `None`.\n    :param autocommit `<'bool/None'>`: The autocommit m""ode for the connection. `None` means use server default. Defaults to `False`.\n    :param local_infile `<'bool'>`: Enable/Disable LOAD DATA LOCAL command. Defaults to `False`.\n    :param max_allowed_packet `<'int/str/None'>`: The max size of packet sent to server in bytes. Defaults to `None` (16MB).\n    :param sql_mode `<'str/None'>`: The default SQL_MODE for the connection. Defaults to `None`.\n    :param init_command `<'str/None'>`: The initial SQL statement to run when connection is established. Defaults to `None`.\n    :param cursor `<'type[Cursor]/None'>`: The default cursor type (class) to use. Defaults to `<'Cursor'>`.\n            Also accepts: 'tuple' => 'Cursor' / 'dict' => 'DictCursor' / 'DataFrame' => 'DfCursor'.\n\n    :param client_flag `<'int'>`: Custom flags to sent to server, see 'constants.CLIENT'. Defaults to `0`.\n    :param program_name `<'str/None'>`: The program name for the connection. Defaults to `None`.\n    :param option_file `<'OptionFile/PathLike/None>`: The MySQL option file to load connection parameters. Defaults to `None`.\n        - Recommand use <'OptionFile'> to load MySQL option file.\n        - If passed str/bytes/PathLike argument, it will be automatically converted\n            to <'OptionFile'>, with option group defaults to 'client'.\n\n    :param ssl `<'SSL/ssl.SSLContext/None'>`: The SSL configuration for the connection. Defaults to `None`.\n        - Supports both <'SSL'> or pre-configured <'ssl.SSLContext'> object.\n\n    :param auth_plugin `<'AuthPlugin/dict/None'>`: The authentication plugins handlers. Defaults to `None`.\n        - Recommand use <'AuthPlugin'> to setup MySQL authentication plugin handlers.\n        - If passed dict argument, it will be automatically converted to <'AuthPlugin'>.\n\n    :param server_public_key `<'bytes/None'>`: The public key for the server authentication. Defaults to `None`.\n    :param use_decimal `<'bool'>`: If `True` use <'Decimal'> to represent DECIMAL column data, else use <'flo""at'>. Defaults to `False`.\n    :param decode_bit `<'bool'>`: If `True` decode BIT column data to <'int'>, else keep as original bytes. Defaults to `False`.\n    :param decode_json `<'bool'>`: If `True` deserialize JSON column data, else keep as original json string. Defaults to `False`.\n    :param loop `<'AbstractEventLoop/None'>`: The event loop for the `async` connection. Defaults to `None`.\n        - Only applicable for `async` connection. `sync` connection will ignore this argument.\n\n    ## Example (sync):\n    >>> with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            with conn.cursor() as cur:\n                cur.execute(\"SELECT 1\")\n\n    ## Example (async):\n    >>> async with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            async with conn.cursor() as cur:\n                await cur.execute(\"SELECT 1\")\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_connect, "Establish a [sync/async] connection to the server\n    through context manager `<'ConnectionManager'>`.\n\n    :param host `<'str/None'>`: The host of the server. Defaults to `'localhost'`.\n    :param port `<'int'>`: The port of the server. Defaults to `3306`.\n    :param user `<'str/bytes/None'>`: The username to login as. Defaults to `None`.\n    :param password `<'str/bytes/None'>`: The password for login authentication. Defaults to `None`.\n    :param database `<'str/bytes/None'>`: The default database to use by the connection. Defaults to `None`.\n    :param charset `<'str/None'>`: The character set for the connection. Defaults to `'utf8mb4'`.\n    :param collation `<'str/None'>`: The collation for the connection. Defaults to `None`.\n    :param connect_timeout `<'int'>`: Set timeout (in seconds) for establishing the connection. Defaults to `5`.\n    :param read_timeout `<'int/None>`: Set SESSION 'net_read_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param write_timeout `<'int/None>`: Set SESSION 'net_write_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param wait_timeout `<'int/None>`: Set SESSION 'wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param interactive_timeout `<'int/None>`: Set SESSION 'interactive_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param lock_wait_timeout `<'int/None>`: Set SESSION 'innodb_lock_wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param execution_timeout `<'int/None>`: Set SESSION 'max_execution_time' (in milliseconds). Defaults to `None` (use GLOBAL settings).\n    :param bind_address `<'str/None'>`: The interface from which to connect to the host. Accept both hostname or IP address. Defaults to `None`.\n    :param unix_socket `<'str/None'>`: The unix socket for establishing connection rather than TCP/IP. Defaults to `None`.\n    :param autocommit `<'bool/None'>`: The autocommit mode for the con""nection. `None` means use server default. Defaults to `False`.\n    :param local_infile `<'bool'>`: Enable/Disable LOAD DATA LOCAL command. Defaults to `False`.\n    :param max_allowed_packet `<'int/str/None'>`: The max size of packet sent to server in bytes. Defaults to `None` (16MB).\n    :param sql_mode `<'str/None'>`: The default SQL_MODE for the connection. Defaults to `None`.\n    :param init_command `<'str/None'>`: The initial SQL statement to run when connection is established. Defaults to `None`.\n    :param cursor `<'type[Cursor]/None'>`: The default cursor class (type) to use. Defaults to `<'Cursor'>`.\n        Determines the data type of the fetched result set.\n        Also accepts: 1. `tuple` => `Cursor`; 2. `dict` => `DictCursor`; 3. `DataFrame` => `DfCursor`;\n\n    :param client_flag `<'int'>`: Custom flags to sent to server, see 'constants.CLIENT'. Defaults to `0`.\n    :param program_name `<'str/None'>`: The program name for the connection. Defaults to `None`.\n    :param option_file `<'OptionFile/PathLike/None>`: The MySQL option file to load connection parameters. Defaults to `None`.\n        - Recommand use <'OptionFile'> to load MySQL option file.\n        - If passed str/bytes/PathLike argument, it will be automatically converted\n            to <'OptionFile'>, with option group defaults to 'client'.\n\n    :param ssl `<'SSL/ssl.SSLContext/None'>`: The SSL configuration for the connection. Defaults to `None`.\n        - Supports both `sqlcycli.SSL` or pre-configured `ssl.SSLContext` object.\n\n    :param auth_plugin `<'AuthPlugin/dict/None'>`: The authentication plugins handlers. Defaults to `None`.\n        - Recommand use <'AuthPlugin'> to setup MySQL authentication plugin handlers.\n        - If passed dict argument, it will be automatically converted to <'AuthPlugin'>.\n\n    :param server_public_key `<'bytes/None'>`: The public key for the server authentication. Defaults to `None`.\n    :param use_decimal `<'bool'>`: DECIMAL columns are ""decoded as `decimal.Decimal` if `True`, else as `float`. Defaults to `False`.\n    :param decode_bit `<'bool'>`: BIT columns are decoded as `int` if `True`, else kept as the original `bytes`. Defaults to `False`.\n    :param decode_json `<'bool'>`: JSON columns are deserialized if `True`, else kept as the original JSON string. Defaults to `False`.\n    :param loop `<'AbstractEventLoop/None'>`: The event loop for the [async] connection. Defaults to `None`.\n\n    ## Example (sync):\n    >>> with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            with conn.cursor() as cur:\n                cur.execute(\"SELECT 1\")\n\n    ## Example (async):\n    >>> async with connect(\"localhost\", 3306, \"root\", \"password\") as conn:\n            async with conn.cursor() as cur:\n                await cur.execute(\"SELECT 1\")\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8_connect_1connect = {"connect", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_1connect, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_connect};
 static PyObject *__pyx_pw_8sqlcycli_8_connect_1connect(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -8386,7 +8419,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[0] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_n_u_localhost));
     values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_3306));
 
-    /* "sqlcycli/_connect.py":104
+    /* "sqlcycli/_connect.py":105
  *     host: str | None = "localhost",
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -8395,7 +8428,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[2] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":105
+    /* "sqlcycli/_connect.py":106
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -8404,7 +8437,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[3] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":106
+    /* "sqlcycli/_connect.py":107
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,
  *     database: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -8414,7 +8447,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[4] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     values[5] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_n_u_utf8mb4));
 
-    /* "sqlcycli/_connect.py":109
+    /* "sqlcycli/_connect.py":110
  *     *,
  *     charset: str | None = "utf8mb4",
  *     collation: str | None = None,             # <<<<<<<<<<<<<<
@@ -8424,7 +8457,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[6] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     values[7] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_5));
 
-    /* "sqlcycli/_connect.py":111
+    /* "sqlcycli/_connect.py":112
  *     collation: str | None = None,
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -8433,7 +8466,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[8] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":112
+    /* "sqlcycli/_connect.py":113
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -8442,7 +8475,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[9] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":113
+    /* "sqlcycli/_connect.py":114
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -8451,7 +8484,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[10] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":114
+    /* "sqlcycli/_connect.py":115
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -8460,7 +8493,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[11] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":115
+    /* "sqlcycli/_connect.py":116
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -8469,7 +8502,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[12] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":116
+    /* "sqlcycli/_connect.py":117
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -8478,7 +8511,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[13] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":117
+    /* "sqlcycli/_connect.py":118
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,             # <<<<<<<<<<<<<<
@@ -8487,7 +8520,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[14] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":118
+    /* "sqlcycli/_connect.py":119
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,             # <<<<<<<<<<<<<<
@@ -8496,7 +8529,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[15] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":119
+    /* "sqlcycli/_connect.py":120
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,             # <<<<<<<<<<<<<<
@@ -8505,7 +8538,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[16] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":120
+    /* "sqlcycli/_connect.py":121
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,             # <<<<<<<<<<<<<<
@@ -8514,7 +8547,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[17] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":121
+    /* "sqlcycli/_connect.py":122
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,             # <<<<<<<<<<<<<<
@@ -8523,28 +8556,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[18] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":122
+    /* "sqlcycli/_connect.py":123
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,             # <<<<<<<<<<<<<<
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  */
     values[19] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":123
+    /* "sqlcycli/_connect.py":124
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,             # <<<<<<<<<<<<<<
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  */
     values[20] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     values[21] = __Pyx_Arg_NewRef_FASTCALL(__pyx_k__4);
     values[22] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_0));
 
-    /* "sqlcycli/_connect.py":126
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+    /* "sqlcycli/_connect.py":127
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,             # <<<<<<<<<<<<<<
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
@@ -8552,7 +8585,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[23] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":127
+    /* "sqlcycli/_connect.py":128
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,             # <<<<<<<<<<<<<<
@@ -8561,7 +8594,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[24] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":128
+    /* "sqlcycli/_connect.py":129
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,             # <<<<<<<<<<<<<<
@@ -8570,7 +8603,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[25] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":129
+    /* "sqlcycli/_connect.py":130
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,             # <<<<<<<<<<<<<<
@@ -8579,7 +8612,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[26] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":130
+    /* "sqlcycli/_connect.py":131
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,             # <<<<<<<<<<<<<<
@@ -8588,7 +8621,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[27] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":131
+    /* "sqlcycli/_connect.py":132
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,             # <<<<<<<<<<<<<<
@@ -8597,7 +8630,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[28] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":132
+    /* "sqlcycli/_connect.py":133
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,             # <<<<<<<<<<<<<<
@@ -8606,7 +8639,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[29] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":133
+    /* "sqlcycli/_connect.py":134
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  *     decode_json: bool = False,             # <<<<<<<<<<<<<<
@@ -8615,12 +8648,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[30] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":134
+    /* "sqlcycli/_connect.py":135
  *     decode_bit: bool = False,
  *     decode_json: bool = False,
  *     loop: AbstractEventLoop | None = None,             # <<<<<<<<<<<<<<
  * ) -> ConnectionManager:
- *     """Connect to the server and acquire a `sync` or `async`
+ *     """Establish a [sync/async] connection to the server
  */
     values[31] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     if (__pyx_kwds) {
@@ -8645,35 +8678,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_host);
           if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_port);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_user);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_password);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_database);
           if (value) { values[4] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L3_error)
         }
       }
       if (kw_args > 0 && likely(kw_args <= 27)) {
@@ -8681,12 +8714,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         for (index = 5; index < 32 && kw_args > 0; index++) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, *__pyx_pyargnames[index]);
           if (value) { values[index] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "connect") < 0)) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "connect") < 0)) __PYX_ERR(0, 101, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -8739,7 +8772,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("connect", 0, 0, 5, __pyx_nargs); __PYX_ERR(0, 100, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("connect", 0, 0, 5, __pyx_nargs); __PYX_ERR(0, 101, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8755,7 +8788,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_8sqlcycli_8_connect_connect(__pyx_self, __pyx_v_host, __pyx_v_port, __pyx_v_user, __pyx_v_password, __pyx_v_database, __pyx_v_charset, __pyx_v_collation, __pyx_v_connect_timeout, __pyx_v_read_timeout, __pyx_v_write_timeout, __pyx_v_wait_timeout, __pyx_v_interactive_timeout, __pyx_v_lock_wait_timeout, __pyx_v_execution_timeout, __pyx_v_bind_address, __pyx_v_unix_socket, __pyx_v_autocommit, __pyx_v_local_infile, __pyx_v_max_allowed_packet, __pyx_v_sql_mode, __pyx_v_init_command, __pyx_v_cursor, __pyx_v_client_flag, __pyx_v_program_name, __pyx_v_option_file, __pyx_v_ssl, __pyx_v_auth_plugin, __pyx_v_server_public_key, __pyx_v_use_decimal, __pyx_v_decode_bit, __pyx_v_decode_json, __pyx_v_loop);
 
-  /* "sqlcycli/_connect.py":100
+  /* "sqlcycli/_connect.py":101
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -8817,7 +8850,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_connect(CYTHON_UNUSED PyObject *__
   __pyx_t_2.decode_bit = __pyx_v_decode_bit;
   __pyx_t_2.decode_json = __pyx_v_decode_json;
   __pyx_t_2.loop = __pyx_v_loop;
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_8_connect_connect(0, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_8_connect_connect(0, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8834,7 +8867,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_connect(CYTHON_UNUSED PyObject *__
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":243
+/* "sqlcycli/_connect.py":244
  *     _cursor: type[sync_conn.Cursor | async_conn.Cursor]
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -8844,7 +8877,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_connect(CYTHON_UNUSED PyObject *__
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_8_connect_11PoolManager_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_11PoolManager___init__, "The Context Manager for Pool.\n\n        For information about the arguments, please\n        refer to the 'create_pool()' function.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_11PoolManager___init__, "The context manager for creating and closing a connection pool.\n\n        - For detail information about the arguments,\n          please refer to the 'create_pool()' function.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_8_connect_11PoolManager___init__;
 #endif
@@ -8885,7 +8918,7 @@ static int __pyx_pw_8sqlcycli_8_connect_11PoolManager_1__init__(PyObject *__pyx_
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 243, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -8893,14 +8926,14 @@ static int __pyx_pw_8sqlcycli_8_connect_11PoolManager_1__init__(PyObject *__pyx_
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 243, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(0, 243, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(0, 244, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 243, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -8913,7 +8946,7 @@ static int __pyx_pw_8sqlcycli_8_connect_11PoolManager_1__init__(PyObject *__pyx_
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 243, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 244, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8927,7 +8960,7 @@ static int __pyx_pw_8sqlcycli_8_connect_11PoolManager_1__init__(PyObject *__pyx_
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_kwargs), (&PyDict_Type), 0, "kwargs", 1))) __PYX_ERR(0, 245, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_kwargs), (&PyDict_Type), 0, "kwargs", 1))) __PYX_ERR(0, 246, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_8_connect_11PoolManager___init__(((struct __pyx_obj_8sqlcycli_8_connect_PoolManager *)__pyx_v_self), __pyx_v_kwargs, __pyx_v_cursor);
 
   /* function exit code */
@@ -8950,7 +8983,7 @@ static int __pyx_pf_8sqlcycli_8_connect_11PoolManager___init__(struct __pyx_obj_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/_connect.py":254
+  /* "sqlcycli/_connect.py":255
  *         """
  *         # Pool
  *         self._pool = None             # <<<<<<<<<<<<<<
@@ -8963,7 +8996,7 @@ static int __pyx_pf_8sqlcycli_8_connect_11PoolManager___init__(struct __pyx_obj_
   __Pyx_DECREF((PyObject *)__pyx_v_self->_pool);
   __pyx_v_self->_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)Py_None);
 
-  /* "sqlcycli/_connect.py":256
+  /* "sqlcycli/_connect.py":257
  *         self._pool = None
  *         # Arguments
  *         self._kwargs = kwargs             # <<<<<<<<<<<<<<
@@ -8976,7 +9009,7 @@ static int __pyx_pf_8sqlcycli_8_connect_11PoolManager___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_kwargs);
   __pyx_v_self->_kwargs = __pyx_v_kwargs;
 
-  /* "sqlcycli/_connect.py":257
+  /* "sqlcycli/_connect.py":258
  *         # Arguments
  *         self._kwargs = kwargs
  *         self._cursor = cursor             # <<<<<<<<<<<<<<
@@ -8989,7 +9022,7 @@ static int __pyx_pf_8sqlcycli_8_connect_11PoolManager___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_cursor);
   __pyx_v_self->_cursor = __pyx_v_cursor;
 
-  /* "sqlcycli/_connect.py":243
+  /* "sqlcycli/_connect.py":244
  *     _cursor: type[sync_conn.Cursor | async_conn.Cursor]
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -9003,7 +9036,7 @@ static int __pyx_pf_8sqlcycli_8_connect_11PoolManager___init__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":260
+/* "sqlcycli/_connect.py":261
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
@@ -9065,44 +9098,44 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__enter__", 1);
 
-  /* "sqlcycli/_connect.py":262
+  /* "sqlcycli/_connect.py":263
  *     def __enter__(self) -> aio_pool.Pool:
  *         pool: aio_pool.Pool = aio_pool.Pool(
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs             # <<<<<<<<<<<<<<
  *         )
  *         self._pool = pool
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = __pyx_v_self->_cursor;
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_4 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_async_cursor(__pyx_t_3, 0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_4 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_async_cursor(__pyx_t_3, 0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_t_4) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_t_4) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_1 = __pyx_t_2;
   __pyx_t_2 = 0;
   if (unlikely(__pyx_v_self->_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 262, __pyx_L1_error)
+    __PYX_ERR(0, 263, __pyx_L1_error)
   }
-  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":261
+  /* "sqlcycli/_connect.py":262
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> aio_pool.Pool:
  *         pool: aio_pool.Pool = aio_pool.Pool(             # <<<<<<<<<<<<<<
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs
  *         )
  */
-  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_3aio_4pool_Pool), __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_3aio_4pool_Pool), __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 262, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":264
+  /* "sqlcycli/_connect.py":265
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs
  *         )
  *         self._pool = pool             # <<<<<<<<<<<<<<
@@ -9115,7 +9148,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   __Pyx_DECREF((PyObject *)__pyx_v_self->_pool);
   __pyx_v_self->_pool = __pyx_v_pool;
 
-  /* "sqlcycli/_connect.py":265
+  /* "sqlcycli/_connect.py":266
  *         )
  *         self._pool = pool
  *         return self._pool             # <<<<<<<<<<<<<<
@@ -9127,7 +9160,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   __pyx_r = __pyx_v_self->_pool;
   goto __pyx_L0;
 
-  /* "sqlcycli/_connect.py":260
+  /* "sqlcycli/_connect.py":261
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
@@ -9150,7 +9183,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":267
+/* "sqlcycli/_connect.py":268
  *         return self._pool
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -9217,7 +9250,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 267, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 268, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -9225,9 +9258,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 267, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 268, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 1); __PYX_ERR(0, 267, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 1); __PYX_ERR(0, 268, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9235,14 +9268,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 267, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 268, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 2); __PYX_ERR(0, 267, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, 2); __PYX_ERR(0, 268, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__exit__") < 0)) __PYX_ERR(0, 267, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__exit__") < 0)) __PYX_ERR(0, 268, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -9257,7 +9290,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 267, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 268, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9293,16 +9326,16 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_4__exit__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__exit__", 1);
 
-  /* "sqlcycli/_connect.py":268
+  /* "sqlcycli/_connect.py":269
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):
  *         self._pool.terminate()             # <<<<<<<<<<<<<<
  *         self._pool = None
  * 
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool *)__pyx_v_self->_pool->__pyx_vtab)->terminate(__pyx_v_self->_pool, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool *)__pyx_v_self->_pool->__pyx_vtab)->terminate(__pyx_v_self->_pool, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 269, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":269
+  /* "sqlcycli/_connect.py":270
  *     def __exit__(self, exc_type, exc_val, exc_tb):
  *         self._pool.terminate()
  *         self._pool = None             # <<<<<<<<<<<<<<
@@ -9315,7 +9348,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_4__exit__(struct __p
   __Pyx_DECREF((PyObject *)__pyx_v_self->_pool);
   __pyx_v_self->_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)Py_None);
 
-  /* "sqlcycli/_connect.py":267
+  /* "sqlcycli/_connect.py":268
  *         return self._pool
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -9336,12 +9369,12 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_4__exit__(struct __p
 }
 static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_connect.py":272
+/* "sqlcycli/_connect.py":273
  * 
  *     # Async -------------------------------------------------------------------------------------
  *     async def _create_and_fill_pool(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
- *         pool: aio_pool.Pool = aio_pool.Pool(
+ *         """(internal) Create a new pool and fill with free
+ *         connections up to `Pool.min_size` limit `<'Pool'>`.
  */
 
 /* Python wrapper */
@@ -9352,7 +9385,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_11PoolManager_6_create_and_fill_pool, "(internal) Create a pool and fill free connections `<'Pool'>`.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_11PoolManager_6_create_and_fill_pool, "(internal) Create a new pool and fill with free\n        connections up to `Pool.min_size` limit `<'Pool'>`.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8_connect_11PoolManager_7_create_and_fill_pool = {"_create_and_fill_pool", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_11PoolManager_7_create_and_fill_pool, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_11PoolManager_6_create_and_fill_pool};
 static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pw_8sqlcycli_8_connect_11PoolManager_7_create_and_fill_pool(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -9398,7 +9431,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 272, __pyx_L1_error)
+    __PYX_ERR(0, 273, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9406,7 +9439,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3, __pyx_codeobj__5, (PyObject *) __pyx_cur_scope, __pyx_n_s_create_and_fill_pool, __pyx_n_s_PoolManager__create_and_fill_poo, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 272, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3, __pyx_codeobj__5, (PyObject *) __pyx_cur_scope, __pyx_n_s_create_and_fill_pool, __pyx_n_s_PoolManager__create_and_fill_poo, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 273, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9444,54 +9477,54 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3(__pyx_Co
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 273, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":275
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
+  /* "sqlcycli/_connect.py":278
+ *         """
  *         pool: aio_pool.Pool = aio_pool.Pool(
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs             # <<<<<<<<<<<<<<
  *         )
  *         await pool.fill(-1)
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = __pyx_cur_scope->__pyx_v_self->_cursor;
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_4 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_async_cursor(__pyx_t_3, 0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_4 = ((PyObject *)__pyx_f_8sqlcycli_3aio_4pool_validate_async_cursor(__pyx_t_3, 0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_t_4) < 0) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_t_4) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_1 = __pyx_t_2;
   __pyx_t_2 = 0;
   if (unlikely(__pyx_cur_scope->__pyx_v_self->_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 275, __pyx_L1_error)
+    __PYX_ERR(0, 278, __pyx_L1_error)
   }
-  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_cur_scope->__pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (__Pyx_MergeKeywords(__pyx_t_1, __pyx_cur_scope->__pyx_v_self->_kwargs) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":274
- *     async def _create_and_fill_pool(self) -> aio_pool.Pool:
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
+  /* "sqlcycli/_connect.py":277
+ *         connections up to `Pool.min_size` limit `<'Pool'>`.
+ *         """
  *         pool: aio_pool.Pool = aio_pool.Pool(             # <<<<<<<<<<<<<<
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs
  *         )
  */
-  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_3aio_4pool_Pool), __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 274, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_3aio_4pool_Pool), __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_cur_scope->__pyx_v_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":277
+  /* "sqlcycli/_connect.py":280
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs
  *         )
  *         await pool.fill(-1)             # <<<<<<<<<<<<<<
  *         return pool
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_pool), __pyx_n_s_fill); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 277, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_pool), __pyx_n_s_fill); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 280, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -9511,7 +9544,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3(__pyx_Co
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_int_neg_1};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 280, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
@@ -9526,16 +9559,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3(__pyx_Co
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 277, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 280, __pyx_L1_error)
   } else {
     PyObject* exc_type = __Pyx_PyErr_CurrentExceptionType();
     if (exc_type) {
       if (likely(exc_type == PyExc_StopIteration || (exc_type != PyExc_GeneratorExit && __Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))) PyErr_Clear();
-      else __PYX_ERR(0, 277, __pyx_L1_error)
+      else __PYX_ERR(0, 280, __pyx_L1_error)
     }
   }
 
-  /* "sqlcycli/_connect.py":278
+  /* "sqlcycli/_connect.py":281
  *         )
  *         await pool.fill(-1)
  *         return pool             # <<<<<<<<<<<<<<
@@ -9547,12 +9580,12 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3(__pyx_Co
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "sqlcycli/_connect.py":272
+  /* "sqlcycli/_connect.py":273
  * 
  *     # Async -------------------------------------------------------------------------------------
  *     async def _create_and_fill_pool(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
- *         pool: aio_pool.Pool = aio_pool.Pool(
+ *         """(internal) Create a new pool and fill with free
+ *         connections up to `Pool.min_size` limit `<'Pool'>`.
  */
 
   /* function exit code */
@@ -9574,7 +9607,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_8generator3(__pyx_Co
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":280
+/* "sqlcycli/_connect.py":283
  *         return pool
  * 
  *     def __await__(self) -> Generator[Any, Any, aio_pool.Pool]:             # <<<<<<<<<<<<<<
@@ -9610,7 +9643,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_9__await__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__await__", 1);
 
-  /* "sqlcycli/_connect.py":281
+  /* "sqlcycli/_connect.py":284
  * 
  *     def __await__(self) -> Generator[Any, Any, aio_pool.Pool]:
  *         return self._create_and_fill_pool().__await__()             # <<<<<<<<<<<<<<
@@ -9618,7 +9651,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_9__await__(struct __
  *     async def __aenter__(self) -> aio_pool.Pool:
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_create_and_fill_pool); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_create_and_fill_pool); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -9638,11 +9671,11 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_9__await__(struct __
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 281, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_await); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_await); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -9663,7 +9696,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_9__await__(struct __
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 281, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -9671,7 +9704,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_9__await__(struct __
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_connect.py":280
+  /* "sqlcycli/_connect.py":283
  *         return pool
  * 
  *     def __await__(self) -> Generator[Any, Any, aio_pool.Pool]:             # <<<<<<<<<<<<<<
@@ -9694,7 +9727,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_9__await__(struct __
 }
 static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_connect.py":283
+/* "sqlcycli/_connect.py":286
  *         return self._create_and_fill_pool().__await__()
  * 
  *     async def __aenter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
@@ -9755,7 +9788,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 283, __pyx_L1_error)
+    __PYX_ERR(0, 286, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9763,7 +9796,7 @@ static struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *__pyx_pf_8sqlcycli_8_connect_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4, __pyx_codeobj__6, (PyObject *) __pyx_cur_scope, __pyx_n_s_aenter, __pyx_n_s_PoolManager___aenter, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4, __pyx_codeobj__6, (PyObject *) __pyx_cur_scope, __pyx_n_s_aenter, __pyx_n_s_PoolManager___aenter, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 286, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9800,16 +9833,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4(__pyx_C
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 283, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 286, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":284
+  /* "sqlcycli/_connect.py":287
  * 
  *     async def __aenter__(self) -> aio_pool.Pool:
  *         self._pool = await self._create_and_fill_pool()             # <<<<<<<<<<<<<<
  *         return self._pool
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_create_and_fill_pool); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_create_and_fill_pool); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -9829,7 +9862,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4(__pyx_C
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 287, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -9844,21 +9877,21 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4(__pyx_C
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 284, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 287, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else {
     __pyx_t_1 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 284, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 287, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_8sqlcycli_3aio_4pool_Pool))))) __PYX_ERR(0, 284, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_8sqlcycli_3aio_4pool_Pool))))) __PYX_ERR(0, 287, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_cur_scope->__pyx_v_self->_pool);
   __Pyx_DECREF((PyObject *)__pyx_cur_scope->__pyx_v_self->_pool);
   __pyx_cur_scope->__pyx_v_self->_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_connect.py":285
+  /* "sqlcycli/_connect.py":288
  *     async def __aenter__(self) -> aio_pool.Pool:
  *         self._pool = await self._create_and_fill_pool()
  *         return self._pool             # <<<<<<<<<<<<<<
@@ -9870,7 +9903,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4(__pyx_C
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "sqlcycli/_connect.py":283
+  /* "sqlcycli/_connect.py":286
  *         return self._create_and_fill_pool().__await__()
  * 
  *     async def __aenter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
@@ -9897,7 +9930,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_13generator4(__pyx_C
 }
 static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_connect.py":287
+/* "sqlcycli/_connect.py":290
  *         return self._pool
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -9964,7 +9997,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 287, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -9972,9 +10005,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 287, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 1); __PYX_ERR(0, 287, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 1); __PYX_ERR(0, 290, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9982,14 +10015,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 287, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 2); __PYX_ERR(0, 287, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, 2); __PYX_ERR(0, 290, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__aexit__") < 0)) __PYX_ERR(0, 287, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__aexit__") < 0)) __PYX_ERR(0, 290, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -10004,7 +10037,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 287, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 290, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10043,7 +10076,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_14__aexit__(struct _
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 287, __pyx_L1_error)
+    __PYX_ERR(0, 290, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10060,7 +10093,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_14__aexit__(struct _
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_exc_tb);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_exc_tb);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5, __pyx_codeobj__7, (PyObject *) __pyx_cur_scope, __pyx_n_s_aexit, __pyx_n_s_PoolManager___aexit, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 287, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5, __pyx_codeobj__7, (PyObject *) __pyx_cur_scope, __pyx_n_s_aexit, __pyx_n_s_PoolManager___aexit, __pyx_n_s_sqlcycli__connect); if (unlikely(!gen)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -10094,16 +10127,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5(__pyx_C
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 287, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 290, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":288
+  /* "sqlcycli/_connect.py":291
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):
  *         await self._pool.close()             # <<<<<<<<<<<<<<
  *         self._pool = None
  * 
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool *)__pyx_cur_scope->__pyx_v_self->_pool->__pyx_vtab)->close(__pyx_cur_scope->__pyx_v_self->_pool, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool *)__pyx_cur_scope->__pyx_v_self->_pool->__pyx_vtab)->close(__pyx_cur_scope->__pyx_v_self->_pool, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 291, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10116,16 +10149,16 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5(__pyx_C
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 288, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 291, __pyx_L1_error)
   } else {
     PyObject* exc_type = __Pyx_PyErr_CurrentExceptionType();
     if (exc_type) {
       if (likely(exc_type == PyExc_StopIteration || (exc_type != PyExc_GeneratorExit && __Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))) PyErr_Clear();
-      else __PYX_ERR(0, 288, __pyx_L1_error)
+      else __PYX_ERR(0, 291, __pyx_L1_error)
     }
   }
 
-  /* "sqlcycli/_connect.py":289
+  /* "sqlcycli/_connect.py":292
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):
  *         await self._pool.close()
  *         self._pool = None             # <<<<<<<<<<<<<<
@@ -10139,7 +10172,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5(__pyx_C
   __pyx_cur_scope->__pyx_v_self->_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)Py_None);
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "sqlcycli/_connect.py":287
+  /* "sqlcycli/_connect.py":290
  *         return self._pool
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
@@ -10165,7 +10198,7 @@ static PyObject *__pyx_gb_8sqlcycli_8_connect_11PoolManager_16generator5(__pyx_C
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":291
+/* "sqlcycli/_connect.py":294
  *         self._pool = None
  * 
  *     def __del__(self):             # <<<<<<<<<<<<<<
@@ -10194,7 +10227,7 @@ static void __pyx_pf_8sqlcycli_8_connect_11PoolManager_17__del__(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__del__", 1);
 
-  /* "sqlcycli/_connect.py":292
+  /* "sqlcycli/_connect.py":295
  * 
  *     def __del__(self):
  *         if self._pool is not None:             # <<<<<<<<<<<<<<
@@ -10204,16 +10237,16 @@ static void __pyx_pf_8sqlcycli_8_connect_11PoolManager_17__del__(struct __pyx_ob
   __pyx_t_1 = (((PyObject *)__pyx_v_self->_pool) != Py_None);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/_connect.py":293
+    /* "sqlcycli/_connect.py":296
  *     def __del__(self):
  *         if self._pool is not None:
  *             self._pool.terminate()             # <<<<<<<<<<<<<<
  *             self._pool = None
  * 
  */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool *)__pyx_v_self->_pool->__pyx_vtab)->terminate(__pyx_v_self->_pool, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 293, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_8sqlcycli_3aio_4pool_Pool *)__pyx_v_self->_pool->__pyx_vtab)->terminate(__pyx_v_self->_pool, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 296, __pyx_L1_error)
 
-    /* "sqlcycli/_connect.py":294
+    /* "sqlcycli/_connect.py":297
  *         if self._pool is not None:
  *             self._pool.terminate()
  *             self._pool = None             # <<<<<<<<<<<<<<
@@ -10226,7 +10259,7 @@ static void __pyx_pf_8sqlcycli_8_connect_11PoolManager_17__del__(struct __pyx_ob
     __Pyx_DECREF((PyObject *)__pyx_v_self->_pool);
     __pyx_v_self->_pool = ((struct __pyx_obj_8sqlcycli_3aio_4pool_Pool *)Py_None);
 
-    /* "sqlcycli/_connect.py":292
+    /* "sqlcycli/_connect.py":295
  * 
  *     def __del__(self):
  *         if self._pool is not None:             # <<<<<<<<<<<<<<
@@ -10235,7 +10268,7 @@ static void __pyx_pf_8sqlcycli_8_connect_11PoolManager_17__del__(struct __pyx_ob
  */
   }
 
-  /* "sqlcycli/_connect.py":291
+  /* "sqlcycli/_connect.py":294
  *         self._pool = None
  * 
  *     def __del__(self):             # <<<<<<<<<<<<<<
@@ -10673,7 +10706,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_11PoolManager_21__setstate_cython_
   return __pyx_r;
 }
 
-/* "sqlcycli/_connect.py":297
+/* "sqlcycli/_connect.py":300
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -10692,7 +10725,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
   PyObject *__pyx_v_host = ((PyObject *)__pyx_n_u_localhost);
   PyObject *__pyx_v_port = ((PyObject *)__pyx_int_3306);
 
-  /* "sqlcycli/_connect.py":301
+  /* "sqlcycli/_connect.py":304
  *     host: str | None = "localhost",
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -10701,7 +10734,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_user = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":302
+  /* "sqlcycli/_connect.py":305
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -10710,7 +10743,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_password = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":303
+  /* "sqlcycli/_connect.py":306
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,
  *     database: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -10721,7 +10754,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
   PyObject *__pyx_v_min_size = ((PyObject *)__pyx_int_0);
   PyObject *__pyx_v_max_size = ((PyObject *)__pyx_int_10);
 
-  /* "sqlcycli/_connect.py":306
+  /* "sqlcycli/_connect.py":309
  *     min_size: int | Any = 0,
  *     max_size: int | Any = 10,
  *     recycle: int | None = None,             # <<<<<<<<<<<<<<
@@ -10731,7 +10764,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
   PyObject *__pyx_v_recycle = ((PyObject *)Py_None);
   PyObject *__pyx_v_charset = ((PyObject *)__pyx_n_u_utf8mb4);
 
-  /* "sqlcycli/_connect.py":309
+  /* "sqlcycli/_connect.py":312
  *     *,
  *     charset: str | None = "utf8mb4",
  *     collation: str | None = None,             # <<<<<<<<<<<<<<
@@ -10741,7 +10774,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
   PyObject *__pyx_v_collation = ((PyObject *)Py_None);
   PyObject *__pyx_v_connect_timeout = ((PyObject *)__pyx_int_5);
 
-  /* "sqlcycli/_connect.py":311
+  /* "sqlcycli/_connect.py":314
  *     collation: str | None = None,
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -10750,7 +10783,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_read_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":312
+  /* "sqlcycli/_connect.py":315
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -10759,7 +10792,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_write_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":313
+  /* "sqlcycli/_connect.py":316
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -10768,7 +10801,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_wait_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":314
+  /* "sqlcycli/_connect.py":317
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -10777,7 +10810,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_interactive_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":315
+  /* "sqlcycli/_connect.py":318
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -10786,7 +10819,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_lock_wait_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":316
+  /* "sqlcycli/_connect.py":319
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -10795,7 +10828,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_execution_timeout = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":317
+  /* "sqlcycli/_connect.py":320
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,             # <<<<<<<<<<<<<<
@@ -10804,7 +10837,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_bind_address = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":318
+  /* "sqlcycli/_connect.py":321
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,             # <<<<<<<<<<<<<<
@@ -10813,7 +10846,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_unix_socket = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":319
+  /* "sqlcycli/_connect.py":322
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,             # <<<<<<<<<<<<<<
@@ -10822,7 +10855,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_autocommit = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":320
+  /* "sqlcycli/_connect.py":323
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,             # <<<<<<<<<<<<<<
@@ -10831,7 +10864,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_local_infile = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":321
+  /* "sqlcycli/_connect.py":324
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,             # <<<<<<<<<<<<<<
@@ -10840,28 +10873,28 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_max_allowed_packet = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":322
+  /* "sqlcycli/_connect.py":325
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,             # <<<<<<<<<<<<<<
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  */
   PyObject *__pyx_v_sql_mode = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":323
+  /* "sqlcycli/_connect.py":326
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,             # <<<<<<<<<<<<<<
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  */
   PyObject *__pyx_v_init_command = ((PyObject *)Py_None);
   PyObject *__pyx_v_cursor = __pyx_k__8;
   PyObject *__pyx_v_client_flag = ((PyObject *)__pyx_int_0);
 
-  /* "sqlcycli/_connect.py":326
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+  /* "sqlcycli/_connect.py":329
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,             # <<<<<<<<<<<<<<
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
@@ -10869,7 +10902,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_program_name = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":327
+  /* "sqlcycli/_connect.py":330
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,             # <<<<<<<<<<<<<<
@@ -10878,7 +10911,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_option_file = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":328
+  /* "sqlcycli/_connect.py":331
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,             # <<<<<<<<<<<<<<
@@ -10887,7 +10920,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_ssl = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":329
+  /* "sqlcycli/_connect.py":332
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,             # <<<<<<<<<<<<<<
@@ -10896,7 +10929,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_auth_plugin = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":330
+  /* "sqlcycli/_connect.py":333
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,             # <<<<<<<<<<<<<<
@@ -10905,7 +10938,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_server_public_key = ((PyObject *)Py_None);
 
-  /* "sqlcycli/_connect.py":331
+  /* "sqlcycli/_connect.py":334
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,             # <<<<<<<<<<<<<<
@@ -10914,7 +10947,7 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_use_decimal = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":332
+  /* "sqlcycli/_connect.py":335
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,             # <<<<<<<<<<<<<<
@@ -10923,12 +10956,12 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   PyObject *__pyx_v_decode_bit = ((PyObject *)Py_False);
 
-  /* "sqlcycli/_connect.py":333
+  /* "sqlcycli/_connect.py":336
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  *     decode_json: bool = False,             # <<<<<<<<<<<<<<
  * ) -> PoolManager:
- *     """Create a connection pool to manage and maintain `async`
+ *     """Create a pool that manages and maintains both the synchronize and asynchronize
  */
   PyObject *__pyx_v_decode_json = ((PyObject *)Py_False);
   struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_r = NULL;
@@ -11044,8 +11077,8 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
     }
   }
 
-  /* "sqlcycli/_connect.py":388
- *     :param decode_json `<'bool'>`: If `True` deserialize JSON column data, else keep as original json string. Defaults to `False`.
+  /* "sqlcycli/_connect.py":392
+ *     :param decode_json `<'bool'>`: JSON columns are deserialized if `True`, else kept as the original JSON string. Defaults to `False`.
  *     """
  *     return PoolManager(             # <<<<<<<<<<<<<<
  *         {
@@ -11053,328 +11086,328 @@ static struct __pyx_obj_8sqlcycli_8_connect_PoolManager *__pyx_f_8sqlcycli_8_con
  */
   __Pyx_XDECREF((PyObject *)__pyx_r);
 
-  /* "sqlcycli/_connect.py":390
+  /* "sqlcycli/_connect.py":394
  *     return PoolManager(
  *         {
  *             "host": host,             # <<<<<<<<<<<<<<
  *             "port": port,
  *             "user": user,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(33); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 390, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(33); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 394, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host, __pyx_v_host) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host, __pyx_v_host) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":391
+  /* "sqlcycli/_connect.py":395
  *         {
  *             "host": host,
  *             "port": port,             # <<<<<<<<<<<<<<
  *             "user": user,
  *             "password": password,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_port, __pyx_v_port) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_port, __pyx_v_port) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":392
+  /* "sqlcycli/_connect.py":396
  *             "host": host,
  *             "port": port,
  *             "user": user,             # <<<<<<<<<<<<<<
  *             "password": password,
  *             "database": database,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_user, __pyx_v_user) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_user, __pyx_v_user) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":393
+  /* "sqlcycli/_connect.py":397
  *             "port": port,
  *             "user": user,
  *             "password": password,             # <<<<<<<<<<<<<<
  *             "database": database,
  *             "min_size": min_size,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_password, __pyx_v_password) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_password, __pyx_v_password) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":394
+  /* "sqlcycli/_connect.py":398
  *             "user": user,
  *             "password": password,
  *             "database": database,             # <<<<<<<<<<<<<<
  *             "min_size": min_size,
  *             "max_size": max_size,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_database, __pyx_v_database) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_database, __pyx_v_database) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":395
+  /* "sqlcycli/_connect.py":399
  *             "password": password,
  *             "database": database,
  *             "min_size": min_size,             # <<<<<<<<<<<<<<
  *             "max_size": max_size,
  *             "recycle": recycle,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_min_size, __pyx_v_min_size) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_min_size, __pyx_v_min_size) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":396
+  /* "sqlcycli/_connect.py":400
  *             "database": database,
  *             "min_size": min_size,
  *             "max_size": max_size,             # <<<<<<<<<<<<<<
  *             "recycle": recycle,
  *             "charset": charset,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_size, __pyx_v_max_size) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_size, __pyx_v_max_size) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":397
+  /* "sqlcycli/_connect.py":401
  *             "min_size": min_size,
  *             "max_size": max_size,
  *             "recycle": recycle,             # <<<<<<<<<<<<<<
  *             "charset": charset,
  *             "collation": collation,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_recycle, __pyx_v_recycle) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_recycle, __pyx_v_recycle) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":398
+  /* "sqlcycli/_connect.py":402
  *             "max_size": max_size,
  *             "recycle": recycle,
  *             "charset": charset,             # <<<<<<<<<<<<<<
  *             "collation": collation,
  *             "connect_timeout": connect_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charset, __pyx_v_charset) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charset, __pyx_v_charset) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":399
+  /* "sqlcycli/_connect.py":403
  *             "recycle": recycle,
  *             "charset": charset,
  *             "collation": collation,             # <<<<<<<<<<<<<<
  *             "connect_timeout": connect_timeout,
  *             "read_timeout": read_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_collation, __pyx_v_collation) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_collation, __pyx_v_collation) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":400
+  /* "sqlcycli/_connect.py":404
  *             "charset": charset,
  *             "collation": collation,
  *             "connect_timeout": connect_timeout,             # <<<<<<<<<<<<<<
  *             "read_timeout": read_timeout,
  *             "write_timeout": write_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_connect_timeout, __pyx_v_connect_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_connect_timeout, __pyx_v_connect_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":401
+  /* "sqlcycli/_connect.py":405
  *             "collation": collation,
  *             "connect_timeout": connect_timeout,
  *             "read_timeout": read_timeout,             # <<<<<<<<<<<<<<
  *             "write_timeout": write_timeout,
  *             "wait_timeout": wait_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_read_timeout, __pyx_v_read_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_read_timeout, __pyx_v_read_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":402
+  /* "sqlcycli/_connect.py":406
  *             "connect_timeout": connect_timeout,
  *             "read_timeout": read_timeout,
  *             "write_timeout": write_timeout,             # <<<<<<<<<<<<<<
  *             "wait_timeout": wait_timeout,
  *             "interactive_timeout": interactive_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_write_timeout, __pyx_v_write_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_write_timeout, __pyx_v_write_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":403
+  /* "sqlcycli/_connect.py":407
  *             "read_timeout": read_timeout,
  *             "write_timeout": write_timeout,
  *             "wait_timeout": wait_timeout,             # <<<<<<<<<<<<<<
  *             "interactive_timeout": interactive_timeout,
  *             "lock_wait_timeout": lock_wait_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_wait_timeout, __pyx_v_wait_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_wait_timeout, __pyx_v_wait_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":404
+  /* "sqlcycli/_connect.py":408
  *             "write_timeout": write_timeout,
  *             "wait_timeout": wait_timeout,
  *             "interactive_timeout": interactive_timeout,             # <<<<<<<<<<<<<<
  *             "lock_wait_timeout": lock_wait_timeout,
  *             "execution_timeout": execution_timeout,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_interactive_timeout, __pyx_v_interactive_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_interactive_timeout, __pyx_v_interactive_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":405
+  /* "sqlcycli/_connect.py":409
  *             "wait_timeout": wait_timeout,
  *             "interactive_timeout": interactive_timeout,
  *             "lock_wait_timeout": lock_wait_timeout,             # <<<<<<<<<<<<<<
  *             "execution_timeout": execution_timeout,
  *             "bind_address": bind_address,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_lock_wait_timeout, __pyx_v_lock_wait_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_lock_wait_timeout, __pyx_v_lock_wait_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":406
+  /* "sqlcycli/_connect.py":410
  *             "interactive_timeout": interactive_timeout,
  *             "lock_wait_timeout": lock_wait_timeout,
  *             "execution_timeout": execution_timeout,             # <<<<<<<<<<<<<<
  *             "bind_address": bind_address,
  *             "unix_socket": unix_socket,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_execution_timeout, __pyx_v_execution_timeout) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_execution_timeout, __pyx_v_execution_timeout) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":407
+  /* "sqlcycli/_connect.py":411
  *             "lock_wait_timeout": lock_wait_timeout,
  *             "execution_timeout": execution_timeout,
  *             "bind_address": bind_address,             # <<<<<<<<<<<<<<
  *             "unix_socket": unix_socket,
  *             "autocommit": autocommit,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_bind_address, __pyx_v_bind_address) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_bind_address, __pyx_v_bind_address) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":408
+  /* "sqlcycli/_connect.py":412
  *             "execution_timeout": execution_timeout,
  *             "bind_address": bind_address,
  *             "unix_socket": unix_socket,             # <<<<<<<<<<<<<<
  *             "autocommit": autocommit,
  *             "local_infile": local_infile,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unix_socket, __pyx_v_unix_socket) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unix_socket, __pyx_v_unix_socket) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":409
+  /* "sqlcycli/_connect.py":413
  *             "bind_address": bind_address,
  *             "unix_socket": unix_socket,
  *             "autocommit": autocommit,             # <<<<<<<<<<<<<<
  *             "local_infile": local_infile,
  *             "max_allowed_packet": max_allowed_packet,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_autocommit, __pyx_v_autocommit) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_autocommit, __pyx_v_autocommit) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":410
+  /* "sqlcycli/_connect.py":414
  *             "unix_socket": unix_socket,
  *             "autocommit": autocommit,
  *             "local_infile": local_infile,             # <<<<<<<<<<<<<<
  *             "max_allowed_packet": max_allowed_packet,
  *             "sql_mode": sql_mode,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_local_infile, __pyx_v_local_infile) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_local_infile, __pyx_v_local_infile) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":411
+  /* "sqlcycli/_connect.py":415
  *             "autocommit": autocommit,
  *             "local_infile": local_infile,
  *             "max_allowed_packet": max_allowed_packet,             # <<<<<<<<<<<<<<
  *             "sql_mode": sql_mode,
  *             "init_command": init_command,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_allowed_packet, __pyx_v_max_allowed_packet) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_allowed_packet, __pyx_v_max_allowed_packet) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":412
+  /* "sqlcycli/_connect.py":416
  *             "local_infile": local_infile,
  *             "max_allowed_packet": max_allowed_packet,
  *             "sql_mode": sql_mode,             # <<<<<<<<<<<<<<
  *             "init_command": init_command,
  *             "client_flag": client_flag,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sql_mode, __pyx_v_sql_mode) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sql_mode, __pyx_v_sql_mode) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":413
+  /* "sqlcycli/_connect.py":417
  *             "max_allowed_packet": max_allowed_packet,
  *             "sql_mode": sql_mode,
  *             "init_command": init_command,             # <<<<<<<<<<<<<<
  *             "client_flag": client_flag,
  *             "program_name": program_name,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_init_command, __pyx_v_init_command) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_init_command, __pyx_v_init_command) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":414
+  /* "sqlcycli/_connect.py":418
  *             "sql_mode": sql_mode,
  *             "init_command": init_command,
  *             "client_flag": client_flag,             # <<<<<<<<<<<<<<
  *             "program_name": program_name,
  *             "option_file": option_file,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_client_flag, __pyx_v_client_flag) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_client_flag, __pyx_v_client_flag) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":415
+  /* "sqlcycli/_connect.py":419
  *             "init_command": init_command,
  *             "client_flag": client_flag,
  *             "program_name": program_name,             # <<<<<<<<<<<<<<
  *             "option_file": option_file,
  *             "ssl": ssl,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_program_name, __pyx_v_program_name) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_program_name, __pyx_v_program_name) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":416
+  /* "sqlcycli/_connect.py":420
  *             "client_flag": client_flag,
  *             "program_name": program_name,
  *             "option_file": option_file,             # <<<<<<<<<<<<<<
  *             "ssl": ssl,
  *             "auth_plugin": auth_plugin,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_option_file, __pyx_v_option_file) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_option_file, __pyx_v_option_file) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":417
+  /* "sqlcycli/_connect.py":421
  *             "program_name": program_name,
  *             "option_file": option_file,
  *             "ssl": ssl,             # <<<<<<<<<<<<<<
  *             "auth_plugin": auth_plugin,
  *             "server_public_key": server_public_key,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ssl, __pyx_v_ssl) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ssl, __pyx_v_ssl) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":418
+  /* "sqlcycli/_connect.py":422
  *             "option_file": option_file,
  *             "ssl": ssl,
  *             "auth_plugin": auth_plugin,             # <<<<<<<<<<<<<<
  *             "server_public_key": server_public_key,
  *             "use_decimal": use_decimal,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_auth_plugin, __pyx_v_auth_plugin) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_auth_plugin, __pyx_v_auth_plugin) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":419
+  /* "sqlcycli/_connect.py":423
  *             "ssl": ssl,
  *             "auth_plugin": auth_plugin,
  *             "server_public_key": server_public_key,             # <<<<<<<<<<<<<<
  *             "use_decimal": use_decimal,
  *             "decode_bit": decode_bit,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_server_public_key, __pyx_v_server_public_key) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_server_public_key, __pyx_v_server_public_key) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":420
+  /* "sqlcycli/_connect.py":424
  *             "auth_plugin": auth_plugin,
  *             "server_public_key": server_public_key,
  *             "use_decimal": use_decimal,             # <<<<<<<<<<<<<<
  *             "decode_bit": decode_bit,
  *             "decode_json": decode_json,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_use_decimal, __pyx_v_use_decimal) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_use_decimal, __pyx_v_use_decimal) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":421
+  /* "sqlcycli/_connect.py":425
  *             "server_public_key": server_public_key,
  *             "use_decimal": use_decimal,
  *             "decode_bit": decode_bit,             # <<<<<<<<<<<<<<
  *             "decode_json": decode_json,
  *         },
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_bit, __pyx_v_decode_bit) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_bit, __pyx_v_decode_bit) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":422
+  /* "sqlcycli/_connect.py":426
  *             "use_decimal": use_decimal,
  *             "decode_bit": decode_bit,
  *             "decode_json": decode_json,             # <<<<<<<<<<<<<<
  *         },
  *         cursor,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_json, __pyx_v_decode_json) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_decode_json, __pyx_v_decode_json) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":388
- *     :param decode_json `<'bool'>`: If `True` deserialize JSON column data, else keep as original json string. Defaults to `False`.
+  /* "sqlcycli/_connect.py":392
+ *     :param decode_json `<'bool'>`: JSON columns are deserialized if `True`, else kept as the original JSON string. Defaults to `False`.
  *     """
  *     return PoolManager(             # <<<<<<<<<<<<<<
  *         {
  *             "host": host,
  */
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1)) __PYX_ERR(0, 388, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1)) __PYX_ERR(0, 392, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_cursor);
   __Pyx_GIVEREF(__pyx_v_cursor);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_cursor)) __PYX_ERR(0, 388, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_cursor)) __PYX_ERR(0, 392, __pyx_L1_error);
   __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager), __pyx_t_2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager), __pyx_t_2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = ((struct __pyx_obj_8sqlcycli_8_connect_PoolManager *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_connect.py":297
+  /* "sqlcycli/_connect.py":300
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -11402,7 +11435,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_2create_pool, "Create a connection pool to manage and maintain `async`\n    connections through context manager `<'PoolManager'>`.\n\n    :param min_size `<'int'>`: The minimum number of active connections to maintain. Defaults to `0`.\n    :param max_size `<'int'>`: The maximum number of active connections to maintain. Defaults to `10`.\n    :param recycle `<'int/None'>`: The recycle time in seconds. Defaults to `None`.\n        - If set to positive integer, the pool will automatically close\n          and remove any connections idling more than the 'recycle' time.\n        - If 'recycle=None' (Default), recycling is disabled.\n\n    :param host `<'str/None'>`: The host of the server. Defaults to `'localhost'`.\n    :param port `<'int'>`: The port of the server. Defaults to `3306`.\n    :param user `<'str/bytes/None'>`: The username to login as. Defaults to `None`.\n    :param password `<'str/bytes/None'>`: The password for login authentication. Defaults to `None`.\n    :param database `<'str/bytes/None'>`: The default database to use by the connection. Defaults to `None`.\n    :param charset `<'str/None'>`: The character set for the connection. Defaults to `'utf8mb4'`.\n    :param collation `<'str/None'>`: The collation for the connection. Defaults to `None`.\n    :param connect_timeout `<'int'>`: Set timeout (in seconds) for establishing the connection. Defaults to `5`.\n    :param read_timeout `<'int/None>`: Set SESSION 'net_read_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param write_timeout `<'int/None>`: Set SESSION 'net_write_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param wait_timeout `<'int/None>`: Set SESSION 'wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param interactive_timeout `<'int/None>`: Set SESSION 'interactive_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param lock_wait_timeout `<'int/None>`: Set SESSION 'innodb_lock_wait_timeout' (in seconds). Defau""lts to `None` (use GLOBAL settings).\n    :param execution_timeout `<'int/None>`: Set SESSION 'max_execution_time' (in milliseconds). Defaults to `None` (use GLOBAL settings).\n    :param bind_address `<'str/None'>`: The interface from which to connect to the host. Accept both hostname or IP address. Defaults to `None`.\n    :param unix_socket `<'str/None'>`: The unix socket for establishing connection rather than TCP/IP. Defaults to `None`.\n    :param autocommit `<'bool/None'>`: The autocommit mode for the connection. `None` means use server default. Defaults to `False`.\n    :param local_infile `<'bool'>`: Enable/Disable LOAD DATA LOCAL command. Defaults to `False`.\n    :param max_allowed_packet `<'int/str/None'>`: The max size of packet sent to server in bytes. Defaults to `None` (16MB).\n    :param sql_mode `<'str/None'>`: The default SQL_MODE for the connection. Defaults to `None`.\n    :param init_command `<'str/None'>`: The initial SQL statement to run when connection is established. Defaults to `None`.\n    :param cursor `<'type[Cursor]/None'>`: The default cursor type (class) to use. Defaults to `<'Cursor'>`.\n            Also accepts: 'tuple' => 'Cursor' / 'dict' => 'DictCursor' / 'DataFrame' => 'DfCursor'.\n\n    :param client_flag `<'int'>`: Custom flags to sent to server, see 'constants.CLIENT'. Defaults to `0`.\n    :param program_name `<'str/None'>`: The program name for the connection. Defaults to `None`.\n    :param option_file `<'OptionFile/PathLike/None>`: The MySQL option file to load connection parameters. Defaults to `None`.\n        - Recommand use <'OptionFile'> to load MySQL option file.\n        - If passed str/bytes/PathLike argument, it will be automatically converted\n          to <'OptionFile'>, with option group defaults to 'client'.\n\n    :param ssl `<'SSL/ssl.SSLContext/None'>`: The SSL configuration for the connection. Defaults to `None`.\n        - Supports both <'SSL'> or pre-configured <'ssl.SSLContext'> object.\n\n    :param ""auth_plugin `<'AuthPlugin/dict/None'>`: The authentication plugins handlers. Defaults to `None`.\n        - Recommand use <'AuthPlugin'> to setup MySQL authentication plugin handlers.\n        - If passed dict argument, it will be automatically converted to <'AuthPlugin'>.\n\n    :param server_public_key `<'bytes/None'>`: The public key for the server authentication. Defaults to `None`.\n    :param use_decimal `<'bool'>`: If `True` use <'Decimal'> to represent DECIMAL column data, else use <'float'>. Defaults to `False`.\n    :param decode_bit `<'bool'>`: If `True` decode BIT column data to <'int'>, else keep as original bytes. Defaults to `False`.\n    :param decode_json `<'bool'>`: If `True` deserialize JSON column data, else keep as original json string. Defaults to `False`.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8_connect_2create_pool, "Create a pool that manages and maintains both the synchronize and asynchronize\n    connections to the server through context manager `<'PoolManager'>`.\n\n    :param min_size `<'int'>`: The minimum number of [async] connections to maintain. Defaults to `0`.\n    :param max_size `<'int'>`: The maximum number of [async] connections to maintain. Defaults to `10`.\n    :param recycle `<'int/None'>`: The connection recycle time in seconds. Defaults to `None`.\n        When set to a positive integer, the pool will automatically close\n        and remove any connections idling more than the `recycle` time.\n        Any other values disables the recycling feature.\n\n    :param host `<'str/None'>`: The host of the server. Defaults to `'localhost'`.\n    :param port `<'int'>`: The port of the server. Defaults to `3306`.\n    :param user `<'str/bytes/None'>`: The username to login as. Defaults to `None`.\n    :param password `<'str/bytes/None'>`: The password for login authentication. Defaults to `None`.\n    :param database `<'str/bytes/None'>`: The default database to use by the connection. Defaults to `None`.\n    :param charset `<'str/None'>`: The character set for the connection. Defaults to `'utf8mb4'`.\n    :param collation `<'str/None'>`: The collation for the connection. Defaults to `None`.\n    :param connect_timeout `<'int'>`: Set timeout (in seconds) for establishing the connection. Defaults to `5`.\n    :param read_timeout `<'int/None>`: Set SESSION 'net_read_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param write_timeout `<'int/None>`: Set SESSION 'net_write_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param wait_timeout `<'int/None>`: Set SESSION 'wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param interactive_timeout `<'int/None>`: Set SESSION 'interactive_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param lock_wait_timeout `<'int/None>`: Set SESSION '""innodb_lock_wait_timeout' (in seconds). Defaults to `None` (use GLOBAL settings).\n    :param execution_timeout `<'int/None>`: Set SESSION 'max_execution_time' (in milliseconds). Defaults to `None` (use GLOBAL settings).\n    :param bind_address `<'str/None'>`: The interface from which to connect to the host. Accept both hostname or IP address. Defaults to `None`.\n    :param unix_socket `<'str/None'>`: The unix socket for establishing connection rather than TCP/IP. Defaults to `None`.\n    :param autocommit `<'bool/None'>`: The autocommit mode for the connection. `None` means use server default. Defaults to `False`.\n    :param local_infile `<'bool'>`: Enable/Disable LOAD DATA LOCAL command. Defaults to `False`.\n    :param max_allowed_packet `<'int/str/None'>`: The max size of packet sent to server in bytes. Defaults to `None` (16MB).\n    :param sql_mode `<'str/None'>`: The default SQL_MODE for the connection. Defaults to `None`.\n    :param init_command `<'str/None'>`: The initial SQL statement to run when connection is established. Defaults to `None`.\n    :param cursor `<'type[Cursor]/None'>`: The default cursor class (type) to use. Defaults to `<'Cursor'>`.\n        Determines the data type of the fetched result set.\n        Also accepts: 1. `tuple` => `Cursor`; 2. `dict` => `DictCursor`; 3. `DataFrame` => `DfCursor`;\n\n    :param client_flag `<'int'>`: Custom flags to sent to server, see 'constants.CLIENT'. Defaults to `0`.\n    :param program_name `<'str/None'>`: The program name for the connection. Defaults to `None`.\n    :param option_file `<'OptionFile/PathLike/None>`: The MySQL option file to load connection parameters. Defaults to `None`.\n        - Recommand use <'OptionFile'> to load MySQL option file.\n        - If passed str/bytes/PathLike argument, it will be automatically converted\n            to <'OptionFile'>, with option group defaults to 'client'.\n\n    :param ssl `<'SSL/ssl.SSLContext/None'>`: The SSL configuration for the connection. D""efaults to `None`.\n        - Supports both `sqlcycli.SSL` or pre-configured `ssl.SSLContext` object.\n\n    :param auth_plugin `<'AuthPlugin/dict/None'>`: The authentication plugins handlers. Defaults to `None`.\n        - Recommand use <'AuthPlugin'> to setup MySQL authentication plugin handlers.\n        - If passed dict argument, it will be automatically converted to <'AuthPlugin'>.\n\n    :param server_public_key `<'bytes/None'>`: The public key for the server authentication. Defaults to `None`.\n    :param use_decimal `<'bool'>`: DECIMAL columns are decoded as `decimal.Decimal` if `True`, else as `float`. Defaults to `False`.\n    :param decode_bit `<'bool'>`: BIT columns are decoded as `int` if `True`, else kept as the original `bytes`. Defaults to `False`.\n    :param decode_json `<'bool'>`: JSON columns are deserialized if `True`, else kept as the original JSON string. Defaults to `False`.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8_connect_3create_pool = {"create_pool", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_3create_pool, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_2create_pool};
 static PyObject *__pyx_pw_8sqlcycli_8_connect_3create_pool(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -11469,7 +11502,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[0] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_n_u_localhost));
     values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_3306));
 
-    /* "sqlcycli/_connect.py":301
+    /* "sqlcycli/_connect.py":304
  *     host: str | None = "localhost",
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -11478,7 +11511,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[2] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":302
+    /* "sqlcycli/_connect.py":305
  *     port: int | Any = 3306,
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -11487,7 +11520,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[3] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":303
+    /* "sqlcycli/_connect.py":306
  *     user: str | bytes | None = None,
  *     password: str | bytes | None = None,
  *     database: str | bytes | None = None,             # <<<<<<<<<<<<<<
@@ -11498,7 +11531,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[5] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_0));
     values[6] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_10));
 
-    /* "sqlcycli/_connect.py":306
+    /* "sqlcycli/_connect.py":309
  *     min_size: int | Any = 0,
  *     max_size: int | Any = 10,
  *     recycle: int | None = None,             # <<<<<<<<<<<<<<
@@ -11508,7 +11541,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[7] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     values[8] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_n_u_utf8mb4));
 
-    /* "sqlcycli/_connect.py":309
+    /* "sqlcycli/_connect.py":312
  *     *,
  *     charset: str | None = "utf8mb4",
  *     collation: str | None = None,             # <<<<<<<<<<<<<<
@@ -11518,7 +11551,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     values[9] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     values[10] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_5));
 
-    /* "sqlcycli/_connect.py":311
+    /* "sqlcycli/_connect.py":314
  *     collation: str | None = None,
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -11527,7 +11560,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[11] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":312
+    /* "sqlcycli/_connect.py":315
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -11536,7 +11569,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[12] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":313
+    /* "sqlcycli/_connect.py":316
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -11545,7 +11578,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[13] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":314
+    /* "sqlcycli/_connect.py":317
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -11554,7 +11587,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[14] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":315
+    /* "sqlcycli/_connect.py":318
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -11563,7 +11596,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[15] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":316
+    /* "sqlcycli/_connect.py":319
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,             # <<<<<<<<<<<<<<
@@ -11572,7 +11605,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[16] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":317
+    /* "sqlcycli/_connect.py":320
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,             # <<<<<<<<<<<<<<
@@ -11581,7 +11614,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[17] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":318
+    /* "sqlcycli/_connect.py":321
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,             # <<<<<<<<<<<<<<
@@ -11590,7 +11623,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[18] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":319
+    /* "sqlcycli/_connect.py":322
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,             # <<<<<<<<<<<<<<
@@ -11599,7 +11632,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[19] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":320
+    /* "sqlcycli/_connect.py":323
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,             # <<<<<<<<<<<<<<
@@ -11608,7 +11641,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[20] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":321
+    /* "sqlcycli/_connect.py":324
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,             # <<<<<<<<<<<<<<
@@ -11617,28 +11650,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[21] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":322
+    /* "sqlcycli/_connect.py":325
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,             # <<<<<<<<<<<<<<
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  */
     values[22] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":323
+    /* "sqlcycli/_connect.py":326
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,             # <<<<<<<<<<<<<<
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  */
     values[23] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
     values[24] = __Pyx_Arg_NewRef_FASTCALL(__pyx_k__8);
     values[25] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)__pyx_int_0));
 
-    /* "sqlcycli/_connect.py":326
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+    /* "sqlcycli/_connect.py":329
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,             # <<<<<<<<<<<<<<
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
@@ -11646,7 +11679,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[26] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":327
+    /* "sqlcycli/_connect.py":330
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,             # <<<<<<<<<<<<<<
@@ -11655,7 +11688,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[27] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":328
+    /* "sqlcycli/_connect.py":331
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,             # <<<<<<<<<<<<<<
@@ -11664,7 +11697,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[28] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":329
+    /* "sqlcycli/_connect.py":332
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,             # <<<<<<<<<<<<<<
@@ -11673,7 +11706,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[29] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":330
+    /* "sqlcycli/_connect.py":333
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,             # <<<<<<<<<<<<<<
@@ -11682,7 +11715,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[30] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_None));
 
-    /* "sqlcycli/_connect.py":331
+    /* "sqlcycli/_connect.py":334
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,             # <<<<<<<<<<<<<<
@@ -11691,7 +11724,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[31] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":332
+    /* "sqlcycli/_connect.py":335
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,             # <<<<<<<<<<<<<<
@@ -11700,12 +11733,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[32] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
 
-    /* "sqlcycli/_connect.py":333
+    /* "sqlcycli/_connect.py":336
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  *     decode_json: bool = False,             # <<<<<<<<<<<<<<
  * ) -> PoolManager:
- *     """Create a connection pool to manage and maintain `async`
+ *     """Create a pool that manages and maintains both the synchronize and asynchronize
  */
     values[33] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
     if (__pyx_kwds) {
@@ -11736,56 +11769,56 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_host);
           if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_port);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_user);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_password);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_database);
           if (value) { values[4] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  5:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_min_size);
           if (value) { values[5] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  6:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_max_size);
           if (value) { values[6] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  7:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_recycle);
           if (value) { values[7] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
       }
       if (kw_args > 0 && likely(kw_args <= 26)) {
@@ -11793,12 +11826,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         for (index = 8; index < 34 && kw_args > 0; index++) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, *__pyx_pyargnames[index]);
           if (value) { values[index] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 300, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "create_pool") < 0)) __PYX_ERR(0, 297, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "create_pool") < 0)) __PYX_ERR(0, 300, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -11859,7 +11892,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("create_pool", 0, 0, 8, __pyx_nargs); __PYX_ERR(0, 297, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("create_pool", 0, 0, 8, __pyx_nargs); __PYX_ERR(0, 300, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11875,7 +11908,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_8sqlcycli_8_connect_2create_pool(__pyx_self, __pyx_v_host, __pyx_v_port, __pyx_v_user, __pyx_v_password, __pyx_v_database, __pyx_v_min_size, __pyx_v_max_size, __pyx_v_recycle, __pyx_v_charset, __pyx_v_collation, __pyx_v_connect_timeout, __pyx_v_read_timeout, __pyx_v_write_timeout, __pyx_v_wait_timeout, __pyx_v_interactive_timeout, __pyx_v_lock_wait_timeout, __pyx_v_execution_timeout, __pyx_v_bind_address, __pyx_v_unix_socket, __pyx_v_autocommit, __pyx_v_local_infile, __pyx_v_max_allowed_packet, __pyx_v_sql_mode, __pyx_v_init_command, __pyx_v_cursor, __pyx_v_client_flag, __pyx_v_program_name, __pyx_v_option_file, __pyx_v_ssl, __pyx_v_auth_plugin, __pyx_v_server_public_key, __pyx_v_use_decimal, __pyx_v_decode_bit, __pyx_v_decode_json);
 
-  /* "sqlcycli/_connect.py":297
+  /* "sqlcycli/_connect.py":300
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -11939,7 +11972,7 @@ static PyObject *__pyx_pf_8sqlcycli_8_connect_2create_pool(CYTHON_UNUSED PyObjec
   __pyx_t_2.use_decimal = __pyx_v_use_decimal;
   __pyx_t_2.decode_bit = __pyx_v_decode_bit;
   __pyx_t_2.decode_json = __pyx_v_decode_json;
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_8_connect_create_pool(0, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_8_connect_create_pool(0, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -13009,7 +13042,7 @@ static PyObject *__pyx_specialmethod___pyx_pw_8sqlcycli_8_connect_17ConnectionMa
 static PyMethodDef __pyx_methods_8sqlcycli_8_connect_ConnectionManager[] = {
   {"__enter__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_3__enter__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {"__exit__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_5__exit__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
-  {"_acquire_async_conn", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_acquire_async_conn, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_17ConnectionManager_6_acquire_async_conn},
+  {"_create_async_conn", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_7_create_async_conn, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8_connect_17ConnectionManager_6_create_async_conn},
   {"__await__", (PyCFunction)__pyx_specialmethod___pyx_pw_8sqlcycli_8_connect_17ConnectionManager_10__await__, METH_NOARGS|METH_COEXIST, 0},
   {"__aenter__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_12__aenter__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {"__aexit__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_15__aexit__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
@@ -13021,7 +13054,7 @@ static PyMethodDef __pyx_methods_8sqlcycli_8_connect_ConnectionManager[] = {
 static PyType_Slot __pyx_type_8sqlcycli_8_connect_ConnectionManager_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_8_connect_ConnectionManager},
   {Py_am_await, (void *)__pyx_pw_8sqlcycli_8_connect_17ConnectionManager_10__await__},
-  {Py_tp_doc, (void *)PyDoc_STR("The Context Manager for both `sync` and `async` Connection.")},
+  {Py_tp_doc, (void *)PyDoc_STR("The context manager for creating and closing a [sync/async] connection.")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_8_connect_ConnectionManager},
   {Py_tp_clear, (void *)__pyx_tp_clear_8sqlcycli_8_connect_ConnectionManager},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_8_connect_ConnectionManager},
@@ -13083,7 +13116,7 @@ static PyTypeObject __pyx_type_8sqlcycli_8_connect_ConnectionManager = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC|Py_TPFLAGS_HAVE_FINALIZE, /*tp_flags*/
-  PyDoc_STR("The Context Manager for both `sync` and `async` Connection."), /*tp_doc*/
+  PyDoc_STR("The context manager for creating and closing a [sync/async] connection."), /*tp_doc*/
   __pyx_tp_traverse_8sqlcycli_8_connect_ConnectionManager, /*tp_traverse*/
   __pyx_tp_clear_8sqlcycli_8_connect_ConnectionManager, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -13239,7 +13272,7 @@ static PyMethodDef __pyx_methods_8sqlcycli_8_connect_PoolManager[] = {
 static PyType_Slot __pyx_type_8sqlcycli_8_connect_PoolManager_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_8_connect_PoolManager},
   {Py_am_await, (void *)__pyx_pw_8sqlcycli_8_connect_11PoolManager_10__await__},
-  {Py_tp_doc, (void *)PyDoc_STR("The Context Manager for Pool.")},
+  {Py_tp_doc, (void *)PyDoc_STR("The context manager for creating and closing a connection pool.")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_8_connect_PoolManager},
   {Py_tp_clear, (void *)__pyx_tp_clear_8sqlcycli_8_connect_PoolManager},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_8_connect_PoolManager},
@@ -13301,7 +13334,7 @@ static PyTypeObject __pyx_type_8sqlcycli_8_connect_PoolManager = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC|Py_TPFLAGS_HAVE_FINALIZE, /*tp_flags*/
-  PyDoc_STR("The Context Manager for Pool."), /*tp_doc*/
+  PyDoc_STR("The context manager for creating and closing a connection pool."), /*tp_doc*/
   __pyx_tp_traverse_8sqlcycli_8_connect_PoolManager, /*tp_traverse*/
   __pyx_tp_clear_8sqlcycli_8_connect_PoolManager, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -13356,20 +13389,20 @@ static PyTypeObject __pyx_type_8sqlcycli_8_connect_PoolManager = {
 #endif
 
 #if CYTHON_USE_FREELISTS
-static struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *__pyx_freelist_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn[8];
-static int __pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn = 0;
+static struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *__pyx_freelist_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn[8];
+static int __pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn = 0;
 #endif
 
-static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
   PyObject *o;
   #if CYTHON_COMPILING_IN_LIMITED_API
   allocfunc alloc_func = (allocfunc)PyType_GetSlot(t, Py_tp_alloc);
   o = alloc_func(t, 0);
   #else
   #if CYTHON_USE_FREELISTS
-  if (likely((int)(__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn > 0) & (int)(t->tp_basicsize == sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn)))) {
-    o = (PyObject*)__pyx_freelist_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn[--__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn];
-    memset(o, 0, sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn));
+  if (likely((int)(__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn > 0) & (int)(t->tp_basicsize == sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn)))) {
+    o = (PyObject*)__pyx_freelist_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn[--__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn];
+    memset(o, 0, sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn));
     (void) PyObject_INIT(o, t);
     PyObject_GC_Track(o);
   } else
@@ -13382,11 +13415,11 @@ static PyObject *__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___acquire_a
   return o;
 }
 
-static void __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn(PyObject *o) {
-  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *p = (struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *)o;
+static void __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn(PyObject *o) {
+  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *p = (struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *)o;
   #if CYTHON_USE_TP_FINALIZE
   if (unlikely((PY_VERSION_HEX >= 0x03080000 || __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_HAVE_FINALIZE)) && __Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
-    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn) {
+    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn) {
       if (PyObject_CallFinalizerFromDealloc(o)) return;
     }
   }
@@ -13395,8 +13428,8 @@ static void __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___acquire_as
   Py_CLEAR(p->__pyx_v_conn);
   Py_CLEAR(p->__pyx_v_self);
   #if CYTHON_USE_FREELISTS
-  if (((int)(__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn < 8) & (int)(Py_TYPE(o)->tp_basicsize == sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn)))) {
-    __pyx_freelist_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn[__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn++] = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *)o);
+  if (((int)(__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn < 8) & (int)(Py_TYPE(o)->tp_basicsize == sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn)))) {
+    __pyx_freelist_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn[__pyx_freecount_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn++] = ((struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *)o);
   } else
   #endif
   {
@@ -13411,9 +13444,9 @@ static void __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___acquire_as
   }
 }
 
-static int __pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn(PyObject *o, visitproc v, void *a) {
+static int __pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn(PyObject *o, visitproc v, void *a) {
   int e;
-  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *p = (struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn *)o;
+  struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *p = (struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn *)o;
   if (p->__pyx_v_conn) {
     e = (*v)(((PyObject *)p->__pyx_v_conn), a); if (e) return e;
   }
@@ -13423,27 +13456,27 @@ static int __pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___acquire_as
   return 0;
 }
 #if CYTHON_USE_TYPE_SPECS
-static PyType_Slot __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn_slots[] = {
-  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn},
-  {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn},
-  {Py_tp_new, (void *)__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn},
+static PyType_Slot __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn_slots[] = {
+  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn},
+  {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn},
+  {Py_tp_new, (void *)__pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn},
   {0, 0},
 };
-static PyType_Spec __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn_spec = {
-  "sqlcycli._connect.__pyx_scope_struct___acquire_async_conn",
-  sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn),
+static PyType_Spec __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn_spec = {
+  "sqlcycli._connect.__pyx_scope_struct___create_async_conn",
+  sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn),
   0,
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC|Py_TPFLAGS_HAVE_FINALIZE,
-  __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn_slots,
+  __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn_slots,
 };
 #else
 
-static PyTypeObject __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn = {
+static PyTypeObject __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn = {
   PyVarObject_HEAD_INIT(0, 0)
-  "sqlcycli._connect.""__pyx_scope_struct___acquire_async_conn", /*tp_name*/
-  sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn), /*tp_basicsize*/
+  "sqlcycli._connect.""__pyx_scope_struct___create_async_conn", /*tp_name*/
+  sizeof(struct __pyx_obj_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn), /*tp_basicsize*/
   0, /*tp_itemsize*/
-  __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn, /*tp_dealloc*/
+  __pyx_tp_dealloc_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn, /*tp_dealloc*/
   #if PY_VERSION_HEX < 0x030800b4
   0, /*tp_print*/
   #endif
@@ -13470,7 +13503,7 @@ static PyTypeObject __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC|Py_TPFLAGS_HAVE_FINALIZE, /*tp_flags*/
   0, /*tp_doc*/
-  __pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn, /*tp_traverse*/
+  __pyx_tp_traverse_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
   0, /*tp_weaklistoffset*/
@@ -13488,7 +13521,7 @@ static PyTypeObject __pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_
   #endif
   0, /*tp_init*/
   0, /*tp_alloc*/
-  __pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn, /*tp_new*/
+  __pyx_tp_new_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn, /*tp_new*/
   0, /*tp_free*/
   0, /*tp_is_gc*/
   0, /*tp_bases*/
@@ -14391,8 +14424,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_s_AbstractEventLoop_None, __pyx_k_AbstractEventLoop_None, sizeof(__pyx_k_AbstractEventLoop_None), 0, 0, 1, 0},
     {&__pyx_n_s_Any, __pyx_k_Any, sizeof(__pyx_k_Any), 0, 0, 1, 1},
     {&__pyx_n_s_AuthPlugin, __pyx_k_AuthPlugin, sizeof(__pyx_k_AuthPlugin), 0, 0, 1, 1},
-    {&__pyx_kp_u_Connect_to_the_server_and_acquir, __pyx_k_Connect_to_the_server_and_acquir, sizeof(__pyx_k_Connect_to_the_server_and_acquir), 0, 1, 0, 0},
-    {&__pyx_n_s_Connection, __pyx_k_Connection, sizeof(__pyx_k_Connection), 0, 0, 1, 1},
     {&__pyx_n_s_ConnectionManager, __pyx_k_ConnectionManager, sizeof(__pyx_k_ConnectionManager), 0, 0, 1, 1},
     {&__pyx_n_u_ConnectionManager, __pyx_k_ConnectionManager, sizeof(__pyx_k_ConnectionManager), 0, 1, 0, 1},
     {&__pyx_n_s_ConnectionManager___aenter, __pyx_k_ConnectionManager___aenter, sizeof(__pyx_k_ConnectionManager___aenter), 0, 0, 1, 1},
@@ -14401,7 +14432,9 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_ConnectionManager___exit, __pyx_k_ConnectionManager___exit, sizeof(__pyx_k_ConnectionManager___exit), 0, 0, 1, 1},
     {&__pyx_n_s_ConnectionManager___reduce_cytho, __pyx_k_ConnectionManager___reduce_cytho, sizeof(__pyx_k_ConnectionManager___reduce_cytho), 0, 0, 1, 1},
     {&__pyx_n_s_ConnectionManager___setstate_cyt, __pyx_k_ConnectionManager___setstate_cyt, sizeof(__pyx_k_ConnectionManager___setstate_cyt), 0, 0, 1, 1},
-    {&__pyx_n_s_ConnectionManager__acquire_async, __pyx_k_ConnectionManager__acquire_async, sizeof(__pyx_k_ConnectionManager__acquire_async), 0, 0, 1, 1},
+    {&__pyx_n_s_ConnectionManager__create_async, __pyx_k_ConnectionManager__create_async, sizeof(__pyx_k_ConnectionManager__create_async), 0, 0, 1, 1},
+    {&__pyx_n_s_DataFrame, __pyx_k_DataFrame, sizeof(__pyx_k_DataFrame), 0, 0, 1, 1},
+    {&__pyx_kp_u_Establish_a_sync_async_connectio, __pyx_k_Establish_a_sync_async_connectio, sizeof(__pyx_k_Establish_a_sync_async_connectio), 0, 1, 0, 0},
     {&__pyx_n_s_Generator, __pyx_k_Generator, sizeof(__pyx_k_Generator), 0, 0, 1, 1},
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0, __pyx_k_Incompatible_checksums_0x_x_vs_0, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0), 0, 0, 1, 0},
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2, __pyx_k_Incompatible_checksums_0x_x_vs_0_2, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0_2), 0, 0, 1, 0},
@@ -14421,7 +14454,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_s_SSL_object_None, __pyx_k_SSL_object_None, sizeof(__pyx_k_SSL_object_None), 0, 0, 1, 0},
     {&__pyx_kp_u__10, __pyx_k__10, sizeof(__pyx_k__10), 0, 1, 0, 0},
     {&__pyx_n_s__35, __pyx_k__35, sizeof(__pyx_k__35), 0, 0, 1, 1},
-    {&__pyx_n_s_acquire_async_conn, __pyx_k_acquire_async_conn, sizeof(__pyx_k_acquire_async_conn), 0, 0, 1, 1},
     {&__pyx_n_s_aenter, __pyx_k_aenter, sizeof(__pyx_k_aenter), 0, 0, 1, 1},
     {&__pyx_n_s_aexit, __pyx_k_aexit, sizeof(__pyx_k_aexit), 0, 0, 1, 1},
     {&__pyx_n_s_aio_pool, __pyx_k_aio_pool, sizeof(__pyx_k_aio_pool), 0, 0, 1, 1},
@@ -14454,11 +14486,12 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_conn, __pyx_k_conn, sizeof(__pyx_k_conn), 0, 0, 1, 1},
     {&__pyx_n_s_connect, __pyx_k_connect, sizeof(__pyx_k_connect), 0, 0, 1, 1},
     {&__pyx_n_u_connect, __pyx_k_connect, sizeof(__pyx_k_connect), 0, 1, 0, 1},
-    {&__pyx_kp_u_connect_line_100, __pyx_k_connect_line_100, sizeof(__pyx_k_connect_line_100), 0, 1, 0, 0},
+    {&__pyx_kp_u_connect_line_101, __pyx_k_connect_line_101, sizeof(__pyx_k_connect_line_101), 0, 1, 0, 0},
     {&__pyx_n_s_connect_timeout, __pyx_k_connect_timeout, sizeof(__pyx_k_connect_timeout), 0, 0, 1, 1},
     {&__pyx_n_u_connect_timeout, __pyx_k_connect_timeout, sizeof(__pyx_k_connect_timeout), 0, 1, 0, 1},
     {&__pyx_n_s_connection, __pyx_k_connection, sizeof(__pyx_k_connection), 0, 0, 1, 1},
     {&__pyx_n_s_create_and_fill_pool, __pyx_k_create_and_fill_pool, sizeof(__pyx_k_create_and_fill_pool), 0, 0, 1, 1},
+    {&__pyx_n_s_create_async_conn, __pyx_k_create_async_conn, sizeof(__pyx_k_create_async_conn), 0, 0, 1, 1},
     {&__pyx_n_s_create_pool, __pyx_k_create_pool, sizeof(__pyx_k_create_pool), 0, 0, 1, 1},
     {&__pyx_n_u_create_pool, __pyx_k_create_pool, sizeof(__pyx_k_create_pool), 0, 1, 0, 1},
     {&__pyx_n_s_cursor, __pyx_k_cursor, sizeof(__pyx_k_cursor), 0, 0, 1, 1},
@@ -14516,6 +14549,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_option_file, __pyx_k_option_file, sizeof(__pyx_k_option_file), 0, 0, 1, 1},
     {&__pyx_n_u_option_file, __pyx_k_option_file, sizeof(__pyx_k_option_file), 0, 1, 0, 1},
     {&__pyx_n_s_os, __pyx_k_os, sizeof(__pyx_k_os), 0, 0, 1, 1},
+    {&__pyx_n_s_pandas, __pyx_k_pandas, sizeof(__pyx_k_pandas), 0, 0, 1, 1},
     {&__pyx_n_s_password, __pyx_k_password, sizeof(__pyx_k_password), 0, 0, 1, 1},
     {&__pyx_n_u_password, __pyx_k_password, sizeof(__pyx_k_password), 0, 1, 0, 1},
     {&__pyx_n_s_pickle, __pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 0, 1, 1},
@@ -14566,7 +14600,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_s_sync_conn_BaseConnection, __pyx_k_sync_conn_BaseConnection, sizeof(__pyx_k_sync_conn_BaseConnection), 0, 0, 1, 0},
     {&__pyx_n_s_test, __pyx_k_test, sizeof(__pyx_k_test), 0, 0, 1, 1},
     {&__pyx_n_s_throw, __pyx_k_throw, sizeof(__pyx_k_throw), 0, 0, 1, 1},
-    {&__pyx_kp_s_type_sync_conn_Cursor_async_conn, __pyx_k_type_sync_conn_Cursor_async_conn, sizeof(__pyx_k_type_sync_conn_Cursor_async_conn), 0, 0, 1, 0},
+    {&__pyx_kp_s_type_sync_conn_Cursor_tuple_dict, __pyx_k_type_sync_conn_Cursor_tuple_dict, sizeof(__pyx_k_type_sync_conn_Cursor_tuple_dict), 0, 0, 1, 0},
     {&__pyx_n_s_typing, __pyx_k_typing, sizeof(__pyx_k_typing), 0, 0, 1, 1},
     {&__pyx_n_s_unix_socket, __pyx_k_unix_socket, sizeof(__pyx_k_unix_socket), 0, 0, 1, 1},
     {&__pyx_n_u_unix_socket, __pyx_k_unix_socket, sizeof(__pyx_k_unix_socket), 0, 1, 0, 1},
@@ -14609,59 +14643,59 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__11);
   __Pyx_GIVEREF(__pyx_tuple__11);
 
-  /* "sqlcycli/_connect.py":56
+  /* "sqlcycli/_connect.py":57
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> sync_conn.BaseConnection:             # <<<<<<<<<<<<<<
  *         conn: sync_conn.BaseConnection = sync_conn.Connection(
  *             cursor=aio_pool.validate_sync_cursor(self._cursor),
  */
-  __pyx_tuple__12 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_conn); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_tuple__12 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_conn); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__12);
   __Pyx_GIVEREF(__pyx_tuple__12);
-  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_enter, 56, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_enter, 57, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(0, 57, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":65
+  /* "sqlcycli/_connect.py":66
  *         return self._conn_sync
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         self._conn_sync.close()
  *         self._conn_sync = None
  */
-  __pyx_tuple__14 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_exc_type, __pyx_n_s_exc_val, __pyx_n_s_exc_tb); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_tuple__14 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_exc_type, __pyx_n_s_exc_val, __pyx_n_s_exc_tb); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__14);
   __Pyx_GIVEREF(__pyx_tuple__14);
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_exit, 65, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_exit, 66, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 66, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":70
+  /* "sqlcycli/_connect.py":71
  * 
  *     # Async -------------------------------------------------------------------------------------
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
+ *     async def _create_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
  *         conn: async_conn.BaseConnection = async_conn.Connection(
  */
-  __pyx_codeobj_ = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_acquire_async_conn, 70, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj_)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_codeobj_ = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_create_async_conn, 71, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj_)) __PYX_ERR(0, 71, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":83
- *         return self._acquire_async_conn().__await__()
+  /* "sqlcycli/_connect.py":84
+ *         return self._create_async_conn().__await__()
  * 
  *     async def __aenter__(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         self._conn_async = await self._acquire_async_conn()
+ *         self._conn_async = await self._create_async_conn()
  *         return self._conn_async
  */
-  __pyx_tuple__16 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_tuple__16 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 84, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__16);
   __Pyx_GIVEREF(__pyx_tuple__16);
-  __pyx_codeobj__2 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aenter, 83, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__2)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_codeobj__2 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aenter, 84, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__2)) __PYX_ERR(0, 84, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":87
+  /* "sqlcycli/_connect.py":88
  *         return self._conn_async
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         await self._conn_async.close()
  *         self._conn_async = None
  */
-  __pyx_codeobj__3 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aexit, 87, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__3)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_codeobj__3 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aexit, 88, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__3)) __PYX_ERR(0, 88, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -14684,68 +14718,68 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__19);
   __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(1, 16, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":100
+  /* "sqlcycli/_connect.py":101
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def connect(
  *     host: str | None = "localhost",
  */
-  __pyx_tuple__21 = PyTuple_Pack(32, __pyx_n_s_host, __pyx_n_s_port, __pyx_n_s_user, __pyx_n_s_password, __pyx_n_s_database, __pyx_n_s_charset, __pyx_n_s_collation, __pyx_n_s_connect_timeout, __pyx_n_s_read_timeout, __pyx_n_s_write_timeout, __pyx_n_s_wait_timeout, __pyx_n_s_interactive_timeout, __pyx_n_s_lock_wait_timeout, __pyx_n_s_execution_timeout, __pyx_n_s_bind_address, __pyx_n_s_unix_socket, __pyx_n_s_autocommit, __pyx_n_s_local_infile, __pyx_n_s_max_allowed_packet, __pyx_n_s_sql_mode, __pyx_n_s_init_command, __pyx_n_s_cursor, __pyx_n_s_client_flag, __pyx_n_s_program_name, __pyx_n_s_option_file, __pyx_n_s_ssl, __pyx_n_s_auth_plugin, __pyx_n_s_server_public_key, __pyx_n_s_use_decimal, __pyx_n_s_decode_bit, __pyx_n_s_decode_json, __pyx_n_s_loop); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_tuple__21 = PyTuple_Pack(32, __pyx_n_s_host, __pyx_n_s_port, __pyx_n_s_user, __pyx_n_s_password, __pyx_n_s_database, __pyx_n_s_charset, __pyx_n_s_collation, __pyx_n_s_connect_timeout, __pyx_n_s_read_timeout, __pyx_n_s_write_timeout, __pyx_n_s_wait_timeout, __pyx_n_s_interactive_timeout, __pyx_n_s_lock_wait_timeout, __pyx_n_s_execution_timeout, __pyx_n_s_bind_address, __pyx_n_s_unix_socket, __pyx_n_s_autocommit, __pyx_n_s_local_infile, __pyx_n_s_max_allowed_packet, __pyx_n_s_sql_mode, __pyx_n_s_init_command, __pyx_n_s_cursor, __pyx_n_s_client_flag, __pyx_n_s_program_name, __pyx_n_s_option_file, __pyx_n_s_ssl, __pyx_n_s_auth_plugin, __pyx_n_s_server_public_key, __pyx_n_s_use_decimal, __pyx_n_s_decode_bit, __pyx_n_s_decode_json, __pyx_n_s_loop); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__21);
   __Pyx_GIVEREF(__pyx_tuple__21);
-  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(5, 0, 27, 32, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_connect, 100, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 100, __pyx_L1_error)
-  __pyx_tuple__23 = PyTuple_Pack(5, __pyx_n_u_localhost, __pyx_int_3306, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(5, 0, 27, 32, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_connect, 101, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_tuple__23 = PyTuple_Pack(5, __pyx_n_u_localhost, __pyx_int_3306, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__23);
   __Pyx_GIVEREF(__pyx_tuple__23);
 
-  /* "sqlcycli/_connect.py":260
+  /* "sqlcycli/_connect.py":261
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
  *         pool: aio_pool.Pool = aio_pool.Pool(
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs
  */
-  __pyx_tuple__24 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pool); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 260, __pyx_L1_error)
+  __pyx_tuple__24 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pool); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__24);
   __Pyx_GIVEREF(__pyx_tuple__24);
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_enter, 260, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 260, __pyx_L1_error)
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_enter, 261, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 261, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":267
+  /* "sqlcycli/_connect.py":268
  *         return self._pool
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         self._pool.terminate()
  *         self._pool = None
  */
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_exit, 267, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 267, __pyx_L1_error)
+  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_exit, 268, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 268, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":272
+  /* "sqlcycli/_connect.py":273
  * 
  *     # Async -------------------------------------------------------------------------------------
  *     async def _create_and_fill_pool(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
- *         pool: aio_pool.Pool = aio_pool.Pool(
+ *         """(internal) Create a new pool and fill with free
+ *         connections up to `Pool.min_size` limit `<'Pool'>`.
  */
-  __pyx_codeobj__5 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_create_and_fill_pool, 272, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__5)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_codeobj__5 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_create_and_fill_pool, 273, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__5)) __PYX_ERR(0, 273, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":283
+  /* "sqlcycli/_connect.py":286
  *         return self._create_and_fill_pool().__await__()
  * 
  *     async def __aenter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
  *         self._pool = await self._create_and_fill_pool()
  *         return self._pool
  */
-  __pyx_codeobj__6 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aenter, 283, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__6)) __PYX_ERR(0, 283, __pyx_L1_error)
+  __pyx_codeobj__6 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aenter, 286, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__6)) __PYX_ERR(0, 286, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":287
+  /* "sqlcycli/_connect.py":290
  *         return self._pool
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         await self._pool.close()
  *         self._pool = None
  */
-  __pyx_codeobj__7 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aexit, 287, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__7)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_codeobj__7 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_aexit, 290, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__7)) __PYX_ERR(0, 290, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -14762,18 +14796,18 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  */
   __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(1, 16, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":297
+  /* "sqlcycli/_connect.py":300
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def create_pool(
  *     host: str | None = "localhost",
  */
-  __pyx_tuple__29 = PyTuple_Pack(34, __pyx_n_s_host, __pyx_n_s_port, __pyx_n_s_user, __pyx_n_s_password, __pyx_n_s_database, __pyx_n_s_min_size, __pyx_n_s_max_size, __pyx_n_s_recycle, __pyx_n_s_charset, __pyx_n_s_collation, __pyx_n_s_connect_timeout, __pyx_n_s_read_timeout, __pyx_n_s_write_timeout, __pyx_n_s_wait_timeout, __pyx_n_s_interactive_timeout, __pyx_n_s_lock_wait_timeout, __pyx_n_s_execution_timeout, __pyx_n_s_bind_address, __pyx_n_s_unix_socket, __pyx_n_s_autocommit, __pyx_n_s_local_infile, __pyx_n_s_max_allowed_packet, __pyx_n_s_sql_mode, __pyx_n_s_init_command, __pyx_n_s_cursor, __pyx_n_s_client_flag, __pyx_n_s_program_name, __pyx_n_s_option_file, __pyx_n_s_ssl, __pyx_n_s_auth_plugin, __pyx_n_s_server_public_key, __pyx_n_s_use_decimal, __pyx_n_s_decode_bit, __pyx_n_s_decode_json); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_tuple__29 = PyTuple_Pack(34, __pyx_n_s_host, __pyx_n_s_port, __pyx_n_s_user, __pyx_n_s_password, __pyx_n_s_database, __pyx_n_s_min_size, __pyx_n_s_max_size, __pyx_n_s_recycle, __pyx_n_s_charset, __pyx_n_s_collation, __pyx_n_s_connect_timeout, __pyx_n_s_read_timeout, __pyx_n_s_write_timeout, __pyx_n_s_wait_timeout, __pyx_n_s_interactive_timeout, __pyx_n_s_lock_wait_timeout, __pyx_n_s_execution_timeout, __pyx_n_s_bind_address, __pyx_n_s_unix_socket, __pyx_n_s_autocommit, __pyx_n_s_local_infile, __pyx_n_s_max_allowed_packet, __pyx_n_s_sql_mode, __pyx_n_s_init_command, __pyx_n_s_cursor, __pyx_n_s_client_flag, __pyx_n_s_program_name, __pyx_n_s_option_file, __pyx_n_s_ssl, __pyx_n_s_auth_plugin, __pyx_n_s_server_public_key, __pyx_n_s_use_decimal, __pyx_n_s_decode_bit, __pyx_n_s_decode_json); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__29);
   __Pyx_GIVEREF(__pyx_tuple__29);
-  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(8, 0, 26, 34, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_create_pool, 297, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 297, __pyx_L1_error)
-  __pyx_tuple__31 = PyTuple_Pack(8, __pyx_n_u_localhost, __pyx_int_3306, Py_None, Py_None, Py_None, __pyx_int_0, __pyx_int_10, Py_None); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(8, 0, 26, 34, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__connect_py, __pyx_n_s_create_pool, 300, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_tuple__31 = PyTuple_Pack(8, __pyx_n_u_localhost, __pyx_int_3306, Py_None, Py_None, Py_None, __pyx_int_0, __pyx_int_10, Py_None); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__31);
   __Pyx_GIVEREF(__pyx_tuple__31);
 
@@ -14867,15 +14901,15 @@ static int __Pyx_modinit_type_init_code(void) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect_ConnectionManager = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect_ConnectionManager_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect_ConnectionManager)) __PYX_ERR(0, 25, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect_ConnectionManager_spec, __pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect_ConnectionManager = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect_ConnectionManager_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect_ConnectionManager)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect_ConnectionManager_spec, __pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 26, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect_ConnectionManager = &__pyx_type_8sqlcycli_8_connect_ConnectionManager;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 26, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect_ConnectionManager->tp_print = 0;
@@ -14887,7 +14921,7 @@ static int __Pyx_modinit_type_init_code(void) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 25, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 26, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_8sqlcycli_8_connect_17ConnectionManager___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_8sqlcycli_8_connect_17ConnectionManager___init__.doc = __pyx_doc_8sqlcycli_8_connect_17ConnectionManager___init__;
@@ -14895,20 +14929,20 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_ConnectionManager, (PyObject *) __pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_ConnectionManager, (PyObject *) __pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 26, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_8_connect_ConnectionManager) < 0) __PYX_ERR(0, 26, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect_PoolManager = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect_PoolManager_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect_PoolManager)) __PYX_ERR(0, 234, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect_PoolManager_spec, __pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect_PoolManager = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect_PoolManager_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect_PoolManager)) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect_PoolManager_spec, __pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect_PoolManager = &__pyx_type_8sqlcycli_8_connect_PoolManager;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 234, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect_PoolManager->tp_print = 0;
@@ -14920,7 +14954,7 @@ static int __Pyx_modinit_type_init_code(void) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 234, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 235, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_8sqlcycli_8_connect_11PoolManager___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_8sqlcycli_8_connect_11PoolManager___init__.doc = __pyx_doc_8sqlcycli_8_connect_11PoolManager___init__;
@@ -14928,39 +14962,39 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_PoolManager, (PyObject *) __pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 234, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_PoolManager, (PyObject *) __pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 234, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_8_connect_PoolManager) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn)) __PYX_ERR(0, 70, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn_spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn)) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn_spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
   #else
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn;
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn->tp_print = 0;
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn->tp_print = 0;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn->tp_dictoffset && __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn->tp_getattro == PyObject_GenericGetAttr)) {
-    __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___acquire_async_conn->tp_getattro = __Pyx_PyObject_GenericGetAttrNoDict;
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn->tp_dictoffset && __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn->tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct___create_async_conn->tp_getattro = __Pyx_PyObject_GenericGetAttrNoDict;
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__)) __PYX_ERR(0, 83, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__) < 0) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__)) __PYX_ERR(0, 84, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__ = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__) < 0) __PYX_ERR(0, 83, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_1___aenter__->tp_print = 0;
@@ -14971,15 +15005,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__)) __PYX_ERR(0, 87, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__) < 0) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__)) __PYX_ERR(0, 88, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__) < 0) __PYX_ERR(0, 88, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__ = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__) < 0) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__) < 0) __PYX_ERR(0, 88, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_2___aexit__->tp_print = 0;
@@ -14990,15 +15024,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool)) __PYX_ERR(0, 272, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool_spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool_spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool) < 0) __PYX_ERR(0, 273, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool) < 0) __PYX_ERR(0, 273, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_3__create_and_fill_pool->tp_print = 0;
@@ -15009,15 +15043,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_4___aenter___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__)) __PYX_ERR(0, 283, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_4___aenter___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_4___aenter___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__)) __PYX_ERR(0, 286, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_4___aenter___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__) < 0) __PYX_ERR(0, 286, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__ = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__) < 0) __PYX_ERR(0, 286, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_4___aenter__->tp_print = 0;
@@ -15028,15 +15062,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_5___aexit___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__)) __PYX_ERR(0, 287, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_5___aexit___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__) < 0) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_5___aexit___spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__)) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_5___aexit___spec, __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__ = &__pyx_type_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__) < 0) __PYX_ERR(0, 287, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8_connect___pyx_scope_struct_5___aexit__->tp_print = 0;
@@ -15065,8 +15099,8 @@ static int __Pyx_modinit_type_import_code(void) {
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_ptype_8sqlcycli_7charset_Charset = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charset", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charset), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charset),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charset) __PYX_ERR(2, 4, __pyx_L1_error)
   __pyx_vtabptr_8sqlcycli_7charset_Charset = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charset*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charset); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charset)) __PYX_ERR(2, 4, __pyx_L1_error)
-  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(2, 15, __pyx_L1_error)
-  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(2, 15, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(2, 16, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(2, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("sqlcycli._auth"); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 10, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -15100,8 +15134,10 @@ static int __Pyx_modinit_type_import_code(void) {
   __pyx_vtabptr_8sqlcycli_10connection_CursorManager = (struct __pyx_vtabstruct_8sqlcycli_10connection_CursorManager*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_10connection_CursorManager); if (unlikely(!__pyx_vtabptr_8sqlcycli_10connection_CursorManager)) __PYX_ERR(5, 104, __pyx_L1_error)
   __pyx_ptype_8sqlcycli_10connection_TransactionManager = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.connection", "TransactionManager", sizeof(struct __pyx_obj_8sqlcycli_10connection_TransactionManager), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_10connection_TransactionManager),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_10connection_TransactionManager) __PYX_ERR(5, 113, __pyx_L1_error)
   __pyx_vtabptr_8sqlcycli_10connection_TransactionManager = (struct __pyx_vtabstruct_8sqlcycli_10connection_TransactionManager*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_10connection_TransactionManager); if (unlikely(!__pyx_vtabptr_8sqlcycli_10connection_TransactionManager)) __PYX_ERR(5, 113, __pyx_L1_error)
-  __pyx_ptype_8sqlcycli_10connection_BaseConnection = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.connection", "BaseConnection", sizeof(struct __pyx_obj_8sqlcycli_10connection_BaseConnection), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_10connection_BaseConnection),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_10connection_BaseConnection) __PYX_ERR(5, 116, __pyx_L1_error)
-  __pyx_vtabptr_8sqlcycli_10connection_BaseConnection = (struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_10connection_BaseConnection); if (unlikely(!__pyx_vtabptr_8sqlcycli_10connection_BaseConnection)) __PYX_ERR(5, 116, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_10connection_BaseConnection = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.connection", "BaseConnection", sizeof(struct __pyx_obj_8sqlcycli_10connection_BaseConnection), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_10connection_BaseConnection),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_10connection_BaseConnection) __PYX_ERR(5, 117, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_10connection_BaseConnection = (struct __pyx_vtabstruct_8sqlcycli_10connection_BaseConnection*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_10connection_BaseConnection); if (unlikely(!__pyx_vtabptr_8sqlcycli_10connection_BaseConnection)) __PYX_ERR(5, 117, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_10connection_Connection = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.connection", "Connection", sizeof(struct __pyx_obj_8sqlcycli_10connection_Connection), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_10connection_Connection),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_10connection_Connection) __PYX_ERR(5, 270, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_10connection_Connection = (struct __pyx_vtabstruct_8sqlcycli_10connection_Connection*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_10connection_Connection); if (unlikely(!__pyx_vtabptr_8sqlcycli_10connection_Connection)) __PYX_ERR(5, 270, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("sqlcycli.aio.connection"); if (unlikely(!__pyx_t_1)) __PYX_ERR(6, 7, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -15121,8 +15157,10 @@ static int __Pyx_modinit_type_import_code(void) {
   __pyx_vtabptr_8sqlcycli_3aio_10connection_SSDfCursor = (struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_SSDfCursor*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_3aio_10connection_SSDfCursor); if (unlikely(!__pyx_vtabptr_8sqlcycli_3aio_10connection_SSDfCursor)) __PYX_ERR(6, 77, __pyx_L1_error)
   __pyx_ptype_8sqlcycli_3aio_10connection_CursorManager = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.aio.connection", "CursorManager", sizeof(struct __pyx_obj_8sqlcycli_3aio_10connection_CursorManager), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_3aio_10connection_CursorManager),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_3aio_10connection_CursorManager) __PYX_ERR(6, 81, __pyx_L1_error)
   __pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.aio.connection", "TransactionManager", sizeof(struct __pyx_obj_8sqlcycli_3aio_10connection_TransactionManager), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_3aio_10connection_TransactionManager),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_3aio_10connection_TransactionManager) __PYX_ERR(6, 88, __pyx_L1_error)
-  __pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.aio.connection", "BaseConnection", sizeof(struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection) __PYX_ERR(6, 91, __pyx_L1_error)
-  __pyx_vtabptr_8sqlcycli_3aio_10connection_BaseConnection = (struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection); if (unlikely(!__pyx_vtabptr_8sqlcycli_3aio_10connection_BaseConnection)) __PYX_ERR(6, 91, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.aio.connection", "BaseConnection", sizeof(struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_3aio_10connection_BaseConnection),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection) __PYX_ERR(6, 92, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_3aio_10connection_BaseConnection = (struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_BaseConnection*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_3aio_10connection_BaseConnection); if (unlikely(!__pyx_vtabptr_8sqlcycli_3aio_10connection_BaseConnection)) __PYX_ERR(6, 92, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_3aio_10connection_Connection = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.aio.connection", "Connection", sizeof(struct __pyx_obj_8sqlcycli_3aio_10connection_Connection), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_3aio_10connection_Connection),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_3aio_10connection_Connection) __PYX_ERR(6, 201, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_3aio_10connection_Connection = (struct __pyx_vtabstruct_8sqlcycli_3aio_10connection_Connection*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_3aio_10connection_Connection); if (unlikely(!__pyx_vtabptr_8sqlcycli_3aio_10connection_Connection)) __PYX_ERR(6, 201, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("sqlcycli.aio.pool"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -15499,7 +15537,7 @@ if (!__Pyx_RefNanny) {
  * from os import PathLike
  * from typing import Generator, Any             # <<<<<<<<<<<<<<
  * from asyncio import AbstractEventLoop
- * from sqlcycli._ssl import SSL
+ * from pandas import DataFrame
  */
   __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -15526,8 +15564,8 @@ if (!__Pyx_RefNanny) {
  * from os import PathLike
  * from typing import Generator, Any
  * from asyncio import AbstractEventLoop             # <<<<<<<<<<<<<<
+ * from pandas import DataFrame
  * from sqlcycli._ssl import SSL
- * from sqlcycli._auth import AuthPlugin
  */
   __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -15546,217 +15584,238 @@ if (!__Pyx_RefNanny) {
   /* "sqlcycli/_connect.py":14
  * from typing import Generator, Any
  * from asyncio import AbstractEventLoop
- * from sqlcycli._ssl import SSL             # <<<<<<<<<<<<<<
+ * from pandas import DataFrame             # <<<<<<<<<<<<<<
+ * from sqlcycli._ssl import SSL
  * from sqlcycli._auth import AuthPlugin
- * from sqlcycli._optionfile import OptionFile
  */
   __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_INCREF(__pyx_n_s_SSL);
-  __Pyx_GIVEREF(__pyx_n_s_SSL);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_SSL)) __PYX_ERR(0, 14, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_sqlcycli__ssl, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __Pyx_INCREF(__pyx_n_s_DataFrame);
+  __Pyx_GIVEREF(__pyx_n_s_DataFrame);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_DataFrame)) __PYX_ERR(0, 14, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_n_s_pandas, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_SSL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_DataFrame); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_SSL, __pyx_t_3) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_DataFrame, __pyx_t_3) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "sqlcycli/_connect.py":15
  * from asyncio import AbstractEventLoop
+ * from pandas import DataFrame
+ * from sqlcycli._ssl import SSL             # <<<<<<<<<<<<<<
+ * from sqlcycli._auth import AuthPlugin
+ * from sqlcycli._optionfile import OptionFile
+ */
+  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_INCREF(__pyx_n_s_SSL);
+  __Pyx_GIVEREF(__pyx_n_s_SSL);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_SSL)) __PYX_ERR(0, 15, __pyx_L1_error);
+  __pyx_t_3 = __Pyx_Import(__pyx_n_s_sqlcycli__ssl, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_SSL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_SSL, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "sqlcycli/_connect.py":16
+ * from pandas import DataFrame
  * from sqlcycli._ssl import SSL
  * from sqlcycli._auth import AuthPlugin             # <<<<<<<<<<<<<<
  * from sqlcycli._optionfile import OptionFile
  * from sqlcycli import connection as sync_conn
  */
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_s_AuthPlugin);
   __Pyx_GIVEREF(__pyx_n_s_AuthPlugin);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_AuthPlugin)) __PYX_ERR(0, 15, __pyx_L1_error);
-  __pyx_t_3 = __Pyx_Import(__pyx_n_s_sqlcycli__auth, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_AuthPlugin); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_AuthPlugin)) __PYX_ERR(0, 16, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_n_s_sqlcycli__auth, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_AuthPlugin, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_AuthPlugin); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_AuthPlugin, __pyx_t_3) < 0) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":16
+  /* "sqlcycli/_connect.py":17
  * from sqlcycli._ssl import SSL
  * from sqlcycli._auth import AuthPlugin
  * from sqlcycli._optionfile import OptionFile             # <<<<<<<<<<<<<<
  * from sqlcycli import connection as sync_conn
  * from sqlcycli.aio import connection as async_conn, pool as aio_pool
  */
-  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_n_s_OptionFile);
   __Pyx_GIVEREF(__pyx_n_s_OptionFile);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_OptionFile)) __PYX_ERR(0, 16, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_sqlcycli__optionfile, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_OptionFile); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_OptionFile)) __PYX_ERR(0, 17, __pyx_L1_error);
+  __pyx_t_3 = __Pyx_Import(__pyx_n_s_sqlcycli__optionfile, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_OptionFile, __pyx_t_3) < 0) __PYX_ERR(0, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_OptionFile); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_OptionFile, __pyx_t_2) < 0) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_connect.py":17
+  /* "sqlcycli/_connect.py":18
  * from sqlcycli._auth import AuthPlugin
  * from sqlcycli._optionfile import OptionFile
  * from sqlcycli import connection as sync_conn             # <<<<<<<<<<<<<<
  * from sqlcycli.aio import connection as async_conn, pool as aio_pool
  * 
  */
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_s_connection);
   __Pyx_GIVEREF(__pyx_n_s_connection);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_connection)) __PYX_ERR(0, 17, __pyx_L1_error);
-  __pyx_t_3 = __Pyx_Import(__pyx_n_s_sqlcycli, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_connection); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_connection)) __PYX_ERR(0, 18, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_n_s_sqlcycli, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_sync_conn, __pyx_t_2) < 0) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_connection); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_sync_conn, __pyx_t_3) < 0) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/_connect.py":18
+  /* "sqlcycli/_connect.py":19
  * from sqlcycli._optionfile import OptionFile
  * from sqlcycli import connection as sync_conn
  * from sqlcycli.aio import connection as async_conn, pool as aio_pool             # <<<<<<<<<<<<<<
  * 
  * __all__ = ["connect", "ConnectionManager", "create_pool", "PoolManager"]
  */
-  __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_n_s_connection);
   __Pyx_GIVEREF(__pyx_n_s_connection);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_connection)) __PYX_ERR(0, 18, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_connection)) __PYX_ERR(0, 19, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_s_pool);
   __Pyx_GIVEREF(__pyx_n_s_pool);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_n_s_pool)) __PYX_ERR(0, 18, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_sqlcycli_aio, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_connection); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_n_s_pool)) __PYX_ERR(0, 19, __pyx_L1_error);
+  __pyx_t_3 = __Pyx_Import(__pyx_n_s_sqlcycli_aio, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_async_conn, __pyx_t_3) < 0) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_pool); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_aio_pool, __pyx_t_3) < 0) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_connection); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_async_conn, __pyx_t_2) < 0) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_pool); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_aio_pool, __pyx_t_2) < 0) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_connect.py":20
+  /* "sqlcycli/_connect.py":21
  * from sqlcycli.aio import connection as async_conn, pool as aio_pool
  * 
  * __all__ = ["connect", "ConnectionManager", "create_pool", "PoolManager"]             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_2 = PyList_New(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = PyList_New(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_u_connect);
   __Pyx_GIVEREF(__pyx_n_u_connect);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_u_connect)) __PYX_ERR(0, 20, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_u_connect)) __PYX_ERR(0, 21, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_ConnectionManager);
   __Pyx_GIVEREF(__pyx_n_u_ConnectionManager);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_n_u_ConnectionManager)) __PYX_ERR(0, 20, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_n_u_ConnectionManager)) __PYX_ERR(0, 21, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_create_pool);
   __Pyx_GIVEREF(__pyx_n_u_create_pool);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 2, __pyx_n_u_create_pool)) __PYX_ERR(0, 20, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 2, __pyx_n_u_create_pool)) __PYX_ERR(0, 21, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_PoolManager);
   __Pyx_GIVEREF(__pyx_n_u_PoolManager);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 3, __pyx_n_u_PoolManager)) __PYX_ERR(0, 20, __pyx_L1_error);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_all, __pyx_t_2) < 0) __PYX_ERR(0, 20, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 3, __pyx_n_u_PoolManager)) __PYX_ERR(0, 21, __pyx_L1_error);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_all, __pyx_t_3) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_connect.py":56
+  /* "sqlcycli/_connect.py":57
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> sync_conn.BaseConnection:             # <<<<<<<<<<<<<<
  *         conn: sync_conn.BaseConnection = sync_conn.Connection(
  *             cursor=aio_pool.validate_sync_cursor(self._cursor),
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 56, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_sync_conn_BaseConnection) < 0) __PYX_ERR(0, 56, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_3__enter__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___enter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__13)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_enter, __pyx_t_3) < 0) __PYX_ERR(0, 56, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_sync_conn_BaseConnection) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_3__enter__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___enter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__13)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_enter, __pyx_t_2) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
 
-  /* "sqlcycli/_connect.py":65
+  /* "sqlcycli/_connect.py":66
  *         return self._conn_sync
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         self._conn_sync.close()
  *         self._conn_sync = None
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_5__exit__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___exit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_exit, __pyx_t_3) < 0) __PYX_ERR(0, 65, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
-
-  /* "sqlcycli/_connect.py":70
- * 
- *     # Async -------------------------------------------------------------------------------------
- *     async def _acquire_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         """(internal) Acquire an `async` connection `<'BaseConnection'>`."""
- *         conn: async_conn.BaseConnection = async_conn.Connection(
- */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 70, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_async_conn_BaseConnection) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_7_acquire_async_conn, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_ConnectionManager__acquire_async, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj_)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_5__exit__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___exit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_acquire_async_conn, __pyx_t_2) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_exit, __pyx_t_2) < 0) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
 
-  /* "sqlcycli/_connect.py":83
- *         return self._acquire_async_conn().__await__()
+  /* "sqlcycli/_connect.py":71
  * 
- *     async def __aenter__(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
- *         self._conn_async = await self._acquire_async_conn()
- *         return self._conn_async
+ *     # Async -------------------------------------------------------------------------------------
+ *     async def _create_async_conn(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
+ *         """(internal) Acquire an [async] connection `<'BaseConnection'>`."""
+ *         conn: async_conn.BaseConnection = async_conn.Connection(
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_async_conn_BaseConnection) < 0) __PYX_ERR(0, 83, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_12__aenter__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_ConnectionManager___aenter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__2)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_async_conn_BaseConnection) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_7_create_async_conn, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_ConnectionManager__create_async, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj_)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_aenter, __pyx_t_3) < 0) __PYX_ERR(0, 83, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_create_async_conn, __pyx_t_3) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
 
-  /* "sqlcycli/_connect.py":87
+  /* "sqlcycli/_connect.py":84
+ *         return self._create_async_conn().__await__()
+ * 
+ *     async def __aenter__(self) -> async_conn.BaseConnection:             # <<<<<<<<<<<<<<
+ *         self._conn_async = await self._create_async_conn()
+ *         return self._conn_async
+ */
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_async_conn_BaseConnection) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_12__aenter__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_ConnectionManager___aenter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__2)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_aenter, __pyx_t_2) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
+
+  /* "sqlcycli/_connect.py":88
  *         return self._conn_async
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         await self._conn_async.close()
  *         self._conn_async = None
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_15__aexit__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_ConnectionManager___aexit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__3)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_aexit, __pyx_t_3) < 0) __PYX_ERR(0, 87, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_15__aexit__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_ConnectionManager___aexit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_aexit, __pyx_t_2) < 0) __PYX_ERR(0, 88, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
 
   /* "(tree fragment)":1
@@ -15764,10 +15823,10 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_20__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___reduce_cytho, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_20__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___reduce_cytho, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_reduce_cython, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
 
   /* "(tree fragment)":16
@@ -15776,16 +15835,16 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_ConnectionManager__set_state(self, __pyx_state)
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_22__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___setstate_cyt, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_17ConnectionManager_22__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_ConnectionManager___setstate_cyt, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_ConnectionManager, __pyx_n_s_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_ConnectionManager);
 
-  /* "sqlcycli/_connect.py":124
+  /* "sqlcycli/_connect.py":125
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  */
@@ -15793,364 +15852,364 @@ if (!__Pyx_RefNanny) {
   __pyx_k__4 = ((PyObject *)__pyx_ptype_8sqlcycli_10connection_Cursor);
   __Pyx_GIVEREF(__pyx_ptype_8sqlcycli_10connection_Cursor);
 
-  /* "sqlcycli/_connect.py":100
+  /* "sqlcycli/_connect.py":101
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def connect(
  *     host: str | None = "localhost",
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(27); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_charset, __pyx_n_u_utf8mb4) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(27); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_charset, __pyx_n_u_utf8mb4) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":109
+  /* "sqlcycli/_connect.py":110
  *     *,
  *     charset: str | None = "utf8mb4",
  *     collation: str | None = None,             # <<<<<<<<<<<<<<
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_connect_timeout, __pyx_int_5) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connect_timeout, __pyx_int_5) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":111
+  /* "sqlcycli/_connect.py":112
  *     collation: str | None = None,
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_read_timeout, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_read_timeout, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":112
+  /* "sqlcycli/_connect.py":113
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_write_timeout, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_write_timeout, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":113
+  /* "sqlcycli/_connect.py":114
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_wait_timeout, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_wait_timeout, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":114
+  /* "sqlcycli/_connect.py":115
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_interactive_timeout, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_interactive_timeout, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":115
+  /* "sqlcycli/_connect.py":116
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_lock_wait_timeout, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_lock_wait_timeout, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":116
+  /* "sqlcycli/_connect.py":117
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_execution_timeout, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_execution_timeout, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":117
+  /* "sqlcycli/_connect.py":118
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,             # <<<<<<<<<<<<<<
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bind_address, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bind_address, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":118
+  /* "sqlcycli/_connect.py":119
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,             # <<<<<<<<<<<<<<
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_unix_socket, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_unix_socket, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":119
+  /* "sqlcycli/_connect.py":120
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,             # <<<<<<<<<<<<<<
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_autocommit, Py_False) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_autocommit, Py_False) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":120
+  /* "sqlcycli/_connect.py":121
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,             # <<<<<<<<<<<<<<
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_local_infile, Py_False) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_local_infile, Py_False) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":121
+  /* "sqlcycli/_connect.py":122
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,             # <<<<<<<<<<<<<<
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_max_allowed_packet, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_max_allowed_packet, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":122
+  /* "sqlcycli/_connect.py":123
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,             # <<<<<<<<<<<<<<
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_sql_mode, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_sql_mode, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":123
+  /* "sqlcycli/_connect.py":124
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,             # <<<<<<<<<<<<<<
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_init_command, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_init_command, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":124
+  /* "sqlcycli/_connect.py":125
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_cursor, ((PyObject *)__pyx_ptype_8sqlcycli_10connection_Cursor)) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_client_flag, __pyx_int_0) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, ((PyObject *)__pyx_ptype_8sqlcycli_10connection_Cursor)) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_client_flag, __pyx_int_0) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":126
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+  /* "sqlcycli/_connect.py":127
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,             # <<<<<<<<<<<<<<
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_program_name, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_program_name, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":127
+  /* "sqlcycli/_connect.py":128
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,             # <<<<<<<<<<<<<<
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_option_file, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_option_file, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":128
+  /* "sqlcycli/_connect.py":129
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,             # <<<<<<<<<<<<<<
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_ssl, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_ssl, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":129
+  /* "sqlcycli/_connect.py":130
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,             # <<<<<<<<<<<<<<
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_auth_plugin, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_auth_plugin, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":130
+  /* "sqlcycli/_connect.py":131
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,             # <<<<<<<<<<<<<<
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_server_public_key, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_server_public_key, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":131
+  /* "sqlcycli/_connect.py":132
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,             # <<<<<<<<<<<<<<
  *     decode_bit: bool = False,
  *     decode_json: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_use_decimal, Py_False) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_use_decimal, Py_False) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":132
+  /* "sqlcycli/_connect.py":133
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,             # <<<<<<<<<<<<<<
  *     decode_json: bool = False,
  *     loop: AbstractEventLoop | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_decode_bit, Py_False) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_decode_bit, Py_False) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":133
+  /* "sqlcycli/_connect.py":134
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  *     decode_json: bool = False,             # <<<<<<<<<<<<<<
  *     loop: AbstractEventLoop | None = None,
  * ) -> ConnectionManager:
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_decode_json, Py_False) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_decode_json, Py_False) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":134
+  /* "sqlcycli/_connect.py":135
  *     decode_bit: bool = False,
  *     decode_json: bool = False,
  *     loop: AbstractEventLoop | None = None,             # <<<<<<<<<<<<<<
  * ) -> ConnectionManager:
- *     """Connect to the server and acquire a `sync` or `async`
+ *     """Establish a [sync/async] connection to the server
  */
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_loop, Py_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_loop, Py_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":100
+  /* "sqlcycli/_connect.py":101
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def connect(
  *     host: str | None = "localhost",
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(32); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_host, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_port, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_user, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_password, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_database, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_charset, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connect_timeout, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_read_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_write_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_interactive_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_lock_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_execution_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bind_address, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_unix_socket, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_autocommit, __pyx_kp_s_bool_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_local_infile, __pyx_n_s_bool) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_max_allowed_packet, __pyx_kp_s_int_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_sql_mode, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_init_command, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, __pyx_kp_s_type_sync_conn_Cursor_async_conn) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_client_flag, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_program_name, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_option_file, __pyx_kp_s_str_bytes_PathLike_OptionFile_No) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_ssl, __pyx_kp_s_SSL_object_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_auth_plugin, __pyx_kp_s_dict_str_bytes_type_AuthPlugin_N) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_server_public_key, __pyx_kp_s_bytes_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_use_decimal, __pyx_n_s_bool) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_decode_bit, __pyx_n_s_bool) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_decode_json, __pyx_n_s_bool) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_loop, __pyx_kp_s_AbstractEventLoop_None) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_1connect, 0, __pyx_n_s_connect, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(32); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_host, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_port, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_user, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_password, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_database, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_charset, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_connect_timeout, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_read_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_write_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_interactive_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_lock_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_execution_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bind_address, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_unix_socket, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_autocommit, __pyx_kp_s_bool_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_local_infile, __pyx_n_s_bool) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_max_allowed_packet, __pyx_kp_s_int_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_sql_mode, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_init_command, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_cursor, __pyx_kp_s_type_sync_conn_Cursor_tuple_dict) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_client_flag, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_program_name, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_option_file, __pyx_kp_s_str_bytes_PathLike_OptionFile_No) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_ssl, __pyx_kp_s_SSL_object_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_auth_plugin, __pyx_kp_s_dict_str_bytes_type_AuthPlugin_N) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_server_public_key, __pyx_kp_s_bytes_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_use_decimal, __pyx_n_s_bool) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_decode_bit, __pyx_n_s_bool) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_decode_json, __pyx_n_s_bool) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_loop, __pyx_kp_s_AbstractEventLoop_None) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_1connect, 0, __pyx_n_s_connect, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__23);
-  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_4, __pyx_t_3);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_4, __pyx_t_2);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_connect, __pyx_t_4) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_connect, __pyx_t_4) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "sqlcycli/_connect.py":260
+  /* "sqlcycli/_connect.py":261
  * 
  *     # Sync --------------------------------------------------------------------------------------
  *     def __enter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
  *         pool: aio_pool.Pool = aio_pool.Pool(
  *             cursor=aio_pool.validate_async_cursor(self._cursor), **self._kwargs
  */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 260, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_return, __pyx_kp_s_aio_pool_Pool) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_3__enter__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___enter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 260, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_return, __pyx_kp_s_aio_pool_Pool) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_3__enter__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___enter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_enter, __pyx_t_2) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_enter, __pyx_t_3) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
-  /* "sqlcycli/_connect.py":267
+  /* "sqlcycli/_connect.py":268
  *         return self._pool
  * 
  *     def __exit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         self._pool.terminate()
  *         self._pool = None
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_5__exit__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___exit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 267, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_exit, __pyx_t_2) < 0) __PYX_ERR(0, 267, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_5__exit__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___exit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_exit, __pyx_t_3) < 0) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
-  /* "sqlcycli/_connect.py":272
+  /* "sqlcycli/_connect.py":273
  * 
  *     # Async -------------------------------------------------------------------------------------
  *     async def _create_and_fill_pool(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
- *         """(internal) Create a pool and fill free connections `<'Pool'>`."""
- *         pool: aio_pool.Pool = aio_pool.Pool(
+ *         """(internal) Create a new pool and fill with free
+ *         connections up to `Pool.min_size` limit `<'Pool'>`.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 272, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_aio_pool_Pool) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_7_create_and_fill_pool, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_PoolManager__create_and_fill_poo, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__5)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_aio_pool_Pool) < 0) __PYX_ERR(0, 273, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_7_create_and_fill_pool, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_PoolManager__create_and_fill_poo, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__5)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 273, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_2);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_create_and_fill_pool, __pyx_t_4) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_3);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_create_and_fill_pool, __pyx_t_4) < 0) __PYX_ERR(0, 273, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
-  /* "sqlcycli/_connect.py":283
+  /* "sqlcycli/_connect.py":286
  *         return self._create_and_fill_pool().__await__()
  * 
  *     async def __aenter__(self) -> aio_pool.Pool:             # <<<<<<<<<<<<<<
  *         self._pool = await self._create_and_fill_pool()
  *         return self._pool
  */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 283, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_return, __pyx_kp_s_aio_pool_Pool) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_12__aenter__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_PoolManager___aenter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__6)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_return, __pyx_kp_s_aio_pool_Pool) < 0) __PYX_ERR(0, 286, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_12__aenter__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_PoolManager___aenter, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__6)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 286, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_aenter, __pyx_t_2) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_aenter, __pyx_t_3) < 0) __PYX_ERR(0, 286, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
-  /* "sqlcycli/_connect.py":287
+  /* "sqlcycli/_connect.py":290
  *         return self._pool
  * 
  *     async def __aexit__(self, exc_type, exc_val, exc_tb):             # <<<<<<<<<<<<<<
  *         await self._pool.close()
  *         self._pool = None
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_15__aexit__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_PoolManager___aexit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__7)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_aexit, __pyx_t_2) < 0) __PYX_ERR(0, 287, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_15__aexit__, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_PoolManager___aexit, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__7)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_aexit, __pyx_t_3) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
   /* "(tree fragment)":1
@@ -16158,10 +16217,10 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_20__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___reduce_cython, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_reduce_cython, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_20__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___reduce_cython, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
   /* "(tree fragment)":16
@@ -16170,16 +16229,16 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_PoolManager__set_state(self, __pyx_state)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_22__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___setstate_cython, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_11PoolManager_22__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_PoolManager___setstate_cython, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8_connect_PoolManager, __pyx_n_s_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8_connect_PoolManager);
 
-  /* "sqlcycli/_connect.py":324
+  /* "sqlcycli/_connect.py":327
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  */
@@ -16187,288 +16246,288 @@ if (!__Pyx_RefNanny) {
   __pyx_k__8 = ((PyObject *)__pyx_ptype_8sqlcycli_10connection_Cursor);
   __Pyx_GIVEREF(__pyx_ptype_8sqlcycli_10connection_Cursor);
 
-  /* "sqlcycli/_connect.py":297
+  /* "sqlcycli/_connect.py":300
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def create_pool(
  *     host: str | None = "localhost",
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(26); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_charset, __pyx_n_u_utf8mb4) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(26); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_charset, __pyx_n_u_utf8mb4) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":309
+  /* "sqlcycli/_connect.py":312
  *     *,
  *     charset: str | None = "utf8mb4",
  *     collation: str | None = None,             # <<<<<<<<<<<<<<
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connect_timeout, __pyx_int_5) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_connect_timeout, __pyx_int_5) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":311
+  /* "sqlcycli/_connect.py":314
  *     collation: str | None = None,
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_read_timeout, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_read_timeout, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":312
+  /* "sqlcycli/_connect.py":315
  *     connect_timeout: int | Any = 5,
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_write_timeout, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_write_timeout, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":313
+  /* "sqlcycli/_connect.py":316
  *     read_timeout: int | None = None,
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_wait_timeout, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_wait_timeout, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":314
+  /* "sqlcycli/_connect.py":317
  *     write_timeout: int | None = None,
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_interactive_timeout, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_interactive_timeout, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":315
+  /* "sqlcycli/_connect.py":318
  *     wait_timeout: int | None = None,
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_lock_wait_timeout, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_lock_wait_timeout, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":316
+  /* "sqlcycli/_connect.py":319
  *     interactive_timeout: int | None = None,
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,             # <<<<<<<<<<<<<<
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_execution_timeout, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_execution_timeout, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":317
+  /* "sqlcycli/_connect.py":320
  *     lock_wait_timeout: int | None = None,
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,             # <<<<<<<<<<<<<<
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bind_address, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bind_address, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":318
+  /* "sqlcycli/_connect.py":321
  *     execution_timeout: int | None = None,
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,             # <<<<<<<<<<<<<<
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_unix_socket, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_unix_socket, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":319
+  /* "sqlcycli/_connect.py":322
  *     bind_address: str | None = None,
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,             # <<<<<<<<<<<<<<
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_autocommit, Py_False) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_autocommit, Py_False) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":320
+  /* "sqlcycli/_connect.py":323
  *     unix_socket: str | None = None,
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,             # <<<<<<<<<<<<<<
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_local_infile, Py_False) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_local_infile, Py_False) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":321
+  /* "sqlcycli/_connect.py":324
  *     autocommit: bool | None = False,
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,             # <<<<<<<<<<<<<<
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_max_allowed_packet, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_max_allowed_packet, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":322
+  /* "sqlcycli/_connect.py":325
  *     local_infile: bool = False,
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,             # <<<<<<<<<<<<<<
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_sql_mode, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_sql_mode, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":323
+  /* "sqlcycli/_connect.py":326
  *     max_allowed_packet: int | str | None = None,
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,             # <<<<<<<<<<<<<<
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_init_command, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_init_command, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":324
+  /* "sqlcycli/_connect.py":327
  *     sql_mode: str | None = None,
  *     init_command: str | None = None,
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,             # <<<<<<<<<<<<<<
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_cursor, ((PyObject *)__pyx_ptype_8sqlcycli_10connection_Cursor)) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_client_flag, __pyx_int_0) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_cursor, ((PyObject *)__pyx_ptype_8sqlcycli_10connection_Cursor)) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_client_flag, __pyx_int_0) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":326
- *     cursor: type[sync_conn.Cursor | async_conn.Cursor] | None = sync_conn.Cursor,
+  /* "sqlcycli/_connect.py":329
+ *     cursor: type[sync_conn.Cursor | tuple | dict | DataFrame] | None = sync_conn.Cursor,
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,             # <<<<<<<<<<<<<<
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_program_name, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_program_name, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":327
+  /* "sqlcycli/_connect.py":330
  *     client_flag: int | Any = 0,
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,             # <<<<<<<<<<<<<<
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_option_file, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_option_file, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":328
+  /* "sqlcycli/_connect.py":331
  *     program_name: str | None = None,
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,             # <<<<<<<<<<<<<<
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_ssl, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_ssl, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":329
+  /* "sqlcycli/_connect.py":332
  *     option_file: str | bytes | PathLike | OptionFile | None = None,
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,             # <<<<<<<<<<<<<<
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_auth_plugin, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_auth_plugin, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":330
+  /* "sqlcycli/_connect.py":333
  *     ssl: SSL | object | None = None,
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,             # <<<<<<<<<<<<<<
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_server_public_key, Py_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_server_public_key, Py_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":331
+  /* "sqlcycli/_connect.py":334
  *     auth_plugin: dict[str | bytes, type] | AuthPlugin | None = None,
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,             # <<<<<<<<<<<<<<
  *     decode_bit: bool = False,
  *     decode_json: bool = False,
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_use_decimal, Py_False) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_use_decimal, Py_False) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":332
+  /* "sqlcycli/_connect.py":335
  *     server_public_key: bytes | None = None,
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,             # <<<<<<<<<<<<<<
  *     decode_json: bool = False,
  * ) -> PoolManager:
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_decode_bit, Py_False) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_decode_bit, Py_False) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":333
+  /* "sqlcycli/_connect.py":336
  *     use_decimal: bool = False,
  *     decode_bit: bool = False,
  *     decode_json: bool = False,             # <<<<<<<<<<<<<<
  * ) -> PoolManager:
- *     """Create a connection pool to manage and maintain `async`
+ *     """Create a pool that manages and maintains both the synchronize and asynchronize
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_decode_json, Py_False) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_decode_json, Py_False) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "sqlcycli/_connect.py":297
+  /* "sqlcycli/_connect.py":300
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def create_pool(
  *     host: str | None = "localhost",
  */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(34); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(34); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_host, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_port, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_user, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_password, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_database, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_min_size, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_max_size, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_recycle, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_charset, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_collation, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_connect_timeout, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_read_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_write_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_interactive_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_lock_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_execution_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_bind_address, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_unix_socket, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_autocommit, __pyx_kp_s_bool_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_local_infile, __pyx_n_s_bool) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_max_allowed_packet, __pyx_kp_s_int_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_sql_mode, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_init_command, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_cursor, __pyx_kp_s_type_sync_conn_Cursor_async_conn) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_client_flag, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_program_name, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_option_file, __pyx_kp_s_str_bytes_PathLike_OptionFile_No) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_ssl, __pyx_kp_s_SSL_object_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_auth_plugin, __pyx_kp_s_dict_str_bytes_type_AuthPlugin_N) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_server_public_key, __pyx_kp_s_bytes_None) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_use_decimal, __pyx_n_s_bool) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_decode_bit, __pyx_n_s_bool) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_decode_json, __pyx_n_s_bool) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_3create_pool, 0, __pyx_n_s_create_pool, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 297, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__31);
-  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_3, __pyx_t_2);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_4);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_create_pool, __pyx_t_3) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_host, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_port, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_user, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_password, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_database, __pyx_kp_s_str_bytes_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_min_size, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_max_size, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_recycle, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_charset, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_collation, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_connect_timeout, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_read_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_write_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_interactive_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_lock_wait_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_execution_timeout, __pyx_kp_s_int_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_bind_address, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_unix_socket, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_autocommit, __pyx_kp_s_bool_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_local_infile, __pyx_n_s_bool) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_max_allowed_packet, __pyx_kp_s_int_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_sql_mode, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_init_command, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_cursor, __pyx_kp_s_type_sync_conn_Cursor_tuple_dict) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_client_flag, __pyx_kp_s_int_Any) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_program_name, __pyx_kp_s_str_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_option_file, __pyx_kp_s_str_bytes_PathLike_OptionFile_No) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_ssl, __pyx_kp_s_SSL_object_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_auth_plugin, __pyx_kp_s_dict_str_bytes_type_AuthPlugin_N) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_server_public_key, __pyx_kp_s_bytes_None) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_use_decimal, __pyx_n_s_bool) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_decode_bit, __pyx_n_s_bool) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_decode_json, __pyx_n_s_bool) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_3create_pool, 0, __pyx_n_s_create_pool, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__31);
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_2, __pyx_t_3);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_create_pool, __pyx_t_2) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_ConnectionManager(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_5__pyx_unpickle_ConnectionManager, 0, __pyx_n_s_pyx_unpickle_ConnectionManager, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_ConnectionManager, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_5__pyx_unpickle_ConnectionManager, 0, __pyx_n_s_pyx_unpickle_ConnectionManager, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_ConnectionManager, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":11
  *         __pyx_unpickle_ConnectionManager__set_state(<ConnectionManager> __pyx_result, __pyx_state)
@@ -16477,21 +16536,21 @@ if (!__Pyx_RefNanny) {
  *     __pyx_result._conn_async = __pyx_state[0]; __pyx_result._conn_sync = __pyx_state[1]; __pyx_result._cursor = __pyx_state[2]; __pyx_result._kwargs = __pyx_state[3]; __pyx_result._loop = __pyx_state[4]
  *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_7__pyx_unpickle_PoolManager, 0, __pyx_n_s_pyx_unpickle_PoolManager, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_PoolManager, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8_connect_7__pyx_unpickle_PoolManager, 0, __pyx_n_s_pyx_unpickle_PoolManager, NULL, __pyx_n_s_sqlcycli__connect, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_PoolManager, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "sqlcycli/_connect.py":1
  * # cython: language_level=3             # <<<<<<<<<<<<<<
  * # cython: wraparound=False
  * # cython: boundscheck=False
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_kp_u_connect_line_100, __pyx_kp_u_Connect_to_the_server_and_acquir) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_t_2, __pyx_kp_u_connect_line_101, __pyx_kp_u_Establish_a_sync_async_connectio) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_2) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -17085,49 +17144,6 @@ invalid_keyword:
     return 0;
 }
 
-/* PyErrExceptionMatches */
-#if CYTHON_FAST_THREAD_STATE
-static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
-    Py_ssize_t i, n;
-    n = PyTuple_GET_SIZE(tuple);
-#if PY_MAJOR_VERSION >= 3
-    for (i=0; i<n; i++) {
-        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
-    }
-#endif
-    for (i=0; i<n; i++) {
-        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
-    }
-    return 0;
-}
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
-    int result;
-    PyObject *exc_type;
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject *current_exception = tstate->current_exception;
-    if (unlikely(!current_exception)) return 0;
-    exc_type = (PyObject*) Py_TYPE(current_exception);
-    if (exc_type == err) return 1;
-#else
-    exc_type = tstate->curexc_type;
-    if (exc_type == err) return 1;
-    if (unlikely(!exc_type)) return 0;
-#endif
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_INCREF(exc_type);
-    #endif
-    if (unlikely(PyTuple_Check(err))) {
-        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
-    } else {
-        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
-    }
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_DECREF(exc_type);
-    #endif
-    return result;
-}
-#endif
-
 /* PyErrFetchRestore */
 #if CYTHON_FAST_THREAD_STATE
 static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
@@ -17186,132 +17202,6 @@ static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject 
 #endif
 }
 #endif
-
-/* PyObjectGetAttrStr */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro))
-        return tp->tp_getattro(obj, attr_name);
-#if PY_MAJOR_VERSION < 3
-    if (likely(tp->tp_getattr))
-        return tp->tp_getattr(obj, PyString_AS_STRING(attr_name));
-#endif
-    return PyObject_GetAttr(obj, attr_name);
-}
-#endif
-
-/* PyObjectGetAttrStrNoError */
-#if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
-static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    if (likely(__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
-        __Pyx_PyErr_Clear();
-}
-#endif
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name) {
-    PyObject *result;
-#if __PYX_LIMITED_VERSION_HEX >= 0x030d00A1
-    (void) PyObject_GetOptionalAttr(obj, attr_name, &result);
-    return result;
-#else
-#if CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_TYPE_SLOTS && PY_VERSION_HEX >= 0x030700B1
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro == PyObject_GenericGetAttr)) {
-        return _PyObject_GenericGetAttrWithDict(obj, attr_name, NULL, 1);
-    }
-#endif
-    result = __Pyx_PyObject_GetAttrStr(obj, attr_name);
-    if (unlikely(!result)) {
-        __Pyx_PyObject_GetAttrStr_ClearAttributeError();
-    }
-    return result;
-#endif
-}
-
-/* GetBuiltinName */
-static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
-    PyObject* result = __Pyx_PyObject_GetAttrStrNoError(__pyx_b, name);
-    if (unlikely(!result) && !PyErr_Occurred()) {
-        PyErr_Format(PyExc_NameError,
-#if PY_MAJOR_VERSION >= 3
-            "name '%U' is not defined", name);
-#else
-            "name '%.200s' is not defined", PyString_AS_STRING(name));
-#endif
-    }
-    return result;
-}
-
-/* PyDictVersioning */
-#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
-}
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
-    PyObject **dictptr = NULL;
-    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
-    if (offset) {
-#if CYTHON_COMPILING_IN_CPYTHON
-        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
-#else
-        dictptr = _PyObject_GetDictPtr(obj);
-#endif
-    }
-    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
-}
-static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
-        return 0;
-    return obj_dict_version == __Pyx_get_object_dict_version(obj);
-}
-#endif
-
-/* GetModuleGlobalName */
-#if CYTHON_USE_DICT_VERSIONS
-static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
-#else
-static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
-#endif
-{
-    PyObject *result;
-#if !CYTHON_AVOID_BORROWED_REFS
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030500A1 && PY_VERSION_HEX < 0x030d0000
-    result = _PyDict_GetItem_KnownHash(__pyx_d, name, ((PyASCIIObject *) name)->hash);
-    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    } else if (unlikely(PyErr_Occurred())) {
-        return NULL;
-    }
-#elif CYTHON_COMPILING_IN_LIMITED_API
-    if (unlikely(!__pyx_m)) {
-        return NULL;
-    }
-    result = PyObject_GetAttr(__pyx_m, name);
-    if (likely(result)) {
-        return result;
-    }
-#else
-    result = PyDict_GetItem(__pyx_d, name);
-    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    }
-#endif
-#else
-    result = PyObject_GetItem(__pyx_d, name);
-    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    }
-    PyErr_Clear();
-#endif
-    return __Pyx_GetBuiltinName(name);
-}
 
 /* IterFinish */
 static CYTHON_INLINE int __Pyx_IterFinish(void) {
@@ -17590,6 +17480,20 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObjec
     PyObject *args[2] = {NULL, arg};
     return __Pyx_PyObject_FastCall(func, args+1, 1 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
+
+/* PyObjectGetAttrStr */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro))
+        return tp->tp_getattro(obj, attr_name);
+#if PY_MAJOR_VERSION < 3
+    if (likely(tp->tp_getattr))
+        return tp->tp_getattr(obj, PyString_AS_STRING(attr_name));
+#endif
+    return PyObject_GetAttr(obj, attr_name);
+}
+#endif
 
 /* PyObjectGetMethod */
 static int __Pyx_PyObject_GetMethod(PyObject *obj, PyObject *name, PyObject **method) {
@@ -17955,26 +17859,6 @@ static int __Pyx_MergeKeywords(PyObject *kwdict, PyObject *source_mapping) {
 bad:
     Py_XDECREF(iter);
     return -1;
-}
-
-/* ExtTypeTest */
-static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
-    __Pyx_TypeName obj_type_name;
-    __Pyx_TypeName type_name;
-    if (unlikely(!type)) {
-        PyErr_SetString(PyExc_SystemError, "Missing type object");
-        return 0;
-    }
-    if (likely(__Pyx_TypeCheck(obj, type)))
-        return 1;
-    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
-    type_name = __Pyx_PyType_GetName(type);
-    PyErr_Format(PyExc_TypeError,
-                 "Cannot convert " __Pyx_FMT_TYPENAME " to " __Pyx_FMT_TYPENAME,
-                 obj_type_name, type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    __Pyx_DECREF_TypeName(type_name);
-    return 0;
 }
 
 /* FixUpExtensionType */
@@ -18484,6 +18368,78 @@ static PyObject* __Pyx_PyObject_CallMethod1(PyObject* obj, PyObject* method_name
     }
     if (unlikely(!method)) return NULL;
     return __Pyx__PyObject_CallMethod1(method, arg);
+#endif
+}
+
+/* PyErrExceptionMatches */
+#if CYTHON_FAST_THREAD_STATE
+static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
+    Py_ssize_t i, n;
+    n = PyTuple_GET_SIZE(tuple);
+#if PY_MAJOR_VERSION >= 3
+    for (i=0; i<n; i++) {
+        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
+    }
+#endif
+    for (i=0; i<n; i++) {
+        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
+    }
+    return 0;
+}
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
+    int result;
+    PyObject *exc_type;
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject *current_exception = tstate->current_exception;
+    if (unlikely(!current_exception)) return 0;
+    exc_type = (PyObject*) Py_TYPE(current_exception);
+    if (exc_type == err) return 1;
+#else
+    exc_type = tstate->curexc_type;
+    if (exc_type == err) return 1;
+    if (unlikely(!exc_type)) return 0;
+#endif
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_INCREF(exc_type);
+    #endif
+    if (unlikely(PyTuple_Check(err))) {
+        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
+    } else {
+        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
+    }
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_DECREF(exc_type);
+    #endif
+    return result;
+}
+#endif
+
+/* PyObjectGetAttrStrNoError */
+#if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
+static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (likely(__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
+        __Pyx_PyErr_Clear();
+}
+#endif
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name) {
+    PyObject *result;
+#if __PYX_LIMITED_VERSION_HEX >= 0x030d00A1
+    (void) PyObject_GetOptionalAttr(obj, attr_name, &result);
+    return result;
+#else
+#if CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_TYPE_SLOTS && PY_VERSION_HEX >= 0x030700B1
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro == PyObject_GenericGetAttr)) {
+        return _PyObject_GenericGetAttrWithDict(obj, attr_name, NULL, 1);
+    }
+#endif
+    result = __Pyx_PyObject_GetAttrStr(obj, attr_name);
+    if (unlikely(!result)) {
+        __Pyx_PyObject_GetAttrStr_ClearAttributeError();
+    }
+    return result;
 #endif
 }
 
@@ -20150,6 +20106,26 @@ bad:
         "generator raised StopIteration");
 }
 
+/* ExtTypeTest */
+  static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
+    __Pyx_TypeName obj_type_name;
+    __Pyx_TypeName type_name;
+    if (unlikely(!type)) {
+        PyErr_SetString(PyExc_SystemError, "Missing type object");
+        return 0;
+    }
+    if (likely(__Pyx_TypeCheck(obj, type)))
+        return 1;
+    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
+    type_name = __Pyx_PyType_GetName(type);
+    PyErr_Format(PyExc_TypeError,
+                 "Cannot convert " __Pyx_FMT_TYPENAME " to " __Pyx_FMT_TYPENAME,
+                 obj_type_name, type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    __Pyx_DECREF_TypeName(type_name);
+    return 0;
+}
+
 /* WriteUnraisableException */
   static void __Pyx_WriteUnraisable(const char *name, int clineno,
                                   int lineno, const char *filename,
@@ -20224,6 +20200,89 @@ static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject
     r = PyObject_GetAttr(o, n);
     return (likely(r)) ? r : __Pyx_GetAttr3Default(d);
 #endif
+}
+
+/* GetBuiltinName */
+  static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
+    PyObject* result = __Pyx_PyObject_GetAttrStrNoError(__pyx_b, name);
+    if (unlikely(!result) && !PyErr_Occurred()) {
+        PyErr_Format(PyExc_NameError,
+#if PY_MAJOR_VERSION >= 3
+            "name '%U' is not defined", name);
+#else
+            "name '%.200s' is not defined", PyString_AS_STRING(name));
+#endif
+    }
+    return result;
+}
+
+/* PyDictVersioning */
+  #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
+}
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
+    PyObject **dictptr = NULL;
+    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
+    if (offset) {
+#if CYTHON_COMPILING_IN_CPYTHON
+        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
+#else
+        dictptr = _PyObject_GetDictPtr(obj);
+#endif
+    }
+    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
+}
+static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
+        return 0;
+    return obj_dict_version == __Pyx_get_object_dict_version(obj);
+}
+#endif
+
+/* GetModuleGlobalName */
+  #if CYTHON_USE_DICT_VERSIONS
+static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
+#else
+static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
+#endif
+{
+    PyObject *result;
+#if !CYTHON_AVOID_BORROWED_REFS
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030500A1 && PY_VERSION_HEX < 0x030d0000
+    result = _PyDict_GetItem_KnownHash(__pyx_d, name, ((PyASCIIObject *) name)->hash);
+    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    } else if (unlikely(PyErr_Occurred())) {
+        return NULL;
+    }
+#elif CYTHON_COMPILING_IN_LIMITED_API
+    if (unlikely(!__pyx_m)) {
+        return NULL;
+    }
+    result = PyObject_GetAttr(__pyx_m, name);
+    if (likely(result)) {
+        return result;
+    }
+#else
+    result = PyDict_GetItem(__pyx_d, name);
+    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    }
+#endif
+#else
+    result = PyObject_GetItem(__pyx_d, name);
+    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    }
+    PyErr_Clear();
+#endif
+    return __Pyx_GetBuiltinName(name);
 }
 
 /* RaiseUnexpectedTypeError */

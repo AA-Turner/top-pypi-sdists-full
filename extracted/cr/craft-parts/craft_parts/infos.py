@@ -25,11 +25,16 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 
-from craft_parts import FilesystemMounts, errors
+from craft_parts import errors
 from craft_parts.dirs import ProjectDirs
-from craft_parts.filesystem_mounts import FilesystemMount, FilesystemMountItem
+from craft_parts.filesystem_mounts import (
+    FilesystemMount,
+    FilesystemMountItem,
+    FilesystemMounts,
+)
 from craft_parts.parts import Part
 from craft_parts.steps import Step
+from craft_parts.utils.partition_utils import DEFAULT_PARTITION
 
 if TYPE_CHECKING:
     from craft_parts.state_manager import states
@@ -268,6 +273,24 @@ class ProjectInfo:
     def partitions(self) -> list[str] | None:
         """Return the project's partitions."""
         return self._partitions
+
+    @property
+    def default_partition(self) -> str | None:
+        """Get the "default" partition from a partition list."""
+        if self._partitions:
+            return self._partitions[0]
+        return None
+
+    def is_default_partition(self, partition: str | None) -> bool:
+        """Check if given partition is the default one."""
+        if partition == DEFAULT_PARTITION:
+            return True
+        if self._partitions is None and partition is None:
+            return True
+        if self._partitions is not None:
+            return partition == self._partitions[0]
+
+        return False
 
     @property
     def filesystem_mounts(self) -> FilesystemMounts | None:

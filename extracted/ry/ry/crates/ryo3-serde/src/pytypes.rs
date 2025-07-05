@@ -3,26 +3,26 @@ use crate::errors::pyerr2sererr;
 use crate::any_repr::any_repr;
 use crate::py_serialize::SerializePyAny;
 use crate::serde_err;
+use pyo3::Bound;
 use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyDate, PyDateTime, PyDict, PyFrozenSet, PyInt, PyIterator, PySet, PyString, PyTime,
     PyTzInfoAccess,
 };
 use pyo3::types::{PyList, PyTuple};
-use pyo3::Bound;
 use serde::ser::{Error as SerError, Serialize, SerializeMap, SerializeSeq};
 
 #[inline]
-pub(crate) fn none<S>(ser: &SerializePyAny<'_>, serializer: S) -> Result<S::Ok, S::Error>
+pub(crate) fn none<S>(_ser: &SerializePyAny<'_>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    if let Some(none_value) = ser.none_value {
-        serializer.serialize_str(none_value)
-    } else {
-        // if no none_value is set, serialize as None
-        serializer.serialize_none()
-    }
+    // if let Some(none_value) = ser.none_value {
+    //     serializer.serialize_str(none_value)
+    // } else {
+    // if no none_value is set, serialize as None
+    serializer.serialize_none()
+    // }
 }
 
 #[inline]

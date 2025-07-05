@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: unoserver
-Version: 3.3
+Version: 3.3.1
 Summary: A server for file conversions with Libre Office
 Author-email: Lennart Regebro <regebro@gmail.com>
 License: MIT
@@ -28,6 +28,7 @@ Requires-Dist: flake8; extra == "devenv"
 Requires-Dist: pyroma; extra == "devenv"
 Requires-Dist: check-manifest; extra == "devenv"
 Requires-Dist: zest.releaser; extra == "devenv"
+Dynamic: license-file
 
 unoserver
 =========
@@ -303,6 +304,13 @@ Contributors
 * Grunthos, https://github.com/Grunthos
 * Witiko, https://github.com/Witiko
 * Prpl, https://github.com/prpladmin
+
+3.3.1 (2025-07-04)
+------------------
+
+- Now uses a temporary file for the input as well, as it's not obvious to me
+  how to use `private:stream` without memory leaks.
+
 
 3.3 (2025-07-02)
 ----------------

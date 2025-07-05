@@ -77,47 +77,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         format!("{}", self.module_info().name())
     }
 
-    fn show_any_idx_with(&self, bindings: &Bindings, idx: AnyIdx) -> String {
-        let kind = idx.kind();
-        let key = match idx {
-            AnyIdx::Key(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyExpect(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClass(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyTParams(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassField(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyVariance(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyExport(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyFunction(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyAnnotation(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassMetadata(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassMro(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyLegacyTypeParam(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyYield(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyYieldFrom(idx) => self.show_idx_with(bindings, idx),
-        };
-        format!("{} :: {}", kind, key)
-    }
-
-    pub fn show_calc_id(&self, c: CalcId) -> String {
-        match c {
-            CalcId(bindings, idx) => {
-                format!(
-                    "{} . {}",
-                    bindings.module_info().name(),
-                    self.show_any_idx_with(&bindings, idx)
-                )
-            }
-        }
-    }
-
     pub fn show_current_idx(&self) -> String {
         match self.stack().peek() {
             None => {
                 // In practice we'll never hit this debugging, but there's no need to panic if we do.
                 "(None)".to_owned()
             }
-            Some(c) => self.show_calc_id(c),
+            Some(calc_id) => format!("{}", calc_id),
         }
     }
 
@@ -153,13 +119,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.stack()
             .into_vec()
             .into_iter()
-            .map(|CalcId(bindings, idx)| {
-                format!(
-                    "{} . {}",
-                    bindings.module_info().name(),
-                    self.show_any_idx_with(&bindings, idx)
-                )
-            })
+            .map(|calc_id| format!("{}", calc_id))
     }
 
     // Get a printable representation of the current cycle.
@@ -170,12 +130,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .current_cycle()
             .unwrap()
             .into_iter()
-            .map(|CalcId(bindings, idx)| {
-                format!(
-                    "{} . {}",
-                    bindings.module_info().name(),
-                    self.show_any_idx_with(&bindings, idx)
-                )
-            })
+            .map(|c| format!("{}", c))
     }
 }

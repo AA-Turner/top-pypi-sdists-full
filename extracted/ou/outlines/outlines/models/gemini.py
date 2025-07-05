@@ -11,10 +11,11 @@ from typing import (
 
 from outlines.models.base import Model, ModelTypeAdapter
 from outlines.templates import Vision
-from outlines.types import CFG, JsonSchema, Regex
+from outlines.types import CFG, Choice, JsonSchema, Regex
 from outlines.types.utils import (
     is_dataclass,
     is_enum,
+    get_enum_from_choice,
     get_enum_from_literal,
     is_genson_schema_builder,
     is_literal,
@@ -128,6 +129,9 @@ class GeminiTypeAdapter(ModelTypeAdapter):
         elif is_literal(output_type):
             enum = get_enum_from_literal(output_type)
             return self.format_enum_output_type(enum)
+        elif isinstance(output_type, Choice):
+            enum = get_enum_from_choice(output_type)
+            return self.format_enum_output_type(enum)
 
         else:
             type_name = getattr(output_type, "__name__", output_type)
@@ -236,6 +240,16 @@ class Gemini(Model):
         )
 
         return completion.text
+
+    def generate_batch(
+        self,
+        model_input,
+        output_type = None,
+        **inference_kwargs,
+    ):
+        raise NotImplementedError(
+            "Gemini does not support batch generation."
+        )
 
     def generate_stream(
         self,

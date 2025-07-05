@@ -32,6 +32,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
+use crate::types::globals::Global;
 
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from
@@ -40,6 +41,8 @@ pub enum DefinitionStyle {
     /// Defined in this module, e.g. `x = 1` or `def x(): ...`
     /// We also store what kind of symbol it is
     Local(SymbolKind),
+    /// Defined as an implicit global like `__name__`.
+    Global,
     /// Imported with an alias, e.g. `from x import y as z`
     ImportAs(ModuleName),
     /// Imported with an alias, where the alias is identical, e.g. `from x import y as y`
@@ -137,7 +140,7 @@ struct DefinitionsBuilder<'a> {
 }
 
 fn is_private_name(name: &Name) -> bool {
-    name.starts_with('_') && !name.starts_with("__")
+    name.starts_with('_')
 }
 
 fn implicitly_imported_submodule(
@@ -168,6 +171,22 @@ impl Definitions {
         self.import_all.entry(ModuleName::builtins()).or_default();
     }
 
+    pub fn inject_globals(&mut self) {
+        for global in Global::globals(false) {
+            self.definitions.insert(
+                global.name().clone(),
+                Definition {
+                    range: TextRange::default(),
+                    style: DefinitionStyle::Global,
+                    annot: None,
+                    count: 1,
+                    docstring: None,
+                },
+            );
+        }
+    }
+
+    /// Ensure that `dunder_all` is populated, synthesising it if `__all__` isn't present.
     pub fn ensure_dunder_all(&mut self, style: ModuleStyle) {
         if self.definitions.contains_key(&dunder::ALL) {
             // Explicitly defined, so don't redefine it
@@ -188,6 +207,16 @@ impl Definitions {
             {
                 self.dunder_all
                     .push(DunderAllEntry::Name(def.range, name.clone()));
+            }
+        }
+    }
+
+    /// Add these names to `duner_all`, if they are defined in the module.
+    pub fn extend_dunder_all(&mut self, extra: &[Name]) {
+        for name in extra {
+            if let Some(def) = self.definitions.get(name) {
+                self.dunder_all
+                    .push(DunderAllEntry::Name(def.range, name.clone()))
             }
         }
     }

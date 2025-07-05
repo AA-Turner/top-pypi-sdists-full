@@ -7,13 +7,21 @@
 
 //! Utilities for creating the initial thread pool.
 
+use std::env;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
 use tracing::debug;
+use tracing::info;
 
+use crate::display::number_thousands;
 use crate::lock::Mutex;
+
+/// The stack size for all created threads.
+///
+/// Can be overridden by setting the `PYREFLY_STACK_SIZE` environment variable (in bytes).
+const DEFAULT_STACK_SIZE: usize = 5 * 1024 * 1024;
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ThreadCount {
@@ -52,13 +60,29 @@ pub struct ThreadPool(
 );
 
 impl ThreadPool {
+    fn stack_size() -> usize {
+        match env::var("PYREFLY_STACK_SIZE") {
+            Ok(s) => {
+                let res = s
+                    .parse::<usize>()
+                    .unwrap_or_else(|_| panic!("$PYREFLY_STACK_SIZE must be a number, got {s}"));
+                info!(
+                    "Using stack size of {} bytes (due to `$PYREFLY_STACK_SIZE`)",
+                    number_thousands(res)
+                );
+                res
+            }
+            Err(_) => DEFAULT_STACK_SIZE,
+        }
+    }
+
     pub fn with_thread_count(count: ThreadCount) -> Self {
         if cfg!(target_arch = "wasm32") {
             // ThreadPool doesn't work on WASM
             return Self(None);
         }
 
-        let mut builder = rayon::ThreadPoolBuilder::new().stack_size(5 * 1024 * 1024);
+        let mut builder = rayon::ThreadPoolBuilder::new().stack_size(Self::stack_size());
         if let ThreadCount::NumThreads(threads) = count {
             builder = builder.num_threads(threads.get());
         }

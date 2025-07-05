@@ -40,7 +40,7 @@ from craft_parts.packages import platform
 from craft_parts.permissions import Permissions
 from craft_parts.plugins.properties import PluginProperties
 from craft_parts.steps import Step
-from craft_parts.utils.partition_utils import get_partition_dir_map
+from craft_parts.utils.partition_utils import DEFAULT_PARTITION, get_partition_dir_map
 from craft_parts.utils.path_utils import get_partition_and_path
 
 
@@ -841,6 +841,13 @@ class Part:
         """Return whether this part has chisel in its build-snaps."""
         return self.spec.has_chisel_as_build_snap
 
+    @property
+    def default_partition(self) -> str:
+        """Get the "default" partition from a partition list."""
+        if self._partitions:
+            return self._partitions[0]
+        return DEFAULT_PARTITION
+
     def _check_partition_feature(self) -> None:
         """Check if the partitions feature is properly used.
 
@@ -949,7 +956,7 @@ class Part:
                         )
 
             if require_inner_path:
-                _, inner_path = get_partition_and_path(filepath)
+                _, inner_path = get_partition_and_path(filepath, self.default_partition)
                 if not inner_path:
                     error_list.append(
                         f"    no path specified after partition in {filepath!r}"
@@ -1159,5 +1166,6 @@ def _get_part_spec(data: dict[str, Any]) -> PartSpec:
     plugin_class.properties_class.unmarshal(spec)
 
     # validate common part properties
-    part_spec = plugins.extract_part_properties(spec, plugin_name=plugin_name)
+    part_spec = plugins.validate_and_extract(spec, plugin_name=plugin_name)
+
     return PartSpec(**part_spec)

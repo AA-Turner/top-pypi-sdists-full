@@ -17902,6 +17902,19 @@ class IgnoreStrategy(
         '''
         ...
 
+    @jsii.member(jsii_name="completelyIgnores")
+    def completely_ignores(self, absolute_file_path: builtins.str) -> builtins.bool:
+        '''Determines whether a given file path should be ignored and have all of its children ignored if its a directory.
+
+        :param absolute_file_path: absolute file path to be assessed against the pattern.
+
+        :return: ``true`` if the file should be ignored
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a80a66d2944a2c289e3c51a3686487dddf7c755eb54d7726f3fd91652eddcde)
+            check_type(argname="argument absolute_file_path", value=absolute_file_path, expected_type=type_hints["absolute_file_path"])
+        return typing.cast(builtins.bool, jsii.invoke(self, "completelyIgnores", [absolute_file_path]))
+
     @jsii.member(jsii_name="ignores")
     @abc.abstractmethod
     def ignores(self, absolute_file_path: builtins.str) -> builtins.bool:
@@ -35748,6 +35761,19 @@ class DockerIgnoreStrategy(
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "add", [pattern]))
 
+    @jsii.member(jsii_name="completelyIgnores")
+    def completely_ignores(self, absolute_file_path: builtins.str) -> builtins.bool:
+        '''Determines whether a given file path should be ignored and have all of its children ignored if its a directory.
+
+        :param absolute_file_path: absolute file path to be assessed against the pattern.
+
+        :return: ``true`` if the file should be ignored
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4eeec3aad8660d3f77c7f5fd848b52abf32a847311801373080bbfe35642315a)
+            check_type(argname="argument absolute_file_path", value=absolute_file_path, expected_type=type_hints["absolute_file_path"])
+        return typing.cast(builtins.bool, jsii.invoke(self, "completelyIgnores", [absolute_file_path]))
+
     @jsii.member(jsii_name="ignores")
     def ignores(self, absolute_file_path: builtins.str) -> builtins.bool:
         '''Determines whether a given file path should be ignored or not.
@@ -40282,6 +40308,12 @@ def _typecheckingstub__eece2ad7e2f3cbe035a92302343ee656a4e8438489e1b15a43554b124
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3a80a66d2944a2c289e3c51a3686487dddf7c755eb54d7726f3fd91652eddcde(
+    absolute_file_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__30e8e458c385d1db329cfc0c45f966d2d15c1b0166b3e7cfe8a57c7809196bf5(
     pattern: builtins.str,
 ) -> None:
@@ -42873,6 +42905,12 @@ def _typecheckingstub__e341d6d45528c9629998161ea2ddec5c99471c6b6bd7fe6f0c00ff6bd
 
 def _typecheckingstub__dce0fd20685d4b7457e08a1567eb5aa8c53335612222538272b7d69db6cd18f6(
     pattern: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4eeec3aad8660d3f77c7f5fd848b52abf32a847311801373080bbfe35642315a(
+    absolute_file_path: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

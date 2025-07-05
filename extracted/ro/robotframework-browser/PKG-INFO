@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotframework-browser
-Version: 19.6.1
+Version: 19.6.2
 Summary: Robot Framework Browser library powered by Playwright. Aiming for speed, reliability and visibility.
 Home-page: https://github.com/MarketSquare/robotframework-browser
 Author: MarketSquare - Robot Framework community
@@ -15,8 +15,8 @@ Classifier: Framework :: Robot Framework :: Library
 Requires-Python: >=3.9,<4.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: grpcio==1.73.0
-Requires-Dist: grpcio-tools==1.73.0
+Requires-Dist: grpcio==1.73.1
+Requires-Dist: grpcio-tools==1.73.1
 Requires-Dist: protobuf==6.31.1
 Requires-Dist: robotframework<8.0.0,>=5.0.1
 Requires-Dist: robotframework-pythonlibcore<5.0.0,>=4.4.1

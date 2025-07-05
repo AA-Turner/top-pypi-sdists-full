@@ -8,7 +8,7 @@ from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from typing import Generator
 from maleo_foundation.types import BaseTypes
-from maleo_foundation.utils.logging import ServiceLogger
+from maleo_foundation.utils.logging import DatabaseLogger
 
 class MetadataManager:
     Base: DeclarativeMeta = declarative_base()
@@ -17,7 +17,7 @@ class MetadataManager:
 class SessionManager:
     def __init__(
         self,
-        logger: ServiceLogger,
+        logger: DatabaseLogger,
         engine: Engine
     ):
         self._logger = logger
@@ -80,7 +80,7 @@ class DatabaseManager:
     def __init__(
         self,
         metadata: MetaData,
-        logger: ServiceLogger,
+        logger: DatabaseLogger,
         url: BaseTypes.OptionalString = None
     ):
         self._metadata = metadata #* Define database metadata

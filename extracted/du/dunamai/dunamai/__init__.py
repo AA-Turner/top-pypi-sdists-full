@@ -319,8 +319,8 @@ def _blank(value: Optional[_T], default: _T) -> _T:
     return value if value is not None else default
 
 
-def _escape_branch(value: str) -> str:
-    return re.sub(r"[^a-zA-Z0-9]", "", value)
+def _escape_branch(value: str, replacement: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9]", replacement, value)
 
 
 def _equal_if_set(x: _T, y: Optional[_T], unset: Sequence[Any] = (None,)) -> bool:
@@ -706,6 +706,8 @@ class Version:
         style: Optional[Style] = None,
         bump: bool = False,
         tagged_metadata: bool = False,
+        commit_prefix: Optional[str] = None,
+        escape_with: Optional[str] = None,
     ) -> str:
         """
         Create a string from the version info.
@@ -731,7 +733,7 @@ class Version:
             * {tagged_metadata}
             * {epoch}
             * {branch}
-            * {branch_escaped} which omits any non-letter/number characters
+            * {branch_escaped} which omits any non-letter/number characters (or replaces via `escape_with`)
             * {timestamp} which expands to YYYYmmddHHMMSS as UTC
             * {major} (first part of `base` split on `.`, or 0)
             * {minor} (second part of `base` split on `.`, or 0)
@@ -747,6 +749,11 @@ class Version:
         :param tagged_metadata: If true, insert the `tagged_metadata` in the
             version as the first part of the metadata segment.
             This is ignored when `format` is used.
+        :param commit_prefix: Add this prefix to the commit ID.
+            This can be helpful when an all-numeric commit would be misinterpreted.
+            For example, "g" is a common prefix for Git commits.
+        :param escape_with: When escaping, replace with this substitution.
+            The default is simply to remove invalid characters.
         :returns: Serialized version.
         """
         base = self.base
@@ -755,6 +762,10 @@ class Version:
             bumped = self.bump(smart=True)
             base = bumped.base
             revision = bumped.revision
+
+        commit = self.commit
+        if commit is not None and commit_prefix is not None:
+            commit = "{}{}".format(commit_prefix, commit)
 
         if format is not None:
             if callable(format):
@@ -771,12 +782,12 @@ class Version:
                         stage=_blank(self.stage, ""),
                         revision=_blank(revision, ""),
                         distance=_blank(self.distance, ""),
-                        commit=_blank(self.commit, ""),
+                        commit=_blank(commit, ""),
                         tagged_metadata=_blank(self.tagged_metadata, ""),
                         dirty="dirty" if self.dirty else "clean",
                         epoch=_blank(self.epoch, ""),
                         branch=_blank(self.branch, ""),
-                        branch_escaped=_escape_branch(_blank(self.branch, "")),
+                        branch_escaped=_escape_branch(_blank(self.branch, ""), escape_with or ""),
                         timestamp=self.timestamp.strftime("%Y%m%d%H%M%S") if self.timestamp else "",
                         major=base_parts[0] if len(base_parts) > 0 else "0",
                         minor=base_parts[1] if len(base_parts) > 1 else "0",
@@ -798,8 +809,8 @@ class Version:
         if metadata is not False:
             if tagged_metadata and self.tagged_metadata:
                 meta_parts.append(self.tagged_metadata)
-            if (metadata or self.distance > 0) and self.commit is not None:
-                meta_parts.append(self.commit)
+            if (metadata or self.distance > 0) and commit is not None:
+                meta_parts.append(commit)
             if dirty and self.dirty:
                 meta_parts.append("dirty")
 

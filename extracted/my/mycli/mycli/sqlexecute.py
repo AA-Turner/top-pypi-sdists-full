@@ -3,9 +3,10 @@ import logging
 import re
 
 import pymysql
-from .packages import special
 from pymysql.constants import FIELD_TYPE
-from pymysql.converters import convert_datetime, convert_timedelta, convert_date, conversions, decoders
+from pymysql.converters import conversions, convert_date, convert_datetime, convert_timedelta, decoders
+
+from mycli.packages import special
 
 try:
     import paramiko  # noqa: F401
@@ -27,7 +28,7 @@ class ServerSpecies(enum.Enum):
     MariaDB = "MariaDB"
     Percona = "Percona"
     TiDB = "TiDB"
-    Unknown = "MySQL"
+    Unknown = "Unknown"
 
 
 class ServerInfo:
@@ -50,7 +51,7 @@ class ServerInfo:
     @classmethod
     def from_version_string(cls, version_string):
         if not version_string:
-            return cls(ServerSpecies.Unknown, "")
+            return cls(ServerSpecies.MySQL, "")
 
         re_species = (
             (r"(?P<version>[0-9\.]+)-MariaDB", ServerSpecies.MariaDB),
@@ -65,7 +66,7 @@ class ServerInfo:
                 detected_species = species
                 break
         else:
-            detected_species = ServerSpecies.Unknown
+            detected_species = ServerSpecies.MySQL
             parsed_version = ""
 
         return cls(detected_species, parsed_version)

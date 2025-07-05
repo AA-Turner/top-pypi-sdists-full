@@ -36,24 +36,24 @@ class TestArtifactDistributionResponse(unittest.TestCase):
         model = ArtifactDistributionResponse()
         if include_optional:
             return ArtifactDistributionResponse(
+                pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 base_url = '',
-                no_content_change_since = '',
-                pulp_href = '',
-                content_guard = '',
                 hidden = True,
                 pulp_labels = {
                     'key' : ''
                     },
-                pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                name = '',
-                prn = '',
+                base_path = '',
+                content_guard = '',
                 pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                base_path = ''
+                no_content_change_since = '',
+                prn = '',
+                pulp_href = '',
+                name = ''
             )
         else:
             return ArtifactDistributionResponse(
-                name = '',
                 base_path = '',
+                name = '',
         )
         """
 

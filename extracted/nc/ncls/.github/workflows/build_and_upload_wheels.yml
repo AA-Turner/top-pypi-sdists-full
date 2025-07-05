@@ -1,11 +1,9 @@
 name: Build and upload to PyPI
 
-# Source: https://raw.githubusercontent.com/pypa/cibuildwheel/main/examples/github-deploy.yml
-
 env:
-  CIBW_SKIP: "cp36-*"
+  # skip EOL interpreters
+  CIBW_SKIP: "cp36-* cp37-* cp38-* pp*"
 
-# Build on every branch push, tag push, and pull request change:
 on:
   workflow_dispatch:
 
@@ -15,16 +13,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-11]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.12.3
+        uses: pypa/cibuildwheel@v2.16.2
 
-      - uses: actions/upload-artifact@v3
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
         with:
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -36,28 +36,25 @@ jobs:
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v3
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
         with:
+          name: sdist
           path: dist/*.tar.gz
 
   upload_pypi:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
-    # upload to PyPI on every tag starting with 'v'
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    # alternatively, to publish when a GitHub Release is created, use the following rule:
-    # if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v3
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          # unpacks default artifact into dist/
-          # if `name: artifact` is omitted, the action will create extra parent dir
-          name: artifact
           path: dist
+          merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@v1.5.0
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1   # stay on latest 1.x
         with:
-          user: ${{ secrets.PYPI_USER }}
-          password: ${{ secrets.PYPI_PROD_PASSWORD }}
+          user: __token__                              # default, but kept explicit
+          password: ${{ secrets.PYPI_API_TOKEN }}      # new secret
           verbose: true
-          # To test: repository_url: https://test.pypi.org/legacy/

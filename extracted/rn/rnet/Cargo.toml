@@ -1,6 +1,6 @@
 [package]
 name = "rnet"
-version = "2.3.8"
+version = "2.3.9"
 description = "A blazing-fast Python HTTP client with TLS fingerprint"
 edition = "2024"
 rust-version = "1.85.0"
@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 doctest = false
 
 [dependencies]
-tokio = { version = "1.45.1", features = ["sync"] }
+tokio = { version = "1.46.0", features = ["sync"] }
 pyo3 = { version = "0.25.0", features = [
     "indexmap",
     "multiple-pymethods",

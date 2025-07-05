@@ -12,9 +12,9 @@ from math import ceil, isnan
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union, Callable
 from warnings import warn
 from dataclasses import dataclass, field
-import multiprocessing
-
+from multiprocessing import shared_memory
 import numpy as np
+
 from sklearn.base import (
     BaseEstimator,
     ClassifierMixin,
@@ -1075,8 +1075,15 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             feature_types_in,
         )
 
-        with multiprocessing.Manager() as manager:
-            stop_flag = manager.Value('b', False)
+        shm = None
+        try:
+            stop_flag = None
+            shm_name = None
+            if callback is not None:
+                shm = shared_memory.SharedMemory(create=True, size=1, name=None)
+                shm_name = shm.name
+                stop_flag = np.ndarray((1,), dtype=np.bool_, buffer=shm.buf)
+                stop_flag[0] = False
 
             parallel_args = []
             for idx in range(self.outer_bags):
@@ -1099,7 +1106,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
 
                 parallel_args.append(
                     (
-                        stop_flag,
+                        shm_name,
                         idx,
                         callback,
                         dataset,
@@ -1170,7 +1177,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 rngs.append(bagged_rng)
 
             while True:  # this isn't for looping. Just for break statements to exit
-                if stop_flag.value:
+                if stop_flag is not None and stop_flag[0]:
                     break
 
                 if interactions is None:
@@ -1277,7 +1284,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                         # TODO: the combinations below should be selected from the non-excluded features
                         parallel_args.append(
                             (
-                                stop_flag,
+                                shm_name,
                                 idx,
                                 dataset,
                                 bagged_intercept[idx],
@@ -1329,7 +1336,9 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                         )
                         for rank, indices in enumerate(interaction_indices):
                             old_mean = pair_ranks.get(indices, 0)
-                            pair_ranks[indices] = old_mean + ((rank - old_mean) / (n + 1))
+                            pair_ranks[indices] = old_mean + (
+                                (rank - old_mean) / (n + 1)
+                            )
 
                     final_ranks = []
                     total_interactions = 0
@@ -1385,7 +1394,10 @@ class EBMModel(ExplainerMixin, BaseEstimator):
 
                         max_dimensions = max(max_dimensions, len(feature_idxs))
                         sorted_tuple = tuple(sorted(feature_idxs))
-                        if sorted_tuple not in uniquifier and sorted_tuple not in exclude:
+                        if (
+                            sorted_tuple not in uniquifier
+                            and sorted_tuple not in exclude
+                        ):
                             uniquifier.add(sorted_tuple)
                             boost_groups.append(feature_idxs)
 
@@ -1397,7 +1409,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                             stacklevel=1,
                         )
 
-                if stop_flag.value:
+                if stop_flag is not None and stop_flag[0]:
                     break
 
                 parallel_args = []
@@ -1410,7 +1422,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
 
                     parallel_args.append(
                         (
-                            stop_flag,
+                            shm_name,
                             idx,
                             callback,
                             dataset,
@@ -1459,7 +1471,8 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 results = provider.parallel(boost, parallel_args)
 
                 # allow python to reclaim these big memory items via reference counting
-                del parallel_args  # this holds references to dataset, scores_bags, and bags
+                # this holds references to dataset, scores_bags, and bags
+                del parallel_args
                 del scores_bags
 
                 best_iteration.append([])
@@ -1481,6 +1494,11 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 term_features.extend(boost_groups)
 
                 break  # do not loop!
+
+        finally:
+            if shm is not None:
+                shm.close()
+                shm.unlink()
 
         best_iteration = np.array(best_iteration, np.int64)
 
@@ -2876,8 +2894,8 @@ class ExplainableBoostingClassifier(ClassifierMixin, EBMModel):
         the ensemble as a whole.
     callback : Optional[Callable[[int, int, bool, float], bool]], default=None
         A user-defined function that is invoked at the end of each boosting step to determine
-        whether to terminate boosting or continue. If it returns True, the boosting loop is 
-        stopped immediately. By default, no callback is used and training proceeds according 
+        whether to terminate boosting or continue. If it returns True, the boosting loop is
+        stopped immediately. By default, no callback is used and training proceeds according
         to the early stopping settings.  The callback function receives:
         (1) the bag index, (2) the number of boosting steps completed,
         (3) a boolean indicating whether progress was made in the current step, and (4) the current best score.
@@ -3386,8 +3404,8 @@ class ExplainableBoostingRegressor(RegressorMixin, EBMModel):
         the ensemble as a whole.
     callback : Optional[Callable[[int, int, bool, float], bool]], default=None
         A user-defined function that is invoked at the end of each boosting step to determine
-        whether to terminate boosting or continue. If it returns True, the boosting loop is 
-        stopped immediately. By default, no callback is used and training proceeds according 
+        whether to terminate boosting or continue. If it returns True, the boosting loop is
+        stopped immediately. By default, no callback is used and training proceeds according
         to the early stopping settings.  The callback function receives:
         (1) the bag index, (2) the number of boosting steps completed,
         (3) a boolean indicating whether progress was made in the current step, and (4) the current best score.

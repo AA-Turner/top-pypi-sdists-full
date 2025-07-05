@@ -7,13 +7,17 @@
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use itertools::Either;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::display::commas_iter;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_text_size::TextRange;
@@ -60,8 +64,19 @@ use crate::types::types::Var;
 pub struct CalcId(pub Bindings, pub AnyIdx);
 
 impl Debug for CalcId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CalcId({}, {:?})", self.0.module_info().name(), self.1)
+    }
+}
+
+impl Display for CalcId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CalcId({}, {})",
+            self.0.module_info().name(),
+            self.1.display_with(&self.0),
+        )
     }
 }
 
@@ -122,6 +137,10 @@ impl CalcStack {
         self.0.borrow().clone()
     }
 
+    fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
+
     /// Return the current cycle, if we are at a (module, idx) that we've already seen in this thread.
     ///
     /// The answer will have the form
@@ -145,6 +164,7 @@ impl CalcStack {
 }
 
 /// Represent a cycle we are currently solving.
+#[derive(Debug, Clone)]
 pub struct Cycle {
     /// Where do we want to break the cycle
     break_at: CalcId,
@@ -165,9 +185,26 @@ pub struct Cycle {
     ///
     /// We'll push to it as we recurs, and then pop as calculations complete.
     unwind_stack: Vec<CalcId>,
+    /// The unwound vec tracks things popped from the unwind stack. It is used for debugging only, because
+    /// without it we can lose track of what the cycle actually looked like.
+    unwound: Vec<CalcId>,
     /// The algorithm doesn't actually require knowing where we were when we detected the cycle, but it is
     /// essentially free and could be very useful for debugging.
     detected_at: CalcId,
+}
+
+impl Display for Cycle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Cycle{{break_at: {}, recursion_stack: [{}], unwind_stack: [{}], unwound: [{}], detected_at: {}}}",
+            self.break_at,
+            commas_iter(|| &self.recursion_stack),
+            commas_iter(|| &self.unwind_stack),
+            commas_iter(|| &self.unwound),
+            self.detected_at,
+        )
+    }
 }
 
 impl Cycle {
@@ -187,6 +224,7 @@ impl Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack,
                 unwind_stack,
+                unwound: Vec::new(),
                 detected_at,
             }
         } else {
@@ -203,6 +241,7 @@ impl Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack: Vec::new(),
                 unwind_stack,
+                unwound: Vec::new(),
                 detected_at,
             }
         };
@@ -239,49 +278,19 @@ impl Cycle {
 
     /// Do a post-calculation check, to track progress unwinding the cycle
     /// back toward the `break_at` as we produce final results.
-    ///
-    /// TODO(stroxler): This check currently only occurs for the most
-    /// recently detected cycle, but this is actually a bug; cycles can
-    /// overlap in arbitrary ways.
-    fn on_calculation_finished(&mut self, current: &CalcId) -> CycleState {
+    fn on_calculation_finished(&mut self, current: &CalcId) {
         if let Some(c) = self.unwind_stack.last() {
             if current == c {
                 // This is part of the cycle; remove it from the unwind stack.
-                self.unwind_stack.pop();
-                // This is part of the cycle; remove it from the unwind stack.
-                // Check whether this is the break point (we finished the cycle)
-                // or this is an ordinary participant and we have more unwinding
-                // to do.
-                if *current == self.break_at {
-                    CycleState::BreakAt
-                } else {
-                    CycleState::Participant
-                }
-            } else {
-                // There is an active cycle, but the current idx is not participating.
-                //
-                // This case is hit when any cycle participant computes solving additional
-                // dependencies that aren't part of the active cycle.
-                CycleState::NoDetectedCycle
+                let c = self.unwind_stack.pop().unwrap();
+                // Track what we unwound to make debugging easier.
+                self.unwound.push(c);
             }
-        } else {
-            // There is an active cycle, but the current idx is not participating.
-            //
-            // This case is hit if `break_at` computes additional dependencies that aren't
-            // part of the active cycle.
-            CycleState::NoDetectedCycle
         }
     }
 }
 
-/// Represents the current cycle state for a given calculation. We check
-/// the state at two different points in time:
-/// - Before performing calculations, because we need to know when we are in an
-///   already-detected cycle and recursing out toward the `break_at`, and we
-///   need to know to stop and unwind when we reach `break_at`.
-/// - After performing calculations, because we may need to handle results
-///   differently and we need to know to clean up the cycle when we get back
-///   to `break_at`.
+/// Represents the current cycle state prior to attempting a particular calculation.
 enum CycleState {
     /// The current idx is not participating in any currently detected cycle (though it
     /// remains possible we will detect one here).
@@ -293,19 +302,10 @@ enum CycleState {
     NoDetectedCycle,
     /// This idx is part of the active cycle, and we are either (if this is a pre-calculation
     /// check) recursing out toward `break_at` or unwinding back toward `break_at`.
-    ///
-    /// If we are recursing, the current `Calculation` will need its per-thread recursion
-    /// limit bumped, since this will be a duplicate of some frame from before we first
-    /// reached `break_at`.
-    ///
-    /// If we are unwinding, we may need to handle the result with care to avoid data
-    /// races on `Var` pinning.
     Participant,
-    /// This idx is the `break_at` for the active cycle.
-    /// - If this was a pre-calculation check, it means we have reached the end of the
-    ///   recursion and should return a placeholder to our parent frame.
-    /// - If this was a post-calculation check, it means we have completed the cycle
-    ///   and should wrap up.
+    /// This idx is the `break_at` for the active cycle, which means we have
+    /// reached the end of the recursion and should return a placeholder to our
+    /// parent frame.
     BreakAt,
 }
 
@@ -316,6 +316,10 @@ pub struct Cycles(RefCell<Vec<Cycle>>);
 impl Cycles {
     pub fn new() -> Self {
         Self(RefCell::new(Vec::new()))
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
     }
 
     // Handle a cycle we just detected.
@@ -341,26 +345,22 @@ impl Cycles {
     /// Handle the completion of a calculation. This might involve progress on
     /// the unwind stack of one or more cycles.
     ///
-    /// TODO(stroxler): We currently only look at the most recently detected cycle,
-    /// which is incorrect; we may need to unwind multiple cycles.
-    ///
     /// Return `true` if there are active cycles after finishing this calculation,
     /// `false` if there are not.
     fn on_calculation_finished(&self, current: &CalcId) -> bool {
         let mut stack = self.0.borrow_mut();
-        let state = if let Some(active_cycle) = stack.last_mut() {
-            active_cycle.on_calculation_finished(current)
-        } else {
-            CycleState::NoDetectedCycle
-        };
-        match state {
-            CycleState::BreakAt => {
-                stack.pop();
-                !stack.is_empty()
-            }
-            CycleState::Participant => true,
-            CycleState::NoDetectedCycle => false,
+        for cycle in stack.iter_mut() {
+            cycle.on_calculation_finished(current);
         }
+        while let Some(cycle) = stack.last_mut() {
+            if cycle.unwind_stack.is_empty() {
+                stack.pop();
+            } else {
+                break;
+            }
+        }
+        // Do we still have active cycles?
+        !stack.is_empty()
     }
 }
 
@@ -461,6 +461,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         TypeOrder::new(self)
     }
 
+    pub fn validate_final_thread_state(&self) {
+        assert!(
+            self.thread_state.stack.is_empty(),
+            "The calculation stack should be empty in the final thread state"
+        );
+        assert!(
+            self.thread_state.cycles.is_empty(),
+            "The cycle stack should be empty in the final thread state"
+        );
+    }
+
     pub fn get_idx<K: Solve<Ans>>(&self, idx: Idx<K>) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -505,8 +516,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     // Short circuit if another thread has already written an answer or recursive placeholder.
                     //
-                    // In either case, we needs to treat this as if we finished a calculation to preserve
-                    // the fidelity of the unwind stack.
+                    // In either case, we need to call `on_calculation_finished` to make sure that
+                    // we accurately reflect that this idx is no longer relevant to the unwind stack of
+                    // active cycles.
                     ProposalResult::Calculated(v) => {
                         self.cycles().on_calculation_finished(&current);
                         v

@@ -1,5 +1,4 @@
 import concurrent
-import functools
 import unittest.mock
 import uuid
 
@@ -18,6 +17,7 @@ def moto_autouse(moto_env):
 @pytest.fixture
 def tool_handler(request):
     def handler(tool_use):
+        yield {"event": "abc"}
         return {
             **params,
             "toolUseId": tool_use["toolUseId"],
@@ -66,21 +66,8 @@ def cycle_trace():
 
 
 @pytest.fixture
-def parallel_tool_executor(request):
-    params = {
-        "max_workers": 1,
-        "timeout": None,
-    }
-    if hasattr(request, "param"):
-        params.update(request.param)
-
-    as_completed = functools.partial(concurrent.futures.as_completed, timeout=params["timeout"])
-
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=params["max_workers"])
-    wrapper = strands.tools.ThreadPoolExecutorWrapper(pool)
-
-    with unittest.mock.patch.object(wrapper, "as_completed", side_effect=as_completed):
-        yield wrapper
+def thread_pool(request):
+    return concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def test_run_tools(
@@ -89,7 +76,7 @@ def test_run_tools(
     event_loop_metrics,
     invalid_tool_use_ids,
     cycle_trace,
-    parallel_tool_executor,
+    thread_pool,
 ):
     tool_results = []
 
@@ -100,9 +87,11 @@ def test_run_tools(
         invalid_tool_use_ids,
         tool_results,
         cycle_trace,
-        parallel_tool_executor,
+        thread_pool,
     )
-    list(stream)
+
+    tru_events = list(stream)
+    exp_events = [{"event": "abc"}]
 
     tru_results = tool_results
     exp_results = [
@@ -117,7 +106,7 @@ def test_run_tools(
         },
     ]
 
-    assert tru_results == exp_results
+    assert tru_events == exp_events and tru_results == exp_results
 
 
 @pytest.mark.parametrize("invalid_tool_use_ids", [["t1"]], indirect=True)
@@ -127,7 +116,7 @@ def test_run_tools_invalid_tool(
     event_loop_metrics,
     invalid_tool_use_ids,
     cycle_trace,
-    parallel_tool_executor,
+    thread_pool,
 ):
     tool_results = []
 
@@ -138,7 +127,7 @@ def test_run_tools_invalid_tool(
         invalid_tool_use_ids,
         tool_results,
         cycle_trace,
-        parallel_tool_executor,
+        thread_pool,
     )
     list(stream)
 
@@ -155,7 +144,7 @@ def test_run_tools_failed_tool(
     event_loop_metrics,
     invalid_tool_use_ids,
     cycle_trace,
-    parallel_tool_executor,
+    thread_pool,
 ):
     tool_results = []
 
@@ -166,7 +155,7 @@ def test_run_tools_failed_tool(
         invalid_tool_use_ids,
         tool_results,
         cycle_trace,
-        parallel_tool_executor,
+        thread_pool,
     )
     list(stream)
 
@@ -223,7 +212,7 @@ def test_run_tools_sequential(
         invalid_tool_use_ids,
         tool_results,
         cycle_trace,
-        None,  # parallel_tool_executor
+        None,  # tool_pool
     )
     list(stream)
 
@@ -300,7 +289,7 @@ def test_run_tools_creates_and_ends_span_on_success(
     event_loop_metrics,
     invalid_tool_use_ids,
     cycle_trace,
-    parallel_tool_executor,
+    thread_pool,
 ):
     """Test that run_tools creates and ends a span on successful execution."""
     # Setup mock tracer and span
@@ -323,7 +312,7 @@ def test_run_tools_creates_and_ends_span_on_success(
         tool_results,
         cycle_trace,
         parent_span,
-        parallel_tool_executor,
+        thread_pool,
     )
     list(stream)
 
@@ -347,7 +336,7 @@ def test_run_tools_creates_and_ends_span_on_failure(
     event_loop_metrics,
     invalid_tool_use_ids,
     cycle_trace,
-    parallel_tool_executor,
+    thread_pool,
 ):
     """Test that run_tools creates and ends a span on tool failure."""
     # Setup mock tracer and span
@@ -370,7 +359,7 @@ def test_run_tools_creates_and_ends_span_on_failure(
         tool_results,
         cycle_trace,
         parent_span,
-        parallel_tool_executor,
+        thread_pool,
     )
     list(stream)
 
@@ -413,7 +402,7 @@ def test_run_tools_parallel_execution_with_spans(
     event_loop_metrics,
     invalid_tool_use_ids,
     cycle_trace,
-    parallel_tool_executor,
+    thread_pool,
 ):
     """Test that spans are created and ended for each tool in parallel execution."""
     # Setup mock tracer and spans
@@ -437,7 +426,7 @@ def test_run_tools_parallel_execution_with_spans(
         tool_results,
         cycle_trace,
         parent_span,
-        parallel_tool_executor,
+        thread_pool,
     )
     list(stream)
 

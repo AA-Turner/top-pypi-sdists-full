@@ -5568,6 +5568,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZONINSPECTOR2FULLACCESS_V2 = "AMAZONINSPECTOR2FULLACCESS_V2"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

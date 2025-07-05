@@ -1390,6 +1390,8 @@ class ProxyConfig:
                 "litellm_settings": {},
             }
 
+        if config is None:
+            raise Exception("Config cannot be None or Empty.")
         # Process includes
         config = self._process_includes(
             config=config, base_dir=os.path.dirname(os.path.abspath(file_path or ""))
@@ -2975,6 +2977,8 @@ async def initialize(  # noqa: PLR0915
     config=None,
 ):
     global user_model, user_api_base, user_debug, user_detailed_debug, user_user_max_tokens, user_request_timeout, user_temperature, user_telemetry, user_headers, experimental, llm_model_list, llm_router, general_settings, master_key, user_custom_auth, prisma_client
+    from litellm.proxy.common_utils.banner import show_banner
+    show_banner()
     if os.getenv("LITELLM_DONT_SHOW_FEEDBACK_BOX", "").lower() != "true":
         generate_feedback_box()
     user_model = model

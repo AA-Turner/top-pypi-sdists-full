@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: browsergym-workarena
-Version: 0.4.1
+Version: 0.4.2
 Summary: WorkArena benchmark for BrowserGym
 Project-URL: homepage, https://github.com/ServiceNow/WorkArena
 Author: Léo Boisvert, Alex Drouin, Maxime Gasse, Alex Lacoste, Manuel Del Verme, Megh Thakkar
@@ -22,20 +22,44 @@ Requires-Dist: tenacity>=8.2.3
 Requires-Dist: tqdm>=4.66.2
 Description-Content-Type: text/markdown
 
+<a href="./assets/WorkArena_banner.png">
+  <img src="./assets/WorkArena_banner.png" width="1000" />
+</a>
+
 # WorkArena: A Benchmark for Evaluating Agents on Knowledge Work Tasks 
-[[Benchmark Contents]](#benchmark-contents) ♦ [[Getting Started]](#getting-started) ♦ [[Live Demo]](#live-demo) ♦ [[BrowserGym]](https://github.com/ServiceNow/BrowserGym) ♦ [[Citing This Work]](#citing-this-work)
+[[Benchmark Contents]](#benchmark-contents) ♦ [[Getting Started]](#getting-started) ♦ [[Live Demo]](#live-demo) ♦ [[BrowserGym]](https://github.com/ServiceNow/BrowserGym) ♦ [[Citing This Work]](#citing-this-work) ♦ [Join us on Discord!](https://discord.gg/rDkP69X7)
+
+## Join Our Discord Community
+
+Want to brainstorm ideas, troubleshoot issues, or just geek out with fellow agent builders? Our official Discord server is the perfect place to connect and collaborate. Come hang out with us to:
+
+- Exchange tips, tricks, and success stories
+- Get real-time support and feedback
+- Stay updated on the latest features and announcements
+
+[Join us on Discord!](https://discord.gg/rDkP69X7)
+
+---
+
+### Explore the BrowserGym Ecosystem
+
+Looking for more tools and resources? Check out these open-source projects:
+
+- **[AgentLab](https://github.com/ServiceNow/AgentLab)**
+- **[BrowserGym](https://github.com/ServiceNow/BrowserGym)**
+
+Both are part of the broader [BrowserGym ecosystem](https://arxiv.org/abs/2412.05467)
 
 ### Papers
 *  [ICML 2024] WorkArena: How Capable are Web Agents at Solving Common Knowledge Work Tasks? [[Paper]](https://arxiv.org/abs/2403.07718)
  
-*  WorkArena++: Towards Compositional Planning and Reasoning-based Common Knowledge Work Tasks [[Paper]](https://arxiv.org/abs/2407.05291)
+*  [NeurIPS 2024] WorkArena++: Towards Compositional Planning and Reasoning-based Common Knowledge Work Tasks [[Paper]](https://arxiv.org/abs/2407.05291)
  
 
 `WorkArena` is a suite of browser-based tasks tailored to gauge web agents' effectiveness in supporting routine tasks for knowledge workers. 
 By harnessing the ubiquitous [ServiceNow](https://www.servicenow.com/what-is-servicenow.html) platform, this benchmark will be instrumental in assessing the widespread state of such automations in modern knowledge work environments.
 
-WorkArena is included in [BrowserGym](https://github.com/ServiceNow/BrowserGym), a conversational gym environment for the evaluation of web agents.
-
+The preferred way to evaluate on WorkArena is with [AgentLab](https://github.com/ServiceNow/AgentLab/) which will conduct parallel experiments through [BrowserGym](https://github.com/ServiceNow/BrowserGym) and report on a [unified leaderboard](https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard).
 
 https://github.com/ServiceNow/WorkArena/assets/2374980/68640f09-7d6f-4eb1-b556-c294a6afef70
 
@@ -48,7 +72,9 @@ To setup WorkArena, you will need to get your own ServiceNow instance, install o
 1. Go to https://developer.servicenow.com/ and create an account.
 2. Click on `Request an instance` and select the `Washington` release (initializing the instance will take a few minutes)
 3. Once the instance is ready, you should see your instance URL and credentials. If not, click _Return to the Developer Portal_, then navigate to _Manage instance password_ and click _Reset instance password_.
-4. You should now see your URL and credentials. Based on this information, set the following environment variables:
+4. Change the role of the user to admin in yoyr instance parameters ![image](https://github.com/user-attachments/assets/6f0fbf8e-f40f-411a-84cb-fead93d85f60)
+
+5. You should now see your URL and credentials. Based on this information, set the following environment variables:
     * `SNOW_INSTANCE_URL`: The URL of your ServiceNow developer instance
     * `SNOW_INSTANCE_UNAME`: The username, should be "admin"
     * `SNOW_INSTANCE_PWD`: The password, make sure you place the value in quotes "" and be mindful of [escaping special shell characters](https://onlinelinuxtools.com/escape-shell-characters). Running `echo $SNOW_INSTANCE_PWD` should print the correct password.
@@ -123,41 +149,6 @@ https://github.com/ServiceNow/WorkArena/assets/1726818/ca26dfaf-2358-4418-855f-8
 
 https://github.com/ServiceNow/WorkArena/assets/1726818/0023232c-081f-4be4-99bd-f60c766e6c3f
 
-## Getting Started
-
-To setup WorkArena, you will need to get your own ServiceNow instance, install our Python package, and upload some data to your instance. Follow the steps below to achieve this.
-
-### a) Create a ServiceNow Developer Instance
-
-1. Go to https://developer.servicenow.com/ and create an account.
-2. Click on `Request an instance` and select the `Washington` release (initializing the instance will take a few minutes)
-3. Once the instance is ready, you should see your instance URL and credentials. If not, click _Return to the Developer Portal_, then navigate to _Manage instance password_ and click _Reset instance password_.
-4. You should now see your URL and credentials. Based on this information, set the following environment variables:
-    * `SNOW_INSTANCE_URL`: The URL of your ServiceNow developer instance
-    * `SNOW_INSTANCE_UNAME`: The username, should be "admin"
-    * `SNOW_INSTANCE_PWD`: The password, make sure you place the value in single quotes '' and be mindful of [escaping special shell characters](https://onlinelinuxtools.com/escape-shell-characters). Running `echo $SNOW_INSTANCE_PWD` should print the correct password.
-6. Log into your instance via a browser using the admin credentials. Close any popup that appears on the main screen (e.g., agreeing to analytics).
-
-**Warning:** Feel free to look around the platform, but please make sure you revert any changes (e.g., changes to list views, pinning some menus, etc.) as these changes will be persistent and affect the benchmarking process.
-
-### b) Install WorkArena and Initialize your Instance
-
-Run the following command to install WorkArena in the [BrowswerGym](https://github.com/servicenow/browsergym) environment:
-```
-pip install browsergym-workarena
-```
-
-Then, install [Playwright](https://github.com/microsoft/playwright):
-```
-playwright install
-```
-
-Finally, run this command in a terminal to upload the benchmark data to your ServiceNow instance:
-```
-workarena-install
-```
-Your installation is now complete! 🎉
-
 ## Live Demo
 
 Run this code to see WorkArena in action.
@@ -169,12 +160,12 @@ Note: the following example executes WorkArena's oracle (cheat) function to solv
 import random
 
 from browsergym.core.env import BrowserEnv
-from browsergym.workarena import ALL_WORKARENA_TASKS
+from browsergym.workarena import ATOMIC_TASKS
 from time import sleep
 
 
-random.shuffle(ALL_WORKARENA_TASKS)
-for task in ALL_WORKARENA_TASKS:
+random.shuffle(ATOMIC_TASKS)
+for task in ATOMIC_TASKS:
     print("Task:", task)
 
     # Instantiate a new environment

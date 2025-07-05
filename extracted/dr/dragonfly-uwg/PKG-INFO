@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dragonfly-uwg
-Version: 0.5.725
+Version: 0.5.726
 Summary: Dragonfly extension for the Urban Weather Generator (UWG).
 Home-page: https://github.com/ladybug-tools/dragonfly-uwg
 Author: Ladybug Tools
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-core==1.66.0
+Requires-Dist: dragonfly-core==1.66.1
 Requires-Dist: uwg==5.8.13
 
 ![Dragonfly](https://www.ladybug.tools/assets/img/dragonfly.png)

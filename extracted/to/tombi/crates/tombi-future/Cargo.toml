@@ -11,6 +11,5 @@ readme = "README.md"
 futures.workspace = true
 
 [features]
-default = ["native"]
 native = []
 wasm = []

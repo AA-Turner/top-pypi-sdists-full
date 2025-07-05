@@ -197,7 +197,7 @@ extensions = [
 
 setup(
     name='pykdtree',
-    version='1.4.1',
+    version='1.4.2',
     url="https://github.com/storpipfugl/pykdtree",
     description='Fast kd-tree implementation with OpenMP-enabled queries',
     long_description=readme,
@@ -207,7 +207,9 @@ setup(
     packages=['pykdtree'],
     python_requires='>=3.9',
     install_requires=['numpy'],
-    tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest', 'mypy'],
+    },
     zip_safe=False,
     ext_modules=extensions,
     cmdclass={'build_ext': build_ext_subclass},

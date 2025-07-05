@@ -1524,10 +1524,11 @@ struct __pyx_obj_8sqlcycli_7charset_Charset {
   PyObject *_encoding;
   char *_encoding_c;
   int _is_default;
+  Py_ssize_t _hashcode;
 };
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1544,7 +1545,7 @@ struct __pyx_obj_8sqlcycli_7charset_Charsets {
 };
 
 
-/* "sqlcycli/charset.py":306
+/* "sqlcycli/charset.py":295
  *     def __repr__(self) -> str:
  *         return "<Charsets(\n%s\n)>" % (
  *             "\n".join(str(charset) for charset in self._by_id.values()),             # <<<<<<<<<<<<<<
@@ -1563,7 +1564,7 @@ struct __pyx_obj_8sqlcycli_7charset___pyx_scope_struct__genexpr {
  * # Charset(s) ----------------------------------------------------------------------------------
  * @cython.cclass
  * class Charset:             # <<<<<<<<<<<<<<
- *     """Represents the charset for MySQL."""
+ *     """Represents a MySQL character set."""
  * 
  */
 
@@ -1573,20 +1574,20 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charset {
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcycli_7charset_Charset;
 
 
-/* "sqlcycli/charset.py":136
+/* "sqlcycli/charset.py":132
  * 
  * @cython.cclass
  * class Charsets:             # <<<<<<<<<<<<<<
- *     """Represent the collection of MySQL charsets."""
+ *     """Collection for managing all the MySQL charsets."""
  * 
  */
 
 struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
   int (*add)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *, int __pyx_skip_dispatch);
-  int (*_add_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
   PyObject *(*_gen_charset_n_collate_key)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
@@ -1594,10 +1595,10 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *, int __pyx_skip_dispatch);
 };
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *__pyx_vtabptr_8sqlcycli_7charset_Charsets;
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name_n_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
 static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *);
 /* #### Code section: utility_code_proto ### */
 
@@ -1835,6 +1836,9 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg
 #define __Pyx_PyObject_Call(func, arg, kw) PyObject_Call(func, arg, kw)
 #endif
 
+/* RaiseException.proto */
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
+
 /* UnpackUnboundCMethod.proto */
 typedef struct {
     PyObject *type;
@@ -1963,6 +1967,15 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObj
 static PyObject* __Pyx_PyUnicode_Join(PyObject* value_tuple, Py_ssize_t value_count, Py_ssize_t result_ulength,
                                       Py_UCS4 max_char);
 
+/* ExtTypeTest.proto */
+static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
+
+/* PyObjectCallOneArg.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
+
+/* GetAttr3.proto */
+static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
+
 /* GetModuleGlobalName.proto */
 #if CYTHON_USE_DICT_VERSIONS
 #define __Pyx_GetModuleGlobalName(var, name)  do {\
@@ -1984,15 +1997,6 @@ static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_ve
 static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
 #endif
 
-/* RaiseException.proto */
-static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
-
-/* GetAttr3.proto */
-static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
-
-/* ExtTypeTest.proto */
-static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
-
 /* py_dict_values.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyDict_Values(PyObject* d);
 
@@ -2001,9 +2005,6 @@ static CYTHON_INLINE int __Pyx_IterFinish(void);
 
 /* PyObjectCallNoArg.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func);
-
-/* PyObjectCallOneArg.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
 
 /* PyObjectGetMethod.proto */
 static int __Pyx_PyObject_GetMethod(PyObject *obj, PyObject *name, PyObject **method);
@@ -2512,10 +2513,10 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 /* #### Code section: module_declarations ### */
 static int __pyx_f_8sqlcycli_7charset_7Charset_is_binary(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, int __pyx_skip_dispatch); /* proto*/
 static int __pyx_f_8sqlcycli_7charset_8Charsets_add(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset, int __pyx_skip_dispatch); /* proto*/
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name_n_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto*/
 static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(CYTHON_UNUSED struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_collation); /* proto*/
 static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8Charsets_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, PyObject *__pyx_v_id, int __pyx_skip_dispatch); /* proto*/
 static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8Charsets_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, PyObject *__pyx_v_name, int __pyx_skip_dispatch); /* proto*/
@@ -2558,26 +2559,28 @@ int __pyx_module_is_main_sqlcycli__charset = 0;
 
 /* Implementation of "sqlcycli.charset" */
 /* #### Code section: global_var ### */
+static PyObject *__pyx_builtin_AssertionError;
 static PyObject *__pyx_builtin_NotImplemented;
+static PyObject *__pyx_builtin_id;
 /* #### Code section: string_decls ### */
-static const char __pyx_k_[] = ")>";
 static const char __pyx_k_d[] = "d";
-static const char __pyx_k__2[] = "<'";
-static const char __pyx_k__3[] = ":";
-static const char __pyx_k__4[] = " & ";
-static const char __pyx_k__5[] = "\n";
-static const char __pyx_k__6[] = "\n)>";
-static const char __pyx_k__8[] = ".";
+static const char __pyx_k__3[] = ")>";
+static const char __pyx_k__5[] = ":";
+static const char __pyx_k__6[] = "<'";
+static const char __pyx_k__7[] = " & ";
+static const char __pyx_k__8[] = "\n";
+static const char __pyx_k__9[] = "\n)>";
 static const char __pyx_k_gc[] = "gc";
 static const char __pyx_k_id[] = "id";
 static const char __pyx_k_Any[] = "Any";
+static const char __pyx_k__11[] = ".";
 static const char __pyx_k_add[] = "add";
 static const char __pyx_k_all[] = "__all__";
 static const char __pyx_k_gbk[] = "gbk";
 static const char __pyx_k_hp8[] = "hp8";
 static const char __pyx_k_new[] = "__new__";
 static const char __pyx_k_None[] = "None";
-static const char __pyx_k__183[] = "?";
+static const char __pyx_k__186[] = "?";
 static const char __pyx_k_args[] = "args";
 static const char __pyx_k_big5[] = "big5";
 static const char __pyx_k_dec8[] = "dec8";
@@ -2637,7 +2640,7 @@ static const char __pyx_k_tis620[] = "tis620";
 static const char __pyx_k_typing[] = "typing";
 static const char __pyx_k_update[] = "update";
 static const char __pyx_k_values[] = "values";
-static const char __pyx_k_Charset[] = "'>\nCharset ";
+static const char __pyx_k_Charset[] = "Charset";
 static const char __pyx_k_by_name[] = "by_name";
 static const char __pyx_k_charset[] = "charset";
 static const char __pyx_k_disable[] = "disable";
@@ -2667,7 +2670,6 @@ static const char __pyx_k_sjis_bin[] = "sjis_bin";
 static const char __pyx_k_sqlcycli[] = "sqlcycli";
 static const char __pyx_k_swe7_bin[] = "swe7_bin";
 static const char __pyx_k_ujis_bin[] = "ujis_bin";
-static const char __pyx_k_Charset_2[] = "Charset";
 static const char __pyx_k_ascii_bin[] = "ascii_bin";
 static const char __pyx_k_collation[] = "collation";
 static const char __pyx_k_cp850_bin[] = "cp850_bin";
@@ -2717,6 +2719,7 @@ static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_stringsource[] = "<stringsource>";
 static const char __pyx_k_use_setstate[] = "use_setstate";
 static const char __pyx_k_reduce_cython[] = "__reduce_cython__";
+static const char __pyx_k_AssertionError[] = "AssertionError";
 static const char __pyx_k_Charsets_by_id[] = "Charsets.by_id";
 static const char __pyx_k_NotImplemented[] = "NotImplemented";
 static const char __pyx_k_does_not_exist[] = "' does not exist.";
@@ -2751,7 +2754,6 @@ static const char __pyx_k_utf8mb3_czech_ci[] = "utf8mb3_czech_ci";
 static const char __pyx_k_utf8mb3_roman_ci[] = "utf8mb3_roman_ci";
 static const char __pyx_k_utf8mb4_czech_ci[] = "utf8mb4_czech_ci";
 static const char __pyx_k_utf8mb4_roman_ci[] = "utf8mb4_roman_ci";
-static const char __pyx_k_CharsetIndexError[] = "CharsetIndexError";
 static const char __pyx_k_Charset_is_binary[] = "Charset.is_binary";
 static const char __pyx_k_cp1250_general_ci[] = "cp1250_general_ci";
 static const char __pyx_k_cp1251_general_ci[] = "cp1251_general_ci";
@@ -2806,7 +2808,6 @@ static const char __pyx_k_utf8mb4_swedish_ci[] = "utf8mb4_swedish_ci";
 static const char __pyx_k_utf8mb4_turkish_ci[] = "utf8mb4_turkish_ci";
 static const char __pyx_k_utf8mb4_unicode_ci[] = "utf8mb4_unicode_ci";
 static const char __pyx_k_MySQL_charactor_set[] = "'>\nMySQL charactor set '";
-static const char __pyx_k_already_exist_by_ID[] = " already exist by ID.";
 static const char __pyx_k_armscii8_general_ci[] = "armscii8_general_ci";
 static const char __pyx_k_by_name_n_collation[] = "by_name_n_collation";
 static const char __pyx_k_cp1251_bulgarian_ci[] = "cp1251_bulgarian_ci";
@@ -2834,14 +2835,13 @@ static const char __pyx_k_utf8mb4_hungarian_ci[] = "utf8mb4_hungarian_ci";
 static const char __pyx_k_utf8mb4_icelandic_ci[] = "utf8mb4_icelandic_ci";
 static const char __pyx_k_utf8mb4_slovenian_ci[] = "utf8mb4_slovenian_ci";
 static const char __pyx_k_Charsets_by_collation[] = "Charsets.by_collation";
-static const char __pyx_k_already_exist_by_name[] = " already exist by name.";
 static const char __pyx_k_pyx_unpickle_Charsets[] = "__pyx_unpickle_Charsets";
 static const char __pyx_k_repr___locals_genexpr[] = "__repr__.<locals>.genexpr";
 static const char __pyx_k_utf8mb3_lithuanian_ci[] = "utf8mb3_lithuanian_ci";
 static const char __pyx_k_utf8mb3_vietnamese_ci[] = "utf8mb3_vietnamese_ci";
 static const char __pyx_k_utf8mb4_lithuanian_ci[] = "utf8mb4_lithuanian_ci";
 static const char __pyx_k_utf8mb4_vietnamese_ci[] = "utf8mb4_vietnamese_ci";
-static const char __pyx_k_CharsetDuplicatedError[] = "CharsetDuplicatedError";
+static const char __pyx_k_charset_cannot_be_None[] = "charset cannot be 'None'.";
 static const char __pyx_k_gb18030_unicode_520_ci[] = "gb18030_unicode_520_ci";
 static const char __pyx_k_utf8mb3_unicode_520_ci[] = "utf8mb3_unicode_520_ci";
 static const char __pyx_k_utf8mb4_unicode_520_ci[] = "utf8mb4_unicode_520_ci";
@@ -2851,16 +2851,15 @@ static const char __pyx_k_Charsets___reduce_cython[] = "Charsets.__reduce_cython
 static const char __pyx_k_Charset___setstate_cython[] = "Charset.__setstate_cython__";
 static const char __pyx_k_MySQL_charactor_collation[] = "'>\nMySQL charactor collation '";
 static const char __pyx_k_Charsets___setstate_cython[] = "Charsets.__setstate_cython__";
-static const char __pyx_k_already_exist_by_collation[] = " already exist by collation.";
+static const char __pyx_k_Charset_name_cannot_be_None[] = "Charset name cannot be 'None'.";
 static const char __pyx_k_utf8mb3_general_mysql500_ci[] = "utf8mb3_general_mysql500_ci";
 static const char __pyx_k_Charsets_by_name_n_collation[] = "Charsets.by_name_n_collation";
 static const char __pyx_k_MySQL_charactor_set_collation[] = "'>\nMySQL charactor set & collation '";
-static const char __pyx_k_already_exist_by_name_collation[] = " already exist by name & collation.";
-static const char __pyx_k_s_Index_out_of_bounds_must_betw[] = "<'%s'>\nIndex out of bounds, must between 0 and 3.";
-static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))";
+static const char __pyx_k_Charset_collation_cannot_be_None[] = "Charset collation cannot be 'None'.";
+static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0_2[] = "Incompatible checksums (0x%x vs (0x4eeaf1f, 0xc6971c6, 0x57cd78a) = (_by_collation, _by_id, _by_name, _by_name_n_collation))";
 /* #### Code section: decls ### */
-static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v_id, PyObject *__pyx_v_name, PyObject *__pyx_v_collation, int __pyx_v_is_default); /* proto */
+static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, int __pyx_v_id, PyObject *__pyx_v_name, PyObject *__pyx_v_collation, int __pyx_v_is_default); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_2id___get__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4name___get__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_9collation___get__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
@@ -2868,11 +2867,10 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_10is_default___get__(struc
 static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8encoding___get__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_2is_binary(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_6__getitem__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, int __pyx_v_idx); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8__eq__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v_o); /* proto */
-static Py_hash_t __pyx_pf_8sqlcycli_7charset_7Charset_10__hash__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_14__setstate_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_6__eq__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v_o); /* proto */
+static Py_hash_t __pyx_pf_8sqlcycli_7charset_7Charset_8__hash__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_10__reduce_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__setstate_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
 static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_2add(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_4by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, PyObject *__pyx_v_id); /* proto */
@@ -2950,18 +2948,17 @@ typedef struct {
   PyTypeObject *__pyx_ptype_8sqlcycli_7charset_Charset;
   PyTypeObject *__pyx_ptype_8sqlcycli_7charset_Charsets;
   PyTypeObject *__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr;
-  PyObject *__pyx_kp_u_;
   PyObject *__pyx_n_s_Any;
-  PyObject *__pyx_kp_u_Charset;
-  PyObject *__pyx_n_s_CharsetDuplicatedError;
-  PyObject *__pyx_n_s_CharsetIndexError;
+  PyObject *__pyx_n_s_AssertionError;
+  PyObject *__pyx_n_s_Charset;
+  PyObject *__pyx_n_u_Charset;
   PyObject *__pyx_n_s_CharsetNotFoundError;
-  PyObject *__pyx_n_s_Charset_2;
-  PyObject *__pyx_n_u_Charset_2;
   PyObject *__pyx_n_s_Charset___reduce_cython;
   PyObject *__pyx_n_s_Charset___setstate_cython;
+  PyObject *__pyx_kp_u_Charset_collation_cannot_be_None;
   PyObject *__pyx_kp_u_Charset_id;
   PyObject *__pyx_n_s_Charset_is_binary;
+  PyObject *__pyx_kp_u_Charset_name_cannot_be_None;
   PyObject *__pyx_kp_u_Charsets;
   PyObject *__pyx_n_s_Charsets_2;
   PyObject *__pyx_n_u_Charsets_2;
@@ -2982,21 +2979,18 @@ typedef struct {
   PyObject *__pyx_kp_u_None;
   PyObject *__pyx_n_s_NotImplemented;
   PyObject *__pyx_n_s_PickleError;
-  PyObject *__pyx_n_s__183;
-  PyObject *__pyx_kp_u__2;
+  PyObject *__pyx_kp_u__11;
+  PyObject *__pyx_n_s__186;
   PyObject *__pyx_kp_u__3;
-  PyObject *__pyx_kp_u__4;
   PyObject *__pyx_kp_u__5;
   PyObject *__pyx_kp_u__6;
+  PyObject *__pyx_kp_u__7;
   PyObject *__pyx_kp_u__8;
+  PyObject *__pyx_kp_u__9;
   PyObject *__pyx_n_s_add;
   PyObject *__pyx_n_s_all;
   PyObject *__pyx_n_s_all_charsets;
   PyObject *__pyx_n_u_all_charsets;
-  PyObject *__pyx_kp_u_already_exist_by_ID;
-  PyObject *__pyx_kp_u_already_exist_by_collation;
-  PyObject *__pyx_kp_u_already_exist_by_name;
-  PyObject *__pyx_kp_u_already_exist_by_name_collation;
   PyObject *__pyx_n_s_args;
   PyObject *__pyx_n_u_armscii8;
   PyObject *__pyx_n_u_armscii8_bin;
@@ -3018,6 +3012,7 @@ typedef struct {
   PyObject *__pyx_n_s_by_name_n_collation;
   PyObject *__pyx_n_u_by_name_n_collation;
   PyObject *__pyx_n_s_charset;
+  PyObject *__pyx_kp_u_charset_cannot_be_None;
   PyObject *__pyx_n_s_charsets;
   PyObject *__pyx_n_s_class;
   PyObject *__pyx_n_s_cline_in_traceback;
@@ -3167,7 +3162,6 @@ typedef struct {
   PyObject *__pyx_n_s_reduce_cython;
   PyObject *__pyx_n_s_reduce_ex;
   PyObject *__pyx_n_s_repr___locals_genexpr;
-  PyObject *__pyx_kp_u_s_Index_out_of_bounds_must_betw;
   PyObject *__pyx_n_s_self;
   PyObject *__pyx_n_s_send;
   PyObject *__pyx_n_s_setstate;
@@ -3402,27 +3396,27 @@ typedef struct {
   PyObject *__pyx_int_255;
   PyObject *__pyx_int_82751263;
   PyObject *__pyx_int_92067722;
-  PyObject *__pyx_int_112447473;
-  PyObject *__pyx_int_137718339;
-  PyObject *__pyx_int_151085017;
+  PyObject *__pyx_int_147461375;
+  PyObject *__pyx_int_166556248;
   PyObject *__pyx_int_208236998;
-  PyObject *__pyx_tuple__7;
-  PyObject *__pyx_tuple__9;
+  PyObject *__pyx_int_238740280;
+  PyObject *__pyx_tuple_;
+  PyObject *__pyx_tuple__2;
+  PyObject *__pyx_tuple__4;
   PyObject *__pyx_tuple__10;
   PyObject *__pyx_tuple__12;
-  PyObject *__pyx_tuple__14;
-  PyObject *__pyx_tuple__16;
-  PyObject *__pyx_tuple__18;
-  PyObject *__pyx_tuple__20;
-  PyObject *__pyx_tuple__22;
-  PyObject *__pyx_tuple__24;
-  PyObject *__pyx_tuple__29;
-  PyObject *__pyx_tuple__31;
-  PyObject *__pyx_tuple__33;
-  PyObject *__pyx_tuple__35;
-  PyObject *__pyx_tuple__37;
+  PyObject *__pyx_tuple__13;
+  PyObject *__pyx_tuple__15;
+  PyObject *__pyx_tuple__17;
+  PyObject *__pyx_tuple__19;
+  PyObject *__pyx_tuple__21;
+  PyObject *__pyx_tuple__23;
+  PyObject *__pyx_tuple__25;
+  PyObject *__pyx_tuple__27;
+  PyObject *__pyx_tuple__32;
+  PyObject *__pyx_tuple__34;
+  PyObject *__pyx_tuple__36;
   PyObject *__pyx_tuple__38;
-  PyObject *__pyx_tuple__39;
   PyObject *__pyx_tuple__40;
   PyObject *__pyx_tuple__41;
   PyObject *__pyx_tuple__42;
@@ -3564,23 +3558,26 @@ typedef struct {
   PyObject *__pyx_tuple__178;
   PyObject *__pyx_tuple__179;
   PyObject *__pyx_tuple__180;
-  PyObject *__pyx_codeobj__11;
-  PyObject *__pyx_codeobj__13;
-  PyObject *__pyx_codeobj__15;
-  PyObject *__pyx_codeobj__17;
-  PyObject *__pyx_codeobj__19;
-  PyObject *__pyx_codeobj__21;
-  PyObject *__pyx_codeobj__23;
-  PyObject *__pyx_codeobj__25;
+  PyObject *__pyx_tuple__181;
+  PyObject *__pyx_tuple__182;
+  PyObject *__pyx_tuple__183;
+  PyObject *__pyx_codeobj__14;
+  PyObject *__pyx_codeobj__16;
+  PyObject *__pyx_codeobj__18;
+  PyObject *__pyx_codeobj__20;
+  PyObject *__pyx_codeobj__22;
+  PyObject *__pyx_codeobj__24;
   PyObject *__pyx_codeobj__26;
-  PyObject *__pyx_codeobj__27;
   PyObject *__pyx_codeobj__28;
+  PyObject *__pyx_codeobj__29;
   PyObject *__pyx_codeobj__30;
-  PyObject *__pyx_codeobj__32;
-  PyObject *__pyx_codeobj__34;
-  PyObject *__pyx_codeobj__36;
-  PyObject *__pyx_codeobj__181;
-  PyObject *__pyx_codeobj__182;
+  PyObject *__pyx_codeobj__31;
+  PyObject *__pyx_codeobj__33;
+  PyObject *__pyx_codeobj__35;
+  PyObject *__pyx_codeobj__37;
+  PyObject *__pyx_codeobj__39;
+  PyObject *__pyx_codeobj__184;
+  PyObject *__pyx_codeobj__185;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -3630,18 +3627,17 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_7charset_Charsets);
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr);
   Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_);
   Py_CLEAR(clear_module_state->__pyx_n_s_Any);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Charset);
-  Py_CLEAR(clear_module_state->__pyx_n_s_CharsetDuplicatedError);
-  Py_CLEAR(clear_module_state->__pyx_n_s_CharsetIndexError);
+  Py_CLEAR(clear_module_state->__pyx_n_s_AssertionError);
+  Py_CLEAR(clear_module_state->__pyx_n_s_Charset);
+  Py_CLEAR(clear_module_state->__pyx_n_u_Charset);
   Py_CLEAR(clear_module_state->__pyx_n_s_CharsetNotFoundError);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Charset_2);
-  Py_CLEAR(clear_module_state->__pyx_n_u_Charset_2);
   Py_CLEAR(clear_module_state->__pyx_n_s_Charset___reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_Charset___setstate_cython);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Charset_collation_cannot_be_None);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Charset_id);
   Py_CLEAR(clear_module_state->__pyx_n_s_Charset_is_binary);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Charset_name_cannot_be_None);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Charsets);
   Py_CLEAR(clear_module_state->__pyx_n_s_Charsets_2);
   Py_CLEAR(clear_module_state->__pyx_n_u_Charsets_2);
@@ -3662,21 +3658,18 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u_None);
   Py_CLEAR(clear_module_state->__pyx_n_s_NotImplemented);
   Py_CLEAR(clear_module_state->__pyx_n_s_PickleError);
-  Py_CLEAR(clear_module_state->__pyx_n_s__183);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__2);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__11);
+  Py_CLEAR(clear_module_state->__pyx_n_s__186);
   Py_CLEAR(clear_module_state->__pyx_kp_u__3);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__4);
   Py_CLEAR(clear_module_state->__pyx_kp_u__5);
   Py_CLEAR(clear_module_state->__pyx_kp_u__6);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__7);
   Py_CLEAR(clear_module_state->__pyx_kp_u__8);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__9);
   Py_CLEAR(clear_module_state->__pyx_n_s_add);
   Py_CLEAR(clear_module_state->__pyx_n_s_all);
   Py_CLEAR(clear_module_state->__pyx_n_s_all_charsets);
   Py_CLEAR(clear_module_state->__pyx_n_u_all_charsets);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_already_exist_by_ID);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_already_exist_by_collation);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_already_exist_by_name);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_already_exist_by_name_collation);
   Py_CLEAR(clear_module_state->__pyx_n_s_args);
   Py_CLEAR(clear_module_state->__pyx_n_u_armscii8);
   Py_CLEAR(clear_module_state->__pyx_n_u_armscii8_bin);
@@ -3698,6 +3691,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_by_name_n_collation);
   Py_CLEAR(clear_module_state->__pyx_n_u_by_name_n_collation);
   Py_CLEAR(clear_module_state->__pyx_n_s_charset);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_charset_cannot_be_None);
   Py_CLEAR(clear_module_state->__pyx_n_s_charsets);
   Py_CLEAR(clear_module_state->__pyx_n_s_class);
   Py_CLEAR(clear_module_state->__pyx_n_s_cline_in_traceback);
@@ -3847,7 +3841,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_ex);
   Py_CLEAR(clear_module_state->__pyx_n_s_repr___locals_genexpr);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_s_Index_out_of_bounds_must_betw);
   Py_CLEAR(clear_module_state->__pyx_n_s_self);
   Py_CLEAR(clear_module_state->__pyx_n_s_send);
   Py_CLEAR(clear_module_state->__pyx_n_s_setstate);
@@ -4082,27 +4075,27 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_int_255);
   Py_CLEAR(clear_module_state->__pyx_int_82751263);
   Py_CLEAR(clear_module_state->__pyx_int_92067722);
-  Py_CLEAR(clear_module_state->__pyx_int_112447473);
-  Py_CLEAR(clear_module_state->__pyx_int_137718339);
-  Py_CLEAR(clear_module_state->__pyx_int_151085017);
+  Py_CLEAR(clear_module_state->__pyx_int_147461375);
+  Py_CLEAR(clear_module_state->__pyx_int_166556248);
   Py_CLEAR(clear_module_state->__pyx_int_208236998);
-  Py_CLEAR(clear_module_state->__pyx_tuple__7);
-  Py_CLEAR(clear_module_state->__pyx_tuple__9);
+  Py_CLEAR(clear_module_state->__pyx_int_238740280);
+  Py_CLEAR(clear_module_state->__pyx_tuple_);
+  Py_CLEAR(clear_module_state->__pyx_tuple__2);
+  Py_CLEAR(clear_module_state->__pyx_tuple__4);
   Py_CLEAR(clear_module_state->__pyx_tuple__10);
   Py_CLEAR(clear_module_state->__pyx_tuple__12);
-  Py_CLEAR(clear_module_state->__pyx_tuple__14);
-  Py_CLEAR(clear_module_state->__pyx_tuple__16);
-  Py_CLEAR(clear_module_state->__pyx_tuple__18);
-  Py_CLEAR(clear_module_state->__pyx_tuple__20);
-  Py_CLEAR(clear_module_state->__pyx_tuple__22);
-  Py_CLEAR(clear_module_state->__pyx_tuple__24);
-  Py_CLEAR(clear_module_state->__pyx_tuple__29);
-  Py_CLEAR(clear_module_state->__pyx_tuple__31);
-  Py_CLEAR(clear_module_state->__pyx_tuple__33);
-  Py_CLEAR(clear_module_state->__pyx_tuple__35);
-  Py_CLEAR(clear_module_state->__pyx_tuple__37);
+  Py_CLEAR(clear_module_state->__pyx_tuple__13);
+  Py_CLEAR(clear_module_state->__pyx_tuple__15);
+  Py_CLEAR(clear_module_state->__pyx_tuple__17);
+  Py_CLEAR(clear_module_state->__pyx_tuple__19);
+  Py_CLEAR(clear_module_state->__pyx_tuple__21);
+  Py_CLEAR(clear_module_state->__pyx_tuple__23);
+  Py_CLEAR(clear_module_state->__pyx_tuple__25);
+  Py_CLEAR(clear_module_state->__pyx_tuple__27);
+  Py_CLEAR(clear_module_state->__pyx_tuple__32);
+  Py_CLEAR(clear_module_state->__pyx_tuple__34);
+  Py_CLEAR(clear_module_state->__pyx_tuple__36);
   Py_CLEAR(clear_module_state->__pyx_tuple__38);
-  Py_CLEAR(clear_module_state->__pyx_tuple__39);
   Py_CLEAR(clear_module_state->__pyx_tuple__40);
   Py_CLEAR(clear_module_state->__pyx_tuple__41);
   Py_CLEAR(clear_module_state->__pyx_tuple__42);
@@ -4244,23 +4237,26 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_tuple__178);
   Py_CLEAR(clear_module_state->__pyx_tuple__179);
   Py_CLEAR(clear_module_state->__pyx_tuple__180);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__11);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__13);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__15);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__17);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__19);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__21);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__23);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__25);
+  Py_CLEAR(clear_module_state->__pyx_tuple__181);
+  Py_CLEAR(clear_module_state->__pyx_tuple__182);
+  Py_CLEAR(clear_module_state->__pyx_tuple__183);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__14);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__16);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__18);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__20);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__22);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__24);
   Py_CLEAR(clear_module_state->__pyx_codeobj__26);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__27);
   Py_CLEAR(clear_module_state->__pyx_codeobj__28);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__29);
   Py_CLEAR(clear_module_state->__pyx_codeobj__30);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__32);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__34);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__36);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__181);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__182);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__31);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__33);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__35);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__37);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__39);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__184);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__185);
   return 0;
 }
 #endif
@@ -4288,18 +4284,17 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_7charset_Charsets);
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr);
   Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_);
   Py_VISIT(traverse_module_state->__pyx_n_s_Any);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Charset);
-  Py_VISIT(traverse_module_state->__pyx_n_s_CharsetDuplicatedError);
-  Py_VISIT(traverse_module_state->__pyx_n_s_CharsetIndexError);
+  Py_VISIT(traverse_module_state->__pyx_n_s_AssertionError);
+  Py_VISIT(traverse_module_state->__pyx_n_s_Charset);
+  Py_VISIT(traverse_module_state->__pyx_n_u_Charset);
   Py_VISIT(traverse_module_state->__pyx_n_s_CharsetNotFoundError);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Charset_2);
-  Py_VISIT(traverse_module_state->__pyx_n_u_Charset_2);
   Py_VISIT(traverse_module_state->__pyx_n_s_Charset___reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_Charset___setstate_cython);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Charset_collation_cannot_be_None);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Charset_id);
   Py_VISIT(traverse_module_state->__pyx_n_s_Charset_is_binary);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Charset_name_cannot_be_None);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Charsets);
   Py_VISIT(traverse_module_state->__pyx_n_s_Charsets_2);
   Py_VISIT(traverse_module_state->__pyx_n_u_Charsets_2);
@@ -4320,21 +4315,18 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u_None);
   Py_VISIT(traverse_module_state->__pyx_n_s_NotImplemented);
   Py_VISIT(traverse_module_state->__pyx_n_s_PickleError);
-  Py_VISIT(traverse_module_state->__pyx_n_s__183);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__2);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__11);
+  Py_VISIT(traverse_module_state->__pyx_n_s__186);
   Py_VISIT(traverse_module_state->__pyx_kp_u__3);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__4);
   Py_VISIT(traverse_module_state->__pyx_kp_u__5);
   Py_VISIT(traverse_module_state->__pyx_kp_u__6);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__7);
   Py_VISIT(traverse_module_state->__pyx_kp_u__8);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__9);
   Py_VISIT(traverse_module_state->__pyx_n_s_add);
   Py_VISIT(traverse_module_state->__pyx_n_s_all);
   Py_VISIT(traverse_module_state->__pyx_n_s_all_charsets);
   Py_VISIT(traverse_module_state->__pyx_n_u_all_charsets);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_already_exist_by_ID);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_already_exist_by_collation);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_already_exist_by_name);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_already_exist_by_name_collation);
   Py_VISIT(traverse_module_state->__pyx_n_s_args);
   Py_VISIT(traverse_module_state->__pyx_n_u_armscii8);
   Py_VISIT(traverse_module_state->__pyx_n_u_armscii8_bin);
@@ -4356,6 +4348,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_by_name_n_collation);
   Py_VISIT(traverse_module_state->__pyx_n_u_by_name_n_collation);
   Py_VISIT(traverse_module_state->__pyx_n_s_charset);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_charset_cannot_be_None);
   Py_VISIT(traverse_module_state->__pyx_n_s_charsets);
   Py_VISIT(traverse_module_state->__pyx_n_s_class);
   Py_VISIT(traverse_module_state->__pyx_n_s_cline_in_traceback);
@@ -4505,7 +4498,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_ex);
   Py_VISIT(traverse_module_state->__pyx_n_s_repr___locals_genexpr);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_s_Index_out_of_bounds_must_betw);
   Py_VISIT(traverse_module_state->__pyx_n_s_self);
   Py_VISIT(traverse_module_state->__pyx_n_s_send);
   Py_VISIT(traverse_module_state->__pyx_n_s_setstate);
@@ -4740,27 +4732,27 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_int_255);
   Py_VISIT(traverse_module_state->__pyx_int_82751263);
   Py_VISIT(traverse_module_state->__pyx_int_92067722);
-  Py_VISIT(traverse_module_state->__pyx_int_112447473);
-  Py_VISIT(traverse_module_state->__pyx_int_137718339);
-  Py_VISIT(traverse_module_state->__pyx_int_151085017);
+  Py_VISIT(traverse_module_state->__pyx_int_147461375);
+  Py_VISIT(traverse_module_state->__pyx_int_166556248);
   Py_VISIT(traverse_module_state->__pyx_int_208236998);
-  Py_VISIT(traverse_module_state->__pyx_tuple__7);
-  Py_VISIT(traverse_module_state->__pyx_tuple__9);
+  Py_VISIT(traverse_module_state->__pyx_int_238740280);
+  Py_VISIT(traverse_module_state->__pyx_tuple_);
+  Py_VISIT(traverse_module_state->__pyx_tuple__2);
+  Py_VISIT(traverse_module_state->__pyx_tuple__4);
   Py_VISIT(traverse_module_state->__pyx_tuple__10);
   Py_VISIT(traverse_module_state->__pyx_tuple__12);
-  Py_VISIT(traverse_module_state->__pyx_tuple__14);
-  Py_VISIT(traverse_module_state->__pyx_tuple__16);
-  Py_VISIT(traverse_module_state->__pyx_tuple__18);
-  Py_VISIT(traverse_module_state->__pyx_tuple__20);
-  Py_VISIT(traverse_module_state->__pyx_tuple__22);
-  Py_VISIT(traverse_module_state->__pyx_tuple__24);
-  Py_VISIT(traverse_module_state->__pyx_tuple__29);
-  Py_VISIT(traverse_module_state->__pyx_tuple__31);
-  Py_VISIT(traverse_module_state->__pyx_tuple__33);
-  Py_VISIT(traverse_module_state->__pyx_tuple__35);
-  Py_VISIT(traverse_module_state->__pyx_tuple__37);
+  Py_VISIT(traverse_module_state->__pyx_tuple__13);
+  Py_VISIT(traverse_module_state->__pyx_tuple__15);
+  Py_VISIT(traverse_module_state->__pyx_tuple__17);
+  Py_VISIT(traverse_module_state->__pyx_tuple__19);
+  Py_VISIT(traverse_module_state->__pyx_tuple__21);
+  Py_VISIT(traverse_module_state->__pyx_tuple__23);
+  Py_VISIT(traverse_module_state->__pyx_tuple__25);
+  Py_VISIT(traverse_module_state->__pyx_tuple__27);
+  Py_VISIT(traverse_module_state->__pyx_tuple__32);
+  Py_VISIT(traverse_module_state->__pyx_tuple__34);
+  Py_VISIT(traverse_module_state->__pyx_tuple__36);
   Py_VISIT(traverse_module_state->__pyx_tuple__38);
-  Py_VISIT(traverse_module_state->__pyx_tuple__39);
   Py_VISIT(traverse_module_state->__pyx_tuple__40);
   Py_VISIT(traverse_module_state->__pyx_tuple__41);
   Py_VISIT(traverse_module_state->__pyx_tuple__42);
@@ -4902,23 +4894,26 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_tuple__178);
   Py_VISIT(traverse_module_state->__pyx_tuple__179);
   Py_VISIT(traverse_module_state->__pyx_tuple__180);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__11);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__13);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__15);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__17);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__19);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__21);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__23);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__25);
+  Py_VISIT(traverse_module_state->__pyx_tuple__181);
+  Py_VISIT(traverse_module_state->__pyx_tuple__182);
+  Py_VISIT(traverse_module_state->__pyx_tuple__183);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__14);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__16);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__18);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__20);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__22);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__24);
   Py_VISIT(traverse_module_state->__pyx_codeobj__26);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__27);
   Py_VISIT(traverse_module_state->__pyx_codeobj__28);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__29);
   Py_VISIT(traverse_module_state->__pyx_codeobj__30);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__32);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__34);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__36);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__181);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__182);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__31);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__33);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__35);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__37);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__39);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__184);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__185);
   return 0;
 }
 #endif
@@ -4974,18 +4969,17 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_ptype_8sqlcycli_7charset_Charset __pyx_mstate_global->__pyx_ptype_8sqlcycli_7charset_Charset
 #define __pyx_ptype_8sqlcycli_7charset_Charsets __pyx_mstate_global->__pyx_ptype_8sqlcycli_7charset_Charsets
 #define __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr __pyx_mstate_global->__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr
-#define __pyx_kp_u_ __pyx_mstate_global->__pyx_kp_u_
 #define __pyx_n_s_Any __pyx_mstate_global->__pyx_n_s_Any
-#define __pyx_kp_u_Charset __pyx_mstate_global->__pyx_kp_u_Charset
-#define __pyx_n_s_CharsetDuplicatedError __pyx_mstate_global->__pyx_n_s_CharsetDuplicatedError
-#define __pyx_n_s_CharsetIndexError __pyx_mstate_global->__pyx_n_s_CharsetIndexError
+#define __pyx_n_s_AssertionError __pyx_mstate_global->__pyx_n_s_AssertionError
+#define __pyx_n_s_Charset __pyx_mstate_global->__pyx_n_s_Charset
+#define __pyx_n_u_Charset __pyx_mstate_global->__pyx_n_u_Charset
 #define __pyx_n_s_CharsetNotFoundError __pyx_mstate_global->__pyx_n_s_CharsetNotFoundError
-#define __pyx_n_s_Charset_2 __pyx_mstate_global->__pyx_n_s_Charset_2
-#define __pyx_n_u_Charset_2 __pyx_mstate_global->__pyx_n_u_Charset_2
 #define __pyx_n_s_Charset___reduce_cython __pyx_mstate_global->__pyx_n_s_Charset___reduce_cython
 #define __pyx_n_s_Charset___setstate_cython __pyx_mstate_global->__pyx_n_s_Charset___setstate_cython
+#define __pyx_kp_u_Charset_collation_cannot_be_None __pyx_mstate_global->__pyx_kp_u_Charset_collation_cannot_be_None
 #define __pyx_kp_u_Charset_id __pyx_mstate_global->__pyx_kp_u_Charset_id
 #define __pyx_n_s_Charset_is_binary __pyx_mstate_global->__pyx_n_s_Charset_is_binary
+#define __pyx_kp_u_Charset_name_cannot_be_None __pyx_mstate_global->__pyx_kp_u_Charset_name_cannot_be_None
 #define __pyx_kp_u_Charsets __pyx_mstate_global->__pyx_kp_u_Charsets
 #define __pyx_n_s_Charsets_2 __pyx_mstate_global->__pyx_n_s_Charsets_2
 #define __pyx_n_u_Charsets_2 __pyx_mstate_global->__pyx_n_u_Charsets_2
@@ -5006,21 +5000,18 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u_None __pyx_mstate_global->__pyx_kp_u_None
 #define __pyx_n_s_NotImplemented __pyx_mstate_global->__pyx_n_s_NotImplemented
 #define __pyx_n_s_PickleError __pyx_mstate_global->__pyx_n_s_PickleError
-#define __pyx_n_s__183 __pyx_mstate_global->__pyx_n_s__183
-#define __pyx_kp_u__2 __pyx_mstate_global->__pyx_kp_u__2
+#define __pyx_kp_u__11 __pyx_mstate_global->__pyx_kp_u__11
+#define __pyx_n_s__186 __pyx_mstate_global->__pyx_n_s__186
 #define __pyx_kp_u__3 __pyx_mstate_global->__pyx_kp_u__3
-#define __pyx_kp_u__4 __pyx_mstate_global->__pyx_kp_u__4
 #define __pyx_kp_u__5 __pyx_mstate_global->__pyx_kp_u__5
 #define __pyx_kp_u__6 __pyx_mstate_global->__pyx_kp_u__6
+#define __pyx_kp_u__7 __pyx_mstate_global->__pyx_kp_u__7
 #define __pyx_kp_u__8 __pyx_mstate_global->__pyx_kp_u__8
+#define __pyx_kp_u__9 __pyx_mstate_global->__pyx_kp_u__9
 #define __pyx_n_s_add __pyx_mstate_global->__pyx_n_s_add
 #define __pyx_n_s_all __pyx_mstate_global->__pyx_n_s_all
 #define __pyx_n_s_all_charsets __pyx_mstate_global->__pyx_n_s_all_charsets
 #define __pyx_n_u_all_charsets __pyx_mstate_global->__pyx_n_u_all_charsets
-#define __pyx_kp_u_already_exist_by_ID __pyx_mstate_global->__pyx_kp_u_already_exist_by_ID
-#define __pyx_kp_u_already_exist_by_collation __pyx_mstate_global->__pyx_kp_u_already_exist_by_collation
-#define __pyx_kp_u_already_exist_by_name __pyx_mstate_global->__pyx_kp_u_already_exist_by_name
-#define __pyx_kp_u_already_exist_by_name_collation __pyx_mstate_global->__pyx_kp_u_already_exist_by_name_collation
 #define __pyx_n_s_args __pyx_mstate_global->__pyx_n_s_args
 #define __pyx_n_u_armscii8 __pyx_mstate_global->__pyx_n_u_armscii8
 #define __pyx_n_u_armscii8_bin __pyx_mstate_global->__pyx_n_u_armscii8_bin
@@ -5042,6 +5033,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_by_name_n_collation __pyx_mstate_global->__pyx_n_s_by_name_n_collation
 #define __pyx_n_u_by_name_n_collation __pyx_mstate_global->__pyx_n_u_by_name_n_collation
 #define __pyx_n_s_charset __pyx_mstate_global->__pyx_n_s_charset
+#define __pyx_kp_u_charset_cannot_be_None __pyx_mstate_global->__pyx_kp_u_charset_cannot_be_None
 #define __pyx_n_s_charsets __pyx_mstate_global->__pyx_n_s_charsets
 #define __pyx_n_s_class __pyx_mstate_global->__pyx_n_s_class
 #define __pyx_n_s_cline_in_traceback __pyx_mstate_global->__pyx_n_s_cline_in_traceback
@@ -5191,7 +5183,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_reduce_cython __pyx_mstate_global->__pyx_n_s_reduce_cython
 #define __pyx_n_s_reduce_ex __pyx_mstate_global->__pyx_n_s_reduce_ex
 #define __pyx_n_s_repr___locals_genexpr __pyx_mstate_global->__pyx_n_s_repr___locals_genexpr
-#define __pyx_kp_u_s_Index_out_of_bounds_must_betw __pyx_mstate_global->__pyx_kp_u_s_Index_out_of_bounds_must_betw
 #define __pyx_n_s_self __pyx_mstate_global->__pyx_n_s_self
 #define __pyx_n_s_send __pyx_mstate_global->__pyx_n_s_send
 #define __pyx_n_s_setstate __pyx_mstate_global->__pyx_n_s_setstate
@@ -5426,27 +5417,27 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_int_255 __pyx_mstate_global->__pyx_int_255
 #define __pyx_int_82751263 __pyx_mstate_global->__pyx_int_82751263
 #define __pyx_int_92067722 __pyx_mstate_global->__pyx_int_92067722
-#define __pyx_int_112447473 __pyx_mstate_global->__pyx_int_112447473
-#define __pyx_int_137718339 __pyx_mstate_global->__pyx_int_137718339
-#define __pyx_int_151085017 __pyx_mstate_global->__pyx_int_151085017
+#define __pyx_int_147461375 __pyx_mstate_global->__pyx_int_147461375
+#define __pyx_int_166556248 __pyx_mstate_global->__pyx_int_166556248
 #define __pyx_int_208236998 __pyx_mstate_global->__pyx_int_208236998
-#define __pyx_tuple__7 __pyx_mstate_global->__pyx_tuple__7
-#define __pyx_tuple__9 __pyx_mstate_global->__pyx_tuple__9
+#define __pyx_int_238740280 __pyx_mstate_global->__pyx_int_238740280
+#define __pyx_tuple_ __pyx_mstate_global->__pyx_tuple_
+#define __pyx_tuple__2 __pyx_mstate_global->__pyx_tuple__2
+#define __pyx_tuple__4 __pyx_mstate_global->__pyx_tuple__4
 #define __pyx_tuple__10 __pyx_mstate_global->__pyx_tuple__10
 #define __pyx_tuple__12 __pyx_mstate_global->__pyx_tuple__12
-#define __pyx_tuple__14 __pyx_mstate_global->__pyx_tuple__14
-#define __pyx_tuple__16 __pyx_mstate_global->__pyx_tuple__16
-#define __pyx_tuple__18 __pyx_mstate_global->__pyx_tuple__18
-#define __pyx_tuple__20 __pyx_mstate_global->__pyx_tuple__20
-#define __pyx_tuple__22 __pyx_mstate_global->__pyx_tuple__22
-#define __pyx_tuple__24 __pyx_mstate_global->__pyx_tuple__24
-#define __pyx_tuple__29 __pyx_mstate_global->__pyx_tuple__29
-#define __pyx_tuple__31 __pyx_mstate_global->__pyx_tuple__31
-#define __pyx_tuple__33 __pyx_mstate_global->__pyx_tuple__33
-#define __pyx_tuple__35 __pyx_mstate_global->__pyx_tuple__35
-#define __pyx_tuple__37 __pyx_mstate_global->__pyx_tuple__37
+#define __pyx_tuple__13 __pyx_mstate_global->__pyx_tuple__13
+#define __pyx_tuple__15 __pyx_mstate_global->__pyx_tuple__15
+#define __pyx_tuple__17 __pyx_mstate_global->__pyx_tuple__17
+#define __pyx_tuple__19 __pyx_mstate_global->__pyx_tuple__19
+#define __pyx_tuple__21 __pyx_mstate_global->__pyx_tuple__21
+#define __pyx_tuple__23 __pyx_mstate_global->__pyx_tuple__23
+#define __pyx_tuple__25 __pyx_mstate_global->__pyx_tuple__25
+#define __pyx_tuple__27 __pyx_mstate_global->__pyx_tuple__27
+#define __pyx_tuple__32 __pyx_mstate_global->__pyx_tuple__32
+#define __pyx_tuple__34 __pyx_mstate_global->__pyx_tuple__34
+#define __pyx_tuple__36 __pyx_mstate_global->__pyx_tuple__36
 #define __pyx_tuple__38 __pyx_mstate_global->__pyx_tuple__38
-#define __pyx_tuple__39 __pyx_mstate_global->__pyx_tuple__39
 #define __pyx_tuple__40 __pyx_mstate_global->__pyx_tuple__40
 #define __pyx_tuple__41 __pyx_mstate_global->__pyx_tuple__41
 #define __pyx_tuple__42 __pyx_mstate_global->__pyx_tuple__42
@@ -5588,41 +5579,44 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_tuple__178 __pyx_mstate_global->__pyx_tuple__178
 #define __pyx_tuple__179 __pyx_mstate_global->__pyx_tuple__179
 #define __pyx_tuple__180 __pyx_mstate_global->__pyx_tuple__180
-#define __pyx_codeobj__11 __pyx_mstate_global->__pyx_codeobj__11
-#define __pyx_codeobj__13 __pyx_mstate_global->__pyx_codeobj__13
-#define __pyx_codeobj__15 __pyx_mstate_global->__pyx_codeobj__15
-#define __pyx_codeobj__17 __pyx_mstate_global->__pyx_codeobj__17
-#define __pyx_codeobj__19 __pyx_mstate_global->__pyx_codeobj__19
-#define __pyx_codeobj__21 __pyx_mstate_global->__pyx_codeobj__21
-#define __pyx_codeobj__23 __pyx_mstate_global->__pyx_codeobj__23
-#define __pyx_codeobj__25 __pyx_mstate_global->__pyx_codeobj__25
+#define __pyx_tuple__181 __pyx_mstate_global->__pyx_tuple__181
+#define __pyx_tuple__182 __pyx_mstate_global->__pyx_tuple__182
+#define __pyx_tuple__183 __pyx_mstate_global->__pyx_tuple__183
+#define __pyx_codeobj__14 __pyx_mstate_global->__pyx_codeobj__14
+#define __pyx_codeobj__16 __pyx_mstate_global->__pyx_codeobj__16
+#define __pyx_codeobj__18 __pyx_mstate_global->__pyx_codeobj__18
+#define __pyx_codeobj__20 __pyx_mstate_global->__pyx_codeobj__20
+#define __pyx_codeobj__22 __pyx_mstate_global->__pyx_codeobj__22
+#define __pyx_codeobj__24 __pyx_mstate_global->__pyx_codeobj__24
 #define __pyx_codeobj__26 __pyx_mstate_global->__pyx_codeobj__26
-#define __pyx_codeobj__27 __pyx_mstate_global->__pyx_codeobj__27
 #define __pyx_codeobj__28 __pyx_mstate_global->__pyx_codeobj__28
+#define __pyx_codeobj__29 __pyx_mstate_global->__pyx_codeobj__29
 #define __pyx_codeobj__30 __pyx_mstate_global->__pyx_codeobj__30
-#define __pyx_codeobj__32 __pyx_mstate_global->__pyx_codeobj__32
-#define __pyx_codeobj__34 __pyx_mstate_global->__pyx_codeobj__34
-#define __pyx_codeobj__36 __pyx_mstate_global->__pyx_codeobj__36
-#define __pyx_codeobj__181 __pyx_mstate_global->__pyx_codeobj__181
-#define __pyx_codeobj__182 __pyx_mstate_global->__pyx_codeobj__182
+#define __pyx_codeobj__31 __pyx_mstate_global->__pyx_codeobj__31
+#define __pyx_codeobj__33 __pyx_mstate_global->__pyx_codeobj__33
+#define __pyx_codeobj__35 __pyx_mstate_global->__pyx_codeobj__35
+#define __pyx_codeobj__37 __pyx_mstate_global->__pyx_codeobj__37
+#define __pyx_codeobj__39 __pyx_mstate_global->__pyx_codeobj__39
+#define __pyx_codeobj__184 __pyx_mstate_global->__pyx_codeobj__184
+#define __pyx_codeobj__185 __pyx_mstate_global->__pyx_codeobj__185
 /* #### Code section: module_code ### */
 
-/* "sqlcycli/charset.py":38
- *     _is_default: cython.bint
+/* "sqlcycli/charset.py":39
+ *     _hashcode: cython.Py_ssize_t
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
- *         id: int,
+ *         id: cython.int,
  */
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_7Charset___init__, "Charset for MySQL.\n\n        :param id `<'int'>`: The id of the charset.\n        :param name `<'str'>`: The name of the charset.\n        :param collation `<'str'>`: The collation of the charset.\n        :param is_default `<'bool'>`: Whether belongs to the defualt charsets of MySQL. Defaults to `False`.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_7Charset___init__, "The MySQL character set\n\n        :param id `<'int'>`: Numeric MySQL charset identifier.\n        :param name `<'str'>`: The charset name (e.g., `\"utf8mb4\"`).\n        :param collation `<'str'>`: The collation name (e.g., `\"utf8mb4_general_ci\"`).\n        :param is_default `<'bool'>`: Whether the charset is one of MySQL's defaults. Defaults to `False`.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_7charset_7Charset___init__;
 #endif
 static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_id = 0;
+  int __pyx_v_id;
   PyObject *__pyx_v_name = 0;
   PyObject *__pyx_v_collation = 0;
   int __pyx_v_is_default;
@@ -5664,7 +5658,7 @@ static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 38, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -5672,9 +5666,9 @@ static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 38, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 4, 1); __PYX_ERR(0, 38, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 4, 1); __PYX_ERR(0, 39, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -5682,21 +5676,21 @@ static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self
           (void)__Pyx_Arg_NewRef_VARARGS(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 38, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 4, 2); __PYX_ERR(0, 38, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 4, 2); __PYX_ERR(0, 39, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_is_default);
           if (value) { values[3] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 38, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 38, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 39, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -5709,26 +5703,26 @@ static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_id = ((PyObject*)values[0]);
+    __pyx_v_id = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_id == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 41, __pyx_L3_error)
     __pyx_v_name = ((PyObject*)values[1]);
     __pyx_v_collation = ((PyObject*)values[2]);
     if (values[3]) {
-      __pyx_v_is_default = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_is_default == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 43, __pyx_L3_error)
+      __pyx_v_is_default = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_is_default == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 44, __pyx_L3_error)
     } else {
 
-      /* "sqlcycli/charset.py":43
+      /* "sqlcycli/charset.py":44
  *         name: str,
  *         collation: str,
  *         is_default: cython.bint = False,             # <<<<<<<<<<<<<<
  *     ) -> None:
- *         """Charset for MySQL.
+ *         """The MySQL character set
  */
       __pyx_v_is_default = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 38, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 39, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5742,17 +5736,16 @@ static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_id), (&PyInt_Type), 0, "id", 1))) __PYX_ERR(0, 40, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_name), (&PyUnicode_Type), 0, "name", 1))) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_collation), (&PyUnicode_Type), 0, "collation", 1))) __PYX_ERR(0, 42, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_name), (&PyUnicode_Type), 0, "name", 1))) __PYX_ERR(0, 42, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_collation), (&PyUnicode_Type), 0, "collation", 1))) __PYX_ERR(0, 43, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset___init__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self), __pyx_v_id, __pyx_v_name, __pyx_v_collation, __pyx_v_is_default);
 
-  /* "sqlcycli/charset.py":38
- *     _is_default: cython.bint
+  /* "sqlcycli/charset.py":39
+ *     _hashcode: cython.Py_ssize_t
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
- *         id: int,
+ *         id: cython.int,
  */
 
   /* function exit code */
@@ -5770,7 +5763,7 @@ static int __pyx_pw_8sqlcycli_7charset_7Charset_1__init__(PyObject *__pyx_v_self
   return __pyx_r;
 }
 
-static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v_id, PyObject *__pyx_v_name, PyObject *__pyx_v_collation, int __pyx_v_is_default) {
+static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, int __pyx_v_id, PyObject *__pyx_v_name, PyObject *__pyx_v_collation, int __pyx_v_is_default) {
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
@@ -5780,33 +5773,63 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
   unsigned int __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
   int __pyx_t_7;
-  int __pyx_t_8;
-  char *__pyx_t_9;
+  char *__pyx_t_8;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/charset.py":52
- *         :param is_default `<'bool'>`: Whether belongs to the defualt charsets of MySQL. Defaults to `False`.
+  /* "sqlcycli/charset.py":53
+ *         :param is_default `<'bool'>`: Whether the charset is one of MySQL's defaults. Defaults to `False`.
  *         """
  *         self._id = id             # <<<<<<<<<<<<<<
- *         self._name = name.lower().strip()
- *         self._collation = collation.lower().strip()
+ *         if name is None:
+ *             raise AssertionError("Charset name cannot be 'None'.")
  */
-  __pyx_t_1 = __Pyx_PyInt_As_int(__pyx_v_id); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 52, __pyx_L1_error)
-  __pyx_v_self->_id = __pyx_t_1;
+  __pyx_v_self->_id = __pyx_v_id;
 
-  /* "sqlcycli/charset.py":53
+  /* "sqlcycli/charset.py":54
  *         """
  *         self._id = id
- *         self._name = name.lower().strip()             # <<<<<<<<<<<<<<
- *         self._collation = collation.lower().strip()
- *         if self._name in ("utf8mb4", "utf8mb3"):
+ *         if name is None:             # <<<<<<<<<<<<<<
+ *             raise AssertionError("Charset name cannot be 'None'.")
+ *         self._name = name.lower().strip()
  */
-  __pyx_t_3 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_1 = (__pyx_v_name == ((PyObject*)Py_None));
+  if (unlikely(__pyx_t_1)) {
+
+    /* "sqlcycli/charset.py":55
+ *         self._id = id
+ *         if name is None:
+ *             raise AssertionError("Charset name cannot be 'None'.")             # <<<<<<<<<<<<<<
+ *         self._name = name.lower().strip()
+ *         if collation is None:
+ */
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_AssertionError, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 55, __pyx_L1_error)
+
+    /* "sqlcycli/charset.py":54
+ *         """
+ *         self._id = id
+ *         if name is None:             # <<<<<<<<<<<<<<
+ *             raise AssertionError("Charset name cannot be 'None'.")
+ *         self._name = name.lower().strip()
+ */
+  }
+
+  /* "sqlcycli/charset.py":56
+ *         if name is None:
+ *             raise AssertionError("Charset name cannot be 'None'.")
+ *         self._name = name.lower().strip()             # <<<<<<<<<<<<<<
+ *         if collation is None:
+ *             raise AssertionError("Charset collation cannot be 'None'.")
+ */
+  __pyx_t_3 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_strip); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_strip); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -5827,27 +5850,59 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 53, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 56, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 53, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v_self->_name);
   __Pyx_DECREF(__pyx_v_self->_name);
   __pyx_v_self->_name = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/charset.py":54
- *         self._id = id
+  /* "sqlcycli/charset.py":57
+ *             raise AssertionError("Charset name cannot be 'None'.")
  *         self._name = name.lower().strip()
+ *         if collation is None:             # <<<<<<<<<<<<<<
+ *             raise AssertionError("Charset collation cannot be 'None'.")
+ *         self._collation = collation.lower().strip()
+ */
+  __pyx_t_1 = (__pyx_v_collation == ((PyObject*)Py_None));
+  if (unlikely(__pyx_t_1)) {
+
+    /* "sqlcycli/charset.py":58
+ *         self._name = name.lower().strip()
+ *         if collation is None:
+ *             raise AssertionError("Charset collation cannot be 'None'.")             # <<<<<<<<<<<<<<
+ *         self._collation = collation.lower().strip()
+ *         if self._name in ("utf8mb4", "utf8mb3"):
+ */
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_AssertionError, __pyx_tuple__2, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 58, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 58, __pyx_L1_error)
+
+    /* "sqlcycli/charset.py":57
+ *             raise AssertionError("Charset name cannot be 'None'.")
+ *         self._name = name.lower().strip()
+ *         if collation is None:             # <<<<<<<<<<<<<<
+ *             raise AssertionError("Charset collation cannot be 'None'.")
+ *         self._collation = collation.lower().strip()
+ */
+  }
+
+  /* "sqlcycli/charset.py":59
+ *         if collation is None:
+ *             raise AssertionError("Charset collation cannot be 'None'.")
  *         self._collation = collation.lower().strip()             # <<<<<<<<<<<<<<
  *         if self._name in ("utf8mb4", "utf8mb3"):
  *             self._encoding = b"utf8"
  */
-  __pyx_t_4 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_collation); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_collation); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_strip); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_strip); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -5868,19 +5923,19 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v_self->_collation);
   __Pyx_DECREF(__pyx_v_self->_collation);
   __pyx_v_self->_collation = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/charset.py":55
- *         self._name = name.lower().strip()
+  /* "sqlcycli/charset.py":60
+ *             raise AssertionError("Charset collation cannot be 'None'.")
  *         self._collation = collation.lower().strip()
  *         if self._name in ("utf8mb4", "utf8mb3"):             # <<<<<<<<<<<<<<
  *             self._encoding = b"utf8"
@@ -5888,20 +5943,20 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
  */
   __Pyx_INCREF(__pyx_v_self->_name);
   __pyx_t_6 = __pyx_v_self->_name;
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_utf8mb4, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
-  if (!__pyx_t_8) {
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_utf8mb4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
+  if (!__pyx_t_7) {
   } else {
-    __pyx_t_7 = __pyx_t_8;
-    goto __pyx_L4_bool_binop_done;
+    __pyx_t_1 = __pyx_t_7;
+    goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_utf8mb3, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
-  __pyx_t_7 = __pyx_t_8;
-  __pyx_L4_bool_binop_done:;
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_utf8mb3, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_1 = __pyx_t_7;
+  __pyx_L6_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_8 = __pyx_t_7;
-  if (__pyx_t_8) {
+  __pyx_t_7 = __pyx_t_1;
+  if (__pyx_t_7) {
 
-    /* "sqlcycli/charset.py":56
+    /* "sqlcycli/charset.py":61
  *         self._collation = collation.lower().strip()
  *         if self._name in ("utf8mb4", "utf8mb3"):
  *             self._encoding = b"utf8"             # <<<<<<<<<<<<<<
@@ -5914,27 +5969,27 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     __Pyx_DECREF(__pyx_v_self->_encoding);
     __pyx_v_self->_encoding = __pyx_n_b_utf8;
 
-    /* "sqlcycli/charset.py":55
- *         self._name = name.lower().strip()
+    /* "sqlcycli/charset.py":60
+ *             raise AssertionError("Charset collation cannot be 'None'.")
  *         self._collation = collation.lower().strip()
  *         if self._name in ("utf8mb4", "utf8mb3"):             # <<<<<<<<<<<<<<
  *             self._encoding = b"utf8"
  *         elif self._name == "latin1":
  */
-    goto __pyx_L3;
+    goto __pyx_L5;
   }
 
-  /* "sqlcycli/charset.py":57
+  /* "sqlcycli/charset.py":62
  *         if self._name in ("utf8mb4", "utf8mb3"):
  *             self._encoding = b"utf8"
  *         elif self._name == "latin1":             # <<<<<<<<<<<<<<
  *             self._encoding = b"cp1252"
  *         elif self._name == "koi8r":
  */
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_n_u_latin1, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
-  if (__pyx_t_8) {
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_n_u_latin1, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (__pyx_t_7) {
 
-    /* "sqlcycli/charset.py":58
+    /* "sqlcycli/charset.py":63
  *             self._encoding = b"utf8"
  *         elif self._name == "latin1":
  *             self._encoding = b"cp1252"             # <<<<<<<<<<<<<<
@@ -5947,27 +6002,27 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     __Pyx_DECREF(__pyx_v_self->_encoding);
     __pyx_v_self->_encoding = __pyx_n_b_cp1252;
 
-    /* "sqlcycli/charset.py":57
+    /* "sqlcycli/charset.py":62
  *         if self._name in ("utf8mb4", "utf8mb3"):
  *             self._encoding = b"utf8"
  *         elif self._name == "latin1":             # <<<<<<<<<<<<<<
  *             self._encoding = b"cp1252"
  *         elif self._name == "koi8r":
  */
-    goto __pyx_L3;
+    goto __pyx_L5;
   }
 
-  /* "sqlcycli/charset.py":59
+  /* "sqlcycli/charset.py":64
  *         elif self._name == "latin1":
  *             self._encoding = b"cp1252"
  *         elif self._name == "koi8r":             # <<<<<<<<<<<<<<
  *             self._encoding = b"koi8_r"
  *         elif self._name == "koi8u":
  */
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_n_u_koi8r, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 59, __pyx_L1_error)
-  if (__pyx_t_8) {
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_n_u_koi8r, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 64, __pyx_L1_error)
+  if (__pyx_t_7) {
 
-    /* "sqlcycli/charset.py":60
+    /* "sqlcycli/charset.py":65
  *             self._encoding = b"cp1252"
  *         elif self._name == "koi8r":
  *             self._encoding = b"koi8_r"             # <<<<<<<<<<<<<<
@@ -5980,27 +6035,27 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     __Pyx_DECREF(__pyx_v_self->_encoding);
     __pyx_v_self->_encoding = __pyx_n_b_koi8_r;
 
-    /* "sqlcycli/charset.py":59
+    /* "sqlcycli/charset.py":64
  *         elif self._name == "latin1":
  *             self._encoding = b"cp1252"
  *         elif self._name == "koi8r":             # <<<<<<<<<<<<<<
  *             self._encoding = b"koi8_r"
  *         elif self._name == "koi8u":
  */
-    goto __pyx_L3;
+    goto __pyx_L5;
   }
 
-  /* "sqlcycli/charset.py":61
+  /* "sqlcycli/charset.py":66
  *         elif self._name == "koi8r":
  *             self._encoding = b"koi8_r"
  *         elif self._name == "koi8u":             # <<<<<<<<<<<<<<
  *             self._encoding = b"koi8_u"
  *         else:
  */
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_n_u_koi8u, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 61, __pyx_L1_error)
-  if (__pyx_t_8) {
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_n_u_koi8u, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 66, __pyx_L1_error)
+  if (__pyx_t_7) {
 
-    /* "sqlcycli/charset.py":62
+    /* "sqlcycli/charset.py":67
  *             self._encoding = b"koi8_r"
  *         elif self._name == "koi8u":
  *             self._encoding = b"koi8_u"             # <<<<<<<<<<<<<<
@@ -6013,17 +6068,17 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     __Pyx_DECREF(__pyx_v_self->_encoding);
     __pyx_v_self->_encoding = __pyx_n_b_koi8_u;
 
-    /* "sqlcycli/charset.py":61
+    /* "sqlcycli/charset.py":66
  *         elif self._name == "koi8r":
  *             self._encoding = b"koi8_r"
  *         elif self._name == "koi8u":             # <<<<<<<<<<<<<<
  *             self._encoding = b"koi8_u"
  *         else:
  */
-    goto __pyx_L3;
+    goto __pyx_L5;
   }
 
-  /* "sqlcycli/charset.py":64
+  /* "sqlcycli/charset.py":69
  *             self._encoding = b"koi8_u"
  *         else:
  *             self._encoding = self._name.encode("ascii", "strict")             # <<<<<<<<<<<<<<
@@ -6033,9 +6088,9 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
   /*else*/ {
     if (unlikely(__pyx_v_self->_name == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "encode");
-      __PYX_ERR(0, 64, __pyx_L1_error)
+      __PYX_ERR(0, 69, __pyx_L1_error)
     }
-    __pyx_t_2 = PyUnicode_AsASCIIString(__pyx_v_self->_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_AsASCIIString(__pyx_v_self->_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_v_self->_encoding);
@@ -6043,37 +6098,46 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
     __pyx_v_self->_encoding = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
   }
-  __pyx_L3:;
+  __pyx_L5:;
 
-  /* "sqlcycli/charset.py":65
+  /* "sqlcycli/charset.py":70
  *         else:
  *             self._encoding = self._name.encode("ascii", "strict")
  *         self._encoding_c = self._encoding             # <<<<<<<<<<<<<<
  *         self._is_default = is_default
- * 
+ *         self._hashcode = -1
  */
   if (unlikely(__pyx_v_self->_encoding == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-    __PYX_ERR(0, 65, __pyx_L1_error)
+    __PYX_ERR(0, 70, __pyx_L1_error)
   }
-  __pyx_t_9 = __Pyx_PyBytes_AsWritableString(__pyx_v_self->_encoding); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L1_error)
-  __pyx_v_self->_encoding_c = __pyx_t_9;
+  __pyx_t_8 = __Pyx_PyBytes_AsWritableString(__pyx_v_self->_encoding); if (unlikely((!__pyx_t_8) && PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_v_self->_encoding_c = __pyx_t_8;
 
-  /* "sqlcycli/charset.py":66
+  /* "sqlcycli/charset.py":71
  *             self._encoding = self._name.encode("ascii", "strict")
  *         self._encoding_c = self._encoding
  *         self._is_default = is_default             # <<<<<<<<<<<<<<
+ *         self._hashcode = -1
  * 
- *     # Property ---------------------------------------------------------------------
  */
   __pyx_v_self->_is_default = __pyx_v_is_default;
 
-  /* "sqlcycli/charset.py":38
- *     _is_default: cython.bint
+  /* "sqlcycli/charset.py":72
+ *         self._encoding_c = self._encoding
+ *         self._is_default = is_default
+ *         self._hashcode = -1             # <<<<<<<<<<<<<<
+ * 
+ *     # Property ---------------------------------------------------------------------
+ */
+  __pyx_v_self->_hashcode = -1L;
+
+  /* "sqlcycli/charset.py":39
+ *     _hashcode: cython.Py_ssize_t
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
- *         id: int,
+ *         id: cython.int,
  */
 
   /* function exit code */
@@ -6091,12 +6155,12 @@ static int __pyx_pf_8sqlcycli_7charset_7Charset___init__(struct __pyx_obj_8sqlcy
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":69
+/* "sqlcycli/charset.py":75
  * 
  *     # Property ---------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def id(self) -> int:
- *         "The 'ID' of the charset `<'int'>`."
+ *         """Numeric MySQL charset identifier `<'int'>`."""
  */
 
 /* Python wrapper */
@@ -6123,26 +6187,26 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_2id___get__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/charset.py":72
+  /* "sqlcycli/charset.py":78
  *     def id(self) -> int:
- *         "The 'ID' of the charset `<'int'>`."
+ *         """Numeric MySQL charset identifier `<'int'>`."""
  *         return self._id             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":69
+  /* "sqlcycli/charset.py":75
  * 
  *     # Property ---------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def id(self) -> int:
- *         "The 'ID' of the charset `<'int'>`."
+ *         """Numeric MySQL charset identifier `<'int'>`."""
  */
 
   /* function exit code */
@@ -6156,12 +6220,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_2id___get__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":74
+/* "sqlcycli/charset.py":80
  *         return self._id
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def name(self) -> str:
- *         "The 'name' of the charset `<'str'>`."
+ *         """The charset name (e.g., `"utf8mb4"`) `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -6184,9 +6248,9 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4name___get__(struct __pyx
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/charset.py":77
+  /* "sqlcycli/charset.py":83
  *     def name(self) -> str:
- *         "The 'name' of the charset `<'str'>`."
+ *         """The charset name (e.g., `"utf8mb4"`) `<'str'>`."""
  *         return self._name             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -6196,12 +6260,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4name___get__(struct __pyx
   __pyx_r = __pyx_v_self->_name;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":74
+  /* "sqlcycli/charset.py":80
  *         return self._id
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def name(self) -> str:
- *         "The 'name' of the charset `<'str'>`."
+ *         """The charset name (e.g., `"utf8mb4"`) `<'str'>`."""
  */
 
   /* function exit code */
@@ -6211,12 +6275,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4name___get__(struct __pyx
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":79
+/* "sqlcycli/charset.py":85
  *         return self._name
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def collation(self) -> str:
- *         "The 'collation' of the charset `<'str'>`."
+ *         """The collation name (e.g., `"utf8mb4_general_ci"`) `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -6239,9 +6303,9 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_9collation___get__(struct 
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/charset.py":82
+  /* "sqlcycli/charset.py":88
  *     def collation(self) -> str:
- *         "The 'collation' of the charset `<'str'>`."
+ *         """The collation name (e.g., `"utf8mb4_general_ci"`) `<'str'>`."""
  *         return self._collation             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -6251,12 +6315,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_9collation___get__(struct 
   __pyx_r = __pyx_v_self->_collation;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":79
+  /* "sqlcycli/charset.py":85
  *         return self._name
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def collation(self) -> str:
- *         "The 'collation' of the charset `<'str'>`."
+ *         """The collation name (e.g., `"utf8mb4_general_ci"`) `<'str'>`."""
  */
 
   /* function exit code */
@@ -6266,12 +6330,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_9collation___get__(struct 
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":84
+/* "sqlcycli/charset.py":90
  *         return self._collation
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_default(self) -> bool:
- *         "Whether is MySQL default charset `<'bool'>`."
+ *         """Whether the charset is one of MySQL's defaults. `<'bool'>`."""
  */
 
 /* Python wrapper */
@@ -6298,26 +6362,26 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_10is_default___get__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/charset.py":87
+  /* "sqlcycli/charset.py":93
  *     def is_default(self) -> bool:
- *         "Whether is MySQL default charset `<'bool'>`."
+ *         """Whether the charset is one of MySQL's defaults. `<'bool'>`."""
  *         return self._is_default             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":84
+  /* "sqlcycli/charset.py":90
  *         return self._collation
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_default(self) -> bool:
- *         "Whether is MySQL default charset `<'bool'>`."
+ *         """Whether the charset is one of MySQL's defaults. `<'bool'>`."""
  */
 
   /* function exit code */
@@ -6331,12 +6395,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_10is_default___get__(struc
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":89
+/* "sqlcycli/charset.py":95
  *         return self._is_default
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def encoding(self) -> bytes:
- *         "The 'encoding' of the charset `<'bytes'>`."
+ *         """The Python encoding of the charset `<'bytes'>`."""
  */
 
 /* Python wrapper */
@@ -6359,9 +6423,9 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8encoding___get__(struct _
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/charset.py":92
+  /* "sqlcycli/charset.py":98
  *     def encoding(self) -> bytes:
- *         "The 'encoding' of the charset `<'bytes'>`."
+ *         """The Python encoding of the charset `<'bytes'>`."""
  *         return self._encoding             # <<<<<<<<<<<<<<
  * 
  *     # Methods ----------------------------------------------------------------------
@@ -6371,12 +6435,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8encoding___get__(struct _
   __pyx_r = __pyx_v_self->_encoding;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":89
+  /* "sqlcycli/charset.py":95
  *         return self._is_default
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def encoding(self) -> bytes:
- *         "The 'encoding' of the charset `<'bytes'>`."
+ *         """The Python encoding of the charset `<'bytes'>`."""
  */
 
   /* function exit code */
@@ -6386,12 +6450,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8encoding___get__(struct _
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":95
+/* "sqlcycli/charset.py":101
  * 
  *     # Methods ----------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def is_binary(self) -> cython.bint:
- *         "Whether the charset is binary `<'bool'>`."
+ *         """Check if this charset is the MySQL binary charset (ID == 63). `<'bool'>`."""
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_3is_binary(PyObject *__pyx_v_self, 
@@ -6423,7 +6487,7 @@ static int __pyx_f_8sqlcycli_7charset_7Charset_is_binary(struct __pyx_obj_8sqlcy
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_is_binary); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_is_binary); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_7charset_7Charset_3is_binary)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -6445,11 +6509,11 @@ static int __pyx_f_8sqlcycli_7charset_7Charset_is_binary(struct __pyx_obj_8sqlcy
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 95, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 95, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -6468,9 +6532,9 @@ static int __pyx_f_8sqlcycli_7charset_7Charset_is_binary(struct __pyx_obj_8sqlcy
     #endif
   }
 
-  /* "sqlcycli/charset.py":98
+  /* "sqlcycli/charset.py":104
  *     def is_binary(self) -> cython.bint:
- *         "Whether the charset is binary `<'bool'>`."
+ *         """Check if this charset is the MySQL binary charset (ID == 63). `<'bool'>`."""
  *         return self._id == 63             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self) -> str:
@@ -6478,12 +6542,12 @@ static int __pyx_f_8sqlcycli_7charset_7Charset_is_binary(struct __pyx_obj_8sqlcy
   __pyx_r = (__pyx_v_self->_id == 63);
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":95
+  /* "sqlcycli/charset.py":101
  * 
  *     # Methods ----------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def is_binary(self) -> cython.bint:
- *         "Whether the charset is binary `<'bool'>`."
+ *         """Check if this charset is the MySQL binary charset (ID == 63). `<'bool'>`."""
  */
 
   /* function exit code */
@@ -6507,7 +6571,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_7Charset_2is_binary, "Whether the charset is binary `<'bool'>`.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_7Charset_2is_binary, "Check if this charset is the MySQL binary charset (ID == 63). `<'bool'>`.");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_7Charset_3is_binary = {"is_binary", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_3is_binary, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_7Charset_2is_binary};
 static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_3is_binary(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -6551,8 +6615,8 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_2is_binary(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_binary", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_7charset_7Charset_is_binary(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 95, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_7charset_7Charset_is_binary(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -6569,7 +6633,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_2is_binary(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":100
+/* "sqlcycli/charset.py":106
  *         return self._id == 63
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -6604,7 +6668,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "sqlcycli/charset.py":101
+  /* "sqlcycli/charset.py":107
  * 
  *     def __repr__(self) -> str:
  *         return "<Charset(id=%d, name='%s', collation='%s', encoding=%s)>" % (             # <<<<<<<<<<<<<<
@@ -6612,7 +6676,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
  *             self._name,
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
@@ -6621,14 +6685,14 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
   __Pyx_GIVEREF(__pyx_kp_u_Charset_id);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_Charset_id);
 
-  /* "sqlcycli/charset.py":102
+  /* "sqlcycli/charset.py":108
  *     def __repr__(self) -> str:
  *         return "<Charset(id=%d, name='%s', collation='%s', encoding=%s)>" % (
  *             self._id,             # <<<<<<<<<<<<<<
  *             self._name,
  *             self._collation,
  */
-  __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_self->_id, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_self->_id, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 108, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
@@ -6639,14 +6703,14 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
   __Pyx_GIVEREF(__pyx_kp_u_name_2);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u_name_2);
 
-  /* "sqlcycli/charset.py":103
+  /* "sqlcycli/charset.py":109
  *         return "<Charset(id=%d, name='%s', collation='%s', encoding=%s)>" % (
  *             self._id,
  *             self._name,             # <<<<<<<<<<<<<<
  *             self._collation,
  *             self._encoding,
  */
-  __pyx_t_4 = __Pyx_PyUnicode_Unicode(__pyx_v_self->_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Unicode(__pyx_v_self->_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -6658,14 +6722,14 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
   __Pyx_GIVEREF(__pyx_kp_u_collation_2);
   PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u_collation_2);
 
-  /* "sqlcycli/charset.py":104
+  /* "sqlcycli/charset.py":110
  *             self._id,
  *             self._name,
  *             self._collation,             # <<<<<<<<<<<<<<
  *             self._encoding,
  *         )
  */
-  __pyx_t_4 = __Pyx_PyUnicode_Unicode(__pyx_v_self->_collation); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Unicode(__pyx_v_self->_collation); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -6677,40 +6741,40 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
   __Pyx_GIVEREF(__pyx_kp_u_encoding);
   PyTuple_SET_ITEM(__pyx_t_1, 6, __pyx_kp_u_encoding);
 
-  /* "sqlcycli/charset.py":105
+  /* "sqlcycli/charset.py":111
  *             self._name,
  *             self._collation,
  *             self._encoding,             # <<<<<<<<<<<<<<
  *         )
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_self->_encoding), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_self->_encoding), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_1, 7, __pyx_t_4);
   __pyx_t_4 = 0;
-  __Pyx_INCREF(__pyx_kp_u_);
+  __Pyx_INCREF(__pyx_kp_u__3);
   __pyx_t_2 += 2;
-  __Pyx_GIVEREF(__pyx_kp_u_);
-  PyTuple_SET_ITEM(__pyx_t_1, 8, __pyx_kp_u_);
+  __Pyx_GIVEREF(__pyx_kp_u__3);
+  PyTuple_SET_ITEM(__pyx_t_1, 8, __pyx_kp_u__3);
 
-  /* "sqlcycli/charset.py":101
+  /* "sqlcycli/charset.py":107
  * 
  *     def __repr__(self) -> str:
  *         return "<Charset(id=%d, name='%s', collation='%s', encoding=%s)>" % (             # <<<<<<<<<<<<<<
  *             self._id,
  *             self._name,
  */
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 9, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 9, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":100
+  /* "sqlcycli/charset.py":106
  *         return self._id == 63
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -6730,389 +6794,152 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_4__repr__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":108
- *         )
- * 
- *     def __getitem__(self, idx: cython.int) -> int | str | bytes:             # <<<<<<<<<<<<<<
- *         if idx == 0:
- *             return self._id
- */
-
-/* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_7__getitem__(PyObject *__pyx_v_self, PyObject *__pyx_arg_idx); /*proto*/
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_7__getitem__(PyObject *__pyx_v_self, PyObject *__pyx_arg_idx) {
-  int __pyx_v_idx;
-  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  PyObject *__pyx_r = 0;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("__getitem__ (wrapper)", 0);
-  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  assert(__pyx_arg_idx); {
-    __pyx_v_idx = __Pyx_PyInt_As_int(__pyx_arg_idx); if (unlikely((__pyx_v_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 108, __pyx_L3_error)
-  }
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L3_error:;
-  __Pyx_AddTraceback("sqlcycli.charset.Charset.__getitem__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_6__getitem__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self), ((int)__pyx_v_idx));
-
-  /* function exit code */
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_6__getitem__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, int __pyx_v_idx) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  unsigned int __pyx_t_6;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__getitem__", 1);
-
-  /* "sqlcycli/charset.py":109
- * 
- *     def __getitem__(self, idx: cython.int) -> int | str | bytes:
- *         if idx == 0:             # <<<<<<<<<<<<<<
- *             return self._id
- *         if idx == 1:
- */
-  __pyx_t_1 = (__pyx_v_idx == 0);
-  if (__pyx_t_1) {
-
-    /* "sqlcycli/charset.py":110
- *     def __getitem__(self, idx: cython.int) -> int | str | bytes:
- *         if idx == 0:
- *             return self._id             # <<<<<<<<<<<<<<
- *         if idx == 1:
- *             return self._name
- */
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 110, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_r = __pyx_t_2;
-    __pyx_t_2 = 0;
-    goto __pyx_L0;
-
-    /* "sqlcycli/charset.py":109
- * 
- *     def __getitem__(self, idx: cython.int) -> int | str | bytes:
- *         if idx == 0:             # <<<<<<<<<<<<<<
- *             return self._id
- *         if idx == 1:
- */
-  }
-
-  /* "sqlcycli/charset.py":111
- *         if idx == 0:
- *             return self._id
- *         if idx == 1:             # <<<<<<<<<<<<<<
- *             return self._name
- *         if idx == 2:
- */
-  __pyx_t_1 = (__pyx_v_idx == 1);
-  if (__pyx_t_1) {
-
-    /* "sqlcycli/charset.py":112
- *             return self._id
- *         if idx == 1:
- *             return self._name             # <<<<<<<<<<<<<<
- *         if idx == 2:
- *             return self._collation
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_name);
-    __pyx_r = __pyx_v_self->_name;
-    goto __pyx_L0;
-
-    /* "sqlcycli/charset.py":111
- *         if idx == 0:
- *             return self._id
- *         if idx == 1:             # <<<<<<<<<<<<<<
- *             return self._name
- *         if idx == 2:
- */
-  }
-
-  /* "sqlcycli/charset.py":113
- *         if idx == 1:
- *             return self._name
- *         if idx == 2:             # <<<<<<<<<<<<<<
- *             return self._collation
- *         if idx == 3:
- */
-  __pyx_t_1 = (__pyx_v_idx == 2);
-  if (__pyx_t_1) {
-
-    /* "sqlcycli/charset.py":114
- *             return self._name
- *         if idx == 2:
- *             return self._collation             # <<<<<<<<<<<<<<
- *         if idx == 3:
- *             return self._encoding
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_collation);
-    __pyx_r = __pyx_v_self->_collation;
-    goto __pyx_L0;
-
-    /* "sqlcycli/charset.py":113
- *         if idx == 1:
- *             return self._name
- *         if idx == 2:             # <<<<<<<<<<<<<<
- *             return self._collation
- *         if idx == 3:
- */
-  }
-
-  /* "sqlcycli/charset.py":115
- *         if idx == 2:
- *             return self._collation
- *         if idx == 3:             # <<<<<<<<<<<<<<
- *             return self._encoding
- *         raise errors.CharsetIndexError(
- */
-  __pyx_t_1 = (__pyx_v_idx == 3);
-  if (__pyx_t_1) {
-
-    /* "sqlcycli/charset.py":116
- *             return self._collation
- *         if idx == 3:
- *             return self._encoding             # <<<<<<<<<<<<<<
- *         raise errors.CharsetIndexError(
- *             "<'%s'>\nIndex out of bounds, must between 0 and 3."
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(__pyx_v_self->_encoding);
-    __pyx_r = __pyx_v_self->_encoding;
-    goto __pyx_L0;
-
-    /* "sqlcycli/charset.py":115
- *         if idx == 2:
- *             return self._collation
- *         if idx == 3:             # <<<<<<<<<<<<<<
- *             return self._encoding
- *         raise errors.CharsetIndexError(
- */
-  }
-
-  /* "sqlcycli/charset.py":117
- *         if idx == 3:
- *             return self._encoding
- *         raise errors.CharsetIndexError(             # <<<<<<<<<<<<<<
- *             "<'%s'>\nIndex out of bounds, must between 0 and 3."
- *             % self.__class__.__name__
- */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 117, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_CharsetIndexError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 117, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-  /* "sqlcycli/charset.py":119
- *         raise errors.CharsetIndexError(
- *             "<'%s'>\nIndex out of bounds, must between 0 and 3."
- *             % self.__class__.__name__             # <<<<<<<<<<<<<<
- *         )
- * 
- */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 119, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_name_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 119, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s_Index_out_of_bounds_must_betw, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 119, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = NULL;
-  __pyx_t_6 = 0;
-  #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_4))) {
-    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_4);
-    if (likely(__pyx_t_5)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
-      __Pyx_INCREF(__pyx_t_5);
-      __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_4, function);
-      __pyx_t_6 = 1;
-    }
-  }
-  #endif
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_3};
-    __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
-    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 117, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  }
-  __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __PYX_ERR(0, 117, __pyx_L1_error)
-
-  /* "sqlcycli/charset.py":108
- *         )
- * 
- *     def __getitem__(self, idx: cython.int) -> int | str | bytes:             # <<<<<<<<<<<<<<
- *         if idx == 0:
- *             return self._id
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_AddTraceback("sqlcycli.charset.Charset.__getitem__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "sqlcycli/charset.py":122
+/* "sqlcycli/charset.py":114
  *         )
  * 
  *     def __eq__(self, o: object) -> bool:             # <<<<<<<<<<<<<<
  *         if isinstance(o, Charset):
- *             return (
+ *             _o: Charset = o
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_9__eq__(PyObject *__pyx_v_self, PyObject *__pyx_v_o); /*proto*/
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_9__eq__(PyObject *__pyx_v_self, PyObject *__pyx_v_o) {
+static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_7__eq__(PyObject *__pyx_v_self, PyObject *__pyx_v_o); /*proto*/
+static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_7__eq__(PyObject *__pyx_v_self, PyObject *__pyx_v_o) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__eq__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_8__eq__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self), ((PyObject *)__pyx_v_o));
+  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_6__eq__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self), ((PyObject *)__pyx_v_o));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8__eq__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v_o) {
+static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_6__eq__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v_o) {
+  struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v__o = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__eq__", 1);
 
-  /* "sqlcycli/charset.py":123
+  /* "sqlcycli/charset.py":115
  * 
  *     def __eq__(self, o: object) -> bool:
  *         if isinstance(o, Charset):             # <<<<<<<<<<<<<<
+ *             _o: Charset = o
  *             return (
- *                 self._id == o.id
  */
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_o, __pyx_ptype_8sqlcycli_7charset_Charset); 
   if (__pyx_t_1) {
 
-    /* "sqlcycli/charset.py":124
+    /* "sqlcycli/charset.py":116
  *     def __eq__(self, o: object) -> bool:
  *         if isinstance(o, Charset):
+ *             _o: Charset = o             # <<<<<<<<<<<<<<
+ *             return (
+ *                 self._id == _o._id
+ */
+    if (!(likely(((__pyx_v_o) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_o, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_2 = __pyx_v_o;
+    __Pyx_INCREF(__pyx_t_2);
+    __pyx_v__o = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_2);
+    __pyx_t_2 = 0;
+
+    /* "sqlcycli/charset.py":117
+ *         if isinstance(o, Charset):
+ *             _o: Charset = o
  *             return (             # <<<<<<<<<<<<<<
- *                 self._id == o.id
- *                 and self._name == o.name
+ *                 self._id == _o._id
+ *                 and self._name == _o._name
  */
     __Pyx_XDECREF(__pyx_r);
 
-    /* "sqlcycli/charset.py":125
- *         if isinstance(o, Charset):
+    /* "sqlcycli/charset.py":118
+ *             _o: Charset = o
  *             return (
- *                 self._id == o.id             # <<<<<<<<<<<<<<
- *                 and self._name == o.name
- *                 and self._collation == o.collation
+ *                 self._id == _o._id             # <<<<<<<<<<<<<<
+ *                 and self._name == _o._name
+ *                 and self._collation == _o._collation
  */
-    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 125, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_o, __pyx_n_s_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 125, __pyx_L1_error)
+    __pyx_t_1 = (__pyx_v_self->_id == __pyx_v__o->_id);
     if (__pyx_t_1) {
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     } else {
-      __Pyx_INCREF(__pyx_t_5);
-      __pyx_t_2 = __pyx_t_5;
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 118, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __pyx_t_2 = __pyx_t_3;
+      __pyx_t_3 = 0;
       goto __pyx_L4_bool_binop_done;
     }
 
-    /* "sqlcycli/charset.py":126
+    /* "sqlcycli/charset.py":119
  *             return (
- *                 self._id == o.id
- *                 and self._name == o.name             # <<<<<<<<<<<<<<
- *                 and self._collation == o.collation
+ *                 self._id == _o._id
+ *                 and self._name == _o._name             # <<<<<<<<<<<<<<
+ *                 and self._collation == _o._collation
+ *                 and self._is_default == _o._is_default
+ */
+    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_name, __pyx_v__o->_name, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 119, __pyx_L1_error)
+    if (__pyx_t_1) {
+    } else {
+      __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 119, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __pyx_t_2 = __pyx_t_3;
+      __pyx_t_3 = 0;
+      goto __pyx_L4_bool_binop_done;
+    }
+
+    /* "sqlcycli/charset.py":120
+ *                 self._id == _o._id
+ *                 and self._name == _o._name
+ *                 and self._collation == _o._collation             # <<<<<<<<<<<<<<
+ *                 and self._is_default == _o._is_default
  *             )
  */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_o, __pyx_n_s_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = PyObject_RichCompare(__pyx_v_self->_name, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_self->_collation, __pyx_v__o->_collation, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
     if (__pyx_t_1) {
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     } else {
-      __Pyx_INCREF(__pyx_t_4);
-      __pyx_t_2 = __pyx_t_4;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 120, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __pyx_t_2 = __pyx_t_3;
+      __pyx_t_3 = 0;
       goto __pyx_L4_bool_binop_done;
     }
 
-    /* "sqlcycli/charset.py":127
- *                 self._id == o.id
- *                 and self._name == o.name
- *                 and self._collation == o.collation             # <<<<<<<<<<<<<<
+    /* "sqlcycli/charset.py":121
+ *                 and self._name == _o._name
+ *                 and self._collation == _o._collation
+ *                 and self._is_default == _o._is_default             # <<<<<<<<<<<<<<
  *             )
  *         return NotImplemented
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_o, __pyx_n_s_collation); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyObject_RichCompare(__pyx_v_self->_collation, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 127, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_INCREF(__pyx_t_5);
-    __pyx_t_2 = __pyx_t_5;
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __pyx_t_1 = (__pyx_v_self->_is_default == __pyx_v__o->_is_default);
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_2 = __pyx_t_3;
+    __pyx_t_3 = 0;
     __pyx_L4_bool_binop_done:;
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/charset.py":123
+    /* "sqlcycli/charset.py":115
  * 
  *     def __eq__(self, o: object) -> bool:
  *         if isinstance(o, Charset):             # <<<<<<<<<<<<<<
+ *             _o: Charset = o
  *             return (
- *                 self._id == o.id
  */
   }
 
-  /* "sqlcycli/charset.py":129
- *                 and self._collation == o.collation
+  /* "sqlcycli/charset.py":123
+ *                 and self._is_default == _o._is_default
  *             )
  *         return NotImplemented             # <<<<<<<<<<<<<<
  * 
@@ -7123,109 +6950,114 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_8__eq__(struct __pyx_obj_8
   __pyx_r = __pyx_builtin_NotImplemented;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":122
+  /* "sqlcycli/charset.py":114
  *         )
  * 
  *     def __eq__(self, o: object) -> bool:             # <<<<<<<<<<<<<<
  *         if isinstance(o, Charset):
- *             return (
+ *             _o: Charset = o
  */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_AddTraceback("sqlcycli.charset.Charset.__eq__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF((PyObject *)__pyx_v__o);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":131
+/* "sqlcycli/charset.py":125
  *         return NotImplemented
  * 
  *     def __hash__(self) -> int:             # <<<<<<<<<<<<<<
- *         return hash((self.__class__.__name__, self._id, self._name, self._collation))
- * 
+ *         if self._hashcode == -1:
+ *             self._hashcode = id(self)
  */
 
 /* Python wrapper */
-static Py_hash_t __pyx_pw_8sqlcycli_7charset_7Charset_11__hash__(PyObject *__pyx_v_self); /*proto*/
-static Py_hash_t __pyx_pw_8sqlcycli_7charset_7Charset_11__hash__(PyObject *__pyx_v_self) {
+static Py_hash_t __pyx_pw_8sqlcycli_7charset_7Charset_9__hash__(PyObject *__pyx_v_self); /*proto*/
+static Py_hash_t __pyx_pw_8sqlcycli_7charset_7Charset_9__hash__(PyObject *__pyx_v_self) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   Py_hash_t __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__hash__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_10__hash__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_8__hash__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static Py_hash_t __pyx_pf_8sqlcycli_7charset_7Charset_10__hash__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self) {
+static Py_hash_t __pyx_pf_8sqlcycli_7charset_7Charset_8__hash__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self) {
   Py_hash_t __pyx_r;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
   PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  Py_hash_t __pyx_t_4;
+  Py_ssize_t __pyx_t_3;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__hash__", 1);
 
-  /* "sqlcycli/charset.py":132
+  /* "sqlcycli/charset.py":126
  * 
  *     def __hash__(self) -> int:
- *         return hash((self.__class__.__name__, self._id, self._name, self._collation))             # <<<<<<<<<<<<<<
+ *         if self._hashcode == -1:             # <<<<<<<<<<<<<<
+ *             self._hashcode = id(self)
+ *         return self._hashcode
+ */
+  __pyx_t_1 = (__pyx_v_self->_hashcode == -1L);
+  if (__pyx_t_1) {
+
+    /* "sqlcycli/charset.py":127
+ *     def __hash__(self) -> int:
+ *         if self._hashcode == -1:
+ *             self._hashcode = id(self)             # <<<<<<<<<<<<<<
+ *         return self._hashcode
+ * 
+ */
+    __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_3 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_3 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 127, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_v_self->_hashcode = __pyx_t_3;
+
+    /* "sqlcycli/charset.py":126
+ * 
+ *     def __hash__(self) -> int:
+ *         if self._hashcode == -1:             # <<<<<<<<<<<<<<
+ *             self._hashcode = id(self)
+ *         return self._hashcode
+ */
+  }
+
+  /* "sqlcycli/charset.py":128
+ *         if self._hashcode == -1:
+ *             self._hashcode = id(self)
+ *         return self._hashcode             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_name_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyTuple_New(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error);
-  __Pyx_INCREF(__pyx_v_self->_name);
-  __Pyx_GIVEREF(__pyx_v_self->_name);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_v_self->_name)) __PYX_ERR(0, 132, __pyx_L1_error);
-  __Pyx_INCREF(__pyx_v_self->_collation);
-  __Pyx_GIVEREF(__pyx_v_self->_collation);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 3, __pyx_v_self->_collation)) __PYX_ERR(0, 132, __pyx_L1_error);
-  __pyx_t_2 = 0;
-  __pyx_t_1 = 0;
-  __pyx_t_4 = PyObject_Hash(__pyx_t_3); if (unlikely(__pyx_t_4 == ((Py_hash_t)-1))) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_r = __pyx_t_4;
+  __pyx_r = __pyx_v_self->_hashcode;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":131
+  /* "sqlcycli/charset.py":125
  *         return NotImplemented
  * 
  *     def __hash__(self) -> int:             # <<<<<<<<<<<<<<
- *         return hash((self.__class__.__name__, self._id, self._name, self._collation))
- * 
+ *         if self._hashcode == -1:
+ *             self._hashcode = id(self)
  */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
   __Pyx_AddTraceback("sqlcycli.charset.Charset.__hash__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
@@ -7241,15 +7073,15 @@ static Py_hash_t __pyx_pf_8sqlcycli_7charset_7Charset_10__hash__(struct __pyx_ob
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_13__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_11__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_7charset_7Charset_13__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_13__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_13__reduce_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_7charset_7Charset_11__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_11__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_11__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7274,14 +7106,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("__reduce_cython__", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "__reduce_cython__", 0))) return NULL;
-  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_10__reduce_cython__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self) {
+static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_10__reduce_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self) {
   PyObject *__pyx_v_state = 0;
   PyObject *__pyx_v__dict = 0;
   int __pyx_v_use_setstate;
@@ -7291,8 +7123,9 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
-  int __pyx_t_5;
+  PyObject *__pyx_t_5 = NULL;
   int __pyx_t_6;
+  int __pyx_t_7;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -7301,60 +7134,65 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
   /* "(tree fragment)":5
  *     cdef object _dict
  *     cdef bint use_setstate
- *     state = (self._collation, self._encoding, self._encoding_c, self._id, self._is_default, self._name)             # <<<<<<<<<<<<<<
+ *     state = (self._collation, self._encoding, self._encoding_c, self._hashcode, self._id, self._is_default, self._name)             # <<<<<<<<<<<<<<
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:
  */
   __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_self->_encoding_c); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_self->_hashcode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_default); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyTuple_New(6); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_default); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_5 = PyTuple_New(7); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_INCREF(__pyx_v_self->_collation);
   __Pyx_GIVEREF(__pyx_v_self->_collation);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_self->_collation)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_self->_collation)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->_encoding);
   __Pyx_GIVEREF(__pyx_v_self->_encoding);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_v_self->_encoding)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v_self->_encoding)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 2, __pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 3, __pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 3, __pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 4, __pyx_t_3)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 4, __pyx_t_3)) __PYX_ERR(1, 5, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_4);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 5, __pyx_t_4)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->_name);
   __Pyx_GIVEREF(__pyx_v_self->_name);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 5, __pyx_v_self->_name)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 6, __pyx_v_self->_name)) __PYX_ERR(1, 5, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
-  __pyx_v_state = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
+  __pyx_v_state = ((PyObject*)__pyx_t_5);
+  __pyx_t_5 = 0;
 
   /* "(tree fragment)":6
  *     cdef bint use_setstate
- *     state = (self._collation, self._encoding, self._encoding_c, self._id, self._is_default, self._name)
+ *     state = (self._collation, self._encoding, self._encoding_c, self._hashcode, self._id, self._is_default, self._name)
  *     _dict = getattr(self, '__dict__', None)             # <<<<<<<<<<<<<<
  *     if _dict is not None:
  *         state += (_dict,)
  */
-  __pyx_t_4 = __Pyx_GetAttr3(((PyObject *)__pyx_v_self), __pyx_n_s_dict, Py_None); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 6, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_v__dict = __pyx_t_4;
-  __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_GetAttr3(((PyObject *)__pyx_v_self), __pyx_n_s_dict, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 6, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_v__dict = __pyx_t_5;
+  __pyx_t_5 = 0;
 
   /* "(tree fragment)":7
- *     state = (self._collation, self._encoding, self._encoding_c, self._id, self._is_default, self._name)
+ *     state = (self._collation, self._encoding, self._encoding_c, self._hashcode, self._id, self._is_default, self._name)
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:             # <<<<<<<<<<<<<<
  *         state += (_dict,)
  *         use_setstate = True
  */
-  __pyx_t_5 = (__pyx_v__dict != Py_None);
-  if (__pyx_t_5) {
+  __pyx_t_6 = (__pyx_v__dict != Py_None);
+  if (__pyx_t_6) {
 
     /* "(tree fragment)":8
  *     _dict = getattr(self, '__dict__', None)
@@ -7363,16 +7201,16 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
  *         use_setstate = True
  *     else:
  */
-    __pyx_t_4 = PyTuple_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 8, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 8, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v__dict);
     __Pyx_GIVEREF(__pyx_v__dict);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v__dict)) __PYX_ERR(1, 8, __pyx_L1_error);
-    __pyx_t_3 = PyNumber_InPlaceAdd(__pyx_v_state, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 8, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_DECREF_SET(__pyx_v_state, ((PyObject*)__pyx_t_3));
-    __pyx_t_3 = 0;
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v__dict)) __PYX_ERR(1, 8, __pyx_L1_error);
+    __pyx_t_4 = PyNumber_InPlaceAdd(__pyx_v_state, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 8, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF_SET(__pyx_v_state, ((PyObject*)__pyx_t_4));
+    __pyx_t_4 = 0;
 
     /* "(tree fragment)":9
  *     if _dict is not None:
@@ -7384,7 +7222,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
     __pyx_v_use_setstate = 1;
 
     /* "(tree fragment)":7
- *     state = (self._collation, self._encoding, self._encoding_c, self._id, self._is_default, self._name)
+ *     state = (self._collation, self._encoding, self._encoding_c, self._hashcode, self._id, self._is_default, self._name)
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:             # <<<<<<<<<<<<<<
  *         state += (_dict,)
@@ -7398,25 +7236,25 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
  *     else:
  *         use_setstate = self._collation is not None or self._encoding is not None or self._name is not None             # <<<<<<<<<<<<<<
  *     if use_setstate:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, None), state
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, None), state
  */
   /*else*/ {
-    __pyx_t_6 = (__pyx_v_self->_collation != ((PyObject*)Py_None));
-    if (!__pyx_t_6) {
+    __pyx_t_7 = (__pyx_v_self->_collation != ((PyObject*)Py_None));
+    if (!__pyx_t_7) {
     } else {
-      __pyx_t_5 = __pyx_t_6;
+      __pyx_t_6 = __pyx_t_7;
       goto __pyx_L4_bool_binop_done;
     }
-    __pyx_t_6 = (__pyx_v_self->_encoding != ((PyObject*)Py_None));
-    if (!__pyx_t_6) {
+    __pyx_t_7 = (__pyx_v_self->_encoding != ((PyObject*)Py_None));
+    if (!__pyx_t_7) {
     } else {
-      __pyx_t_5 = __pyx_t_6;
+      __pyx_t_6 = __pyx_t_7;
       goto __pyx_L4_bool_binop_done;
     }
-    __pyx_t_6 = (__pyx_v_self->_name != ((PyObject*)Py_None));
-    __pyx_t_5 = __pyx_t_6;
+    __pyx_t_7 = (__pyx_v_self->_name != ((PyObject*)Py_None));
+    __pyx_t_6 = __pyx_t_7;
     __pyx_L4_bool_binop_done:;
-    __pyx_v_use_setstate = __pyx_t_5;
+    __pyx_v_use_setstate = __pyx_t_6;
   }
   __pyx_L3:;
 
@@ -7424,7 +7262,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
  *     else:
  *         use_setstate = self._collation is not None or self._encoding is not None or self._name is not None
  *     if use_setstate:             # <<<<<<<<<<<<<<
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, None), state
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, None), state
  *     else:
  */
   if (__pyx_v_use_setstate) {
@@ -7432,80 +7270,80 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
     /* "(tree fragment)":13
  *         use_setstate = self._collation is not None or self._encoding is not None or self._name is not None
  *     if use_setstate:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, None), state             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, None), state             # <<<<<<<<<<<<<<
  *     else:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_pyx_unpickle_Charset); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 13, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = PyTuple_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 13, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_pyx_unpickle_Charset); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 13, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_5 = PyTuple_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 13, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 13, __pyx_L1_error);
-    __Pyx_INCREF(__pyx_int_112447473);
-    __Pyx_GIVEREF(__pyx_int_112447473);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_112447473)) __PYX_ERR(1, 13, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 13, __pyx_L1_error);
+    __Pyx_INCREF(__pyx_int_238740280);
+    __Pyx_GIVEREF(__pyx_int_238740280);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_int_238740280)) __PYX_ERR(1, 13, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 2, Py_None)) __PYX_ERR(1, 13, __pyx_L1_error);
-    __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 13, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(1, 13, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 2, Py_None)) __PYX_ERR(1, 13, __pyx_L1_error);
+    __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 13, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
     __Pyx_GIVEREF(__pyx_t_4);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_4)) __PYX_ERR(1, 13, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_4)) __PYX_ERR(1, 13, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_5);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_5)) __PYX_ERR(1, 13, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_state);
     __Pyx_GIVEREF(__pyx_v_state);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_v_state)) __PYX_ERR(1, 13, __pyx_L1_error);
-    __pyx_t_3 = 0;
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_v_state)) __PYX_ERR(1, 13, __pyx_L1_error);
     __pyx_t_4 = 0;
-    __pyx_r = __pyx_t_2;
-    __pyx_t_2 = 0;
+    __pyx_t_5 = 0;
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
     goto __pyx_L0;
 
     /* "(tree fragment)":12
  *     else:
  *         use_setstate = self._collation is not None or self._encoding is not None or self._name is not None
  *     if use_setstate:             # <<<<<<<<<<<<<<
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, None), state
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, None), state
  *     else:
  */
   }
 
   /* "(tree fragment)":15
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, None), state
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, None), state
  *     else:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)             # <<<<<<<<<<<<<<
  * def __setstate_cython__(self, __pyx_state):
  *     __pyx_unpickle_Charset__set_state(self, __pyx_state)
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_pyx_unpickle_Charset); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 15, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = PyTuple_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 15, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_pyx_unpickle_Charset); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 15, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_5 = PyTuple_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 15, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 15, __pyx_L1_error);
-    __Pyx_INCREF(__pyx_int_112447473);
-    __Pyx_GIVEREF(__pyx_int_112447473);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_112447473)) __PYX_ERR(1, 15, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 15, __pyx_L1_error);
+    __Pyx_INCREF(__pyx_int_238740280);
+    __Pyx_GIVEREF(__pyx_int_238740280);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_int_238740280)) __PYX_ERR(1, 15, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_state);
     __Pyx_GIVEREF(__pyx_v_state);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_v_state)) __PYX_ERR(1, 15, __pyx_L1_error);
-    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 15, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(1, 15, __pyx_L1_error);
-    __Pyx_GIVEREF(__pyx_t_4);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_4)) __PYX_ERR(1, 15, __pyx_L1_error);
-    __pyx_t_2 = 0;
-    __pyx_t_4 = 0;
-    __pyx_r = __pyx_t_3;
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 2, __pyx_v_state)) __PYX_ERR(1, 15, __pyx_L1_error);
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 15, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_GIVEREF(__pyx_t_3);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_3)) __PYX_ERR(1, 15, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_5);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_5)) __PYX_ERR(1, 15, __pyx_L1_error);
     __pyx_t_3 = 0;
+    __pyx_t_5 = 0;
+    __pyx_r = __pyx_t_4;
+    __pyx_t_4 = 0;
     goto __pyx_L0;
   }
 
@@ -7521,6 +7359,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_AddTraceback("sqlcycli.charset.Charset.__reduce_cython__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -7533,21 +7372,21 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__reduce_cython__(struct
 
 /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Charset__set_state(self, __pyx_state)
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_15__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_13__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_7charset_7Charset_15__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_15__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_15__setstate_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_7charset_7Charset_13__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_13__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_7charset_7Charset_13__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7621,7 +7460,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_14__setstate_cython__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_8sqlcycli_7charset_7Charset_12__setstate_cython__(((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   {
@@ -7634,7 +7473,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_14__setstate_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_12__setstate_cython__(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -7644,7 +7483,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_14__setstate_cython__(stru
   __Pyx_RefNannySetupContext("__setstate_cython__", 1);
 
   /* "(tree fragment)":17
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)
  * def __setstate_cython__(self, __pyx_state):
  *     __pyx_unpickle_Charset__set_state(self, __pyx_state)             # <<<<<<<<<<<<<<
  */
@@ -7655,7 +7494,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_14__setstate_cython__(stru
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Charset__set_state(self, __pyx_state)
  */
@@ -7673,17 +7512,17 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_7Charset_14__setstate_cython__(stru
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":144
+/* "sqlcycli/charset.py":140
  *     _by_name_n_collation: dict[str, Charset]
  * 
  *     def __init__(self) -> None:             # <<<<<<<<<<<<<<
- *         """The collection of MySQL charsets."""
+ *         """Collection for managing all the MySQL charsets."""
  *         self._by_id = {}
  */
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_7charset_8Charsets_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets___init__, "The collection of MySQL charsets.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets___init__, "Collection for managing all the MySQL charsets.");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_7charset_8Charsets___init__;
 #endif
@@ -7718,14 +7557,14 @@ static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/charset.py":146
+  /* "sqlcycli/charset.py":142
  *     def __init__(self) -> None:
- *         """The collection of MySQL charsets."""
+ *         """Collection for managing all the MySQL charsets."""
  *         self._by_id = {}             # <<<<<<<<<<<<<<
  *         self._by_name = {}
  *         self._by_collation = {}
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_by_id);
@@ -7733,14 +7572,14 @@ static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlc
   __pyx_v_self->_by_id = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":147
- *         """The collection of MySQL charsets."""
+  /* "sqlcycli/charset.py":143
+ *         """Collection for managing all the MySQL charsets."""
  *         self._by_id = {}
  *         self._by_name = {}             # <<<<<<<<<<<<<<
  *         self._by_collation = {}
  *         self._by_name_n_collation = {}
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_by_name);
@@ -7748,14 +7587,14 @@ static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlc
   __pyx_v_self->_by_name = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":148
+  /* "sqlcycli/charset.py":144
  *         self._by_id = {}
  *         self._by_name = {}
  *         self._by_collation = {}             # <<<<<<<<<<<<<<
  *         self._by_name_n_collation = {}
  * 
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_by_collation);
@@ -7763,14 +7602,14 @@ static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlc
   __pyx_v_self->_by_collation = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":149
+  /* "sqlcycli/charset.py":145
  *         self._by_name = {}
  *         self._by_collation = {}
  *         self._by_name_n_collation = {}             # <<<<<<<<<<<<<<
  * 
  *     # Add Charset ------------------------------------------------------------------
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_by_name_n_collation);
@@ -7778,11 +7617,11 @@ static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlc
   __pyx_v_self->_by_name_n_collation = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":144
+  /* "sqlcycli/charset.py":140
  *     _by_name_n_collation: dict[str, Charset]
  * 
  *     def __init__(self) -> None:             # <<<<<<<<<<<<<<
- *         """The collection of MySQL charsets."""
+ *         """Collection for managing all the MySQL charsets."""
  *         self._by_id = {}
  */
 
@@ -7798,7 +7637,7 @@ static int __pyx_pf_8sqlcycli_7charset_8Charsets___init__(struct __pyx_obj_8sqlc
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":152
+/* "sqlcycli/charset.py":148
  * 
  *     # Add Charset ------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -7835,7 +7674,7 @@ static int __pyx_f_8sqlcycli_7charset_8Charsets_add(struct __pyx_obj_8sqlcycli_7
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_add); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_add); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_7charset_8Charsets_3add)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -7857,11 +7696,11 @@ static int __pyx_f_8sqlcycli_7charset_8Charsets_add(struct __pyx_obj_8sqlcycli_7
           PyObject *__pyx_callargs[2] = {__pyx_t_4, ((PyObject *)__pyx_v_charset)};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 148, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -7880,45 +7719,77 @@ static int __pyx_f_8sqlcycli_7charset_8Charsets_add(struct __pyx_obj_8sqlcycli_7
     #endif
   }
 
+  /* "sqlcycli/charset.py":155
+ *         :param charset `<'Charset'>`: The charset instance to add.
+ *         """
+ *         if charset is None:             # <<<<<<<<<<<<<<
+ *             raise AssertionError("charset cannot be 'None'.")
+ *         self._index_by_id(charset)
+ */
+  __pyx_t_6 = (((PyObject *)__pyx_v_charset) == Py_None);
+  if (unlikely(__pyx_t_6)) {
+
+    /* "sqlcycli/charset.py":156
+ *         """
+ *         if charset is None:
+ *             raise AssertionError("charset cannot be 'None'.")             # <<<<<<<<<<<<<<
+ *         self._index_by_id(charset)
+ *         self._index_by_name(charset)
+ */
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_AssertionError, __pyx_tuple__4, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __PYX_ERR(0, 156, __pyx_L1_error)
+
+    /* "sqlcycli/charset.py":155
+ *         :param charset `<'Charset'>`: The charset instance to add.
+ *         """
+ *         if charset is None:             # <<<<<<<<<<<<<<
+ *             raise AssertionError("charset cannot be 'None'.")
+ *         self._index_by_id(charset)
+ */
+  }
+
+  /* "sqlcycli/charset.py":157
+ *         if charset is None:
+ *             raise AssertionError("charset cannot be 'None'.")
+ *         self._index_by_id(charset)             # <<<<<<<<<<<<<<
+ *         self._index_by_name(charset)
+ *         self._index_by_collation(charset)
+ */
+  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__index_by_id(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 157, __pyx_L1_error)
+
+  /* "sqlcycli/charset.py":158
+ *             raise AssertionError("charset cannot be 'None'.")
+ *         self._index_by_id(charset)
+ *         self._index_by_name(charset)             # <<<<<<<<<<<<<<
+ *         self._index_by_collation(charset)
+ *         self._index_by_name_n_collation(charset)
+ */
+  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 158, __pyx_L1_error)
+
   /* "sqlcycli/charset.py":159
- *         :param charset `<'Charset'>`: An instance of `Charset`.
- *         """
- *         self._add_by_id(charset)             # <<<<<<<<<<<<<<
- *         self._add_by_name(charset)
- *         self._add_by_collation(charset)
- */
-  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__add_by_id(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 159, __pyx_L1_error)
-
-  /* "sqlcycli/charset.py":160
- *         """
- *         self._add_by_id(charset)
- *         self._add_by_name(charset)             # <<<<<<<<<<<<<<
- *         self._add_by_collation(charset)
- *         self._add_by_name_n_collation(charset)
- */
-  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 160, __pyx_L1_error)
-
-  /* "sqlcycli/charset.py":161
- *         self._add_by_id(charset)
- *         self._add_by_name(charset)
- *         self._add_by_collation(charset)             # <<<<<<<<<<<<<<
- *         self._add_by_name_n_collation(charset)
+ *         self._index_by_id(charset)
+ *         self._index_by_name(charset)
+ *         self._index_by_collation(charset)             # <<<<<<<<<<<<<<
+ *         self._index_by_name_n_collation(charset)
  *         return True
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 161, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__index_by_collation(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 159, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":162
- *         self._add_by_name(charset)
- *         self._add_by_collation(charset)
- *         self._add_by_name_n_collation(charset)             # <<<<<<<<<<<<<<
+  /* "sqlcycli/charset.py":160
+ *         self._index_by_name(charset)
+ *         self._index_by_collation(charset)
+ *         self._index_by_name_n_collation(charset)             # <<<<<<<<<<<<<<
  *         return True
  * 
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_collation(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name_n_collation(__pyx_v_self, __pyx_v_charset); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 160, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":163
- *         self._add_by_collation(charset)
- *         self._add_by_name_n_collation(charset)
+  /* "sqlcycli/charset.py":161
+ *         self._index_by_collation(charset)
+ *         self._index_by_name_n_collation(charset)
  *         return True             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
@@ -7926,7 +7797,7 @@ static int __pyx_f_8sqlcycli_7charset_8Charsets_add(struct __pyx_obj_8sqlcycli_7
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":152
+  /* "sqlcycli/charset.py":148
  * 
  *     # Add Charset ------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -7955,7 +7826,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_2add, "Add MySQL charset to the collection.\n\n        :param charset `<'Charset'>`: An instance of `Charset`.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_2add, "Add MySQL charset to the collection.\n\n        :param charset `<'Charset'>`: The charset instance to add.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_8Charsets_3add = {"add", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_8Charsets_3add, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_8Charsets_2add};
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_3add(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -8001,12 +7872,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 148, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "add") < 0)) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "add") < 0)) __PYX_ERR(0, 148, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -8017,7 +7888,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 152, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 148, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8031,7 +7902,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_charset), __pyx_ptype_8sqlcycli_7charset_Charset, 0, "charset", 0))) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_charset), __pyx_ptype_8sqlcycli_7charset_Charset, 0, "charset", 0))) __PYX_ERR(0, 150, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_7charset_8Charsets_2add(((struct __pyx_obj_8sqlcycli_7charset_Charsets *)__pyx_v_self), __pyx_v_charset);
 
   /* function exit code */
@@ -8059,8 +7930,8 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_2add(struct __pyx_obj_8sq
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_7charset_8Charsets_add(__pyx_v_self, __pyx_v_charset, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_7charset_8Charsets_add(__pyx_v_self, __pyx_v_charset, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -8077,7 +7948,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_2add(struct __pyx_obj_8sq
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":165
+/* "sqlcycli/charset.py":163
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8085,415 +7956,35 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_2add(struct __pyx_obj_8sq
  *     @cython.exceptval(-1, check=False)
  */
 
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
-  PyObject *__pyx_v_id = 0;
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_id(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  int __pyx_t_3;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  Py_ssize_t __pyx_t_6;
-  Py_UCS4 __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  unsigned int __pyx_t_10;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_add_by_id", 1);
-
-  /* "sqlcycli/charset.py":170
- *     def _add_by_id(self, charset: Charset) -> cython.bint:
- *         """(cfunc) Add MySQL charset by ID."""
- *         id: object = charset._id             # <<<<<<<<<<<<<<
- *         if dict_contains(self._by_id, id):
- *             raise errors.CharsetDuplicatedError(
- */
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_charset->_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_v_id = __pyx_t_1;
-  __pyx_t_1 = 0;
-
-  /* "sqlcycli/charset.py":171
- *         """(cfunc) Add MySQL charset by ID."""
- *         id: object = charset._id
- *         if dict_contains(self._by_id, id):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by ID."
- */
-  __pyx_t_1 = __pyx_v_self->_by_id;
-  __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_Contains(__pyx_t_1, __pyx_v_id); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 171, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = (__pyx_t_2 != 0);
-  if (unlikely(__pyx_t_3)) {
-
-    /* "sqlcycli/charset.py":172
- *         id: object = charset._id
- *         if dict_contains(self._by_id, id):
- *             raise errors.CharsetDuplicatedError(             # <<<<<<<<<<<<<<
- *                 "<'%s'>\nCharset %s already exist by ID."
- *                 % (self.__class__.__name__, charset)
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_errors); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_CharsetDuplicatedError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "sqlcycli/charset.py":173
- *         if dict_contains(self._by_id, id):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by ID."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_4 = PyTuple_New(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
-    __pyx_t_6 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_kp_u__2);
-
-    /* "sqlcycli/charset.py":174
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by ID."
- *                 % (self.__class__.__name__, charset)             # <<<<<<<<<<<<<<
- *             )
- *         dict_setitem(self._by_id, id, charset)
- */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 174, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 174, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 174, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_Charset);
-    __pyx_t_6 += 11;
-    __Pyx_GIVEREF(__pyx_kp_u_Charset);
-    PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_kp_u_Charset);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)__pyx_v_charset)), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 174, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_4, 3, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_already_exist_by_ID);
-    __pyx_t_6 += 21;
-    __Pyx_GIVEREF(__pyx_kp_u_already_exist_by_ID);
-    PyTuple_SET_ITEM(__pyx_t_4, 4, __pyx_kp_u_already_exist_by_ID);
-
-    /* "sqlcycli/charset.py":173
- *         if dict_contains(self._by_id, id):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by ID."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 173, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = NULL;
-    __pyx_t_10 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
-      if (likely(__pyx_t_4)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-        __Pyx_INCREF(__pyx_t_4);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_5, function);
-        __pyx_t_10 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_8};
-      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    }
-    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 172, __pyx_L1_error)
-
-    /* "sqlcycli/charset.py":171
- *         """(cfunc) Add MySQL charset by ID."""
- *         id: object = charset._id
- *         if dict_contains(self._by_id, id):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by ID."
- */
-  }
-
-  /* "sqlcycli/charset.py":176
- *                 % (self.__class__.__name__, charset)
- *             )
- *         dict_setitem(self._by_id, id, charset)             # <<<<<<<<<<<<<<
- *         return True
- * 
- */
-  __pyx_t_1 = __pyx_v_self->_by_id;
-  __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_SetItem(__pyx_t_1, __pyx_v_id, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 176, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "sqlcycli/charset.py":177
- *             )
- *         dict_setitem(self._by_id, id, charset)
- *         return True             # <<<<<<<<<<<<<<
- * 
- *     @cython.cfunc
- */
-  __pyx_r = 1;
-  goto __pyx_L0;
-
-  /* "sqlcycli/charset.py":165
- *         return True
- * 
- *     @cython.cfunc             # <<<<<<<<<<<<<<
- *     @cython.inline(True)
- *     @cython.exceptval(-1, check=False)
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_AddTraceback("sqlcycli.charset.Charsets._add_by_id", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = -1;
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_id);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "sqlcycli/charset.py":179
- *         return True
- * 
- *     @cython.cfunc             # <<<<<<<<<<<<<<
- *     @cython.inline(True)
- *     @cython.exceptval(-1, check=False)
- */
-
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
-  PyObject *__pyx_v_name = 0;
-  int __pyx_r;
-  __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
   PyObject *__pyx_t_2 = NULL;
   int __pyx_t_3;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  Py_ssize_t __pyx_t_6;
-  Py_UCS4 __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  unsigned int __pyx_t_10;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_add_by_name", 1);
+  __Pyx_RefNannySetupContext("_index_by_id", 1);
 
-  /* "sqlcycli/charset.py":184
- *     def _add_by_name(self, charset: Charset) -> cython.bint:
- *         """(cfunc) Add MySQL charset by name."""
- *         if not charset._is_default:             # <<<<<<<<<<<<<<
- *             return True  # exit
- *         name: str = charset._name
- */
-  __pyx_t_1 = (!__pyx_v_charset->_is_default);
-  if (__pyx_t_1) {
-
-    /* "sqlcycli/charset.py":185
- *         """(cfunc) Add MySQL charset by name."""
- *         if not charset._is_default:
- *             return True  # exit             # <<<<<<<<<<<<<<
- *         name: str = charset._name
- *         if dict_contains(self._by_name, name):
- */
-    __pyx_r = 1;
-    goto __pyx_L0;
-
-    /* "sqlcycli/charset.py":184
- *     def _add_by_name(self, charset: Charset) -> cython.bint:
- *         """(cfunc) Add MySQL charset by name."""
- *         if not charset._is_default:             # <<<<<<<<<<<<<<
- *             return True  # exit
- *         name: str = charset._name
- */
-  }
-
-  /* "sqlcycli/charset.py":186
- *         if not charset._is_default:
- *             return True  # exit
- *         name: str = charset._name             # <<<<<<<<<<<<<<
- *         if dict_contains(self._by_name, name):
- *             raise errors.CharsetDuplicatedError(
- */
-  __pyx_t_2 = __pyx_v_charset->_name;
-  __Pyx_INCREF(__pyx_t_2);
-  __pyx_v_name = ((PyObject*)__pyx_t_2);
-  __pyx_t_2 = 0;
-
-  /* "sqlcycli/charset.py":187
- *             return True  # exit
- *         name: str = charset._name
- *         if dict_contains(self._by_name, name):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name."
- */
-  __pyx_t_2 = __pyx_v_self->_by_name;
-  __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = PyDict_Contains(__pyx_t_2, __pyx_v_name); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 187, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_1 = (__pyx_t_3 != 0);
-  if (unlikely(__pyx_t_1)) {
-
-    /* "sqlcycli/charset.py":188
- *         name: str = charset._name
- *         if dict_contains(self._by_name, name):
- *             raise errors.CharsetDuplicatedError(             # <<<<<<<<<<<<<<
- *                 "<'%s'>\nCharset %s already exist by name."
- *                 % (self.__class__.__name__, charset)
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_errors); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 188, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_CharsetDuplicatedError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 188, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "sqlcycli/charset.py":189
- *         if dict_contains(self._by_name, name):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_4 = PyTuple_New(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 189, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
-    __pyx_t_6 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_kp_u__2);
-
-    /* "sqlcycli/charset.py":190
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name."
- *                 % (self.__class__.__name__, charset)             # <<<<<<<<<<<<<<
- *             )
- *         dict_setitem(self._by_name, name, charset)
- */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 190, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 190, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 190, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_Charset);
-    __pyx_t_6 += 11;
-    __Pyx_GIVEREF(__pyx_kp_u_Charset);
-    PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_kp_u_Charset);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)__pyx_v_charset)), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 190, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_4, 3, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_already_exist_by_name);
-    __pyx_t_6 += 23;
-    __Pyx_GIVEREF(__pyx_kp_u_already_exist_by_name);
-    PyTuple_SET_ITEM(__pyx_t_4, 4, __pyx_kp_u_already_exist_by_name);
-
-    /* "sqlcycli/charset.py":189
- *         if dict_contains(self._by_name, name):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 189, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = NULL;
-    __pyx_t_10 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
-      if (likely(__pyx_t_4)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-        __Pyx_INCREF(__pyx_t_4);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_5, function);
-        __pyx_t_10 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_8};
-      __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    }
-    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 188, __pyx_L1_error)
-
-    /* "sqlcycli/charset.py":187
- *             return True  # exit
- *         name: str = charset._name
- *         if dict_contains(self._by_name, name):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name."
- */
-  }
-
-  /* "sqlcycli/charset.py":192
- *                 % (self.__class__.__name__, charset)
- *             )
- *         dict_setitem(self._by_name, name, charset)             # <<<<<<<<<<<<<<
+  /* "sqlcycli/charset.py":171
+ *         :param charset `<'Charset'>`: The charset instance to index.
+ *         """
+ *         dict_setitem(self._by_id, charset._id, charset)             # <<<<<<<<<<<<<<
  *         return True
  * 
  */
-  __pyx_t_2 = __pyx_v_self->_by_name;
-  __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = PyDict_SetItem(__pyx_t_2, __pyx_v_name, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_1 = __pyx_v_self->_by_id;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyInt_From_int(__pyx_v_charset->_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = PyDict_SetItem(__pyx_t_1, __pyx_t_2, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/charset.py":193
- *             )
- *         dict_setitem(self._by_name, name, charset)
+  /* "sqlcycli/charset.py":172
+ *         """
+ *         dict_setitem(self._by_id, charset._id, charset)
  *         return True             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
@@ -8501,216 +7992,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name(struc
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":179
- *         return True
- * 
- *     @cython.cfunc             # <<<<<<<<<<<<<<
- *     @cython.inline(True)
- *     @cython.exceptval(-1, check=False)
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_AddTraceback("sqlcycli.charset.Charsets._add_by_name", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = -1;
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_name);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "sqlcycli/charset.py":195
- *         return True
- * 
- *     @cython.cfunc             # <<<<<<<<<<<<<<
- *     @cython.inline(True)
- *     @cython.exceptval(-1, check=False)
- */
-
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
-  PyObject *__pyx_v_collation = 0;
-  int __pyx_r;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  int __pyx_t_3;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  Py_ssize_t __pyx_t_6;
-  Py_UCS4 __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  unsigned int __pyx_t_10;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_add_by_collation", 1);
-
-  /* "sqlcycli/charset.py":200
- *     def _add_by_collation(self, charset: Charset) -> cython.bint:
- *         """(cfunc) Add MySQL charset by collation."""
- *         collation: str = charset._collation             # <<<<<<<<<<<<<<
- *         if dict_contains(self._by_collation, collation):
- *             raise errors.CharsetDuplicatedError(
- */
-  __pyx_t_1 = __pyx_v_charset->_collation;
-  __Pyx_INCREF(__pyx_t_1);
-  __pyx_v_collation = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
-
-  /* "sqlcycli/charset.py":201
- *         """(cfunc) Add MySQL charset by collation."""
- *         collation: str = charset._collation
- *         if dict_contains(self._by_collation, collation):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by collation."
- */
-  __pyx_t_1 = __pyx_v_self->_by_collation;
-  __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_Contains(__pyx_t_1, __pyx_v_collation); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 201, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = (__pyx_t_2 != 0);
-  if (unlikely(__pyx_t_3)) {
-
-    /* "sqlcycli/charset.py":202
- *         collation: str = charset._collation
- *         if dict_contains(self._by_collation, collation):
- *             raise errors.CharsetDuplicatedError(             # <<<<<<<<<<<<<<
- *                 "<'%s'>\nCharset %s already exist by collation."
- *                 % (self.__class__.__name__, charset)
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_errors); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 202, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_CharsetDuplicatedError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "sqlcycli/charset.py":203
- *         if dict_contains(self._by_collation, collation):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by collation."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_4 = PyTuple_New(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 203, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
-    __pyx_t_6 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_kp_u__2);
-
-    /* "sqlcycli/charset.py":204
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by collation."
- *                 % (self.__class__.__name__, charset)             # <<<<<<<<<<<<<<
- *             )
- *         dict_setitem(self._by_collation, collation, charset)
- */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 204, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 204, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 204, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_Charset);
-    __pyx_t_6 += 11;
-    __Pyx_GIVEREF(__pyx_kp_u_Charset);
-    PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_kp_u_Charset);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)__pyx_v_charset)), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 204, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_4, 3, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_already_exist_by_collation);
-    __pyx_t_6 += 28;
-    __Pyx_GIVEREF(__pyx_kp_u_already_exist_by_collation);
-    PyTuple_SET_ITEM(__pyx_t_4, 4, __pyx_kp_u_already_exist_by_collation);
-
-    /* "sqlcycli/charset.py":203
- *         if dict_contains(self._by_collation, collation):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by collation."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 203, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = NULL;
-    __pyx_t_10 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
-      if (likely(__pyx_t_4)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-        __Pyx_INCREF(__pyx_t_4);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_5, function);
-        __pyx_t_10 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_8};
-      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 202, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    }
-    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 202, __pyx_L1_error)
-
-    /* "sqlcycli/charset.py":201
- *         """(cfunc) Add MySQL charset by collation."""
- *         collation: str = charset._collation
- *         if dict_contains(self._by_collation, collation):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by collation."
- */
-  }
-
-  /* "sqlcycli/charset.py":206
- *                 % (self.__class__.__name__, charset)
- *             )
- *         dict_setitem(self._by_collation, collation, charset)             # <<<<<<<<<<<<<<
- *         return True
- * 
- */
-  __pyx_t_1 = __pyx_v_self->_by_collation;
-  __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_SetItem(__pyx_t_1, __pyx_v_collation, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 206, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "sqlcycli/charset.py":207
- *             )
- *         dict_setitem(self._by_collation, collation, charset)
- *         return True             # <<<<<<<<<<<<<<
- * 
- *     @cython.cfunc
- */
-  __pyx_r = 1;
-  goto __pyx_L0;
-
-  /* "sqlcycli/charset.py":195
+  /* "sqlcycli/charset.py":163
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8721,19 +8003,15 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation(
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_AddTraceback("sqlcycli.charset.Charsets._add_by_collation", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("sqlcycli.charset.Charsets._index_by_id", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_collation);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":209
+/* "sqlcycli/charset.py":174
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8741,183 +8019,203 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation(
  *     @cython.exceptval(-1, check=False)
  */
 
-static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
-  PyObject *__pyx_v_key = 0;
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_3;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_index_by_name", 1);
+
+  /* "sqlcycli/charset.py":182
+ *         :param charset `<'Charset'>`: The charset instance to index.
+ *         """
+ *         if charset._is_default:             # <<<<<<<<<<<<<<
+ *             dict_setitem(self._by_name, charset._name, charset)
+ *         return True
+ */
+  if (__pyx_v_charset->_is_default) {
+
+    /* "sqlcycli/charset.py":183
+ *         """
+ *         if charset._is_default:
+ *             dict_setitem(self._by_name, charset._name, charset)             # <<<<<<<<<<<<<<
+ *         return True
+ * 
+ */
+    __pyx_t_1 = __pyx_v_self->_by_name;
+    __Pyx_INCREF(__pyx_t_1);
+    __pyx_t_2 = __pyx_v_charset->_name;
+    __Pyx_INCREF(__pyx_t_2);
+    __pyx_t_3 = PyDict_SetItem(__pyx_t_1, __pyx_t_2, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 183, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+    /* "sqlcycli/charset.py":182
+ *         :param charset `<'Charset'>`: The charset instance to index.
+ *         """
+ *         if charset._is_default:             # <<<<<<<<<<<<<<
+ *             dict_setitem(self._by_name, charset._name, charset)
+ *         return True
+ */
+  }
+
+  /* "sqlcycli/charset.py":184
+ *         if charset._is_default:
+ *             dict_setitem(self._by_name, charset._name, charset)
+ *         return True             # <<<<<<<<<<<<<<
+ * 
+ *     @cython.cfunc
+ */
+  __pyx_r = 1;
+  goto __pyx_L0;
+
+  /* "sqlcycli/charset.py":174
+ *         return True
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     @cython.exceptval(-1, check=False)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("sqlcycli.charset.Charsets._index_by_name", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/charset.py":186
+ *         return True
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     @cython.exceptval(-1, check=False)
+ */
+
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_3;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_index_by_collation", 1);
+
+  /* "sqlcycli/charset.py":194
+ *         :param charset `<'Charset'>`: The charset instance to index.
+ *         """
+ *         dict_setitem(self._by_collation, charset._collation, charset)             # <<<<<<<<<<<<<<
+ *         return True
+ * 
+ */
+  __pyx_t_1 = __pyx_v_self->_by_collation;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = __pyx_v_charset->_collation;
+  __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_3 = PyDict_SetItem(__pyx_t_1, __pyx_t_2, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "sqlcycli/charset.py":195
+ *         """
+ *         dict_setitem(self._by_collation, charset._collation, charset)
+ *         return True             # <<<<<<<<<<<<<<
+ * 
+ *     @cython.cfunc
+ */
+  __pyx_r = 1;
+  goto __pyx_L0;
+
+  /* "sqlcycli/charset.py":186
+ *         return True
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     @cython.exceptval(-1, check=False)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("sqlcycli.charset.Charsets._index_by_collation", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "sqlcycli/charset.py":197
+ *         return True
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline(True)
+ *     @cython.exceptval(-1, check=False)
+ */
+
+static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__index_by_name_n_collation(struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_v_self, struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v_charset) {
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  int __pyx_t_4;
+  PyObject *__pyx_t_4 = NULL;
   int __pyx_t_5;
-  Py_ssize_t __pyx_t_6;
-  Py_UCS4 __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  unsigned int __pyx_t_10;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_add_by_name_n_collation", 1);
+  __Pyx_RefNannySetupContext("_index_by_name_n_collation", 1);
 
-  /* "sqlcycli/charset.py":214
- *     def _add_by_name_n_collation(self, charset: Charset) -> cython.bint:
- *         """(cfunc) Add MySQL charset by collation."""
- *         key: str = self._gen_charset_n_collate_key(charset._name, charset._collation)             # <<<<<<<<<<<<<<
- *         if dict_contains(self._by_name_n_collation, key):
- *             raise errors.CharsetDuplicatedError(
+  /* "sqlcycli/charset.py":206
+ *         """
+ *         dict_setitem(
+ *             self._by_name_n_collation,             # <<<<<<<<<<<<<<
+ *             self._gen_charset_n_collate_key(charset._name, charset._collation),
+ *             charset,
  */
-  __pyx_t_1 = __pyx_v_charset->_name;
+  __pyx_t_1 = __pyx_v_self->_by_name_n_collation;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_v_charset->_collation;
+
+  /* "sqlcycli/charset.py":207
+ *         dict_setitem(
+ *             self._by_name_n_collation,
+ *             self._gen_charset_n_collate_key(charset._name, charset._collation),             # <<<<<<<<<<<<<<
+ *             charset,
+ *         )
+ */
+  __pyx_t_2 = __pyx_v_charset->_name;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(__pyx_v_self, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 214, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_3 = __pyx_v_charset->_collation;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_4 = __pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(__pyx_v_self, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_v_key = ((PyObject*)__pyx_t_3);
-  __pyx_t_3 = 0;
-
-  /* "sqlcycli/charset.py":215
- *         """(cfunc) Add MySQL charset by collation."""
- *         key: str = self._gen_charset_n_collate_key(charset._name, charset._collation)
- *         if dict_contains(self._by_name_n_collation, key):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name & collation."
- */
-  __pyx_t_3 = __pyx_v_self->_by_name_n_collation;
-  __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_4 = PyDict_Contains(__pyx_t_3, __pyx_v_key); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 215, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_5 = (__pyx_t_4 != 0);
-  if (unlikely(__pyx_t_5)) {
-
-    /* "sqlcycli/charset.py":216
- *         key: str = self._gen_charset_n_collate_key(charset._name, charset._collation)
- *         if dict_contains(self._by_name_n_collation, key):
- *             raise errors.CharsetDuplicatedError(             # <<<<<<<<<<<<<<
- *                 "<'%s'>\nCharset %s already exist by name & collation."
- *                 % (self.__class__.__name__, charset)
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 216, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetDuplicatedError); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 216, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "sqlcycli/charset.py":217
- *         if dict_contains(self._by_name_n_collation, key):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name & collation."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
-    __pyx_t_6 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__2);
-
-    /* "sqlcycli/charset.py":218
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name & collation."
- *                 % (self.__class__.__name__, charset)             # <<<<<<<<<<<<<<
- *             )
- *         dict_setitem(self._by_name_n_collation, key, charset)
- */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 218, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 218, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 218, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_Charset);
-    __pyx_t_6 += 11;
-    __Pyx_GIVEREF(__pyx_kp_u_Charset);
-    PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_kp_u_Charset);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)__pyx_v_charset)), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 218, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-    __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_8);
-    PyTuple_SET_ITEM(__pyx_t_2, 3, __pyx_t_8);
-    __pyx_t_8 = 0;
-    __Pyx_INCREF(__pyx_kp_u_already_exist_by_name_collation);
-    __pyx_t_6 += 35;
-    __Pyx_GIVEREF(__pyx_kp_u_already_exist_by_name_collation);
-    PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u_already_exist_by_name_collation);
-
-    /* "sqlcycli/charset.py":217
- *         if dict_contains(self._by_name_n_collation, key):
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name & collation."             # <<<<<<<<<<<<<<
- *                 % (self.__class__.__name__, charset)
- *             )
- */
-    __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 217, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = NULL;
-    __pyx_t_10 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_1))) {
-      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_1);
-      if (likely(__pyx_t_2)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_1);
-        __Pyx_INCREF(__pyx_t_2);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_1, function);
-        __pyx_t_10 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_8};
-      __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 216, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    }
-    __Pyx_Raise(__pyx_t_3, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 216, __pyx_L1_error)
-
-    /* "sqlcycli/charset.py":215
- *         """(cfunc) Add MySQL charset by collation."""
- *         key: str = self._gen_charset_n_collate_key(charset._name, charset._collation)
- *         if dict_contains(self._by_name_n_collation, key):             # <<<<<<<<<<<<<<
- *             raise errors.CharsetDuplicatedError(
- *                 "<'%s'>\nCharset %s already exist by name & collation."
- */
-  }
-
-  /* "sqlcycli/charset.py":220
- *                 % (self.__class__.__name__, charset)
- *             )
- *         dict_setitem(self._by_name_n_collation, key, charset)             # <<<<<<<<<<<<<<
- *         return True
- * 
- */
-  __pyx_t_3 = __pyx_v_self->_by_name_n_collation;
-  __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_4 = PyDict_SetItem(__pyx_t_3, __pyx_v_key, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 220, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":221
- *             )
- *         dict_setitem(self._by_name_n_collation, key, charset)
+  /* "sqlcycli/charset.py":205
+ *         :param charset `<'Charset'>`: The charset instance to index.
+ *         """
+ *         dict_setitem(             # <<<<<<<<<<<<<<
+ *             self._by_name_n_collation,
+ *             self._gen_charset_n_collate_key(charset._name, charset._collation),
+ */
+  __pyx_t_5 = PyDict_SetItem(__pyx_t_1, __pyx_t_4, ((PyObject *)__pyx_v_charset)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "sqlcycli/charset.py":210
+ *             charset,
+ *         )
  *         return True             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
@@ -8925,7 +8223,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_col
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":209
+  /* "sqlcycli/charset.py":197
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8938,17 +8236,15 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_col
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_AddTraceback("sqlcycli.charset.Charsets._add_by_name_n_collation", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_AddTraceback("sqlcycli.charset.Charsets._index_by_name_n_collation", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_key);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":223
+/* "sqlcycli/charset.py":212
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8968,44 +8264,44 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_7charset_8Charsets__gen_charset
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_gen_charset_n_collate_key", 1);
 
-  /* "sqlcycli/charset.py":227
+  /* "sqlcycli/charset.py":216
  *     def _gen_charset_n_collate_key(self, name: object, collation: object) -> str:
- *         """(cfunc) Generate 'name:collation' key `<'str'>."""
+ *         """(internal) Generate a unique lookup key from name and collation `<'str'>."""
  *         return "%s:%s" % (name, collation)             # <<<<<<<<<<<<<<
  * 
  *     # Access Charset ---------------------------------------------------------------
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
-  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_4);
   __pyx_t_4 = 0;
-  __Pyx_INCREF(__pyx_kp_u__3);
+  __Pyx_INCREF(__pyx_kp_u__5);
   __pyx_t_2 += 1;
-  __Pyx_GIVEREF(__pyx_kp_u__3);
-  PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__3);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_collation), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_kp_u__5);
+  PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__5);
+  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_collation), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_t_4);
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":223
+  /* "sqlcycli/charset.py":212
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9025,12 +8321,12 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_7charset_8Charsets__gen_charset
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":230
+/* "sqlcycli/charset.py":219
  * 
  *     # Access Charset ---------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_id(self, id: object) -> Charset:
- *         """Get MySQL charset by id `<'Charset'>`.
+ *         """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_5by_id(PyObject *__pyx_v_self, 
@@ -9066,7 +8362,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_7charset_8Charsets_5by_id)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -9089,11 +8385,11 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_id};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 219, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 230, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 219, __pyx_L1_error)
         __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9112,7 +8408,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     #endif
   }
 
-  /* "sqlcycli/charset.py":236
+  /* "sqlcycli/charset.py":225
  *         :param id `<'int'>`: The ID of the charset.
  *         """
  *         val = dict_getitem(self._by_id, id)             # <<<<<<<<<<<<<<
@@ -9124,7 +8420,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_v_val = PyDict_GetItem(__pyx_t_1, __pyx_v_id);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":237
+  /* "sqlcycli/charset.py":226
  *         """
  *         val = dict_getitem(self._by_id, id)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -9134,48 +8430,48 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_t_6 = (__pyx_v_val == NULL);
   if (unlikely(__pyx_t_6)) {
 
-    /* "sqlcycli/charset.py":238
+    /* "sqlcycli/charset.py":227
  *         val = dict_getitem(self._by_id, id)
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nMySQL charset ID '%d' does not exist."
  *                 % (self.__class__.__name__, id)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 238, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "sqlcycli/charset.py":239
+    /* "sqlcycli/charset.py":228
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charset ID '%d' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, id)
  *             )
  */
-    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 228, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_7 = 0;
     __pyx_t_8 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
+    __Pyx_INCREF(__pyx_kp_u__6);
     __pyx_t_7 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__2);
+    __Pyx_GIVEREF(__pyx_kp_u__6);
+    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__6);
 
-    /* "sqlcycli/charset.py":240
+    /* "sqlcycli/charset.py":229
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charset ID '%d' does not exist."
  *                 % (self.__class__.__name__, id)             # <<<<<<<<<<<<<<
  *             )
  *         return cython.cast(Charset, val)
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_8 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_8) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_8;
@@ -9187,7 +8483,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __pyx_t_7 += 21;
     __Pyx_GIVEREF(__pyx_kp_u_MySQL_charset_ID);
     PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_kp_u_MySQL_charset_ID);
-    __pyx_t_4 = __Pyx_PyObject_FormatAndDecref(__Pyx_PyNumber_IntOrLong(__pyx_v_id), __pyx_n_u_d); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatAndDecref(__Pyx_PyNumber_IntOrLong(__pyx_v_id), __pyx_n_u_d); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_8) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_8;
     __pyx_t_7 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -9199,14 +8495,14 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __Pyx_GIVEREF(__pyx_kp_u_does_not_exist);
     PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u_does_not_exist);
 
-    /* "sqlcycli/charset.py":239
+    /* "sqlcycli/charset.py":228
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charset ID '%d' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, id)
  *             )
  */
-    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_7, __pyx_t_8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 239, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_7, __pyx_t_8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 228, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -9228,15 +8524,15 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 238, __pyx_L1_error)
+    __PYX_ERR(0, 227, __pyx_L1_error)
 
-    /* "sqlcycli/charset.py":237
+    /* "sqlcycli/charset.py":226
  *         """
  *         val = dict_getitem(self._by_id, id)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -9245,7 +8541,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   }
 
-  /* "sqlcycli/charset.py":242
+  /* "sqlcycli/charset.py":231
  *                 % (self.__class__.__name__, id)
  *             )
  *         return cython.cast(Charset, val)             # <<<<<<<<<<<<<<
@@ -9257,12 +8553,12 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_val);
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":230
+  /* "sqlcycli/charset.py":219
  * 
  *     # Access Charset ---------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_id(self, id: object) -> Charset:
- *         """Get MySQL charset by id `<'Charset'>`.
+ *         """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
 
   /* function exit code */
@@ -9288,7 +8584,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_4by_id, "Get MySQL charset by id `<'Charset'>`.\n\n        :param id `<'int'>`: The ID of the charset.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_4by_id, "Retrieve a Charset by its MySQL ID `<'Charset'>`.\n\n        :param id `<'int'>`: The ID of the charset.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_8Charsets_5by_id = {"by_id", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_8Charsets_5by_id, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_8Charsets_4by_id};
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_5by_id(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -9334,12 +8630,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 230, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 219, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_id") < 0)) __PYX_ERR(0, 230, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_id") < 0)) __PYX_ERR(0, 219, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -9350,7 +8646,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 230, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 219, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9386,7 +8682,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_4by_id(struct __pyx_obj_8
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_id", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_id(__pyx_v_self, __pyx_v_id, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_id(__pyx_v_self, __pyx_v_id, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -9403,12 +8699,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_4by_id(struct __pyx_obj_8
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":244
+/* "sqlcycli/charset.py":233
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name(self, name: object) -> Charset:
- *         """Get MySQL charset by name `<'Charset'>`.
+ *         """Retrieve a default Charset by its name `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_7by_name(PyObject *__pyx_v_self, 
@@ -9445,7 +8741,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_7charset_8Charsets_7by_name)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -9468,11 +8764,11 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_name};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 244, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 233, __pyx_L1_error)
         __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9491,7 +8787,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     #endif
   }
 
-  /* "sqlcycli/charset.py":250
+  /* "sqlcycli/charset.py":239
  *         :param name `<'str'>`: The name of the charset.
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):             # <<<<<<<<<<<<<<
@@ -9500,26 +8796,26 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   __Pyx_INCREF(__pyx_v_name);
   __pyx_t_1 = __pyx_v_name;
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8mb4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 250, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8mb4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_6 = __pyx_t_7;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 250, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_6 = __pyx_t_7;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_utf_8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 250, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_utf_8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
   __pyx_t_6 = __pyx_t_7;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_7 = __pyx_t_6;
   if (__pyx_t_7) {
 
-    /* "sqlcycli/charset.py":251
+    /* "sqlcycli/charset.py":240
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):
  *             return _default_utf8mb4             # <<<<<<<<<<<<<<
@@ -9531,7 +8827,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __pyx_r = __pyx_v_8sqlcycli_7charset__default_utf8mb4;
     goto __pyx_L0;
 
-    /* "sqlcycli/charset.py":250
+    /* "sqlcycli/charset.py":239
  *         :param name `<'str'>`: The name of the charset.
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):             # <<<<<<<<<<<<<<
@@ -9540,7 +8836,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   }
 
-  /* "sqlcycli/charset.py":253
+  /* "sqlcycli/charset.py":242
  *             return _default_utf8mb4
  * 
  *         val = dict_getitem(self._by_name, name)             # <<<<<<<<<<<<<<
@@ -9552,7 +8848,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_v_val = PyDict_GetItem(__pyx_t_1, __pyx_v_name);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":254
+  /* "sqlcycli/charset.py":243
  * 
  *         val = dict_getitem(self._by_name, name)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -9562,48 +8858,48 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_t_7 = (__pyx_v_val == NULL);
   if (unlikely(__pyx_t_7)) {
 
-    /* "sqlcycli/charset.py":255
+    /* "sqlcycli/charset.py":244
  *         val = dict_getitem(self._by_name, name)
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nMySQL charactor set '%s' does not exist."
  *                 % (self.__class__.__name__, name)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 255, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 255, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 244, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "sqlcycli/charset.py":256
+    /* "sqlcycli/charset.py":245
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor set '%s' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, name)
  *             )
  */
-    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 256, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_8 = 0;
     __pyx_t_9 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
+    __Pyx_INCREF(__pyx_kp_u__6);
     __pyx_t_8 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__2);
+    __Pyx_GIVEREF(__pyx_kp_u__6);
+    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__6);
 
-    /* "sqlcycli/charset.py":257
+    /* "sqlcycli/charset.py":246
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor set '%s' does not exist."
  *                 % (self.__class__.__name__, name)             # <<<<<<<<<<<<<<
  *             )
  *         return cython.cast(Charset, val)
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 257, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 246, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_10), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_10), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_9;
@@ -9615,7 +8911,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __pyx_t_8 += 24;
     __Pyx_GIVEREF(__pyx_kp_u_MySQL_charactor_set);
     PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_kp_u_MySQL_charactor_set);
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -9627,14 +8923,14 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __Pyx_GIVEREF(__pyx_kp_u_does_not_exist);
     PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u_does_not_exist);
 
-    /* "sqlcycli/charset.py":256
+    /* "sqlcycli/charset.py":245
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor set '%s' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, name)
  *             )
  */
-    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -9656,15 +8952,15 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 255, __pyx_L1_error)
+    __PYX_ERR(0, 244, __pyx_L1_error)
 
-    /* "sqlcycli/charset.py":254
+    /* "sqlcycli/charset.py":243
  * 
  *         val = dict_getitem(self._by_name, name)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -9673,7 +8969,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   }
 
-  /* "sqlcycli/charset.py":259
+  /* "sqlcycli/charset.py":248
  *                 % (self.__class__.__name__, name)
  *             )
  *         return cython.cast(Charset, val)             # <<<<<<<<<<<<<<
@@ -9685,12 +8981,12 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_val);
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":244
+  /* "sqlcycli/charset.py":233
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name(self, name: object) -> Charset:
- *         """Get MySQL charset by name `<'Charset'>`.
+ *         """Retrieve a default Charset by its name `<'Charset'>`.
  */
 
   /* function exit code */
@@ -9716,7 +9012,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_6by_name, "Get MySQL charset by name `<'Charset'>`.\n\n        :param name `<'str'>`: The name of the charset.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_6by_name, "Retrieve a default Charset by its name `<'Charset'>`.\n\n        :param name `<'str'>`: The name of the charset.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_8Charsets_7by_name = {"by_name", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_8Charsets_7by_name, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_8Charsets_6by_name};
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_7by_name(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -9762,12 +9058,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 233, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name") < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name") < 0)) __PYX_ERR(0, 233, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -9778,7 +9074,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_name", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 244, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_name", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 233, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9814,7 +9110,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_6by_name(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_name", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_name(__pyx_v_self, __pyx_v_name, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_name(__pyx_v_self, __pyx_v_name, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -9831,12 +9127,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_6by_name(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":261
+/* "sqlcycli/charset.py":250
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_collation(self, collation: object) -> Charset:
- *         """Get MySQL charset by collation `<'Charset'>`.
+ *         """Retrieve a Charset by its collation `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_9by_collation(PyObject *__pyx_v_self, 
@@ -9872,7 +9168,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 250, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_7charset_8Charsets_9by_collation)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -9895,11 +9191,11 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_collation};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 261, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 250, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 261, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 250, __pyx_L1_error)
         __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9918,17 +9214,17 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     #endif
   }
 
-  /* "sqlcycli/charset.py":267
+  /* "sqlcycli/charset.py":256
  *         :param collation `<'str'>`: The collation of the charset.
  *         """
  *         if collation == "utf8mb4_general_ci":             # <<<<<<<<<<<<<<
  *             return _default_utf8mb4
  * 
  */
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_v_collation, __pyx_n_u_utf8mb4_general_ci, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 267, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_v_collation, __pyx_n_u_utf8mb4_general_ci, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 256, __pyx_L1_error)
   if (__pyx_t_6) {
 
-    /* "sqlcycli/charset.py":268
+    /* "sqlcycli/charset.py":257
  *         """
  *         if collation == "utf8mb4_general_ci":
  *             return _default_utf8mb4             # <<<<<<<<<<<<<<
@@ -9940,7 +9236,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __pyx_r = __pyx_v_8sqlcycli_7charset__default_utf8mb4;
     goto __pyx_L0;
 
-    /* "sqlcycli/charset.py":267
+    /* "sqlcycli/charset.py":256
  *         :param collation `<'str'>`: The collation of the charset.
  *         """
  *         if collation == "utf8mb4_general_ci":             # <<<<<<<<<<<<<<
@@ -9949,7 +9245,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   }
 
-  /* "sqlcycli/charset.py":270
+  /* "sqlcycli/charset.py":259
  *             return _default_utf8mb4
  * 
  *         val = dict_getitem(self._by_collation, collation)             # <<<<<<<<<<<<<<
@@ -9961,7 +9257,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_v_val = PyDict_GetItem(__pyx_t_1, __pyx_v_collation);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":271
+  /* "sqlcycli/charset.py":260
  * 
  *         val = dict_getitem(self._by_collation, collation)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -9971,48 +9267,48 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_t_6 = (__pyx_v_val == NULL);
   if (unlikely(__pyx_t_6)) {
 
-    /* "sqlcycli/charset.py":272
+    /* "sqlcycli/charset.py":261
  *         val = dict_getitem(self._by_collation, collation)
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nMySQL charactor collation '%s' does not exist."
  *                 % (self.__class__.__name__, collation)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 272, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 261, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 272, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "sqlcycli/charset.py":273
+    /* "sqlcycli/charset.py":262
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor collation '%s' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, collation)
  *             )
  */
-    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 273, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 262, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_7 = 0;
     __pyx_t_8 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
+    __Pyx_INCREF(__pyx_kp_u__6);
     __pyx_t_7 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__2);
+    __Pyx_GIVEREF(__pyx_kp_u__6);
+    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__6);
 
-    /* "sqlcycli/charset.py":274
+    /* "sqlcycli/charset.py":263
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor collation '%s' does not exist."
  *                 % (self.__class__.__name__, collation)             # <<<<<<<<<<<<<<
  *             )
  *         return cython.cast(Charset, val)
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 274, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 274, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 274, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_8 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_8) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_8;
@@ -10024,7 +9320,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __pyx_t_7 += 30;
     __Pyx_GIVEREF(__pyx_kp_u_MySQL_charactor_collation);
     PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_kp_u_MySQL_charactor_collation);
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_collation), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 274, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_collation), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_8) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_8;
     __pyx_t_7 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -10036,14 +9332,14 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __Pyx_GIVEREF(__pyx_kp_u_does_not_exist);
     PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u_does_not_exist);
 
-    /* "sqlcycli/charset.py":273
+    /* "sqlcycli/charset.py":262
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor collation '%s' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, collation)
  *             )
  */
-    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_7, __pyx_t_8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 273, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_7, __pyx_t_8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 262, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -10065,15 +9361,15 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 272, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 272, __pyx_L1_error)
+    __PYX_ERR(0, 261, __pyx_L1_error)
 
-    /* "sqlcycli/charset.py":271
+    /* "sqlcycli/charset.py":260
  * 
  *         val = dict_getitem(self._by_collation, collation)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -10082,7 +9378,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   }
 
-  /* "sqlcycli/charset.py":276
+  /* "sqlcycli/charset.py":265
  *                 % (self.__class__.__name__, collation)
  *             )
  *         return cython.cast(Charset, val)             # <<<<<<<<<<<<<<
@@ -10094,12 +9390,12 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_val);
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":261
+  /* "sqlcycli/charset.py":250
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_collation(self, collation: object) -> Charset:
- *         """Get MySQL charset by collation `<'Charset'>`.
+ *         """Retrieve a Charset by its collation `<'Charset'>`.
  */
 
   /* function exit code */
@@ -10125,7 +9421,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_8by_collation, "Get MySQL charset by collation `<'Charset'>`.\n\n        :param collation `<'str'>`: The collation of the charset.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_8by_collation, "Retrieve a Charset by its collation `<'Charset'>`.\n\n        :param collation `<'str'>`: The collation of the charset.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_8Charsets_9by_collation = {"by_collation", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_8Charsets_9by_collation, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_8Charsets_8by_collation};
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_9by_collation(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -10171,12 +9467,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 261, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 250, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_collation") < 0)) __PYX_ERR(0, 261, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_collation") < 0)) __PYX_ERR(0, 250, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -10187,7 +9483,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_collation", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 261, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_collation", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 250, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10223,7 +9519,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_8by_collation(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_collation", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_collation(__pyx_v_self, __pyx_v_collation, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_collation(__pyx_v_self, __pyx_v_collation, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -10240,12 +9536,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_8by_collation(struct __py
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":278
+/* "sqlcycli/charset.py":267
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name_n_collation(self, name: object, collation: object) -> Charset:
- *         """Get MySQL charset by name and collation `<'Charset'>`.
+ *         """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_11by_name_n_collation(PyObject *__pyx_v_self, 
@@ -10283,7 +9579,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_name_n_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_by_name_n_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 267, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_7charset_8Charsets_11by_name_n_collation)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -10306,11 +9602,11 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
           PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_v_name, __pyx_v_collation};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 278, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 267, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 278, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_8sqlcycli_7charset_Charset))))) __PYX_ERR(0, 267, __pyx_L1_error)
         __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10329,7 +9625,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     #endif
   }
 
-  /* "sqlcycli/charset.py":285
+  /* "sqlcycli/charset.py":274
  *         :param collation `<'str'>`: The collation of the charset.
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):             # <<<<<<<<<<<<<<
@@ -10338,36 +9634,36 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   __Pyx_INCREF(__pyx_v_name);
   __pyx_t_1 = __pyx_v_name;
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8mb4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 285, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8mb4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_6 = __pyx_t_7;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 285, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_n_u_utf8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_6 = __pyx_t_7;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_utf_8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 285, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_utf_8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
   __pyx_t_6 = __pyx_t_7;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_7 = __pyx_t_6;
   if (__pyx_t_7) {
 
-    /* "sqlcycli/charset.py":286
+    /* "sqlcycli/charset.py":275
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):
  *             if collation == "utf8mb4_general_ci":             # <<<<<<<<<<<<<<
  *                 return _default_utf8mb4
  *             _key: str = self._gen_charset_n_collate_key("utf8mb4", collation)
  */
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_collation, __pyx_n_u_utf8mb4_general_ci, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 286, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_collation, __pyx_n_u_utf8mb4_general_ci, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
     if (__pyx_t_7) {
 
-      /* "sqlcycli/charset.py":287
+      /* "sqlcycli/charset.py":276
  *         if name in ("utf8mb4", "utf8", "utf-8"):
  *             if collation == "utf8mb4_general_ci":
  *                 return _default_utf8mb4             # <<<<<<<<<<<<<<
@@ -10379,7 +9675,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
       __pyx_r = __pyx_v_8sqlcycli_7charset__default_utf8mb4;
       goto __pyx_L0;
 
-      /* "sqlcycli/charset.py":286
+      /* "sqlcycli/charset.py":275
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):
  *             if collation == "utf8mb4_general_ci":             # <<<<<<<<<<<<<<
@@ -10388,19 +9684,19 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
     }
 
-    /* "sqlcycli/charset.py":288
+    /* "sqlcycli/charset.py":277
  *             if collation == "utf8mb4_general_ci":
  *                 return _default_utf8mb4
  *             _key: str = self._gen_charset_n_collate_key("utf8mb4", collation)             # <<<<<<<<<<<<<<
  *         else:
  *             _key: str = self._gen_charset_n_collate_key(name, collation)
  */
-    __pyx_t_1 = __pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(__pyx_v_self, __pyx_n_u_utf8mb4, __pyx_v_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(__pyx_v_self, __pyx_n_u_utf8mb4, __pyx_v_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 277, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v__key = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "sqlcycli/charset.py":285
+    /* "sqlcycli/charset.py":274
  *         :param collation `<'str'>`: The collation of the charset.
  *         """
  *         if name in ("utf8mb4", "utf8", "utf-8"):             # <<<<<<<<<<<<<<
@@ -10410,7 +9706,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     goto __pyx_L3;
   }
 
-  /* "sqlcycli/charset.py":290
+  /* "sqlcycli/charset.py":279
  *             _key: str = self._gen_charset_n_collate_key("utf8mb4", collation)
  *         else:
  *             _key: str = self._gen_charset_n_collate_key(name, collation)             # <<<<<<<<<<<<<<
@@ -10418,14 +9714,14 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  *         val = dict_getitem(self._by_name_n_collation, _key)
  */
   /*else*/ {
-    __pyx_t_1 = __pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(__pyx_v_self, __pyx_v_name, __pyx_v_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key(__pyx_v_self, __pyx_v_name, __pyx_v_collation); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v__key = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
   }
   __pyx_L3:;
 
-  /* "sqlcycli/charset.py":292
+  /* "sqlcycli/charset.py":281
  *             _key: str = self._gen_charset_n_collate_key(name, collation)
  * 
  *         val = dict_getitem(self._by_name_n_collation, _key)             # <<<<<<<<<<<<<<
@@ -10437,7 +9733,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_v_val = PyDict_GetItem(__pyx_t_1, __pyx_v__key);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/charset.py":293
+  /* "sqlcycli/charset.py":282
  * 
  *         val = dict_getitem(self._by_name_n_collation, _key)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -10447,48 +9743,48 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_t_7 = (__pyx_v_val == NULL);
   if (unlikely(__pyx_t_7)) {
 
-    /* "sqlcycli/charset.py":294
+    /* "sqlcycli/charset.py":283
  *         val = dict_getitem(self._by_name_n_collation, _key)
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nMySQL charactor set & collation '%s & %s' does not exist."
  *                 % (self.__class__.__name__, name, collation)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_errors); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 283, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_CharsetNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "sqlcycli/charset.py":295
+    /* "sqlcycli/charset.py":284
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor set & collation '%s & %s' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, name, collation)
  *             )
  */
-    __pyx_t_2 = PyTuple_New(7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_8 = 0;
     __pyx_t_9 = 127;
-    __Pyx_INCREF(__pyx_kp_u__2);
+    __Pyx_INCREF(__pyx_kp_u__6);
     __pyx_t_8 += 2;
-    __Pyx_GIVEREF(__pyx_kp_u__2);
-    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__2);
+    __Pyx_GIVEREF(__pyx_kp_u__6);
+    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u__6);
 
-    /* "sqlcycli/charset.py":296
+    /* "sqlcycli/charset.py":285
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor set & collation '%s & %s' does not exist."
  *                 % (self.__class__.__name__, name, collation)             # <<<<<<<<<<<<<<
  *             )
  *         return cython.cast(Charset, val)
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 285, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_name_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 285, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_10), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_10), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 285, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_9;
@@ -10500,18 +9796,18 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __pyx_t_8 += 36;
     __Pyx_GIVEREF(__pyx_kp_u_MySQL_charactor_set_collation);
     PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_kp_u_MySQL_charactor_set_collation);
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_name), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 285, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
     __Pyx_GIVEREF(__pyx_t_4);
     PyTuple_SET_ITEM(__pyx_t_2, 3, __pyx_t_4);
     __pyx_t_4 = 0;
-    __Pyx_INCREF(__pyx_kp_u__4);
+    __Pyx_INCREF(__pyx_kp_u__7);
     __pyx_t_8 += 3;
-    __Pyx_GIVEREF(__pyx_kp_u__4);
-    PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u__4);
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_collation), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __Pyx_GIVEREF(__pyx_kp_u__7);
+    PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_kp_u__7);
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_collation), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 285, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -10523,14 +9819,14 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
     __Pyx_GIVEREF(__pyx_kp_u_does_not_exist);
     PyTuple_SET_ITEM(__pyx_t_2, 6, __pyx_kp_u_does_not_exist);
 
-    /* "sqlcycli/charset.py":295
+    /* "sqlcycli/charset.py":284
  *         if val == cython.NULL:
  *             raise errors.CharsetNotFoundError(
  *                 "<'%s'>\nMySQL charactor set & collation '%s & %s' does not exist."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, name, collation)
  *             )
  */
-    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 7, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_2, 7, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -10552,15 +9848,15 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 283, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 294, __pyx_L1_error)
+    __PYX_ERR(0, 283, __pyx_L1_error)
 
-    /* "sqlcycli/charset.py":293
+    /* "sqlcycli/charset.py":282
  * 
  *         val = dict_getitem(self._by_name_n_collation, _key)
  *         if val == cython.NULL:             # <<<<<<<<<<<<<<
@@ -10569,7 +9865,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
  */
   }
 
-  /* "sqlcycli/charset.py":298
+  /* "sqlcycli/charset.py":287
  *                 % (self.__class__.__name__, name, collation)
  *             )
  *         return cython.cast(Charset, val)             # <<<<<<<<<<<<<<
@@ -10581,12 +9877,12 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_8
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_v_val);
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":278
+  /* "sqlcycli/charset.py":267
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name_n_collation(self, name: object, collation: object) -> Charset:
- *         """Get MySQL charset by name and collation `<'Charset'>`.
+ *         """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
 
   /* function exit code */
@@ -10613,7 +9909,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_10by_name_n_collation, "Get MySQL charset by name and collation `<'Charset'>`.\n\n        :param name `<'str'>`: The name of the charset.\n        :param collation `<'str'>`: The collation of the charset.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8Charsets_10by_name_n_collation, "Retrieve a Charset by both its name and collation combination `<'Charset'>`.\n\n        :param name `<'str'>`: The name of the charset.\n        :param collation `<'str'>`: The collation of the charset.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_8Charsets_11by_name_n_collation = {"by_name_n_collation", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_8Charsets_11by_name_n_collation, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_8Charsets_10by_name_n_collation};
 static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_11by_name_n_collation(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -10662,7 +9958,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 278, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 267, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -10670,14 +9966,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 278, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 267, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, 1); __PYX_ERR(0, 278, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, 1); __PYX_ERR(0, 267, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name_n_collation") < 0)) __PYX_ERR(0, 278, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name_n_collation") < 0)) __PYX_ERR(0, 267, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -10690,7 +9986,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 278, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 267, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10726,7 +10022,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_10by_name_n_collation(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_name_n_collation", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_name_n_collation(__pyx_v_self, __pyx_v_name, __pyx_v_collation, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_8Charsets_by_name_n_collation(__pyx_v_self, __pyx_v_name, __pyx_v_collation, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -10743,7 +10039,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_10by_name_n_collation(str
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":301
+/* "sqlcycli/charset.py":290
  * 
  *     # Special Methods -------------------------------------------------------------
  *     def __iter__(self) -> Iterator[Charset]:             # <<<<<<<<<<<<<<
@@ -10778,7 +10074,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_12__iter__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 1);
 
-  /* "sqlcycli/charset.py":302
+  /* "sqlcycli/charset.py":291
  *     # Special Methods -------------------------------------------------------------
  *     def __iter__(self) -> Iterator[Charset]:
  *         return self._by_id.values().__iter__()             # <<<<<<<<<<<<<<
@@ -10788,11 +10084,11 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_12__iter__(struct __pyx_o
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_self->_by_id == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-    __PYX_ERR(0, 302, __pyx_L1_error)
+    __PYX_ERR(0, 291, __pyx_L1_error)
   }
-  __pyx_t_2 = __Pyx_PyDict_Values(__pyx_v_self->_by_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_Values(__pyx_v_self->_by_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 291, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -10813,7 +10109,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_12__iter__(struct __pyx_o
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 302, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -10821,7 +10117,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_12__iter__(struct __pyx_o
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":301
+  /* "sqlcycli/charset.py":290
  * 
  *     # Special Methods -------------------------------------------------------------
  *     def __iter__(self) -> Iterator[Charset]:             # <<<<<<<<<<<<<<
@@ -10842,7 +10138,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_12__iter__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":304
+/* "sqlcycli/charset.py":293
  *         return self._by_id.values().__iter__()
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -10866,7 +10162,7 @@ static PyObject *__pyx_pw_8sqlcycli_7charset_8Charsets_15__repr__(PyObject *__py
 }
 static PyObject *__pyx_gb_8sqlcycli_7charset_8Charsets_8__repr___2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/charset.py":306
+/* "sqlcycli/charset.py":295
  *     def __repr__(self) -> str:
  *         return "<Charsets(\n%s\n)>" % (
  *             "\n".join(str(charset) for charset in self._by_id.values()),             # <<<<<<<<<<<<<<
@@ -10886,7 +10182,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_8__repr___genexpr(CYTHON_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_7charset___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 306, __pyx_L1_error)
+    __PYX_ERR(0, 295, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10894,7 +10190,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_8__repr___genexpr(CYTHON_
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_7charset_8Charsets_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli_charset); if (unlikely(!gen)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_7charset_8Charsets_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli_charset); if (unlikely(!gen)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -10932,16 +10228,16 @@ static PyObject *__pyx_gb_8sqlcycli_7charset_8Charsets_8__repr___2generator(__py
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 306, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 306, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 306, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 295, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-    __PYX_ERR(0, 306, __pyx_L1_error)
+    __PYX_ERR(0, 295, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_values, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_values, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -10949,15 +10245,15 @@ static PyObject *__pyx_gb_8sqlcycli_7charset_8Charsets_8__repr___2generator(__py
   while (1) {
     __pyx_t_6 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, NULL, &__pyx_t_5, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_6 == 0)) break;
-    if (unlikely(__pyx_t_6 == -1)) __PYX_ERR(0, 306, __pyx_L1_error)
+    if (unlikely(__pyx_t_6 == -1)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_charset);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_charset, __pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_5);
     __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_charset); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_charset); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 306, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10982,7 +10278,7 @@ static PyObject *__pyx_gb_8sqlcycli_7charset_8Charsets_8__repr___2generator(__py
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":304
+/* "sqlcycli/charset.py":293
  *         return self._by_id.values().__iter__()
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -11004,7 +10300,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_14__repr__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "sqlcycli/charset.py":305
+  /* "sqlcycli/charset.py":294
  * 
  *     def __repr__(self) -> str:
  *         return "<Charsets(\n%s\n)>" % (             # <<<<<<<<<<<<<<
@@ -11012,7 +10308,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_14__repr__(struct __pyx_o
  *         )
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
@@ -11021,19 +10317,19 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_14__repr__(struct __pyx_o
   __Pyx_GIVEREF(__pyx_kp_u_Charsets);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_Charsets);
 
-  /* "sqlcycli/charset.py":306
+  /* "sqlcycli/charset.py":295
  *     def __repr__(self) -> str:
  *         return "<Charsets(\n%s\n)>" % (
  *             "\n".join(str(charset) for charset in self._by_id.values()),             # <<<<<<<<<<<<<<
  *         )
  * 
  */
-  __pyx_t_4 = __pyx_pf_8sqlcycli_7charset_8Charsets_8__repr___genexpr(NULL, __pyx_v_self->_by_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_4 = __pyx_pf_8sqlcycli_7charset_8Charsets_8__repr___genexpr(NULL, __pyx_v_self->_by_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_Generator_Next(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Generator_Next(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyUnicode_Join(__pyx_kp_u__5, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_4 = PyUnicode_Join(__pyx_kp_u__8, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
@@ -11041,26 +10337,26 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_14__repr__(struct __pyx_o
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4);
   __pyx_t_4 = 0;
-  __Pyx_INCREF(__pyx_kp_u__6);
+  __Pyx_INCREF(__pyx_kp_u__9);
   __pyx_t_2 += 3;
-  __Pyx_GIVEREF(__pyx_kp_u__6);
-  PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__6);
+  __Pyx_GIVEREF(__pyx_kp_u__9);
+  PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__9);
 
-  /* "sqlcycli/charset.py":305
+  /* "sqlcycli/charset.py":294
  * 
  *     def __repr__(self) -> str:
  *         return "<Charsets(\n%s\n)>" % (             # <<<<<<<<<<<<<<
  *             "\n".join(str(charset) for charset in self._by_id.values()),
  *         )
  */
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 294, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":304
+  /* "sqlcycli/charset.py":293
  *         return self._by_id.values().__iter__()
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -11513,12 +10809,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8Charsets_18__setstate_cython__(str
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":314
+/* "sqlcycli/charset.py":303
  * 
  * # Functions -----------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def all_charsets() -> Charsets:
- *     """Get the collection of all the MySQL charsets `<'Charsets'>`."""
+ *     """Retrieve the collection of all the MySQL charsets `<'Charsets'>`."""
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_1all_charsets(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
@@ -11527,9 +10823,9 @@ static struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_f_8sqlcycli_7charset_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("all_charsets", 1);
 
-  /* "sqlcycli/charset.py":317
+  /* "sqlcycli/charset.py":306
  * def all_charsets() -> Charsets:
- *     """Get the collection of all the MySQL charsets `<'Charsets'>`."""
+ *     """Retrieve the collection of all the MySQL charsets `<'Charsets'>`."""
  *     return _charsets             # <<<<<<<<<<<<<<
  * 
  * 
@@ -11539,12 +10835,12 @@ static struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_f_8sqlcycli_7charset_
   __pyx_r = __pyx_v_8sqlcycli_7charset__charsets;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":314
+  /* "sqlcycli/charset.py":303
  * 
  * # Functions -----------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def all_charsets() -> Charsets:
- *     """Get the collection of all the MySQL charsets `<'Charsets'>`."""
+ *     """Retrieve the collection of all the MySQL charsets `<'Charsets'>`."""
  */
 
   /* function exit code */
@@ -11556,7 +10852,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charsets *__pyx_f_8sqlcycli_7charset_
 
 /* Python wrapper */
 static PyObject *__pyx_pw_8sqlcycli_7charset_1all_charsets(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_all_charsets, "Get the collection of all the MySQL charsets `<'Charsets'>`.");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_all_charsets, "Retrieve the collection of all the MySQL charsets `<'Charsets'>`.");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_1all_charsets = {"all_charsets", (PyCFunction)__pyx_pw_8sqlcycli_7charset_1all_charsets, METH_NOARGS, __pyx_doc_8sqlcycli_7charset_all_charsets};
 static PyObject *__pyx_pw_8sqlcycli_7charset_1all_charsets(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
@@ -11580,7 +10876,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_all_charsets(CYTHON_UNUSED PyObject
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("all_charsets", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_all_charsets(0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_all_charsets(0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -11597,12 +10893,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_all_charsets(CYTHON_UNUSED PyObject
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":320
+/* "sqlcycli/charset.py":309
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_id(id: object) -> Charset:
- *     """Get MySQL charset by id `<'Charset'>`.
+ *     """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_3by_id(PyObject *__pyx_self, 
@@ -11621,7 +10917,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_id", 1);
 
-  /* "sqlcycli/charset.py":326
+  /* "sqlcycli/charset.py":315
  *     :param id `<'int'>`: The ID of the charset.
  *     """
  *     return _charsets.by_id(id)             # <<<<<<<<<<<<<<
@@ -11629,18 +10925,18 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
  * 
  */
   __Pyx_XDECREF((PyObject *)__pyx_r);
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_id(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_id, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 326, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_id(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_id, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 315, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":320
+  /* "sqlcycli/charset.py":309
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_id(id: object) -> Charset:
- *     """Get MySQL charset by id `<'Charset'>`.
+ *     """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
 
   /* function exit code */
@@ -11662,7 +10958,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_2by_id, "Get MySQL charset by id `<'Charset'>`.\n\n    :param id `<'int'>`: The ID of the charset.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_2by_id, "Retrieve a Charset by its MySQL ID `<'Charset'>`.\n\n    :param id `<'int'>`: The ID of the charset.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_3by_id = {"by_id", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_3by_id, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_2by_id};
 static PyObject *__pyx_pw_8sqlcycli_7charset_3by_id(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -11708,12 +11004,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 320, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 309, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_id") < 0)) __PYX_ERR(0, 320, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_id") < 0)) __PYX_ERR(0, 309, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -11724,7 +11020,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 320, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 309, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11760,7 +11056,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_2by_id(CYTHON_UNUSED PyObject *__py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_id", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_id(__pyx_v_id, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_id(__pyx_v_id, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -11777,12 +11073,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_2by_id(CYTHON_UNUSED PyObject *__py
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":329
+/* "sqlcycli/charset.py":318
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name(name: object) -> Charset:
- *     """Get MySQL charset by name `<'Charset'>`.
+ *     """Retrieve a default Charset by its name `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_5by_name(PyObject *__pyx_self, 
@@ -11801,7 +11097,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_name", 1);
 
-  /* "sqlcycli/charset.py":335
+  /* "sqlcycli/charset.py":324
  *     :param name `<'str'>`: The name of the charset.
  *     """
  *     return _charsets.by_name(name)             # <<<<<<<<<<<<<<
@@ -11809,18 +11105,18 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
  * 
  */
   __Pyx_XDECREF((PyObject *)__pyx_r);
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_name(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_name, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 335, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_name(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_name, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 324, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":329
+  /* "sqlcycli/charset.py":318
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name(name: object) -> Charset:
- *     """Get MySQL charset by name `<'Charset'>`.
+ *     """Retrieve a default Charset by its name `<'Charset'>`.
  */
 
   /* function exit code */
@@ -11842,7 +11138,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_4by_name, "Get MySQL charset by name `<'Charset'>`.\n\n    :param name `<'str'>`: The name of the charset.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_4by_name, "Retrieve a default Charset by its name `<'Charset'>`.\n\n    :param name `<'str'>`: The name of the charset.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_5by_name = {"by_name", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_5by_name, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_4by_name};
 static PyObject *__pyx_pw_8sqlcycli_7charset_5by_name(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -11888,12 +11184,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 318, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name") < 0)) __PYX_ERR(0, 329, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name") < 0)) __PYX_ERR(0, 318, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -11904,7 +11200,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_name", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 329, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_name", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 318, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11940,7 +11236,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_4by_name(CYTHON_UNUSED PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_name", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_name(__pyx_v_name, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_name(__pyx_v_name, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -11957,12 +11253,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_4by_name(CYTHON_UNUSED PyObject *__
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":338
+/* "sqlcycli/charset.py":327
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_collation(collation: object) -> Charset:
- *     """Get MySQL charset by collation `<'Charset'>`.
+ *     """Retrieve a Charset by its collation `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_7by_collation(PyObject *__pyx_self, 
@@ -11981,7 +11277,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_collation", 1);
 
-  /* "sqlcycli/charset.py":344
+  /* "sqlcycli/charset.py":333
  *     :param collation `<'str'>`: The collation of the charset.
  *     """
  *     return _charsets.by_collation(collation)             # <<<<<<<<<<<<<<
@@ -11989,18 +11285,18 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
  * 
  */
   __Pyx_XDECREF((PyObject *)__pyx_r);
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_collation(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 344, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_collation(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":338
+  /* "sqlcycli/charset.py":327
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_collation(collation: object) -> Charset:
- *     """Get MySQL charset by collation `<'Charset'>`.
+ *     """Retrieve a Charset by its collation `<'Charset'>`.
  */
 
   /* function exit code */
@@ -12022,7 +11318,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_6by_collation, "Get MySQL charset by collation `<'Charset'>`.\n\n    :param collation `<'str'>`: The collation of the charset.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_6by_collation, "Retrieve a Charset by its collation `<'Charset'>`.\n\n    :param collation `<'str'>`: The collation of the charset.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_7by_collation = {"by_collation", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7by_collation, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_6by_collation};
 static PyObject *__pyx_pw_8sqlcycli_7charset_7by_collation(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -12068,12 +11364,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 338, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 327, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_collation") < 0)) __PYX_ERR(0, 338, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_collation") < 0)) __PYX_ERR(0, 327, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12084,7 +11380,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_collation", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 338, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_collation", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 327, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12120,7 +11416,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_6by_collation(CYTHON_UNUSED PyObjec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_collation", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_collation(__pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_collation(__pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12137,12 +11433,12 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_6by_collation(CYTHON_UNUSED PyObjec
   return __pyx_r;
 }
 
-/* "sqlcycli/charset.py":347
+/* "sqlcycli/charset.py":336
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name_n_collation(name: str | Any, collation: str | Any) -> Charset:
- *     """Get MySQL charset by name and collation `<'Charset'>`.
+ *     """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
 
 static PyObject *__pyx_pw_8sqlcycli_7charset_9by_name_n_collation(PyObject *__pyx_self, 
@@ -12161,7 +11457,7 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_name_n_collation", 1);
 
-  /* "sqlcycli/charset.py":354
+  /* "sqlcycli/charset.py":343
  *     :param collation `<'str'>`: The collation of the charset.
  *     """
  *     return _charsets.by_name_n_collation(name, collation)             # <<<<<<<<<<<<<<
@@ -12169,18 +11465,18 @@ static struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_f_8sqlcycli_7charset_b
  * 
  */
   __Pyx_XDECREF((PyObject *)__pyx_r);
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_name_n_collation(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_name, __pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_name_n_collation(__pyx_v_8sqlcycli_7charset__charsets, __pyx_v_name, __pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 343, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/charset.py":347
+  /* "sqlcycli/charset.py":336
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name_n_collation(name: str | Any, collation: str | Any) -> Charset:
- *     """Get MySQL charset by name and collation `<'Charset'>`.
+ *     """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
 
   /* function exit code */
@@ -12202,7 +11498,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8by_name_n_collation, "Get MySQL charset by name and collation `<'Charset'>`.\n\n    :param name `<'str'>`: The name of the charset.\n    :param collation `<'str'>`: The collation of the charset.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_7charset_8by_name_n_collation, "Retrieve a Charset by both its name and collation combination `<'Charset'>`.\n\n    :param name `<'str'>`: The name of the charset.\n    :param collation `<'str'>`: The collation of the charset.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_7charset_9by_name_n_collation = {"by_name_n_collation", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_9by_name_n_collation, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_7charset_8by_name_n_collation};
 static PyObject *__pyx_pw_8sqlcycli_7charset_9by_name_n_collation(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -12251,7 +11547,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 347, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 336, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -12259,14 +11555,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 347, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 336, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, 1); __PYX_ERR(0, 347, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, 1); __PYX_ERR(0, 336, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name_n_collation") < 0)) __PYX_ERR(0, 347, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "by_name_n_collation") < 0)) __PYX_ERR(0, 336, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -12279,7 +11575,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 347, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("by_name_n_collation", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 336, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12315,7 +11611,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_8by_name_n_collation(CYTHON_UNUSED 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("by_name_n_collation", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_name_n_collation(__pyx_v_name, __pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_8sqlcycli_7charset_by_name_n_collation(__pyx_v_name, __pyx_v_collation, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12482,21 +11778,21 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x6b3cff1, 0x8356a43, 0x9015fd9):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0xe3ae338, 0x9ed7258, 0x8ca14ff):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  */
   __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__7, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 4, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__10, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
     /* "(tree fragment)":5
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x6b3cff1, 0x8356a43, 0x9015fd9):
+ *     if __pyx_checksum not in (0xe3ae338, 0x9ed7258, 0x8ca14ff):
  *         from pickle import PickleError as __pyx_PickleError             # <<<<<<<<<<<<<<
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  *     __pyx_result = Charset.__new__(__pyx_type)
  */
     __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error)
@@ -12515,9 +11811,9 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
     /* "(tree fragment)":6
- *     if __pyx_checksum not in (0x6b3cff1, 0x8356a43, 0x9015fd9):
+ *     if __pyx_checksum not in (0xe3ae338, 0x9ed7258, 0x8ca14ff):
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum             # <<<<<<<<<<<<<<
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum             # <<<<<<<<<<<<<<
  *     __pyx_result = Charset.__new__(__pyx_type)
  *     if __pyx_state is not None:
  */
@@ -12533,15 +11829,15 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
     /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x6b3cff1, 0x8356a43, 0x9015fd9):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0xe3ae338, 0x9ed7258, 0x8ca14ff):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  */
   }
 
   /* "(tree fragment)":7
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  *     __pyx_result = Charset.__new__(__pyx_type)             # <<<<<<<<<<<<<<
  *     if __pyx_state is not None:
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
@@ -12574,7 +11870,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
   __pyx_t_1 = 0;
 
   /* "(tree fragment)":8
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  *     __pyx_result = Charset.__new__(__pyx_type)
  *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
@@ -12596,7 +11892,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
     /* "(tree fragment)":8
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  *     __pyx_result = Charset.__new__(__pyx_type)
  *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
@@ -12609,7 +11905,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
  *     return __pyx_result             # <<<<<<<<<<<<<<
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v___pyx_result);
@@ -12641,8 +11937,8 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_10__pyx_unpickle_Charset(CYTHON_UNU
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):
  */
 
 static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(struct __pyx_obj_8sqlcycli_7charset_Charset *__pyx_v___pyx_result, PyObject *__pyx_v___pyx_state) {
@@ -12650,9 +11946,9 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   char *__pyx_t_2;
-  int __pyx_t_3;
+  Py_ssize_t __pyx_t_3;
   int __pyx_t_4;
-  Py_ssize_t __pyx_t_5;
+  int __pyx_t_5;
   int __pyx_t_6;
   PyObject *__pyx_t_7 = NULL;
   PyObject *__pyx_t_8 = NULL;
@@ -12665,9 +11961,9 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
   /* "(tree fragment)":12
  *     return __pyx_result
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]             # <<<<<<<<<<<<<<
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):
- *         __pyx_result.__dict__.update(__pyx_state[6])
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]             # <<<<<<<<<<<<<<
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[7])
  */
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
@@ -12703,20 +11999,26 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_3 = __Pyx_PyInt_As_int(PyTuple_GET_ITEM(__pyx_v___pyx_state, 3)); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_v___pyx_result->_id = __pyx_t_3;
+  __pyx_t_3 = __Pyx_PyIndex_AsSsize_t(PyTuple_GET_ITEM(__pyx_v___pyx_state, 3)); if (unlikely((__pyx_t_3 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_v___pyx_result->_hashcode = __pyx_t_3;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 4)); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_v___pyx_result->_is_default = __pyx_t_4;
+  __pyx_t_4 = __Pyx_PyInt_As_int(PyTuple_GET_ITEM(__pyx_v___pyx_state, 4)); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_v___pyx_result->_id = __pyx_t_4;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 5)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 5)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 5)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_1 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 5);
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 5)); if (unlikely((__pyx_t_5 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_v___pyx_result->_is_default = __pyx_t_5;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 6)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 6)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 6)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 6);
   __Pyx_INCREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v___pyx_result->_name);
@@ -12726,30 +12028,30 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
 
   /* "(tree fragment)":13
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
- *         __pyx_result.__dict__.update(__pyx_state[6])
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[7])
  */
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
     __PYX_ERR(1, 13, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(__pyx_v___pyx_state); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
-  __pyx_t_6 = (__pyx_t_5 > 6);
+  __pyx_t_3 = __Pyx_PyTuple_GET_SIZE(__pyx_v___pyx_state); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
+  __pyx_t_6 = (__pyx_t_3 > 7);
   if (__pyx_t_6) {
   } else {
-    __pyx_t_4 = __pyx_t_6;
+    __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
   __pyx_t_6 = __Pyx_HasAttr(((PyObject *)__pyx_v___pyx_result), __pyx_n_s_dict); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
-  __pyx_t_4 = __pyx_t_6;
+  __pyx_t_5 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
-  if (__pyx_t_4) {
+  if (__pyx_t_5) {
 
     /* "(tree fragment)":14
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):
- *         __pyx_result.__dict__.update(__pyx_state[6])             # <<<<<<<<<<<<<<
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[7])             # <<<<<<<<<<<<<<
  */
     __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v___pyx_result), __pyx_n_s_dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 14, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
@@ -12775,7 +12077,7 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, PyTuple_GET_ITEM(__pyx_v___pyx_state, 6)};
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, PyTuple_GET_ITEM(__pyx_v___pyx_state, 7)};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 14, __pyx_L1_error)
@@ -12786,9 +12088,9 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
 
     /* "(tree fragment)":13
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
- *         __pyx_result.__dict__.update(__pyx_state[6])
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[7])
  */
   }
 
@@ -12796,8 +12098,8 @@ static PyObject *__pyx_f_8sqlcycli_7charset___pyx_unpickle_Charset__set_state(st
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):
  */
 
   /* function exit code */
@@ -12971,7 +12273,7 @@ static PyObject *__pyx_pf_8sqlcycli_7charset_12__pyx_unpickle_Charsets(CYTHON_UN
  */
   __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__9, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 4, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__12, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
@@ -13334,22 +12636,15 @@ static void __pyx_tp_dealloc_8sqlcycli_7charset_Charset(PyObject *o) {
   }
   #endif
 }
-static PyObject *__pyx_sq_item_8sqlcycli_7charset_Charset(PyObject *o, Py_ssize_t i) {
-  PyObject *r;
-  PyObject *x = PyInt_FromSsize_t(i); if(!x) return 0;
-  r = Py_TYPE(o)->tp_as_mapping->mp_subscript(o, x);
-  Py_DECREF(x);
-  return r;
-}
 
 static PyObject *__pyx_tp_richcompare_8sqlcycli_7charset_Charset(PyObject *o1, PyObject *o2, int op) {
   switch (op) {
     case Py_EQ: {
-      return __pyx_pw_8sqlcycli_7charset_7Charset_9__eq__(o1, o2);
+      return __pyx_pw_8sqlcycli_7charset_7Charset_7__eq__(o1, o2);
     }
     case Py_NE: {
       PyObject *ret;
-      ret = __pyx_pw_8sqlcycli_7charset_7Charset_9__eq__(o1, o2);
+      ret = __pyx_pw_8sqlcycli_7charset_7Charset_7__eq__(o1, o2);
       if (likely(ret && ret != Py_NotImplemented)) {
         int b = __Pyx_PyObject_IsTrue(ret);
         Py_DECREF(ret);
@@ -13391,27 +12686,25 @@ static PyObject *__pyx_specialmethod___pyx_pw_8sqlcycli_7charset_7Charset_5__rep
 
 static PyMethodDef __pyx_methods_8sqlcycli_7charset_Charset[] = {
   {"__repr__", (PyCFunction)__pyx_specialmethod___pyx_pw_8sqlcycli_7charset_7Charset_5__repr__, METH_NOARGS|METH_COEXIST, 0},
-  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_13__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
-  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_15__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_11__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_7charset_7Charset_13__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {0, 0, 0, 0}
 };
 
 static struct PyGetSetDef __pyx_getsets_8sqlcycli_7charset_Charset[] = {
-  {(char *)"id", __pyx_getprop_8sqlcycli_7charset_7Charset_id, 0, (char *)PyDoc_STR("The 'ID' of the charset `<'int'>`."), 0},
-  {(char *)"name", __pyx_getprop_8sqlcycli_7charset_7Charset_name, 0, (char *)PyDoc_STR("The 'name' of the charset `<'str'>`."), 0},
-  {(char *)"collation", __pyx_getprop_8sqlcycli_7charset_7Charset_collation, 0, (char *)PyDoc_STR("The 'collation' of the charset `<'str'>`."), 0},
-  {(char *)"is_default", __pyx_getprop_8sqlcycli_7charset_7Charset_is_default, 0, (char *)PyDoc_STR("Whether is MySQL default charset `<'bool'>`."), 0},
-  {(char *)"encoding", __pyx_getprop_8sqlcycli_7charset_7Charset_encoding, 0, (char *)PyDoc_STR("The 'encoding' of the charset `<'bytes'>`."), 0},
+  {(char *)"id", __pyx_getprop_8sqlcycli_7charset_7Charset_id, 0, (char *)PyDoc_STR("Numeric MySQL charset identifier `<'int'>`."), 0},
+  {(char *)"name", __pyx_getprop_8sqlcycli_7charset_7Charset_name, 0, (char *)PyDoc_STR("The charset name (e.g., `\"utf8mb4\"`) `<'str'>`."), 0},
+  {(char *)"collation", __pyx_getprop_8sqlcycli_7charset_7Charset_collation, 0, (char *)PyDoc_STR("The collation name (e.g., `\"utf8mb4_general_ci\"`) `<'str'>`."), 0},
+  {(char *)"is_default", __pyx_getprop_8sqlcycli_7charset_7Charset_is_default, 0, (char *)PyDoc_STR("Whether the charset is one of MySQL's defaults. `<'bool'>`."), 0},
+  {(char *)"encoding", __pyx_getprop_8sqlcycli_7charset_7Charset_encoding, 0, (char *)PyDoc_STR("The Python encoding of the charset `<'bytes'>`."), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_8sqlcycli_7charset_Charset_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_7charset_Charset},
   {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_7charset_7Charset_5__repr__},
-  {Py_sq_item, (void *)__pyx_sq_item_8sqlcycli_7charset_Charset},
-  {Py_mp_subscript, (void *)__pyx_pw_8sqlcycli_7charset_7Charset_7__getitem__},
-  {Py_tp_hash, (void *)__pyx_pw_8sqlcycli_7charset_7Charset_11__hash__},
-  {Py_tp_doc, (void *)PyDoc_STR("Represents the charset for MySQL.")},
+  {Py_tp_hash, (void *)__pyx_pw_8sqlcycli_7charset_7Charset_9__hash__},
+  {Py_tp_doc, (void *)PyDoc_STR("Represents a MySQL character set.")},
   {Py_tp_richcompare, (void *)__pyx_tp_richcompare_8sqlcycli_7charset_Charset},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_7charset_Charset},
   {Py_tp_getset, (void *)__pyx_getsets_8sqlcycli_7charset_Charset},
@@ -13427,25 +12720,6 @@ static PyType_Spec __pyx_type_8sqlcycli_7charset_Charset_spec = {
   __pyx_type_8sqlcycli_7charset_Charset_slots,
 };
 #else
-
-static PySequenceMethods __pyx_tp_as_sequence_Charset = {
-  0, /*sq_length*/
-  0, /*sq_concat*/
-  0, /*sq_repeat*/
-  __pyx_sq_item_8sqlcycli_7charset_Charset, /*sq_item*/
-  0, /*sq_slice*/
-  0, /*sq_ass_item*/
-  0, /*sq_ass_slice*/
-  0, /*sq_contains*/
-  0, /*sq_inplace_concat*/
-  0, /*sq_inplace_repeat*/
-};
-
-static PyMappingMethods __pyx_tp_as_mapping_Charset = {
-  0, /*mp_length*/
-  __pyx_pw_8sqlcycli_7charset_7Charset_7__getitem__, /*mp_subscript*/
-  0, /*mp_ass_subscript*/
-};
 
 static PyTypeObject __pyx_type_8sqlcycli_7charset_Charset = {
   PyVarObject_HEAD_INIT(0, 0)
@@ -13469,16 +12743,16 @@ static PyTypeObject __pyx_type_8sqlcycli_7charset_Charset = {
   #endif
   __pyx_pw_8sqlcycli_7charset_7Charset_5__repr__, /*tp_repr*/
   0, /*tp_as_number*/
-  &__pyx_tp_as_sequence_Charset, /*tp_as_sequence*/
-  &__pyx_tp_as_mapping_Charset, /*tp_as_mapping*/
-  __pyx_pw_8sqlcycli_7charset_7Charset_11__hash__, /*tp_hash*/
+  0, /*tp_as_sequence*/
+  0, /*tp_as_mapping*/
+  __pyx_pw_8sqlcycli_7charset_7Charset_9__hash__, /*tp_hash*/
   0, /*tp_call*/
   0, /*tp_str*/
   0, /*tp_getattro*/
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE, /*tp_flags*/
-  PyDoc_STR("Represents the charset for MySQL."), /*tp_doc*/
+  PyDoc_STR("Represents a MySQL character set."), /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   __pyx_tp_richcompare_8sqlcycli_7charset_Charset, /*tp_richcompare*/
@@ -13630,7 +12904,7 @@ static PyMethodDef __pyx_methods_8sqlcycli_7charset_Charsets[] = {
 static PyType_Slot __pyx_type_8sqlcycli_7charset_Charsets_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_7charset_Charsets},
   {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_7charset_8Charsets_15__repr__},
-  {Py_tp_doc, (void *)PyDoc_STR("Represent the collection of MySQL charsets.")},
+  {Py_tp_doc, (void *)PyDoc_STR("Collection for managing all the MySQL charsets.")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_7charset_Charsets},
   {Py_tp_clear, (void *)__pyx_tp_clear_8sqlcycli_7charset_Charsets},
   {Py_tp_iter, (void *)__pyx_pw_8sqlcycli_7charset_8Charsets_13__iter__},
@@ -13679,7 +12953,7 @@ static PyTypeObject __pyx_type_8sqlcycli_7charset_Charsets = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("Represent the collection of MySQL charsets."), /*tp_doc*/
+  PyDoc_STR("Collection for managing all the MySQL charsets."), /*tp_doc*/
   __pyx_tp_traverse_8sqlcycli_7charset_Charsets, /*tp_traverse*/
   __pyx_tp_clear_8sqlcycli_7charset_Charsets, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -13917,18 +13191,17 @@ static PyMethodDef __pyx_methods[] = {
 
 static int __Pyx_CreateStringTabAndInitStrings(void) {
   __Pyx_StringTabEntry __pyx_string_tab[] = {
-    {&__pyx_kp_u_, __pyx_k_, sizeof(__pyx_k_), 0, 1, 0, 0},
     {&__pyx_n_s_Any, __pyx_k_Any, sizeof(__pyx_k_Any), 0, 0, 1, 1},
-    {&__pyx_kp_u_Charset, __pyx_k_Charset, sizeof(__pyx_k_Charset), 0, 1, 0, 0},
-    {&__pyx_n_s_CharsetDuplicatedError, __pyx_k_CharsetDuplicatedError, sizeof(__pyx_k_CharsetDuplicatedError), 0, 0, 1, 1},
-    {&__pyx_n_s_CharsetIndexError, __pyx_k_CharsetIndexError, sizeof(__pyx_k_CharsetIndexError), 0, 0, 1, 1},
+    {&__pyx_n_s_AssertionError, __pyx_k_AssertionError, sizeof(__pyx_k_AssertionError), 0, 0, 1, 1},
+    {&__pyx_n_s_Charset, __pyx_k_Charset, sizeof(__pyx_k_Charset), 0, 0, 1, 1},
+    {&__pyx_n_u_Charset, __pyx_k_Charset, sizeof(__pyx_k_Charset), 0, 1, 0, 1},
     {&__pyx_n_s_CharsetNotFoundError, __pyx_k_CharsetNotFoundError, sizeof(__pyx_k_CharsetNotFoundError), 0, 0, 1, 1},
-    {&__pyx_n_s_Charset_2, __pyx_k_Charset_2, sizeof(__pyx_k_Charset_2), 0, 0, 1, 1},
-    {&__pyx_n_u_Charset_2, __pyx_k_Charset_2, sizeof(__pyx_k_Charset_2), 0, 1, 0, 1},
     {&__pyx_n_s_Charset___reduce_cython, __pyx_k_Charset___reduce_cython, sizeof(__pyx_k_Charset___reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_Charset___setstate_cython, __pyx_k_Charset___setstate_cython, sizeof(__pyx_k_Charset___setstate_cython), 0, 0, 1, 1},
+    {&__pyx_kp_u_Charset_collation_cannot_be_None, __pyx_k_Charset_collation_cannot_be_None, sizeof(__pyx_k_Charset_collation_cannot_be_None), 0, 1, 0, 0},
     {&__pyx_kp_u_Charset_id, __pyx_k_Charset_id, sizeof(__pyx_k_Charset_id), 0, 1, 0, 0},
     {&__pyx_n_s_Charset_is_binary, __pyx_k_Charset_is_binary, sizeof(__pyx_k_Charset_is_binary), 0, 0, 1, 1},
+    {&__pyx_kp_u_Charset_name_cannot_be_None, __pyx_k_Charset_name_cannot_be_None, sizeof(__pyx_k_Charset_name_cannot_be_None), 0, 1, 0, 0},
     {&__pyx_kp_u_Charsets, __pyx_k_Charsets, sizeof(__pyx_k_Charsets), 0, 1, 0, 0},
     {&__pyx_n_s_Charsets_2, __pyx_k_Charsets_2, sizeof(__pyx_k_Charsets_2), 0, 0, 1, 1},
     {&__pyx_n_u_Charsets_2, __pyx_k_Charsets_2, sizeof(__pyx_k_Charsets_2), 0, 1, 0, 1},
@@ -13949,21 +13222,18 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_u_None, __pyx_k_None, sizeof(__pyx_k_None), 0, 1, 0, 0},
     {&__pyx_n_s_NotImplemented, __pyx_k_NotImplemented, sizeof(__pyx_k_NotImplemented), 0, 0, 1, 1},
     {&__pyx_n_s_PickleError, __pyx_k_PickleError, sizeof(__pyx_k_PickleError), 0, 0, 1, 1},
-    {&__pyx_n_s__183, __pyx_k__183, sizeof(__pyx_k__183), 0, 0, 1, 1},
-    {&__pyx_kp_u__2, __pyx_k__2, sizeof(__pyx_k__2), 0, 1, 0, 0},
+    {&__pyx_kp_u__11, __pyx_k__11, sizeof(__pyx_k__11), 0, 1, 0, 0},
+    {&__pyx_n_s__186, __pyx_k__186, sizeof(__pyx_k__186), 0, 0, 1, 1},
     {&__pyx_kp_u__3, __pyx_k__3, sizeof(__pyx_k__3), 0, 1, 0, 0},
-    {&__pyx_kp_u__4, __pyx_k__4, sizeof(__pyx_k__4), 0, 1, 0, 0},
     {&__pyx_kp_u__5, __pyx_k__5, sizeof(__pyx_k__5), 0, 1, 0, 0},
     {&__pyx_kp_u__6, __pyx_k__6, sizeof(__pyx_k__6), 0, 1, 0, 0},
+    {&__pyx_kp_u__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 1, 0, 0},
     {&__pyx_kp_u__8, __pyx_k__8, sizeof(__pyx_k__8), 0, 1, 0, 0},
+    {&__pyx_kp_u__9, __pyx_k__9, sizeof(__pyx_k__9), 0, 1, 0, 0},
     {&__pyx_n_s_add, __pyx_k_add, sizeof(__pyx_k_add), 0, 0, 1, 1},
     {&__pyx_n_s_all, __pyx_k_all, sizeof(__pyx_k_all), 0, 0, 1, 1},
     {&__pyx_n_s_all_charsets, __pyx_k_all_charsets, sizeof(__pyx_k_all_charsets), 0, 0, 1, 1},
     {&__pyx_n_u_all_charsets, __pyx_k_all_charsets, sizeof(__pyx_k_all_charsets), 0, 1, 0, 1},
-    {&__pyx_kp_u_already_exist_by_ID, __pyx_k_already_exist_by_ID, sizeof(__pyx_k_already_exist_by_ID), 0, 1, 0, 0},
-    {&__pyx_kp_u_already_exist_by_collation, __pyx_k_already_exist_by_collation, sizeof(__pyx_k_already_exist_by_collation), 0, 1, 0, 0},
-    {&__pyx_kp_u_already_exist_by_name, __pyx_k_already_exist_by_name, sizeof(__pyx_k_already_exist_by_name), 0, 1, 0, 0},
-    {&__pyx_kp_u_already_exist_by_name_collation, __pyx_k_already_exist_by_name_collation, sizeof(__pyx_k_already_exist_by_name_collation), 0, 1, 0, 0},
     {&__pyx_n_s_args, __pyx_k_args, sizeof(__pyx_k_args), 0, 0, 1, 1},
     {&__pyx_n_u_armscii8, __pyx_k_armscii8, sizeof(__pyx_k_armscii8), 0, 1, 0, 1},
     {&__pyx_n_u_armscii8_bin, __pyx_k_armscii8_bin, sizeof(__pyx_k_armscii8_bin), 0, 1, 0, 1},
@@ -13985,6 +13255,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_by_name_n_collation, __pyx_k_by_name_n_collation, sizeof(__pyx_k_by_name_n_collation), 0, 0, 1, 1},
     {&__pyx_n_u_by_name_n_collation, __pyx_k_by_name_n_collation, sizeof(__pyx_k_by_name_n_collation), 0, 1, 0, 1},
     {&__pyx_n_s_charset, __pyx_k_charset, sizeof(__pyx_k_charset), 0, 0, 1, 1},
+    {&__pyx_kp_u_charset_cannot_be_None, __pyx_k_charset_cannot_be_None, sizeof(__pyx_k_charset_cannot_be_None), 0, 1, 0, 0},
     {&__pyx_n_s_charsets, __pyx_k_charsets, sizeof(__pyx_k_charsets), 0, 0, 1, 1},
     {&__pyx_n_s_class, __pyx_k_class, sizeof(__pyx_k_class), 0, 0, 1, 1},
     {&__pyx_n_s_cline_in_traceback, __pyx_k_cline_in_traceback, sizeof(__pyx_k_cline_in_traceback), 0, 0, 1, 1},
@@ -14134,7 +13405,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
     {&__pyx_n_s_repr___locals_genexpr, __pyx_k_repr___locals_genexpr, sizeof(__pyx_k_repr___locals_genexpr), 0, 0, 1, 1},
-    {&__pyx_kp_u_s_Index_out_of_bounds_must_betw, __pyx_k_s_Index_out_of_bounds_must_betw, sizeof(__pyx_k_s_Index_out_of_bounds_must_betw), 0, 1, 0, 0},
     {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
     {&__pyx_n_s_send, __pyx_k_send, sizeof(__pyx_k_send), 0, 0, 1, 1},
     {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
@@ -14230,7 +13500,9 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 }
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_NotImplemented = __Pyx_GetBuiltinName(__pyx_n_s_NotImplemented); if (!__pyx_builtin_NotImplemented) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_n_s_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_builtin_NotImplemented = __Pyx_GetBuiltinName(__pyx_n_s_NotImplemented); if (!__pyx_builtin_NotImplemented) __PYX_ERR(0, 123, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_n_s_id); if (!__pyx_builtin_id) __PYX_ERR(0, 127, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -14241,119 +13513,152 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
+  /* "sqlcycli/charset.py":55
+ *         self._id = id
+ *         if name is None:
+ *             raise AssertionError("Charset name cannot be 'None'.")             # <<<<<<<<<<<<<<
+ *         self._name = name.lower().strip()
+ *         if collation is None:
+ */
+  __pyx_tuple_ = PyTuple_Pack(1, __pyx_kp_u_Charset_name_cannot_be_None); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple_);
+  __Pyx_GIVEREF(__pyx_tuple_);
+
+  /* "sqlcycli/charset.py":58
+ *         self._name = name.lower().strip()
+ *         if collation is None:
+ *             raise AssertionError("Charset collation cannot be 'None'.")             # <<<<<<<<<<<<<<
+ *         self._collation = collation.lower().strip()
+ *         if self._name in ("utf8mb4", "utf8mb3"):
+ */
+  __pyx_tuple__2 = PyTuple_Pack(1, __pyx_kp_u_Charset_collation_cannot_be_None); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__2);
+  __Pyx_GIVEREF(__pyx_tuple__2);
+
+  /* "sqlcycli/charset.py":156
+ *         """
+ *         if charset is None:
+ *             raise AssertionError("charset cannot be 'None'.")             # <<<<<<<<<<<<<<
+ *         self._index_by_id(charset)
+ *         self._index_by_name(charset)
+ */
+  __pyx_tuple__4 = PyTuple_Pack(1, __pyx_kp_u_charset_cannot_be_None); if (unlikely(!__pyx_tuple__4)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__4);
+  __Pyx_GIVEREF(__pyx_tuple__4);
+
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x6b3cff1, 0x8356a43, 0x9015fd9):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0xe3ae338, 0x9ed7258, 0x8ca14ff):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x6b3cff1, 0x8356a43, 0x9015fd9) = (_collation, _encoding, _encoding_c, _id, _is_default, _name))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xe3ae338, 0x9ed7258, 0x8ca14ff) = (_collation, _encoding, _encoding_c, _hashcode, _id, _is_default, _name))" % __pyx_checksum
  */
-  __pyx_tuple__7 = PyTuple_Pack(3, __pyx_int_112447473, __pyx_int_137718339, __pyx_int_151085017); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(1, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__7);
-  __Pyx_GIVEREF(__pyx_tuple__7);
-  __pyx_tuple__9 = PyTuple_Pack(3, __pyx_int_82751263, __pyx_int_208236998, __pyx_int_92067722); if (unlikely(!__pyx_tuple__9)) __PYX_ERR(1, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__9);
-  __Pyx_GIVEREF(__pyx_tuple__9);
+  __pyx_tuple__10 = PyTuple_Pack(3, __pyx_int_238740280, __pyx_int_166556248, __pyx_int_147461375); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(1, 4, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__10);
+  __Pyx_GIVEREF(__pyx_tuple__10);
+  __pyx_tuple__12 = PyTuple_Pack(3, __pyx_int_82751263, __pyx_int_208236998, __pyx_int_92067722); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(1, 4, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__12);
+  __Pyx_GIVEREF(__pyx_tuple__12);
 
-  /* "sqlcycli/charset.py":95
+  /* "sqlcycli/charset.py":101
  * 
  *     # Methods ----------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def is_binary(self) -> cython.bint:
- *         "Whether the charset is binary `<'bool'>`."
+ *         """Check if this charset is the MySQL binary charset (ID == 63). `<'bool'>`."""
  */
-  __pyx_tuple__10 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 95, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__10);
-  __Pyx_GIVEREF(__pyx_tuple__10);
-  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_is_binary, 95, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_tuple__13 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__13);
+  __Pyx_GIVEREF(__pyx_tuple__13);
+  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__13, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_is_binary, 101, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 101, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_tuple__12 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__12);
-  __Pyx_GIVEREF(__pyx_tuple__12);
-  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_tuple__15 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__15);
+  __Pyx_GIVEREF(__pyx_tuple__15);
+  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(1, 1, __pyx_L1_error)
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Charset__set_state(self, __pyx_state)
  */
-  __pyx_tuple__14 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__14);
-  __Pyx_GIVEREF(__pyx_tuple__14);
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_tuple__17 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__17);
+  __Pyx_GIVEREF(__pyx_tuple__17);
+  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(1, 16, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":152
+  /* "sqlcycli/charset.py":148
  * 
  *     # Add Charset ------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def add(self, charset: Charset) -> cython.bint:
  */
-  __pyx_tuple__16 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_charset); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 152, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__16);
-  __Pyx_GIVEREF(__pyx_tuple__16);
-  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_add, 152, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_tuple__19 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_charset); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__19);
+  __Pyx_GIVEREF(__pyx_tuple__19);
+  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_add, 148, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 148, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":230
+  /* "sqlcycli/charset.py":219
  * 
  *     # Access Charset ---------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_id(self, id: object) -> Charset:
- *         """Get MySQL charset by id `<'Charset'>`.
+ *         """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
-  __pyx_tuple__18 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_id); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(0, 230, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__18);
-  __Pyx_GIVEREF(__pyx_tuple__18);
-  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__18, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_id, 230, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_tuple__21 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_id); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 219, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__21);
+  __Pyx_GIVEREF(__pyx_tuple__21);
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_id, 219, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 219, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":244
+  /* "sqlcycli/charset.py":233
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name(self, name: object) -> Charset:
- *         """Get MySQL charset by name `<'Charset'>`.
+ *         """Retrieve a default Charset by its name `<'Charset'>`.
  */
-  __pyx_tuple__20 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_name); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 244, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__20);
-  __Pyx_GIVEREF(__pyx_tuple__20);
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name, 244, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_tuple__23 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_name); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__23);
+  __Pyx_GIVEREF(__pyx_tuple__23);
+  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name, 233, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 233, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":261
+  /* "sqlcycli/charset.py":250
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_collation(self, collation: object) -> Charset:
- *         """Get MySQL charset by collation `<'Charset'>`.
+ *         """Retrieve a Charset by its collation `<'Charset'>`.
  */
-  __pyx_tuple__22 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 261, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__22);
-  __Pyx_GIVEREF(__pyx_tuple__22);
-  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_collation, 261, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_tuple__25 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__25)) __PYX_ERR(0, 250, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__25);
+  __Pyx_GIVEREF(__pyx_tuple__25);
+  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_collation, 250, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 250, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":278
+  /* "sqlcycli/charset.py":267
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name_n_collation(self, name: object, collation: object) -> Charset:
- *         """Get MySQL charset by name and collation `<'Charset'>`.
+ *         """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
-  __pyx_tuple__24 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_name, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 278, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__24);
-  __Pyx_GIVEREF(__pyx_tuple__24);
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name_n_collation, 278, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_tuple__27 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_name, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 267, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__27);
+  __Pyx_GIVEREF(__pyx_tuple__27);
+  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name_n_collation, 267, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 267, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(1, 1, __pyx_L1_error)
 
   /* "(tree fragment)":16
  *     else:
@@ -14361,1648 +13666,1648 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Charsets__set_state(self, __pyx_state)
  */
-  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(1, 16, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":314
+  /* "sqlcycli/charset.py":303
  * 
  * # Functions -----------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def all_charsets() -> Charsets:
- *     """Get the collection of all the MySQL charsets `<'Charsets'>`."""
+ *     """Retrieve the collection of all the MySQL charsets `<'Charsets'>`."""
  */
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_all_charsets, 314, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_all_charsets, 303, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 303, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":320
+  /* "sqlcycli/charset.py":309
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_id(id: object) -> Charset:
- *     """Get MySQL charset by id `<'Charset'>`.
+ *     """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
-  __pyx_tuple__29 = PyTuple_Pack(1, __pyx_n_s_id); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 320, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__29);
-  __Pyx_GIVEREF(__pyx_tuple__29);
-  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_id, 320, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_tuple__32 = PyTuple_Pack(1, __pyx_n_s_id); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 309, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__32);
+  __Pyx_GIVEREF(__pyx_tuple__32);
+  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_id, 309, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 309, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":329
+  /* "sqlcycli/charset.py":318
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name(name: object) -> Charset:
- *     """Get MySQL charset by name `<'Charset'>`.
+ *     """Retrieve a default Charset by its name `<'Charset'>`.
  */
-  __pyx_tuple__31 = PyTuple_Pack(1, __pyx_n_s_name); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__31);
-  __Pyx_GIVEREF(__pyx_tuple__31);
-  __pyx_codeobj__32 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__31, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name, 329, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__32)) __PYX_ERR(0, 329, __pyx_L1_error)
+  __pyx_tuple__34 = PyTuple_Pack(1, __pyx_n_s_name); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 318, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__34);
+  __Pyx_GIVEREF(__pyx_tuple__34);
+  __pyx_codeobj__35 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__34, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name, 318, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__35)) __PYX_ERR(0, 318, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":338
+  /* "sqlcycli/charset.py":327
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_collation(collation: object) -> Charset:
- *     """Get MySQL charset by collation `<'Charset'>`.
+ *     """Retrieve a Charset by its collation `<'Charset'>`.
  */
-  __pyx_tuple__33 = PyTuple_Pack(1, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(0, 338, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__33);
-  __Pyx_GIVEREF(__pyx_tuple__33);
-  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_collation, 338, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_tuple__36 = PyTuple_Pack(1, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__36);
+  __Pyx_GIVEREF(__pyx_tuple__36);
+  __pyx_codeobj__37 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_collation, 327, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__37)) __PYX_ERR(0, 327, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":347
+  /* "sqlcycli/charset.py":336
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name_n_collation(name: str | Any, collation: str | Any) -> Charset:
- *     """Get MySQL charset by name and collation `<'Charset'>`.
+ *     """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
-  __pyx_tuple__35 = PyTuple_Pack(2, __pyx_n_s_name, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 347, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__35);
-  __Pyx_GIVEREF(__pyx_tuple__35);
-  __pyx_codeobj__36 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name_n_collation, 347, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__36)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_tuple__38 = PyTuple_Pack(2, __pyx_n_s_name, __pyx_n_s_collation); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__38);
+  __Pyx_GIVEREF(__pyx_tuple__38);
+  __pyx_codeobj__39 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__38, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_charset_py, __pyx_n_s_by_name_n_collation, 336, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__39)) __PYX_ERR(0, 336, __pyx_L1_error)
 
-  /* "sqlcycli/charset.py":357
+  /* "sqlcycli/charset.py":346
  * 
  * 
  * _charsets.add(Charset(1, "big5", "big5_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  */
-  __pyx_tuple__37 = PyTuple_Pack(4, __pyx_int_1, __pyx_n_u_big5, __pyx_n_u_big5_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 357, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__37);
-  __Pyx_GIVEREF(__pyx_tuple__37);
+  __pyx_tuple__40 = PyTuple_Pack(4, __pyx_int_1, __pyx_n_u_big5, __pyx_n_u_big5_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__40)) __PYX_ERR(0, 346, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__40);
+  __Pyx_GIVEREF(__pyx_tuple__40);
 
-  /* "sqlcycli/charset.py":358
+  /* "sqlcycli/charset.py":347
  * 
  * _charsets.add(Charset(1, "big5", "big5_chinese_ci", True))
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  */
-  __pyx_tuple__38 = PyTuple_Pack(3, __pyx_int_2, __pyx_n_u_latin2, __pyx_n_u_latin2_czech_cs); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 358, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__38);
-  __Pyx_GIVEREF(__pyx_tuple__38);
+  __pyx_tuple__41 = PyTuple_Pack(3, __pyx_int_2, __pyx_n_u_latin2, __pyx_n_u_latin2_czech_cs); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__41);
+  __Pyx_GIVEREF(__pyx_tuple__41);
 
-  /* "sqlcycli/charset.py":359
+  /* "sqlcycli/charset.py":348
  * _charsets.add(Charset(1, "big5", "big5_chinese_ci", True))
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  */
-  __pyx_tuple__39 = PyTuple_Pack(4, __pyx_int_3, __pyx_n_u_dec8, __pyx_n_u_dec8_swedish_ci, Py_True); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(0, 359, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__39);
-  __Pyx_GIVEREF(__pyx_tuple__39);
+  __pyx_tuple__42 = PyTuple_Pack(4, __pyx_int_3, __pyx_n_u_dec8, __pyx_n_u_dec8_swedish_ci, Py_True); if (unlikely(!__pyx_tuple__42)) __PYX_ERR(0, 348, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__42);
+  __Pyx_GIVEREF(__pyx_tuple__42);
 
-  /* "sqlcycli/charset.py":360
+  /* "sqlcycli/charset.py":349
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  */
-  __pyx_tuple__40 = PyTuple_Pack(4, __pyx_int_4, __pyx_n_u_cp850, __pyx_n_u_cp850_general_ci, Py_True); if (unlikely(!__pyx_tuple__40)) __PYX_ERR(0, 360, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__40);
-  __Pyx_GIVEREF(__pyx_tuple__40);
+  __pyx_tuple__43 = PyTuple_Pack(4, __pyx_int_4, __pyx_n_u_cp850, __pyx_n_u_cp850_general_ci, Py_True); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(0, 349, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__43);
+  __Pyx_GIVEREF(__pyx_tuple__43);
 
-  /* "sqlcycli/charset.py":361
+  /* "sqlcycli/charset.py":350
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  */
-  __pyx_tuple__41 = PyTuple_Pack(3, __pyx_int_5, __pyx_n_u_latin1, __pyx_n_u_latin1_german1_ci); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(0, 361, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__41);
-  __Pyx_GIVEREF(__pyx_tuple__41);
+  __pyx_tuple__44 = PyTuple_Pack(3, __pyx_int_5, __pyx_n_u_latin1, __pyx_n_u_latin1_german1_ci); if (unlikely(!__pyx_tuple__44)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__44);
+  __Pyx_GIVEREF(__pyx_tuple__44);
 
-  /* "sqlcycli/charset.py":362
+  /* "sqlcycli/charset.py":351
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  */
-  __pyx_tuple__42 = PyTuple_Pack(4, __pyx_int_6, __pyx_n_u_hp8, __pyx_n_u_hp8_english_ci, Py_True); if (unlikely(!__pyx_tuple__42)) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__42);
-  __Pyx_GIVEREF(__pyx_tuple__42);
+  __pyx_tuple__45 = PyTuple_Pack(4, __pyx_int_6, __pyx_n_u_hp8, __pyx_n_u_hp8_english_ci, Py_True); if (unlikely(!__pyx_tuple__45)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__45);
+  __Pyx_GIVEREF(__pyx_tuple__45);
 
-  /* "sqlcycli/charset.py":363
+  /* "sqlcycli/charset.py":352
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  */
-  __pyx_tuple__43 = PyTuple_Pack(4, __pyx_int_7, __pyx_n_u_koi8r, __pyx_n_u_koi8r_general_ci, Py_True); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(0, 363, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__43);
-  __Pyx_GIVEREF(__pyx_tuple__43);
+  __pyx_tuple__46 = PyTuple_Pack(4, __pyx_int_7, __pyx_n_u_koi8r, __pyx_n_u_koi8r_general_ci, Py_True); if (unlikely(!__pyx_tuple__46)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__46);
+  __Pyx_GIVEREF(__pyx_tuple__46);
 
-  /* "sqlcycli/charset.py":364
+  /* "sqlcycli/charset.py":353
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  */
-  __pyx_tuple__44 = PyTuple_Pack(4, __pyx_int_8, __pyx_n_u_latin1, __pyx_n_u_latin1_swedish_ci, Py_True); if (unlikely(!__pyx_tuple__44)) __PYX_ERR(0, 364, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__44);
-  __Pyx_GIVEREF(__pyx_tuple__44);
+  __pyx_tuple__47 = PyTuple_Pack(4, __pyx_int_8, __pyx_n_u_latin1, __pyx_n_u_latin1_swedish_ci, Py_True); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(0, 353, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__47);
+  __Pyx_GIVEREF(__pyx_tuple__47);
 
-  /* "sqlcycli/charset.py":365
+  /* "sqlcycli/charset.py":354
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  */
-  __pyx_tuple__45 = PyTuple_Pack(4, __pyx_int_9, __pyx_n_u_latin2, __pyx_n_u_latin2_general_ci, Py_True); if (unlikely(!__pyx_tuple__45)) __PYX_ERR(0, 365, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__45);
-  __Pyx_GIVEREF(__pyx_tuple__45);
+  __pyx_tuple__48 = PyTuple_Pack(4, __pyx_int_9, __pyx_n_u_latin2, __pyx_n_u_latin2_general_ci, Py_True); if (unlikely(!__pyx_tuple__48)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__48);
+  __Pyx_GIVEREF(__pyx_tuple__48);
 
-  /* "sqlcycli/charset.py":366
+  /* "sqlcycli/charset.py":355
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  */
-  __pyx_tuple__46 = PyTuple_Pack(4, __pyx_int_10, __pyx_n_u_swe7, __pyx_n_u_swe7_swedish_ci, Py_True); if (unlikely(!__pyx_tuple__46)) __PYX_ERR(0, 366, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__46);
-  __Pyx_GIVEREF(__pyx_tuple__46);
+  __pyx_tuple__49 = PyTuple_Pack(4, __pyx_int_10, __pyx_n_u_swe7, __pyx_n_u_swe7_swedish_ci, Py_True); if (unlikely(!__pyx_tuple__49)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__49);
+  __Pyx_GIVEREF(__pyx_tuple__49);
 
-  /* "sqlcycli/charset.py":367
+  /* "sqlcycli/charset.py":356
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  */
-  __pyx_tuple__47 = PyTuple_Pack(4, __pyx_int_11, __pyx_n_u_ascii, __pyx_n_u_ascii_general_ci, Py_True); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(0, 367, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__47);
-  __Pyx_GIVEREF(__pyx_tuple__47);
+  __pyx_tuple__50 = PyTuple_Pack(4, __pyx_int_11, __pyx_n_u_ascii, __pyx_n_u_ascii_general_ci, Py_True); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(0, 356, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__50);
+  __Pyx_GIVEREF(__pyx_tuple__50);
 
-  /* "sqlcycli/charset.py":368
+  /* "sqlcycli/charset.py":357
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  */
-  __pyx_tuple__48 = PyTuple_Pack(4, __pyx_int_12, __pyx_n_u_ujis, __pyx_n_u_ujis_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__48)) __PYX_ERR(0, 368, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__48);
-  __Pyx_GIVEREF(__pyx_tuple__48);
+  __pyx_tuple__51 = PyTuple_Pack(4, __pyx_int_12, __pyx_n_u_ujis, __pyx_n_u_ujis_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__51);
+  __Pyx_GIVEREF(__pyx_tuple__51);
 
-  /* "sqlcycli/charset.py":369
+  /* "sqlcycli/charset.py":358
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  */
-  __pyx_tuple__49 = PyTuple_Pack(4, __pyx_int_13, __pyx_n_u_sjis, __pyx_n_u_sjis_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__49)) __PYX_ERR(0, 369, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__49);
-  __Pyx_GIVEREF(__pyx_tuple__49);
+  __pyx_tuple__52 = PyTuple_Pack(4, __pyx_int_13, __pyx_n_u_sjis, __pyx_n_u_sjis_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__52)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__52);
+  __Pyx_GIVEREF(__pyx_tuple__52);
 
-  /* "sqlcycli/charset.py":370
+  /* "sqlcycli/charset.py":359
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  */
-  __pyx_tuple__50 = PyTuple_Pack(3, __pyx_int_14, __pyx_n_u_cp1251, __pyx_n_u_cp1251_bulgarian_ci); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(0, 370, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__50);
-  __Pyx_GIVEREF(__pyx_tuple__50);
+  __pyx_tuple__53 = PyTuple_Pack(3, __pyx_int_14, __pyx_n_u_cp1251, __pyx_n_u_cp1251_bulgarian_ci); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__53);
+  __Pyx_GIVEREF(__pyx_tuple__53);
 
-  /* "sqlcycli/charset.py":371
+  /* "sqlcycli/charset.py":360
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  */
-  __pyx_tuple__51 = PyTuple_Pack(3, __pyx_int_15, __pyx_n_u_latin1, __pyx_n_u_latin1_danish_ci); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(0, 371, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__51);
-  __Pyx_GIVEREF(__pyx_tuple__51);
+  __pyx_tuple__54 = PyTuple_Pack(3, __pyx_int_15, __pyx_n_u_latin1, __pyx_n_u_latin1_danish_ci); if (unlikely(!__pyx_tuple__54)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__54);
+  __Pyx_GIVEREF(__pyx_tuple__54);
 
-  /* "sqlcycli/charset.py":372
+  /* "sqlcycli/charset.py":361
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  */
-  __pyx_tuple__52 = PyTuple_Pack(4, __pyx_int_16, __pyx_n_u_hebrew, __pyx_n_u_hebrew_general_ci, Py_True); if (unlikely(!__pyx_tuple__52)) __PYX_ERR(0, 372, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__52);
-  __Pyx_GIVEREF(__pyx_tuple__52);
+  __pyx_tuple__55 = PyTuple_Pack(4, __pyx_int_16, __pyx_n_u_hebrew, __pyx_n_u_hebrew_general_ci, Py_True); if (unlikely(!__pyx_tuple__55)) __PYX_ERR(0, 361, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__55);
+  __Pyx_GIVEREF(__pyx_tuple__55);
 
-  /* "sqlcycli/charset.py":373
+  /* "sqlcycli/charset.py":362
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  */
-  __pyx_tuple__53 = PyTuple_Pack(4, __pyx_int_18, __pyx_n_u_tis620, __pyx_n_u_tis620_thai_ci, Py_True); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 373, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__53);
-  __Pyx_GIVEREF(__pyx_tuple__53);
+  __pyx_tuple__56 = PyTuple_Pack(4, __pyx_int_18, __pyx_n_u_tis620, __pyx_n_u_tis620_thai_ci, Py_True); if (unlikely(!__pyx_tuple__56)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__56);
+  __Pyx_GIVEREF(__pyx_tuple__56);
 
-  /* "sqlcycli/charset.py":374
+  /* "sqlcycli/charset.py":363
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  */
-  __pyx_tuple__54 = PyTuple_Pack(4, __pyx_int_19, __pyx_n_u_euckr, __pyx_n_u_euckr_korean_ci, Py_True); if (unlikely(!__pyx_tuple__54)) __PYX_ERR(0, 374, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__54);
-  __Pyx_GIVEREF(__pyx_tuple__54);
+  __pyx_tuple__57 = PyTuple_Pack(4, __pyx_int_19, __pyx_n_u_euckr, __pyx_n_u_euckr_korean_ci, Py_True); if (unlikely(!__pyx_tuple__57)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__57);
+  __Pyx_GIVEREF(__pyx_tuple__57);
 
-  /* "sqlcycli/charset.py":375
+  /* "sqlcycli/charset.py":364
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  */
-  __pyx_tuple__55 = PyTuple_Pack(3, __pyx_int_20, __pyx_n_u_latin7, __pyx_n_u_latin7_estonian_cs); if (unlikely(!__pyx_tuple__55)) __PYX_ERR(0, 375, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__55);
-  __Pyx_GIVEREF(__pyx_tuple__55);
+  __pyx_tuple__58 = PyTuple_Pack(3, __pyx_int_20, __pyx_n_u_latin7, __pyx_n_u_latin7_estonian_cs); if (unlikely(!__pyx_tuple__58)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__58);
+  __Pyx_GIVEREF(__pyx_tuple__58);
 
-  /* "sqlcycli/charset.py":376
+  /* "sqlcycli/charset.py":365
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  */
-  __pyx_tuple__56 = PyTuple_Pack(3, __pyx_int_21, __pyx_n_u_latin2, __pyx_n_u_latin2_hungarian_ci); if (unlikely(!__pyx_tuple__56)) __PYX_ERR(0, 376, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__56);
-  __Pyx_GIVEREF(__pyx_tuple__56);
+  __pyx_tuple__59 = PyTuple_Pack(3, __pyx_int_21, __pyx_n_u_latin2, __pyx_n_u_latin2_hungarian_ci); if (unlikely(!__pyx_tuple__59)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__59);
+  __Pyx_GIVEREF(__pyx_tuple__59);
 
-  /* "sqlcycli/charset.py":377
+  /* "sqlcycli/charset.py":366
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  */
-  __pyx_tuple__57 = PyTuple_Pack(4, __pyx_int_22, __pyx_n_u_koi8u, __pyx_n_u_koi8u_general_ci, Py_True); if (unlikely(!__pyx_tuple__57)) __PYX_ERR(0, 377, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__57);
-  __Pyx_GIVEREF(__pyx_tuple__57);
+  __pyx_tuple__60 = PyTuple_Pack(4, __pyx_int_22, __pyx_n_u_koi8u, __pyx_n_u_koi8u_general_ci, Py_True); if (unlikely(!__pyx_tuple__60)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__60);
+  __Pyx_GIVEREF(__pyx_tuple__60);
 
-  /* "sqlcycli/charset.py":378
+  /* "sqlcycli/charset.py":367
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  */
-  __pyx_tuple__58 = PyTuple_Pack(3, __pyx_int_23, __pyx_n_u_cp1251, __pyx_n_u_cp1251_ukrainian_ci); if (unlikely(!__pyx_tuple__58)) __PYX_ERR(0, 378, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__58);
-  __Pyx_GIVEREF(__pyx_tuple__58);
+  __pyx_tuple__61 = PyTuple_Pack(3, __pyx_int_23, __pyx_n_u_cp1251, __pyx_n_u_cp1251_ukrainian_ci); if (unlikely(!__pyx_tuple__61)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__61);
+  __Pyx_GIVEREF(__pyx_tuple__61);
 
-  /* "sqlcycli/charset.py":379
+  /* "sqlcycli/charset.py":368
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  */
-  __pyx_tuple__59 = PyTuple_Pack(4, __pyx_int_24, __pyx_n_u_gb2312, __pyx_n_u_gb2312_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__59)) __PYX_ERR(0, 379, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__59);
-  __Pyx_GIVEREF(__pyx_tuple__59);
+  __pyx_tuple__62 = PyTuple_Pack(4, __pyx_int_24, __pyx_n_u_gb2312, __pyx_n_u_gb2312_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__62)) __PYX_ERR(0, 368, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__62);
+  __Pyx_GIVEREF(__pyx_tuple__62);
 
-  /* "sqlcycli/charset.py":380
+  /* "sqlcycli/charset.py":369
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  */
-  __pyx_tuple__60 = PyTuple_Pack(4, __pyx_int_25, __pyx_n_u_greek, __pyx_n_u_greek_general_ci, Py_True); if (unlikely(!__pyx_tuple__60)) __PYX_ERR(0, 380, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__60);
-  __Pyx_GIVEREF(__pyx_tuple__60);
+  __pyx_tuple__63 = PyTuple_Pack(4, __pyx_int_25, __pyx_n_u_greek, __pyx_n_u_greek_general_ci, Py_True); if (unlikely(!__pyx_tuple__63)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__63);
+  __Pyx_GIVEREF(__pyx_tuple__63);
 
-  /* "sqlcycli/charset.py":381
+  /* "sqlcycli/charset.py":370
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  */
-  __pyx_tuple__61 = PyTuple_Pack(4, __pyx_int_26, __pyx_n_u_cp1250, __pyx_n_u_cp1250_general_ci, Py_True); if (unlikely(!__pyx_tuple__61)) __PYX_ERR(0, 381, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__61);
-  __Pyx_GIVEREF(__pyx_tuple__61);
+  __pyx_tuple__64 = PyTuple_Pack(4, __pyx_int_26, __pyx_n_u_cp1250, __pyx_n_u_cp1250_general_ci, Py_True); if (unlikely(!__pyx_tuple__64)) __PYX_ERR(0, 370, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__64);
+  __Pyx_GIVEREF(__pyx_tuple__64);
 
-  /* "sqlcycli/charset.py":382
+  /* "sqlcycli/charset.py":371
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  */
-  __pyx_tuple__62 = PyTuple_Pack(3, __pyx_int_27, __pyx_n_u_latin2, __pyx_n_u_latin2_croatian_ci); if (unlikely(!__pyx_tuple__62)) __PYX_ERR(0, 382, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__62);
-  __Pyx_GIVEREF(__pyx_tuple__62);
+  __pyx_tuple__65 = PyTuple_Pack(3, __pyx_int_27, __pyx_n_u_latin2, __pyx_n_u_latin2_croatian_ci); if (unlikely(!__pyx_tuple__65)) __PYX_ERR(0, 371, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__65);
+  __Pyx_GIVEREF(__pyx_tuple__65);
 
-  /* "sqlcycli/charset.py":383
+  /* "sqlcycli/charset.py":372
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  */
-  __pyx_tuple__63 = PyTuple_Pack(4, __pyx_int_28, __pyx_n_u_gbk, __pyx_n_u_gbk_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__63)) __PYX_ERR(0, 383, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__63);
-  __Pyx_GIVEREF(__pyx_tuple__63);
+  __pyx_tuple__66 = PyTuple_Pack(4, __pyx_int_28, __pyx_n_u_gbk, __pyx_n_u_gbk_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__66)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__66);
+  __Pyx_GIVEREF(__pyx_tuple__66);
 
-  /* "sqlcycli/charset.py":384
+  /* "sqlcycli/charset.py":373
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  */
-  __pyx_tuple__64 = PyTuple_Pack(3, __pyx_int_29, __pyx_n_u_cp1257, __pyx_n_u_cp1257_lithuanian_ci); if (unlikely(!__pyx_tuple__64)) __PYX_ERR(0, 384, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__64);
-  __Pyx_GIVEREF(__pyx_tuple__64);
+  __pyx_tuple__67 = PyTuple_Pack(3, __pyx_int_29, __pyx_n_u_cp1257, __pyx_n_u_cp1257_lithuanian_ci); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 373, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__67);
+  __Pyx_GIVEREF(__pyx_tuple__67);
 
-  /* "sqlcycli/charset.py":385
+  /* "sqlcycli/charset.py":374
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  */
-  __pyx_tuple__65 = PyTuple_Pack(4, __pyx_int_30, __pyx_n_u_latin5, __pyx_n_u_latin5_turkish_ci, Py_True); if (unlikely(!__pyx_tuple__65)) __PYX_ERR(0, 385, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__65);
-  __Pyx_GIVEREF(__pyx_tuple__65);
+  __pyx_tuple__68 = PyTuple_Pack(4, __pyx_int_30, __pyx_n_u_latin5, __pyx_n_u_latin5_turkish_ci, Py_True); if (unlikely(!__pyx_tuple__68)) __PYX_ERR(0, 374, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__68);
+  __Pyx_GIVEREF(__pyx_tuple__68);
 
-  /* "sqlcycli/charset.py":386
+  /* "sqlcycli/charset.py":375
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  */
-  __pyx_tuple__66 = PyTuple_Pack(3, __pyx_int_31, __pyx_n_u_latin1, __pyx_n_u_latin1_german2_ci); if (unlikely(!__pyx_tuple__66)) __PYX_ERR(0, 386, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__66);
-  __Pyx_GIVEREF(__pyx_tuple__66);
+  __pyx_tuple__69 = PyTuple_Pack(3, __pyx_int_31, __pyx_n_u_latin1, __pyx_n_u_latin1_german2_ci); if (unlikely(!__pyx_tuple__69)) __PYX_ERR(0, 375, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__69);
+  __Pyx_GIVEREF(__pyx_tuple__69);
 
-  /* "sqlcycli/charset.py":387
+  /* "sqlcycli/charset.py":376
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  */
-  __pyx_tuple__67 = PyTuple_Pack(4, __pyx_int_32, __pyx_n_u_armscii8, __pyx_n_u_armscii8_general_ci, Py_True); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 387, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__67);
-  __Pyx_GIVEREF(__pyx_tuple__67);
+  __pyx_tuple__70 = PyTuple_Pack(4, __pyx_int_32, __pyx_n_u_armscii8, __pyx_n_u_armscii8_general_ci, Py_True); if (unlikely(!__pyx_tuple__70)) __PYX_ERR(0, 376, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__70);
+  __Pyx_GIVEREF(__pyx_tuple__70);
 
-  /* "sqlcycli/charset.py":388
+  /* "sqlcycli/charset.py":377
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  */
-  __pyx_tuple__68 = PyTuple_Pack(4, __pyx_int_33, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_general_ci, Py_True); if (unlikely(!__pyx_tuple__68)) __PYX_ERR(0, 388, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__68);
-  __Pyx_GIVEREF(__pyx_tuple__68);
+  __pyx_tuple__71 = PyTuple_Pack(4, __pyx_int_33, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_general_ci, Py_True); if (unlikely(!__pyx_tuple__71)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__71);
+  __Pyx_GIVEREF(__pyx_tuple__71);
 
-  /* "sqlcycli/charset.py":389
+  /* "sqlcycli/charset.py":378
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  */
-  __pyx_tuple__69 = PyTuple_Pack(3, __pyx_int_34, __pyx_n_u_cp1250, __pyx_n_u_cp1250_czech_cs); if (unlikely(!__pyx_tuple__69)) __PYX_ERR(0, 389, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__69);
-  __Pyx_GIVEREF(__pyx_tuple__69);
+  __pyx_tuple__72 = PyTuple_Pack(3, __pyx_int_34, __pyx_n_u_cp1250, __pyx_n_u_cp1250_czech_cs); if (unlikely(!__pyx_tuple__72)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__72);
+  __Pyx_GIVEREF(__pyx_tuple__72);
 
-  /* "sqlcycli/charset.py":390
+  /* "sqlcycli/charset.py":379
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  */
-  __pyx_tuple__70 = PyTuple_Pack(4, __pyx_int_36, __pyx_n_u_cp866, __pyx_n_u_cp866_general_ci, Py_True); if (unlikely(!__pyx_tuple__70)) __PYX_ERR(0, 390, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__70);
-  __Pyx_GIVEREF(__pyx_tuple__70);
+  __pyx_tuple__73 = PyTuple_Pack(4, __pyx_int_36, __pyx_n_u_cp866, __pyx_n_u_cp866_general_ci, Py_True); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 379, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__73);
+  __Pyx_GIVEREF(__pyx_tuple__73);
 
-  /* "sqlcycli/charset.py":391
+  /* "sqlcycli/charset.py":380
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  */
-  __pyx_tuple__71 = PyTuple_Pack(4, __pyx_int_37, __pyx_n_u_keybcs2, __pyx_n_u_keybcs2_general_ci, Py_True); if (unlikely(!__pyx_tuple__71)) __PYX_ERR(0, 391, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__71);
-  __Pyx_GIVEREF(__pyx_tuple__71);
+  __pyx_tuple__74 = PyTuple_Pack(4, __pyx_int_37, __pyx_n_u_keybcs2, __pyx_n_u_keybcs2_general_ci, Py_True); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 380, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__74);
+  __Pyx_GIVEREF(__pyx_tuple__74);
 
-  /* "sqlcycli/charset.py":392
+  /* "sqlcycli/charset.py":381
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  */
-  __pyx_tuple__72 = PyTuple_Pack(4, __pyx_int_38, __pyx_n_u_macce, __pyx_n_u_macce_general_ci, Py_True); if (unlikely(!__pyx_tuple__72)) __PYX_ERR(0, 392, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__72);
-  __Pyx_GIVEREF(__pyx_tuple__72);
+  __pyx_tuple__75 = PyTuple_Pack(4, __pyx_int_38, __pyx_n_u_macce, __pyx_n_u_macce_general_ci, Py_True); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(0, 381, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__75);
+  __Pyx_GIVEREF(__pyx_tuple__75);
 
-  /* "sqlcycli/charset.py":393
+  /* "sqlcycli/charset.py":382
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  */
-  __pyx_tuple__73 = PyTuple_Pack(4, __pyx_int_39, __pyx_n_u_macroman, __pyx_n_u_macroman_general_ci, Py_True); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 393, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__73);
-  __Pyx_GIVEREF(__pyx_tuple__73);
+  __pyx_tuple__76 = PyTuple_Pack(4, __pyx_int_39, __pyx_n_u_macroman, __pyx_n_u_macroman_general_ci, Py_True); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 382, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__76);
+  __Pyx_GIVEREF(__pyx_tuple__76);
 
-  /* "sqlcycli/charset.py":394
+  /* "sqlcycli/charset.py":383
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  */
-  __pyx_tuple__74 = PyTuple_Pack(4, __pyx_int_40, __pyx_n_u_cp852, __pyx_n_u_cp852_general_ci, Py_True); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 394, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__74);
-  __Pyx_GIVEREF(__pyx_tuple__74);
+  __pyx_tuple__77 = PyTuple_Pack(4, __pyx_int_40, __pyx_n_u_cp852, __pyx_n_u_cp852_general_ci, Py_True); if (unlikely(!__pyx_tuple__77)) __PYX_ERR(0, 383, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__77);
+  __Pyx_GIVEREF(__pyx_tuple__77);
 
-  /* "sqlcycli/charset.py":395
+  /* "sqlcycli/charset.py":384
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  */
-  __pyx_tuple__75 = PyTuple_Pack(4, __pyx_int_41, __pyx_n_u_latin7, __pyx_n_u_latin7_general_ci, Py_True); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(0, 395, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__75);
-  __Pyx_GIVEREF(__pyx_tuple__75);
+  __pyx_tuple__78 = PyTuple_Pack(4, __pyx_int_41, __pyx_n_u_latin7, __pyx_n_u_latin7_general_ci, Py_True); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 384, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__78);
+  __Pyx_GIVEREF(__pyx_tuple__78);
 
-  /* "sqlcycli/charset.py":396
+  /* "sqlcycli/charset.py":385
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  */
-  __pyx_tuple__76 = PyTuple_Pack(3, __pyx_int_42, __pyx_n_u_latin7, __pyx_n_u_latin7_general_cs); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 396, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__76);
-  __Pyx_GIVEREF(__pyx_tuple__76);
+  __pyx_tuple__79 = PyTuple_Pack(3, __pyx_int_42, __pyx_n_u_latin7, __pyx_n_u_latin7_general_cs); if (unlikely(!__pyx_tuple__79)) __PYX_ERR(0, 385, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__79);
+  __Pyx_GIVEREF(__pyx_tuple__79);
 
-  /* "sqlcycli/charset.py":397
+  /* "sqlcycli/charset.py":386
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  * _charsets.add(Charset(43, "macce", "macce_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  */
-  __pyx_tuple__77 = PyTuple_Pack(3, __pyx_int_43, __pyx_n_u_macce, __pyx_n_u_macce_bin); if (unlikely(!__pyx_tuple__77)) __PYX_ERR(0, 397, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__77);
-  __Pyx_GIVEREF(__pyx_tuple__77);
+  __pyx_tuple__80 = PyTuple_Pack(3, __pyx_int_43, __pyx_n_u_macce, __pyx_n_u_macce_bin); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 386, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__80);
+  __Pyx_GIVEREF(__pyx_tuple__80);
 
-  /* "sqlcycli/charset.py":398
+  /* "sqlcycli/charset.py":387
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  */
-  __pyx_tuple__78 = PyTuple_Pack(3, __pyx_int_44, __pyx_n_u_cp1250, __pyx_n_u_cp1250_croatian_ci); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 398, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__78);
-  __Pyx_GIVEREF(__pyx_tuple__78);
+  __pyx_tuple__81 = PyTuple_Pack(3, __pyx_int_44, __pyx_n_u_cp1250, __pyx_n_u_cp1250_croatian_ci); if (unlikely(!__pyx_tuple__81)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__81);
+  __Pyx_GIVEREF(__pyx_tuple__81);
 
-  /* "sqlcycli/charset.py":399
+  /* "sqlcycli/charset.py":388
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  */
-  __pyx_tuple__79 = PyTuple_Pack(4, __pyx_int_45, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_general_ci, Py_True); if (unlikely(!__pyx_tuple__79)) __PYX_ERR(0, 399, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__79);
-  __Pyx_GIVEREF(__pyx_tuple__79);
+  __pyx_tuple__82 = PyTuple_Pack(4, __pyx_int_45, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_general_ci, Py_True); if (unlikely(!__pyx_tuple__82)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__82);
+  __Pyx_GIVEREF(__pyx_tuple__82);
 
-  /* "sqlcycli/charset.py":400
+  /* "sqlcycli/charset.py":389
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  */
-  __pyx_tuple__80 = PyTuple_Pack(3, __pyx_int_46, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_bin); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__80);
-  __Pyx_GIVEREF(__pyx_tuple__80);
+  __pyx_tuple__83 = PyTuple_Pack(3, __pyx_int_46, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_bin); if (unlikely(!__pyx_tuple__83)) __PYX_ERR(0, 389, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__83);
+  __Pyx_GIVEREF(__pyx_tuple__83);
 
-  /* "sqlcycli/charset.py":401
+  /* "sqlcycli/charset.py":390
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  */
-  __pyx_tuple__81 = PyTuple_Pack(3, __pyx_int_47, __pyx_n_u_latin1, __pyx_n_u_latin1_bin); if (unlikely(!__pyx_tuple__81)) __PYX_ERR(0, 401, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__81);
-  __Pyx_GIVEREF(__pyx_tuple__81);
+  __pyx_tuple__84 = PyTuple_Pack(3, __pyx_int_47, __pyx_n_u_latin1, __pyx_n_u_latin1_bin); if (unlikely(!__pyx_tuple__84)) __PYX_ERR(0, 390, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__84);
+  __Pyx_GIVEREF(__pyx_tuple__84);
 
-  /* "sqlcycli/charset.py":402
+  /* "sqlcycli/charset.py":391
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  */
-  __pyx_tuple__82 = PyTuple_Pack(3, __pyx_int_48, __pyx_n_u_latin1, __pyx_n_u_latin1_general_ci); if (unlikely(!__pyx_tuple__82)) __PYX_ERR(0, 402, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__82);
-  __Pyx_GIVEREF(__pyx_tuple__82);
+  __pyx_tuple__85 = PyTuple_Pack(3, __pyx_int_48, __pyx_n_u_latin1, __pyx_n_u_latin1_general_ci); if (unlikely(!__pyx_tuple__85)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__85);
+  __Pyx_GIVEREF(__pyx_tuple__85);
 
-  /* "sqlcycli/charset.py":403
+  /* "sqlcycli/charset.py":392
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  */
-  __pyx_tuple__83 = PyTuple_Pack(3, __pyx_int_49, __pyx_n_u_latin1, __pyx_n_u_latin1_general_cs); if (unlikely(!__pyx_tuple__83)) __PYX_ERR(0, 403, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__83);
-  __Pyx_GIVEREF(__pyx_tuple__83);
+  __pyx_tuple__86 = PyTuple_Pack(3, __pyx_int_49, __pyx_n_u_latin1, __pyx_n_u_latin1_general_cs); if (unlikely(!__pyx_tuple__86)) __PYX_ERR(0, 392, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__86);
+  __Pyx_GIVEREF(__pyx_tuple__86);
 
-  /* "sqlcycli/charset.py":404
+  /* "sqlcycli/charset.py":393
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  */
-  __pyx_tuple__84 = PyTuple_Pack(3, __pyx_int_50, __pyx_n_u_cp1251, __pyx_n_u_cp1251_bin); if (unlikely(!__pyx_tuple__84)) __PYX_ERR(0, 404, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__84);
-  __Pyx_GIVEREF(__pyx_tuple__84);
+  __pyx_tuple__87 = PyTuple_Pack(3, __pyx_int_50, __pyx_n_u_cp1251, __pyx_n_u_cp1251_bin); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(0, 393, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__87);
+  __Pyx_GIVEREF(__pyx_tuple__87);
 
-  /* "sqlcycli/charset.py":405
+  /* "sqlcycli/charset.py":394
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  */
-  __pyx_tuple__85 = PyTuple_Pack(4, __pyx_int_51, __pyx_n_u_cp1251, __pyx_n_u_cp1251_general_ci, Py_True); if (unlikely(!__pyx_tuple__85)) __PYX_ERR(0, 405, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__85);
-  __Pyx_GIVEREF(__pyx_tuple__85);
+  __pyx_tuple__88 = PyTuple_Pack(4, __pyx_int_51, __pyx_n_u_cp1251, __pyx_n_u_cp1251_general_ci, Py_True); if (unlikely(!__pyx_tuple__88)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__88);
+  __Pyx_GIVEREF(__pyx_tuple__88);
 
-  /* "sqlcycli/charset.py":406
+  /* "sqlcycli/charset.py":395
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  */
-  __pyx_tuple__86 = PyTuple_Pack(3, __pyx_int_52, __pyx_n_u_cp1251, __pyx_n_u_cp1251_general_cs); if (unlikely(!__pyx_tuple__86)) __PYX_ERR(0, 406, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__86);
-  __Pyx_GIVEREF(__pyx_tuple__86);
+  __pyx_tuple__89 = PyTuple_Pack(3, __pyx_int_52, __pyx_n_u_cp1251, __pyx_n_u_cp1251_general_cs); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(0, 395, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__89);
+  __Pyx_GIVEREF(__pyx_tuple__89);
 
-  /* "sqlcycli/charset.py":407
+  /* "sqlcycli/charset.py":396
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  */
-  __pyx_tuple__87 = PyTuple_Pack(3, __pyx_int_53, __pyx_n_u_macroman, __pyx_n_u_macroman_bin); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(0, 407, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__87);
-  __Pyx_GIVEREF(__pyx_tuple__87);
+  __pyx_tuple__90 = PyTuple_Pack(3, __pyx_int_53, __pyx_n_u_macroman, __pyx_n_u_macroman_bin); if (unlikely(!__pyx_tuple__90)) __PYX_ERR(0, 396, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__90);
+  __Pyx_GIVEREF(__pyx_tuple__90);
 
-  /* "sqlcycli/charset.py":408
+  /* "sqlcycli/charset.py":397
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  */
-  __pyx_tuple__88 = PyTuple_Pack(4, __pyx_int_57, __pyx_n_u_cp1256, __pyx_n_u_cp1256_general_ci, Py_True); if (unlikely(!__pyx_tuple__88)) __PYX_ERR(0, 408, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__88);
-  __Pyx_GIVEREF(__pyx_tuple__88);
+  __pyx_tuple__91 = PyTuple_Pack(4, __pyx_int_57, __pyx_n_u_cp1256, __pyx_n_u_cp1256_general_ci, Py_True); if (unlikely(!__pyx_tuple__91)) __PYX_ERR(0, 397, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__91);
+  __Pyx_GIVEREF(__pyx_tuple__91);
 
-  /* "sqlcycli/charset.py":409
+  /* "sqlcycli/charset.py":398
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  * _charsets.add(Charset(63, "binary", "binary", True))
  */
-  __pyx_tuple__89 = PyTuple_Pack(3, __pyx_int_58, __pyx_n_u_cp1257, __pyx_n_u_cp1257_bin); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(0, 409, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__89);
-  __Pyx_GIVEREF(__pyx_tuple__89);
+  __pyx_tuple__92 = PyTuple_Pack(3, __pyx_int_58, __pyx_n_u_cp1257, __pyx_n_u_cp1257_bin); if (unlikely(!__pyx_tuple__92)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__92);
+  __Pyx_GIVEREF(__pyx_tuple__92);
 
-  /* "sqlcycli/charset.py":410
+  /* "sqlcycli/charset.py":399
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(63, "binary", "binary", True))
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  */
-  __pyx_tuple__90 = PyTuple_Pack(4, __pyx_int_59, __pyx_n_u_cp1257, __pyx_n_u_cp1257_general_ci, Py_True); if (unlikely(!__pyx_tuple__90)) __PYX_ERR(0, 410, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__90);
-  __Pyx_GIVEREF(__pyx_tuple__90);
+  __pyx_tuple__93 = PyTuple_Pack(4, __pyx_int_59, __pyx_n_u_cp1257, __pyx_n_u_cp1257_general_ci, Py_True); if (unlikely(!__pyx_tuple__93)) __PYX_ERR(0, 399, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__93);
+  __Pyx_GIVEREF(__pyx_tuple__93);
 
-  /* "sqlcycli/charset.py":411
+  /* "sqlcycli/charset.py":400
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  * _charsets.add(Charset(63, "binary", "binary", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  */
-  __pyx_tuple__91 = PyTuple_Pack(4, __pyx_int_63, __pyx_n_u_binary, __pyx_n_u_binary, Py_True); if (unlikely(!__pyx_tuple__91)) __PYX_ERR(0, 411, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__91);
-  __Pyx_GIVEREF(__pyx_tuple__91);
+  __pyx_tuple__94 = PyTuple_Pack(4, __pyx_int_63, __pyx_n_u_binary, __pyx_n_u_binary, Py_True); if (unlikely(!__pyx_tuple__94)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__94);
+  __Pyx_GIVEREF(__pyx_tuple__94);
 
-  /* "sqlcycli/charset.py":412
+  /* "sqlcycli/charset.py":401
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  * _charsets.add(Charset(63, "binary", "binary", True))
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  */
-  __pyx_tuple__92 = PyTuple_Pack(3, __pyx_int_64, __pyx_n_u_armscii8, __pyx_n_u_armscii8_bin); if (unlikely(!__pyx_tuple__92)) __PYX_ERR(0, 412, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__92);
-  __Pyx_GIVEREF(__pyx_tuple__92);
+  __pyx_tuple__95 = PyTuple_Pack(3, __pyx_int_64, __pyx_n_u_armscii8, __pyx_n_u_armscii8_bin); if (unlikely(!__pyx_tuple__95)) __PYX_ERR(0, 401, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__95);
+  __Pyx_GIVEREF(__pyx_tuple__95);
 
-  /* "sqlcycli/charset.py":413
+  /* "sqlcycli/charset.py":402
  * _charsets.add(Charset(63, "binary", "binary", True))
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  */
-  __pyx_tuple__93 = PyTuple_Pack(3, __pyx_int_65, __pyx_n_u_ascii, __pyx_n_u_ascii_bin); if (unlikely(!__pyx_tuple__93)) __PYX_ERR(0, 413, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__93);
-  __Pyx_GIVEREF(__pyx_tuple__93);
+  __pyx_tuple__96 = PyTuple_Pack(3, __pyx_int_65, __pyx_n_u_ascii, __pyx_n_u_ascii_bin); if (unlikely(!__pyx_tuple__96)) __PYX_ERR(0, 402, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__96);
+  __Pyx_GIVEREF(__pyx_tuple__96);
 
-  /* "sqlcycli/charset.py":414
+  /* "sqlcycli/charset.py":403
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  */
-  __pyx_tuple__94 = PyTuple_Pack(3, __pyx_int_66, __pyx_n_u_cp1250, __pyx_n_u_cp1250_bin); if (unlikely(!__pyx_tuple__94)) __PYX_ERR(0, 414, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__94);
-  __Pyx_GIVEREF(__pyx_tuple__94);
+  __pyx_tuple__97 = PyTuple_Pack(3, __pyx_int_66, __pyx_n_u_cp1250, __pyx_n_u_cp1250_bin); if (unlikely(!__pyx_tuple__97)) __PYX_ERR(0, 403, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__97);
+  __Pyx_GIVEREF(__pyx_tuple__97);
 
-  /* "sqlcycli/charset.py":415
+  /* "sqlcycli/charset.py":404
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  */
-  __pyx_tuple__95 = PyTuple_Pack(3, __pyx_int_67, __pyx_n_u_cp1256, __pyx_n_u_cp1256_bin); if (unlikely(!__pyx_tuple__95)) __PYX_ERR(0, 415, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__95);
-  __Pyx_GIVEREF(__pyx_tuple__95);
+  __pyx_tuple__98 = PyTuple_Pack(3, __pyx_int_67, __pyx_n_u_cp1256, __pyx_n_u_cp1256_bin); if (unlikely(!__pyx_tuple__98)) __PYX_ERR(0, 404, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__98);
+  __Pyx_GIVEREF(__pyx_tuple__98);
 
-  /* "sqlcycli/charset.py":416
+  /* "sqlcycli/charset.py":405
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  */
-  __pyx_tuple__96 = PyTuple_Pack(3, __pyx_int_68, __pyx_n_u_cp866, __pyx_n_u_cp866_bin); if (unlikely(!__pyx_tuple__96)) __PYX_ERR(0, 416, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__96);
-  __Pyx_GIVEREF(__pyx_tuple__96);
+  __pyx_tuple__99 = PyTuple_Pack(3, __pyx_int_68, __pyx_n_u_cp866, __pyx_n_u_cp866_bin); if (unlikely(!__pyx_tuple__99)) __PYX_ERR(0, 405, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__99);
+  __Pyx_GIVEREF(__pyx_tuple__99);
 
-  /* "sqlcycli/charset.py":417
+  /* "sqlcycli/charset.py":406
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  */
-  __pyx_tuple__97 = PyTuple_Pack(3, __pyx_int_69, __pyx_n_u_dec8, __pyx_n_u_dec8_bin); if (unlikely(!__pyx_tuple__97)) __PYX_ERR(0, 417, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__97);
-  __Pyx_GIVEREF(__pyx_tuple__97);
+  __pyx_tuple__100 = PyTuple_Pack(3, __pyx_int_69, __pyx_n_u_dec8, __pyx_n_u_dec8_bin); if (unlikely(!__pyx_tuple__100)) __PYX_ERR(0, 406, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__100);
+  __Pyx_GIVEREF(__pyx_tuple__100);
 
-  /* "sqlcycli/charset.py":418
+  /* "sqlcycli/charset.py":407
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  * _charsets.add(Charset(70, "greek", "greek_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  */
-  __pyx_tuple__98 = PyTuple_Pack(3, __pyx_int_70, __pyx_n_u_greek, __pyx_n_u_greek_bin); if (unlikely(!__pyx_tuple__98)) __PYX_ERR(0, 418, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__98);
-  __Pyx_GIVEREF(__pyx_tuple__98);
+  __pyx_tuple__101 = PyTuple_Pack(3, __pyx_int_70, __pyx_n_u_greek, __pyx_n_u_greek_bin); if (unlikely(!__pyx_tuple__101)) __PYX_ERR(0, 407, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__101);
+  __Pyx_GIVEREF(__pyx_tuple__101);
 
-  /* "sqlcycli/charset.py":419
+  /* "sqlcycli/charset.py":408
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  */
-  __pyx_tuple__99 = PyTuple_Pack(3, __pyx_int_71, __pyx_n_u_hebrew, __pyx_n_u_hebrew_bin); if (unlikely(!__pyx_tuple__99)) __PYX_ERR(0, 419, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__99);
-  __Pyx_GIVEREF(__pyx_tuple__99);
+  __pyx_tuple__102 = PyTuple_Pack(3, __pyx_int_71, __pyx_n_u_hebrew, __pyx_n_u_hebrew_bin); if (unlikely(!__pyx_tuple__102)) __PYX_ERR(0, 408, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__102);
+  __Pyx_GIVEREF(__pyx_tuple__102);
 
-  /* "sqlcycli/charset.py":420
+  /* "sqlcycli/charset.py":409
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  */
-  __pyx_tuple__100 = PyTuple_Pack(3, __pyx_int_72, __pyx_n_u_hp8, __pyx_n_u_hp8_bin); if (unlikely(!__pyx_tuple__100)) __PYX_ERR(0, 420, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__100);
-  __Pyx_GIVEREF(__pyx_tuple__100);
+  __pyx_tuple__103 = PyTuple_Pack(3, __pyx_int_72, __pyx_n_u_hp8, __pyx_n_u_hp8_bin); if (unlikely(!__pyx_tuple__103)) __PYX_ERR(0, 409, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__103);
+  __Pyx_GIVEREF(__pyx_tuple__103);
 
-  /* "sqlcycli/charset.py":421
+  /* "sqlcycli/charset.py":410
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  */
-  __pyx_tuple__101 = PyTuple_Pack(3, __pyx_int_73, __pyx_n_u_keybcs2, __pyx_n_u_keybcs2_bin); if (unlikely(!__pyx_tuple__101)) __PYX_ERR(0, 421, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__101);
-  __Pyx_GIVEREF(__pyx_tuple__101);
+  __pyx_tuple__104 = PyTuple_Pack(3, __pyx_int_73, __pyx_n_u_keybcs2, __pyx_n_u_keybcs2_bin); if (unlikely(!__pyx_tuple__104)) __PYX_ERR(0, 410, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__104);
+  __Pyx_GIVEREF(__pyx_tuple__104);
 
-  /* "sqlcycli/charset.py":422
+  /* "sqlcycli/charset.py":411
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  */
-  __pyx_tuple__102 = PyTuple_Pack(3, __pyx_int_74, __pyx_n_u_koi8r, __pyx_n_u_koi8r_bin); if (unlikely(!__pyx_tuple__102)) __PYX_ERR(0, 422, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__102);
-  __Pyx_GIVEREF(__pyx_tuple__102);
+  __pyx_tuple__105 = PyTuple_Pack(3, __pyx_int_74, __pyx_n_u_koi8r, __pyx_n_u_koi8r_bin); if (unlikely(!__pyx_tuple__105)) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__105);
+  __Pyx_GIVEREF(__pyx_tuple__105);
 
-  /* "sqlcycli/charset.py":423
+  /* "sqlcycli/charset.py":412
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  */
-  __pyx_tuple__103 = PyTuple_Pack(3, __pyx_int_75, __pyx_n_u_koi8u, __pyx_n_u_koi8u_bin); if (unlikely(!__pyx_tuple__103)) __PYX_ERR(0, 423, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__103);
-  __Pyx_GIVEREF(__pyx_tuple__103);
+  __pyx_tuple__106 = PyTuple_Pack(3, __pyx_int_75, __pyx_n_u_koi8u, __pyx_n_u_koi8u_bin); if (unlikely(!__pyx_tuple__106)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__106);
+  __Pyx_GIVEREF(__pyx_tuple__106);
 
-  /* "sqlcycli/charset.py":424
+  /* "sqlcycli/charset.py":413
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  */
-  __pyx_tuple__104 = PyTuple_Pack(3, __pyx_int_76, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_tolower_ci); if (unlikely(!__pyx_tuple__104)) __PYX_ERR(0, 424, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__104);
-  __Pyx_GIVEREF(__pyx_tuple__104);
+  __pyx_tuple__107 = PyTuple_Pack(3, __pyx_int_76, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_tolower_ci); if (unlikely(!__pyx_tuple__107)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__107);
+  __Pyx_GIVEREF(__pyx_tuple__107);
 
-  /* "sqlcycli/charset.py":425
+  /* "sqlcycli/charset.py":414
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  */
-  __pyx_tuple__105 = PyTuple_Pack(3, __pyx_int_77, __pyx_n_u_latin2, __pyx_n_u_latin2_bin); if (unlikely(!__pyx_tuple__105)) __PYX_ERR(0, 425, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__105);
-  __Pyx_GIVEREF(__pyx_tuple__105);
+  __pyx_tuple__108 = PyTuple_Pack(3, __pyx_int_77, __pyx_n_u_latin2, __pyx_n_u_latin2_bin); if (unlikely(!__pyx_tuple__108)) __PYX_ERR(0, 414, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__108);
+  __Pyx_GIVEREF(__pyx_tuple__108);
 
-  /* "sqlcycli/charset.py":426
+  /* "sqlcycli/charset.py":415
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  */
-  __pyx_tuple__106 = PyTuple_Pack(3, __pyx_int_78, __pyx_n_u_latin5, __pyx_n_u_latin5_bin); if (unlikely(!__pyx_tuple__106)) __PYX_ERR(0, 426, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__106);
-  __Pyx_GIVEREF(__pyx_tuple__106);
+  __pyx_tuple__109 = PyTuple_Pack(3, __pyx_int_78, __pyx_n_u_latin5, __pyx_n_u_latin5_bin); if (unlikely(!__pyx_tuple__109)) __PYX_ERR(0, 415, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__109);
+  __Pyx_GIVEREF(__pyx_tuple__109);
 
-  /* "sqlcycli/charset.py":427
+  /* "sqlcycli/charset.py":416
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  */
-  __pyx_tuple__107 = PyTuple_Pack(3, __pyx_int_79, __pyx_n_u_latin7, __pyx_n_u_latin7_bin); if (unlikely(!__pyx_tuple__107)) __PYX_ERR(0, 427, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__107);
-  __Pyx_GIVEREF(__pyx_tuple__107);
+  __pyx_tuple__110 = PyTuple_Pack(3, __pyx_int_79, __pyx_n_u_latin7, __pyx_n_u_latin7_bin); if (unlikely(!__pyx_tuple__110)) __PYX_ERR(0, 416, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__110);
+  __Pyx_GIVEREF(__pyx_tuple__110);
 
-  /* "sqlcycli/charset.py":428
+  /* "sqlcycli/charset.py":417
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  */
-  __pyx_tuple__108 = PyTuple_Pack(3, __pyx_int_80, __pyx_n_u_cp850, __pyx_n_u_cp850_bin); if (unlikely(!__pyx_tuple__108)) __PYX_ERR(0, 428, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__108);
-  __Pyx_GIVEREF(__pyx_tuple__108);
+  __pyx_tuple__111 = PyTuple_Pack(3, __pyx_int_80, __pyx_n_u_cp850, __pyx_n_u_cp850_bin); if (unlikely(!__pyx_tuple__111)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__111);
+  __Pyx_GIVEREF(__pyx_tuple__111);
 
-  /* "sqlcycli/charset.py":429
+  /* "sqlcycli/charset.py":418
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  */
-  __pyx_tuple__109 = PyTuple_Pack(3, __pyx_int_81, __pyx_n_u_cp852, __pyx_n_u_cp852_bin); if (unlikely(!__pyx_tuple__109)) __PYX_ERR(0, 429, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__109);
-  __Pyx_GIVEREF(__pyx_tuple__109);
+  __pyx_tuple__112 = PyTuple_Pack(3, __pyx_int_81, __pyx_n_u_cp852, __pyx_n_u_cp852_bin); if (unlikely(!__pyx_tuple__112)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__112);
+  __Pyx_GIVEREF(__pyx_tuple__112);
 
-  /* "sqlcycli/charset.py":430
+  /* "sqlcycli/charset.py":419
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  */
-  __pyx_tuple__110 = PyTuple_Pack(3, __pyx_int_82, __pyx_n_u_swe7, __pyx_n_u_swe7_bin); if (unlikely(!__pyx_tuple__110)) __PYX_ERR(0, 430, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__110);
-  __Pyx_GIVEREF(__pyx_tuple__110);
+  __pyx_tuple__113 = PyTuple_Pack(3, __pyx_int_82, __pyx_n_u_swe7, __pyx_n_u_swe7_bin); if (unlikely(!__pyx_tuple__113)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__113);
+  __Pyx_GIVEREF(__pyx_tuple__113);
 
-  /* "sqlcycli/charset.py":431
+  /* "sqlcycli/charset.py":420
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  */
-  __pyx_tuple__111 = PyTuple_Pack(3, __pyx_int_83, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_bin); if (unlikely(!__pyx_tuple__111)) __PYX_ERR(0, 431, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__111);
-  __Pyx_GIVEREF(__pyx_tuple__111);
+  __pyx_tuple__114 = PyTuple_Pack(3, __pyx_int_83, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_bin); if (unlikely(!__pyx_tuple__114)) __PYX_ERR(0, 420, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__114);
+  __Pyx_GIVEREF(__pyx_tuple__114);
 
-  /* "sqlcycli/charset.py":432
+  /* "sqlcycli/charset.py":421
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  * _charsets.add(Charset(84, "big5", "big5_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  */
-  __pyx_tuple__112 = PyTuple_Pack(3, __pyx_int_84, __pyx_n_u_big5, __pyx_n_u_big5_bin); if (unlikely(!__pyx_tuple__112)) __PYX_ERR(0, 432, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__112);
-  __Pyx_GIVEREF(__pyx_tuple__112);
+  __pyx_tuple__115 = PyTuple_Pack(3, __pyx_int_84, __pyx_n_u_big5, __pyx_n_u_big5_bin); if (unlikely(!__pyx_tuple__115)) __PYX_ERR(0, 421, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__115);
+  __Pyx_GIVEREF(__pyx_tuple__115);
 
-  /* "sqlcycli/charset.py":433
+  /* "sqlcycli/charset.py":422
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  */
-  __pyx_tuple__113 = PyTuple_Pack(3, __pyx_int_85, __pyx_n_u_euckr, __pyx_n_u_euckr_bin); if (unlikely(!__pyx_tuple__113)) __PYX_ERR(0, 433, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__113);
-  __Pyx_GIVEREF(__pyx_tuple__113);
+  __pyx_tuple__116 = PyTuple_Pack(3, __pyx_int_85, __pyx_n_u_euckr, __pyx_n_u_euckr_bin); if (unlikely(!__pyx_tuple__116)) __PYX_ERR(0, 422, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__116);
+  __Pyx_GIVEREF(__pyx_tuple__116);
 
-  /* "sqlcycli/charset.py":434
+  /* "sqlcycli/charset.py":423
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  */
-  __pyx_tuple__114 = PyTuple_Pack(3, __pyx_int_86, __pyx_n_u_gb2312, __pyx_n_u_gb2312_bin); if (unlikely(!__pyx_tuple__114)) __PYX_ERR(0, 434, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__114);
-  __Pyx_GIVEREF(__pyx_tuple__114);
+  __pyx_tuple__117 = PyTuple_Pack(3, __pyx_int_86, __pyx_n_u_gb2312, __pyx_n_u_gb2312_bin); if (unlikely(!__pyx_tuple__117)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__117);
+  __Pyx_GIVEREF(__pyx_tuple__117);
 
-  /* "sqlcycli/charset.py":435
+  /* "sqlcycli/charset.py":424
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  */
-  __pyx_tuple__115 = PyTuple_Pack(3, __pyx_int_87, __pyx_n_u_gbk, __pyx_n_u_gbk_bin); if (unlikely(!__pyx_tuple__115)) __PYX_ERR(0, 435, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__115);
-  __Pyx_GIVEREF(__pyx_tuple__115);
+  __pyx_tuple__118 = PyTuple_Pack(3, __pyx_int_87, __pyx_n_u_gbk, __pyx_n_u_gbk_bin); if (unlikely(!__pyx_tuple__118)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__118);
+  __Pyx_GIVEREF(__pyx_tuple__118);
 
-  /* "sqlcycli/charset.py":436
+  /* "sqlcycli/charset.py":425
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  */
-  __pyx_tuple__116 = PyTuple_Pack(3, __pyx_int_88, __pyx_n_u_sjis, __pyx_n_u_sjis_bin); if (unlikely(!__pyx_tuple__116)) __PYX_ERR(0, 436, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__116);
-  __Pyx_GIVEREF(__pyx_tuple__116);
+  __pyx_tuple__119 = PyTuple_Pack(3, __pyx_int_88, __pyx_n_u_sjis, __pyx_n_u_sjis_bin); if (unlikely(!__pyx_tuple__119)) __PYX_ERR(0, 425, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__119);
+  __Pyx_GIVEREF(__pyx_tuple__119);
 
-  /* "sqlcycli/charset.py":437
+  /* "sqlcycli/charset.py":426
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  */
-  __pyx_tuple__117 = PyTuple_Pack(3, __pyx_int_89, __pyx_n_u_tis620, __pyx_n_u_tis620_bin); if (unlikely(!__pyx_tuple__117)) __PYX_ERR(0, 437, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__117);
-  __Pyx_GIVEREF(__pyx_tuple__117);
+  __pyx_tuple__120 = PyTuple_Pack(3, __pyx_int_89, __pyx_n_u_tis620, __pyx_n_u_tis620_bin); if (unlikely(!__pyx_tuple__120)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__120);
+  __Pyx_GIVEREF(__pyx_tuple__120);
 
-  /* "sqlcycli/charset.py":438
+  /* "sqlcycli/charset.py":427
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  */
-  __pyx_tuple__118 = PyTuple_Pack(3, __pyx_int_91, __pyx_n_u_ujis, __pyx_n_u_ujis_bin); if (unlikely(!__pyx_tuple__118)) __PYX_ERR(0, 438, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__118);
-  __Pyx_GIVEREF(__pyx_tuple__118);
+  __pyx_tuple__121 = PyTuple_Pack(3, __pyx_int_91, __pyx_n_u_ujis, __pyx_n_u_ujis_bin); if (unlikely(!__pyx_tuple__121)) __PYX_ERR(0, 427, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__121);
+  __Pyx_GIVEREF(__pyx_tuple__121);
 
-  /* "sqlcycli/charset.py":439
+  /* "sqlcycli/charset.py":428
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  */
-  __pyx_tuple__119 = PyTuple_Pack(4, __pyx_int_92, __pyx_n_u_geostd8, __pyx_n_u_geostd8_general_ci, Py_True); if (unlikely(!__pyx_tuple__119)) __PYX_ERR(0, 439, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__119);
-  __Pyx_GIVEREF(__pyx_tuple__119);
+  __pyx_tuple__122 = PyTuple_Pack(4, __pyx_int_92, __pyx_n_u_geostd8, __pyx_n_u_geostd8_general_ci, Py_True); if (unlikely(!__pyx_tuple__122)) __PYX_ERR(0, 428, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__122);
+  __Pyx_GIVEREF(__pyx_tuple__122);
 
-  /* "sqlcycli/charset.py":440
+  /* "sqlcycli/charset.py":429
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  */
-  __pyx_tuple__120 = PyTuple_Pack(3, __pyx_int_93, __pyx_n_u_geostd8, __pyx_n_u_geostd8_bin); if (unlikely(!__pyx_tuple__120)) __PYX_ERR(0, 440, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__120);
-  __Pyx_GIVEREF(__pyx_tuple__120);
+  __pyx_tuple__123 = PyTuple_Pack(3, __pyx_int_93, __pyx_n_u_geostd8, __pyx_n_u_geostd8_bin); if (unlikely(!__pyx_tuple__123)) __PYX_ERR(0, 429, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__123);
+  __Pyx_GIVEREF(__pyx_tuple__123);
 
-  /* "sqlcycli/charset.py":441
+  /* "sqlcycli/charset.py":430
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  */
-  __pyx_tuple__121 = PyTuple_Pack(3, __pyx_int_94, __pyx_n_u_latin1, __pyx_n_u_latin1_spanish_ci); if (unlikely(!__pyx_tuple__121)) __PYX_ERR(0, 441, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__121);
-  __Pyx_GIVEREF(__pyx_tuple__121);
+  __pyx_tuple__124 = PyTuple_Pack(3, __pyx_int_94, __pyx_n_u_latin1, __pyx_n_u_latin1_spanish_ci); if (unlikely(!__pyx_tuple__124)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__124);
+  __Pyx_GIVEREF(__pyx_tuple__124);
 
-  /* "sqlcycli/charset.py":442
+  /* "sqlcycli/charset.py":431
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  */
-  __pyx_tuple__122 = PyTuple_Pack(4, __pyx_int_95, __pyx_n_u_cp932, __pyx_n_u_cp932_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__122)) __PYX_ERR(0, 442, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__122);
-  __Pyx_GIVEREF(__pyx_tuple__122);
+  __pyx_tuple__125 = PyTuple_Pack(4, __pyx_int_95, __pyx_n_u_cp932, __pyx_n_u_cp932_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__125)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__125);
+  __Pyx_GIVEREF(__pyx_tuple__125);
 
-  /* "sqlcycli/charset.py":443
+  /* "sqlcycli/charset.py":432
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  */
-  __pyx_tuple__123 = PyTuple_Pack(3, __pyx_int_96, __pyx_n_u_cp932, __pyx_n_u_cp932_bin); if (unlikely(!__pyx_tuple__123)) __PYX_ERR(0, 443, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__123);
-  __Pyx_GIVEREF(__pyx_tuple__123);
+  __pyx_tuple__126 = PyTuple_Pack(3, __pyx_int_96, __pyx_n_u_cp932, __pyx_n_u_cp932_bin); if (unlikely(!__pyx_tuple__126)) __PYX_ERR(0, 432, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__126);
+  __Pyx_GIVEREF(__pyx_tuple__126);
 
-  /* "sqlcycli/charset.py":444
+  /* "sqlcycli/charset.py":433
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  */
-  __pyx_tuple__124 = PyTuple_Pack(4, __pyx_int_97, __pyx_n_u_eucjpms, __pyx_n_u_eucjpms_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__124)) __PYX_ERR(0, 444, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__124);
-  __Pyx_GIVEREF(__pyx_tuple__124);
+  __pyx_tuple__127 = PyTuple_Pack(4, __pyx_int_97, __pyx_n_u_eucjpms, __pyx_n_u_eucjpms_japanese_ci, Py_True); if (unlikely(!__pyx_tuple__127)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__127);
+  __Pyx_GIVEREF(__pyx_tuple__127);
 
-  /* "sqlcycli/charset.py":445
+  /* "sqlcycli/charset.py":434
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  */
-  __pyx_tuple__125 = PyTuple_Pack(3, __pyx_int_98, __pyx_n_u_eucjpms, __pyx_n_u_eucjpms_bin); if (unlikely(!__pyx_tuple__125)) __PYX_ERR(0, 445, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__125);
-  __Pyx_GIVEREF(__pyx_tuple__125);
+  __pyx_tuple__128 = PyTuple_Pack(3, __pyx_int_98, __pyx_n_u_eucjpms, __pyx_n_u_eucjpms_bin); if (unlikely(!__pyx_tuple__128)) __PYX_ERR(0, 434, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__128);
+  __Pyx_GIVEREF(__pyx_tuple__128);
 
-  /* "sqlcycli/charset.py":446
+  /* "sqlcycli/charset.py":435
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  */
-  __pyx_tuple__126 = PyTuple_Pack(3, __pyx_int_99, __pyx_n_u_cp1250, __pyx_n_u_cp1250_polish_ci); if (unlikely(!__pyx_tuple__126)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__126);
-  __Pyx_GIVEREF(__pyx_tuple__126);
+  __pyx_tuple__129 = PyTuple_Pack(3, __pyx_int_99, __pyx_n_u_cp1250, __pyx_n_u_cp1250_polish_ci); if (unlikely(!__pyx_tuple__129)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__129);
+  __Pyx_GIVEREF(__pyx_tuple__129);
 
-  /* "sqlcycli/charset.py":447
+  /* "sqlcycli/charset.py":436
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  */
-  __pyx_tuple__127 = PyTuple_Pack(3, __pyx_int_192, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_unicode_ci); if (unlikely(!__pyx_tuple__127)) __PYX_ERR(0, 447, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__127);
-  __Pyx_GIVEREF(__pyx_tuple__127);
+  __pyx_tuple__130 = PyTuple_Pack(3, __pyx_int_192, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_unicode_ci); if (unlikely(!__pyx_tuple__130)) __PYX_ERR(0, 436, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__130);
+  __Pyx_GIVEREF(__pyx_tuple__130);
 
-  /* "sqlcycli/charset.py":448
+  /* "sqlcycli/charset.py":437
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  */
-  __pyx_tuple__128 = PyTuple_Pack(3, __pyx_int_193, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_icelandic_ci); if (unlikely(!__pyx_tuple__128)) __PYX_ERR(0, 448, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__128);
-  __Pyx_GIVEREF(__pyx_tuple__128);
+  __pyx_tuple__131 = PyTuple_Pack(3, __pyx_int_193, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_icelandic_ci); if (unlikely(!__pyx_tuple__131)) __PYX_ERR(0, 437, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__131);
+  __Pyx_GIVEREF(__pyx_tuple__131);
 
-  /* "sqlcycli/charset.py":449
+  /* "sqlcycli/charset.py":438
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  */
-  __pyx_tuple__129 = PyTuple_Pack(3, __pyx_int_194, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_latvian_ci); if (unlikely(!__pyx_tuple__129)) __PYX_ERR(0, 449, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__129);
-  __Pyx_GIVEREF(__pyx_tuple__129);
+  __pyx_tuple__132 = PyTuple_Pack(3, __pyx_int_194, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_latvian_ci); if (unlikely(!__pyx_tuple__132)) __PYX_ERR(0, 438, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__132);
+  __Pyx_GIVEREF(__pyx_tuple__132);
 
-  /* "sqlcycli/charset.py":450
+  /* "sqlcycli/charset.py":439
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  */
-  __pyx_tuple__130 = PyTuple_Pack(3, __pyx_int_195, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_romanian_ci); if (unlikely(!__pyx_tuple__130)) __PYX_ERR(0, 450, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__130);
-  __Pyx_GIVEREF(__pyx_tuple__130);
+  __pyx_tuple__133 = PyTuple_Pack(3, __pyx_int_195, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_romanian_ci); if (unlikely(!__pyx_tuple__133)) __PYX_ERR(0, 439, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__133);
+  __Pyx_GIVEREF(__pyx_tuple__133);
 
-  /* "sqlcycli/charset.py":451
+  /* "sqlcycli/charset.py":440
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  */
-  __pyx_tuple__131 = PyTuple_Pack(3, __pyx_int_196, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_slovenian_ci); if (unlikely(!__pyx_tuple__131)) __PYX_ERR(0, 451, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__131);
-  __Pyx_GIVEREF(__pyx_tuple__131);
+  __pyx_tuple__134 = PyTuple_Pack(3, __pyx_int_196, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_slovenian_ci); if (unlikely(!__pyx_tuple__134)) __PYX_ERR(0, 440, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__134);
+  __Pyx_GIVEREF(__pyx_tuple__134);
 
-  /* "sqlcycli/charset.py":452
+  /* "sqlcycli/charset.py":441
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  */
-  __pyx_tuple__132 = PyTuple_Pack(3, __pyx_int_197, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_polish_ci); if (unlikely(!__pyx_tuple__132)) __PYX_ERR(0, 452, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__132);
-  __Pyx_GIVEREF(__pyx_tuple__132);
+  __pyx_tuple__135 = PyTuple_Pack(3, __pyx_int_197, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_polish_ci); if (unlikely(!__pyx_tuple__135)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__135);
+  __Pyx_GIVEREF(__pyx_tuple__135);
 
-  /* "sqlcycli/charset.py":453
+  /* "sqlcycli/charset.py":442
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  */
-  __pyx_tuple__133 = PyTuple_Pack(3, __pyx_int_198, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_estonian_ci); if (unlikely(!__pyx_tuple__133)) __PYX_ERR(0, 453, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__133);
-  __Pyx_GIVEREF(__pyx_tuple__133);
+  __pyx_tuple__136 = PyTuple_Pack(3, __pyx_int_198, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_estonian_ci); if (unlikely(!__pyx_tuple__136)) __PYX_ERR(0, 442, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__136);
+  __Pyx_GIVEREF(__pyx_tuple__136);
 
-  /* "sqlcycli/charset.py":454
+  /* "sqlcycli/charset.py":443
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  */
-  __pyx_tuple__134 = PyTuple_Pack(3, __pyx_int_199, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_spanish_ci); if (unlikely(!__pyx_tuple__134)) __PYX_ERR(0, 454, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__134);
-  __Pyx_GIVEREF(__pyx_tuple__134);
+  __pyx_tuple__137 = PyTuple_Pack(3, __pyx_int_199, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_spanish_ci); if (unlikely(!__pyx_tuple__137)) __PYX_ERR(0, 443, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__137);
+  __Pyx_GIVEREF(__pyx_tuple__137);
 
-  /* "sqlcycli/charset.py":455
+  /* "sqlcycli/charset.py":444
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  */
-  __pyx_tuple__135 = PyTuple_Pack(3, __pyx_int_200, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_swedish_ci); if (unlikely(!__pyx_tuple__135)) __PYX_ERR(0, 455, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__135);
-  __Pyx_GIVEREF(__pyx_tuple__135);
+  __pyx_tuple__138 = PyTuple_Pack(3, __pyx_int_200, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_swedish_ci); if (unlikely(!__pyx_tuple__138)) __PYX_ERR(0, 444, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__138);
+  __Pyx_GIVEREF(__pyx_tuple__138);
 
-  /* "sqlcycli/charset.py":456
+  /* "sqlcycli/charset.py":445
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  */
-  __pyx_tuple__136 = PyTuple_Pack(3, __pyx_int_201, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_turkish_ci); if (unlikely(!__pyx_tuple__136)) __PYX_ERR(0, 456, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__136);
-  __Pyx_GIVEREF(__pyx_tuple__136);
+  __pyx_tuple__139 = PyTuple_Pack(3, __pyx_int_201, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_turkish_ci); if (unlikely(!__pyx_tuple__139)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__139);
+  __Pyx_GIVEREF(__pyx_tuple__139);
 
-  /* "sqlcycli/charset.py":457
+  /* "sqlcycli/charset.py":446
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  */
-  __pyx_tuple__137 = PyTuple_Pack(3, __pyx_int_202, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_czech_ci); if (unlikely(!__pyx_tuple__137)) __PYX_ERR(0, 457, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__137);
-  __Pyx_GIVEREF(__pyx_tuple__137);
+  __pyx_tuple__140 = PyTuple_Pack(3, __pyx_int_202, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_czech_ci); if (unlikely(!__pyx_tuple__140)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__140);
+  __Pyx_GIVEREF(__pyx_tuple__140);
 
-  /* "sqlcycli/charset.py":458
+  /* "sqlcycli/charset.py":447
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  */
-  __pyx_tuple__138 = PyTuple_Pack(3, __pyx_int_203, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_danish_ci); if (unlikely(!__pyx_tuple__138)) __PYX_ERR(0, 458, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__138);
-  __Pyx_GIVEREF(__pyx_tuple__138);
+  __pyx_tuple__141 = PyTuple_Pack(3, __pyx_int_203, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_danish_ci); if (unlikely(!__pyx_tuple__141)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__141);
+  __Pyx_GIVEREF(__pyx_tuple__141);
 
-  /* "sqlcycli/charset.py":459
+  /* "sqlcycli/charset.py":448
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  */
-  __pyx_tuple__139 = PyTuple_Pack(3, __pyx_int_204, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_lithuanian_ci); if (unlikely(!__pyx_tuple__139)) __PYX_ERR(0, 459, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__139);
-  __Pyx_GIVEREF(__pyx_tuple__139);
+  __pyx_tuple__142 = PyTuple_Pack(3, __pyx_int_204, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_lithuanian_ci); if (unlikely(!__pyx_tuple__142)) __PYX_ERR(0, 448, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__142);
+  __Pyx_GIVEREF(__pyx_tuple__142);
 
-  /* "sqlcycli/charset.py":460
+  /* "sqlcycli/charset.py":449
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  */
-  __pyx_tuple__140 = PyTuple_Pack(3, __pyx_int_205, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_slovak_ci); if (unlikely(!__pyx_tuple__140)) __PYX_ERR(0, 460, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__140);
-  __Pyx_GIVEREF(__pyx_tuple__140);
+  __pyx_tuple__143 = PyTuple_Pack(3, __pyx_int_205, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_slovak_ci); if (unlikely(!__pyx_tuple__143)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__143);
+  __Pyx_GIVEREF(__pyx_tuple__143);
 
-  /* "sqlcycli/charset.py":461
+  /* "sqlcycli/charset.py":450
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  */
-  __pyx_tuple__141 = PyTuple_Pack(3, __pyx_int_206, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_spanish2_ci); if (unlikely(!__pyx_tuple__141)) __PYX_ERR(0, 461, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__141);
-  __Pyx_GIVEREF(__pyx_tuple__141);
+  __pyx_tuple__144 = PyTuple_Pack(3, __pyx_int_206, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_spanish2_ci); if (unlikely(!__pyx_tuple__144)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__144);
+  __Pyx_GIVEREF(__pyx_tuple__144);
 
-  /* "sqlcycli/charset.py":462
+  /* "sqlcycli/charset.py":451
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  */
-  __pyx_tuple__142 = PyTuple_Pack(3, __pyx_int_207, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_roman_ci); if (unlikely(!__pyx_tuple__142)) __PYX_ERR(0, 462, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__142);
-  __Pyx_GIVEREF(__pyx_tuple__142);
+  __pyx_tuple__145 = PyTuple_Pack(3, __pyx_int_207, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_roman_ci); if (unlikely(!__pyx_tuple__145)) __PYX_ERR(0, 451, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__145);
+  __Pyx_GIVEREF(__pyx_tuple__145);
 
-  /* "sqlcycli/charset.py":463
+  /* "sqlcycli/charset.py":452
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  */
-  __pyx_tuple__143 = PyTuple_Pack(3, __pyx_int_208, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_persian_ci); if (unlikely(!__pyx_tuple__143)) __PYX_ERR(0, 463, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__143);
-  __Pyx_GIVEREF(__pyx_tuple__143);
+  __pyx_tuple__146 = PyTuple_Pack(3, __pyx_int_208, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_persian_ci); if (unlikely(!__pyx_tuple__146)) __PYX_ERR(0, 452, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__146);
+  __Pyx_GIVEREF(__pyx_tuple__146);
 
-  /* "sqlcycli/charset.py":464
+  /* "sqlcycli/charset.py":453
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  */
-  __pyx_tuple__144 = PyTuple_Pack(3, __pyx_int_209, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_esperanto_ci); if (unlikely(!__pyx_tuple__144)) __PYX_ERR(0, 464, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__144);
-  __Pyx_GIVEREF(__pyx_tuple__144);
+  __pyx_tuple__147 = PyTuple_Pack(3, __pyx_int_209, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_esperanto_ci); if (unlikely(!__pyx_tuple__147)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__147);
+  __Pyx_GIVEREF(__pyx_tuple__147);
 
-  /* "sqlcycli/charset.py":465
+  /* "sqlcycli/charset.py":454
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  */
-  __pyx_tuple__145 = PyTuple_Pack(3, __pyx_int_210, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_hungarian_ci); if (unlikely(!__pyx_tuple__145)) __PYX_ERR(0, 465, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__145);
-  __Pyx_GIVEREF(__pyx_tuple__145);
+  __pyx_tuple__148 = PyTuple_Pack(3, __pyx_int_210, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_hungarian_ci); if (unlikely(!__pyx_tuple__148)) __PYX_ERR(0, 454, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__148);
+  __Pyx_GIVEREF(__pyx_tuple__148);
 
-  /* "sqlcycli/charset.py":466
+  /* "sqlcycli/charset.py":455
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  */
-  __pyx_tuple__146 = PyTuple_Pack(3, __pyx_int_211, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_sinhala_ci); if (unlikely(!__pyx_tuple__146)) __PYX_ERR(0, 466, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__146);
-  __Pyx_GIVEREF(__pyx_tuple__146);
+  __pyx_tuple__149 = PyTuple_Pack(3, __pyx_int_211, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_sinhala_ci); if (unlikely(!__pyx_tuple__149)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__149);
+  __Pyx_GIVEREF(__pyx_tuple__149);
 
-  /* "sqlcycli/charset.py":467
+  /* "sqlcycli/charset.py":456
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  */
-  __pyx_tuple__147 = PyTuple_Pack(3, __pyx_int_212, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_german2_ci); if (unlikely(!__pyx_tuple__147)) __PYX_ERR(0, 467, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__147);
-  __Pyx_GIVEREF(__pyx_tuple__147);
+  __pyx_tuple__150 = PyTuple_Pack(3, __pyx_int_212, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_german2_ci); if (unlikely(!__pyx_tuple__150)) __PYX_ERR(0, 456, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__150);
+  __Pyx_GIVEREF(__pyx_tuple__150);
 
-  /* "sqlcycli/charset.py":468
+  /* "sqlcycli/charset.py":457
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  */
-  __pyx_tuple__148 = PyTuple_Pack(3, __pyx_int_213, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_croatian_ci); if (unlikely(!__pyx_tuple__148)) __PYX_ERR(0, 468, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__148);
-  __Pyx_GIVEREF(__pyx_tuple__148);
+  __pyx_tuple__151 = PyTuple_Pack(3, __pyx_int_213, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_croatian_ci); if (unlikely(!__pyx_tuple__151)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__151);
+  __Pyx_GIVEREF(__pyx_tuple__151);
 
-  /* "sqlcycli/charset.py":469
+  /* "sqlcycli/charset.py":458
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  */
-  __pyx_tuple__149 = PyTuple_Pack(3, __pyx_int_214, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_unicode_520_ci); if (unlikely(!__pyx_tuple__149)) __PYX_ERR(0, 469, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__149);
-  __Pyx_GIVEREF(__pyx_tuple__149);
+  __pyx_tuple__152 = PyTuple_Pack(3, __pyx_int_214, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_unicode_520_ci); if (unlikely(!__pyx_tuple__152)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__152);
+  __Pyx_GIVEREF(__pyx_tuple__152);
 
-  /* "sqlcycli/charset.py":470
+  /* "sqlcycli/charset.py":459
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  */
-  __pyx_tuple__150 = PyTuple_Pack(3, __pyx_int_215, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_vietnamese_ci); if (unlikely(!__pyx_tuple__150)) __PYX_ERR(0, 470, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__150);
-  __Pyx_GIVEREF(__pyx_tuple__150);
+  __pyx_tuple__153 = PyTuple_Pack(3, __pyx_int_215, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_vietnamese_ci); if (unlikely(!__pyx_tuple__153)) __PYX_ERR(0, 459, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__153);
+  __Pyx_GIVEREF(__pyx_tuple__153);
 
-  /* "sqlcycli/charset.py":471
+  /* "sqlcycli/charset.py":460
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  */
-  __pyx_tuple__151 = PyTuple_Pack(3, __pyx_int_223, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_general_mysql500_ci); if (unlikely(!__pyx_tuple__151)) __PYX_ERR(0, 471, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__151);
-  __Pyx_GIVEREF(__pyx_tuple__151);
+  __pyx_tuple__154 = PyTuple_Pack(3, __pyx_int_223, __pyx_n_u_utf8mb3, __pyx_n_u_utf8mb3_general_mysql500_ci); if (unlikely(!__pyx_tuple__154)) __PYX_ERR(0, 460, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__154);
+  __Pyx_GIVEREF(__pyx_tuple__154);
 
-  /* "sqlcycli/charset.py":472
+  /* "sqlcycli/charset.py":461
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  */
-  __pyx_tuple__152 = PyTuple_Pack(3, __pyx_int_224, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_unicode_ci); if (unlikely(!__pyx_tuple__152)) __PYX_ERR(0, 472, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__152);
-  __Pyx_GIVEREF(__pyx_tuple__152);
+  __pyx_tuple__155 = PyTuple_Pack(3, __pyx_int_224, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_unicode_ci); if (unlikely(!__pyx_tuple__155)) __PYX_ERR(0, 461, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__155);
+  __Pyx_GIVEREF(__pyx_tuple__155);
 
-  /* "sqlcycli/charset.py":473
+  /* "sqlcycli/charset.py":462
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  */
-  __pyx_tuple__153 = PyTuple_Pack(3, __pyx_int_225, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_icelandic_ci); if (unlikely(!__pyx_tuple__153)) __PYX_ERR(0, 473, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__153);
-  __Pyx_GIVEREF(__pyx_tuple__153);
+  __pyx_tuple__156 = PyTuple_Pack(3, __pyx_int_225, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_icelandic_ci); if (unlikely(!__pyx_tuple__156)) __PYX_ERR(0, 462, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__156);
+  __Pyx_GIVEREF(__pyx_tuple__156);
 
-  /* "sqlcycli/charset.py":474
+  /* "sqlcycli/charset.py":463
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  */
-  __pyx_tuple__154 = PyTuple_Pack(3, __pyx_int_226, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_latvian_ci); if (unlikely(!__pyx_tuple__154)) __PYX_ERR(0, 474, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__154);
-  __Pyx_GIVEREF(__pyx_tuple__154);
+  __pyx_tuple__157 = PyTuple_Pack(3, __pyx_int_226, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_latvian_ci); if (unlikely(!__pyx_tuple__157)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__157);
+  __Pyx_GIVEREF(__pyx_tuple__157);
 
-  /* "sqlcycli/charset.py":475
+  /* "sqlcycli/charset.py":464
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  */
-  __pyx_tuple__155 = PyTuple_Pack(3, __pyx_int_227, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_romanian_ci); if (unlikely(!__pyx_tuple__155)) __PYX_ERR(0, 475, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__155);
-  __Pyx_GIVEREF(__pyx_tuple__155);
+  __pyx_tuple__158 = PyTuple_Pack(3, __pyx_int_227, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_romanian_ci); if (unlikely(!__pyx_tuple__158)) __PYX_ERR(0, 464, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__158);
+  __Pyx_GIVEREF(__pyx_tuple__158);
 
-  /* "sqlcycli/charset.py":476
+  /* "sqlcycli/charset.py":465
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  */
-  __pyx_tuple__156 = PyTuple_Pack(3, __pyx_int_228, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_slovenian_ci); if (unlikely(!__pyx_tuple__156)) __PYX_ERR(0, 476, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__156);
-  __Pyx_GIVEREF(__pyx_tuple__156);
+  __pyx_tuple__159 = PyTuple_Pack(3, __pyx_int_228, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_slovenian_ci); if (unlikely(!__pyx_tuple__159)) __PYX_ERR(0, 465, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__159);
+  __Pyx_GIVEREF(__pyx_tuple__159);
 
-  /* "sqlcycli/charset.py":477
+  /* "sqlcycli/charset.py":466
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  */
-  __pyx_tuple__157 = PyTuple_Pack(3, __pyx_int_229, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_polish_ci); if (unlikely(!__pyx_tuple__157)) __PYX_ERR(0, 477, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__157);
-  __Pyx_GIVEREF(__pyx_tuple__157);
+  __pyx_tuple__160 = PyTuple_Pack(3, __pyx_int_229, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_polish_ci); if (unlikely(!__pyx_tuple__160)) __PYX_ERR(0, 466, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__160);
+  __Pyx_GIVEREF(__pyx_tuple__160);
 
-  /* "sqlcycli/charset.py":478
+  /* "sqlcycli/charset.py":467
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  */
-  __pyx_tuple__158 = PyTuple_Pack(3, __pyx_int_230, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_estonian_ci); if (unlikely(!__pyx_tuple__158)) __PYX_ERR(0, 478, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__158);
-  __Pyx_GIVEREF(__pyx_tuple__158);
+  __pyx_tuple__161 = PyTuple_Pack(3, __pyx_int_230, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_estonian_ci); if (unlikely(!__pyx_tuple__161)) __PYX_ERR(0, 467, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__161);
+  __Pyx_GIVEREF(__pyx_tuple__161);
 
-  /* "sqlcycli/charset.py":479
+  /* "sqlcycli/charset.py":468
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  */
-  __pyx_tuple__159 = PyTuple_Pack(3, __pyx_int_231, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_spanish_ci); if (unlikely(!__pyx_tuple__159)) __PYX_ERR(0, 479, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__159);
-  __Pyx_GIVEREF(__pyx_tuple__159);
+  __pyx_tuple__162 = PyTuple_Pack(3, __pyx_int_231, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_spanish_ci); if (unlikely(!__pyx_tuple__162)) __PYX_ERR(0, 468, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__162);
+  __Pyx_GIVEREF(__pyx_tuple__162);
 
-  /* "sqlcycli/charset.py":480
+  /* "sqlcycli/charset.py":469
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  */
-  __pyx_tuple__160 = PyTuple_Pack(3, __pyx_int_232, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_swedish_ci); if (unlikely(!__pyx_tuple__160)) __PYX_ERR(0, 480, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__160);
-  __Pyx_GIVEREF(__pyx_tuple__160);
+  __pyx_tuple__163 = PyTuple_Pack(3, __pyx_int_232, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_swedish_ci); if (unlikely(!__pyx_tuple__163)) __PYX_ERR(0, 469, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__163);
+  __Pyx_GIVEREF(__pyx_tuple__163);
 
-  /* "sqlcycli/charset.py":481
+  /* "sqlcycli/charset.py":470
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  */
-  __pyx_tuple__161 = PyTuple_Pack(3, __pyx_int_233, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_turkish_ci); if (unlikely(!__pyx_tuple__161)) __PYX_ERR(0, 481, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__161);
-  __Pyx_GIVEREF(__pyx_tuple__161);
+  __pyx_tuple__164 = PyTuple_Pack(3, __pyx_int_233, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_turkish_ci); if (unlikely(!__pyx_tuple__164)) __PYX_ERR(0, 470, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__164);
+  __Pyx_GIVEREF(__pyx_tuple__164);
 
-  /* "sqlcycli/charset.py":482
+  /* "sqlcycli/charset.py":471
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  */
-  __pyx_tuple__162 = PyTuple_Pack(3, __pyx_int_234, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_czech_ci); if (unlikely(!__pyx_tuple__162)) __PYX_ERR(0, 482, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__162);
-  __Pyx_GIVEREF(__pyx_tuple__162);
+  __pyx_tuple__165 = PyTuple_Pack(3, __pyx_int_234, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_czech_ci); if (unlikely(!__pyx_tuple__165)) __PYX_ERR(0, 471, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__165);
+  __Pyx_GIVEREF(__pyx_tuple__165);
 
-  /* "sqlcycli/charset.py":483
+  /* "sqlcycli/charset.py":472
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  */
-  __pyx_tuple__163 = PyTuple_Pack(3, __pyx_int_235, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_danish_ci); if (unlikely(!__pyx_tuple__163)) __PYX_ERR(0, 483, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__163);
-  __Pyx_GIVEREF(__pyx_tuple__163);
+  __pyx_tuple__166 = PyTuple_Pack(3, __pyx_int_235, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_danish_ci); if (unlikely(!__pyx_tuple__166)) __PYX_ERR(0, 472, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__166);
+  __Pyx_GIVEREF(__pyx_tuple__166);
 
-  /* "sqlcycli/charset.py":484
+  /* "sqlcycli/charset.py":473
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  */
-  __pyx_tuple__164 = PyTuple_Pack(3, __pyx_int_236, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_lithuanian_ci); if (unlikely(!__pyx_tuple__164)) __PYX_ERR(0, 484, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__164);
-  __Pyx_GIVEREF(__pyx_tuple__164);
+  __pyx_tuple__167 = PyTuple_Pack(3, __pyx_int_236, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_lithuanian_ci); if (unlikely(!__pyx_tuple__167)) __PYX_ERR(0, 473, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__167);
+  __Pyx_GIVEREF(__pyx_tuple__167);
 
-  /* "sqlcycli/charset.py":485
+  /* "sqlcycli/charset.py":474
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  */
-  __pyx_tuple__165 = PyTuple_Pack(3, __pyx_int_237, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_slovak_ci); if (unlikely(!__pyx_tuple__165)) __PYX_ERR(0, 485, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__165);
-  __Pyx_GIVEREF(__pyx_tuple__165);
+  __pyx_tuple__168 = PyTuple_Pack(3, __pyx_int_237, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_slovak_ci); if (unlikely(!__pyx_tuple__168)) __PYX_ERR(0, 474, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__168);
+  __Pyx_GIVEREF(__pyx_tuple__168);
 
-  /* "sqlcycli/charset.py":486
+  /* "sqlcycli/charset.py":475
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  */
-  __pyx_tuple__166 = PyTuple_Pack(3, __pyx_int_238, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_spanish2_ci); if (unlikely(!__pyx_tuple__166)) __PYX_ERR(0, 486, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__166);
-  __Pyx_GIVEREF(__pyx_tuple__166);
+  __pyx_tuple__169 = PyTuple_Pack(3, __pyx_int_238, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_spanish2_ci); if (unlikely(!__pyx_tuple__169)) __PYX_ERR(0, 475, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__169);
+  __Pyx_GIVEREF(__pyx_tuple__169);
 
-  /* "sqlcycli/charset.py":487
+  /* "sqlcycli/charset.py":476
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  */
-  __pyx_tuple__167 = PyTuple_Pack(3, __pyx_int_239, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_roman_ci); if (unlikely(!__pyx_tuple__167)) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__167);
-  __Pyx_GIVEREF(__pyx_tuple__167);
+  __pyx_tuple__170 = PyTuple_Pack(3, __pyx_int_239, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_roman_ci); if (unlikely(!__pyx_tuple__170)) __PYX_ERR(0, 476, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__170);
+  __Pyx_GIVEREF(__pyx_tuple__170);
 
-  /* "sqlcycli/charset.py":488
+  /* "sqlcycli/charset.py":477
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  */
-  __pyx_tuple__168 = PyTuple_Pack(3, __pyx_int_240, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_persian_ci); if (unlikely(!__pyx_tuple__168)) __PYX_ERR(0, 488, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__168);
-  __Pyx_GIVEREF(__pyx_tuple__168);
+  __pyx_tuple__171 = PyTuple_Pack(3, __pyx_int_240, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_persian_ci); if (unlikely(!__pyx_tuple__171)) __PYX_ERR(0, 477, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__171);
+  __Pyx_GIVEREF(__pyx_tuple__171);
 
-  /* "sqlcycli/charset.py":489
+  /* "sqlcycli/charset.py":478
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  */
-  __pyx_tuple__169 = PyTuple_Pack(3, __pyx_int_241, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_esperanto_ci); if (unlikely(!__pyx_tuple__169)) __PYX_ERR(0, 489, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__169);
-  __Pyx_GIVEREF(__pyx_tuple__169);
+  __pyx_tuple__172 = PyTuple_Pack(3, __pyx_int_241, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_esperanto_ci); if (unlikely(!__pyx_tuple__172)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__172);
+  __Pyx_GIVEREF(__pyx_tuple__172);
 
-  /* "sqlcycli/charset.py":490
+  /* "sqlcycli/charset.py":479
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  */
-  __pyx_tuple__170 = PyTuple_Pack(3, __pyx_int_242, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_hungarian_ci); if (unlikely(!__pyx_tuple__170)) __PYX_ERR(0, 490, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__170);
-  __Pyx_GIVEREF(__pyx_tuple__170);
+  __pyx_tuple__173 = PyTuple_Pack(3, __pyx_int_242, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_hungarian_ci); if (unlikely(!__pyx_tuple__173)) __PYX_ERR(0, 479, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__173);
+  __Pyx_GIVEREF(__pyx_tuple__173);
 
-  /* "sqlcycli/charset.py":491
+  /* "sqlcycli/charset.py":480
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  */
-  __pyx_tuple__171 = PyTuple_Pack(3, __pyx_int_243, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_sinhala_ci); if (unlikely(!__pyx_tuple__171)) __PYX_ERR(0, 491, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__171);
-  __Pyx_GIVEREF(__pyx_tuple__171);
+  __pyx_tuple__174 = PyTuple_Pack(3, __pyx_int_243, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_sinhala_ci); if (unlikely(!__pyx_tuple__174)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__174);
+  __Pyx_GIVEREF(__pyx_tuple__174);
 
-  /* "sqlcycli/charset.py":492
+  /* "sqlcycli/charset.py":481
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  */
-  __pyx_tuple__172 = PyTuple_Pack(3, __pyx_int_244, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_german2_ci); if (unlikely(!__pyx_tuple__172)) __PYX_ERR(0, 492, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__172);
-  __Pyx_GIVEREF(__pyx_tuple__172);
+  __pyx_tuple__175 = PyTuple_Pack(3, __pyx_int_244, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_german2_ci); if (unlikely(!__pyx_tuple__175)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__175);
+  __Pyx_GIVEREF(__pyx_tuple__175);
 
-  /* "sqlcycli/charset.py":493
+  /* "sqlcycli/charset.py":482
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  */
-  __pyx_tuple__173 = PyTuple_Pack(3, __pyx_int_245, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_croatian_ci); if (unlikely(!__pyx_tuple__173)) __PYX_ERR(0, 493, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__173);
-  __Pyx_GIVEREF(__pyx_tuple__173);
+  __pyx_tuple__176 = PyTuple_Pack(3, __pyx_int_245, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_croatian_ci); if (unlikely(!__pyx_tuple__176)) __PYX_ERR(0, 482, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__176);
+  __Pyx_GIVEREF(__pyx_tuple__176);
 
-  /* "sqlcycli/charset.py":494
+  /* "sqlcycli/charset.py":483
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  */
-  __pyx_tuple__174 = PyTuple_Pack(3, __pyx_int_246, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_unicode_520_ci); if (unlikely(!__pyx_tuple__174)) __PYX_ERR(0, 494, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__174);
-  __Pyx_GIVEREF(__pyx_tuple__174);
+  __pyx_tuple__177 = PyTuple_Pack(3, __pyx_int_246, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_unicode_520_ci); if (unlikely(!__pyx_tuple__177)) __PYX_ERR(0, 483, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__177);
+  __Pyx_GIVEREF(__pyx_tuple__177);
 
-  /* "sqlcycli/charset.py":495
+  /* "sqlcycli/charset.py":484
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  */
-  __pyx_tuple__175 = PyTuple_Pack(3, __pyx_int_247, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_vietnamese_ci); if (unlikely(!__pyx_tuple__175)) __PYX_ERR(0, 495, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__175);
-  __Pyx_GIVEREF(__pyx_tuple__175);
+  __pyx_tuple__178 = PyTuple_Pack(3, __pyx_int_247, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_vietnamese_ci); if (unlikely(!__pyx_tuple__178)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__178);
+  __Pyx_GIVEREF(__pyx_tuple__178);
 
-  /* "sqlcycli/charset.py":496
+  /* "sqlcycli/charset.py":485
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))
  */
-  __pyx_tuple__176 = PyTuple_Pack(4, __pyx_int_248, __pyx_n_u_gb18030, __pyx_n_u_gb18030_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__176)) __PYX_ERR(0, 496, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__176);
-  __Pyx_GIVEREF(__pyx_tuple__176);
+  __pyx_tuple__179 = PyTuple_Pack(4, __pyx_int_248, __pyx_n_u_gb18030, __pyx_n_u_gb18030_chinese_ci, Py_True); if (unlikely(!__pyx_tuple__179)) __PYX_ERR(0, 485, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__179);
+  __Pyx_GIVEREF(__pyx_tuple__179);
 
-  /* "sqlcycli/charset.py":497
+  /* "sqlcycli/charset.py":486
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))
  * _charsets.add(Charset(255, "utf8mb4", "utf8mb4_0900_ai_ci"))
  */
-  __pyx_tuple__177 = PyTuple_Pack(3, __pyx_int_249, __pyx_n_u_gb18030, __pyx_n_u_gb18030_bin); if (unlikely(!__pyx_tuple__177)) __PYX_ERR(0, 497, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__177);
-  __Pyx_GIVEREF(__pyx_tuple__177);
+  __pyx_tuple__180 = PyTuple_Pack(3, __pyx_int_249, __pyx_n_u_gb18030, __pyx_n_u_gb18030_bin); if (unlikely(!__pyx_tuple__180)) __PYX_ERR(0, 486, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__180);
+  __Pyx_GIVEREF(__pyx_tuple__180);
 
-  /* "sqlcycli/charset.py":498
+  /* "sqlcycli/charset.py":487
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(255, "utf8mb4", "utf8mb4_0900_ai_ci"))
  * 
  */
-  __pyx_tuple__178 = PyTuple_Pack(3, __pyx_int_250, __pyx_n_u_gb18030, __pyx_n_u_gb18030_unicode_520_ci); if (unlikely(!__pyx_tuple__178)) __PYX_ERR(0, 498, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__178);
-  __Pyx_GIVEREF(__pyx_tuple__178);
+  __pyx_tuple__181 = PyTuple_Pack(3, __pyx_int_250, __pyx_n_u_gb18030, __pyx_n_u_gb18030_unicode_520_ci); if (unlikely(!__pyx_tuple__181)) __PYX_ERR(0, 487, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__181);
+  __Pyx_GIVEREF(__pyx_tuple__181);
 
-  /* "sqlcycli/charset.py":499
+  /* "sqlcycli/charset.py":488
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))
  * _charsets.add(Charset(255, "utf8mb4", "utf8mb4_0900_ai_ci"))             # <<<<<<<<<<<<<<
  * 
  * # default utf8mb4: utf8mb4_general_ci
  */
-  __pyx_tuple__179 = PyTuple_Pack(3, __pyx_int_255, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_0900_ai_ci); if (unlikely(!__pyx_tuple__179)) __PYX_ERR(0, 499, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__179);
-  __Pyx_GIVEREF(__pyx_tuple__179);
+  __pyx_tuple__182 = PyTuple_Pack(3, __pyx_int_255, __pyx_n_u_utf8mb4, __pyx_n_u_utf8mb4_0900_ai_ci); if (unlikely(!__pyx_tuple__182)) __PYX_ERR(0, 488, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__182);
+  __Pyx_GIVEREF(__pyx_tuple__182);
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_Charset(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_tuple__180 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__180)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__180);
-  __Pyx_GIVEREF(__pyx_tuple__180);
-  __pyx_codeobj__181 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__180, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_Charset, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__181)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __pyx_codeobj__182 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__180, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_Charsets, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__182)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_tuple__183 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__183)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__183);
+  __Pyx_GIVEREF(__pyx_tuple__183);
+  __pyx_codeobj__184 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__183, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_Charset, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__184)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_codeobj__185 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__183, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_Charsets, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__185)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -16162,10 +15467,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitConstants(void) {
   __pyx_int_255 = PyInt_FromLong(255); if (unlikely(!__pyx_int_255)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_82751263 = PyInt_FromLong(82751263L); if (unlikely(!__pyx_int_82751263)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_92067722 = PyInt_FromLong(92067722L); if (unlikely(!__pyx_int_92067722)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_112447473 = PyInt_FromLong(112447473L); if (unlikely(!__pyx_int_112447473)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_137718339 = PyInt_FromLong(137718339L); if (unlikely(!__pyx_int_137718339)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_151085017 = PyInt_FromLong(151085017L); if (unlikely(!__pyx_int_151085017)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_147461375 = PyInt_FromLong(147461375L); if (unlikely(!__pyx_int_147461375)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_166556248 = PyInt_FromLong(166556248L); if (unlikely(!__pyx_int_166556248)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_208236998 = PyInt_FromLong(208236998L); if (unlikely(!__pyx_int_208236998)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_238740280 = PyInt_FromLong(238740280L); if (unlikely(!__pyx_int_238740280)) __PYX_ERR(0, 1, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -16272,31 +15577,31 @@ static int __Pyx_modinit_type_init_code(void) {
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_7charset_Charset) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Charset_2, (PyObject *) __pyx_ptype_8sqlcycli_7charset_Charset) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Charset, (PyObject *) __pyx_ptype_8sqlcycli_7charset_Charset) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_7charset_Charset) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   #endif
   __pyx_vtabptr_8sqlcycli_7charset_Charsets = &__pyx_vtable_8sqlcycli_7charset_Charsets;
   __pyx_vtable_8sqlcycli_7charset_Charsets.add = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_7charset_8Charsets_add;
-  __pyx_vtable_8sqlcycli_7charset_Charsets._add_by_id = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__add_by_id;
-  __pyx_vtable_8sqlcycli_7charset_Charsets._add_by_name = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__add_by_name;
-  __pyx_vtable_8sqlcycli_7charset_Charsets._add_by_collation = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__add_by_collation;
-  __pyx_vtable_8sqlcycli_7charset_Charsets._add_by_name_n_collation = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__add_by_name_n_collation;
+  __pyx_vtable_8sqlcycli_7charset_Charsets._index_by_id = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__index_by_id;
+  __pyx_vtable_8sqlcycli_7charset_Charsets._index_by_name = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__index_by_name;
+  __pyx_vtable_8sqlcycli_7charset_Charsets._index_by_collation = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__index_by_collation;
+  __pyx_vtable_8sqlcycli_7charset_Charsets._index_by_name_n_collation = (int (*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *))__pyx_f_8sqlcycli_7charset_8Charsets__index_by_name_n_collation;
   __pyx_vtable_8sqlcycli_7charset_Charsets._gen_charset_n_collate_key = (PyObject *(*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *))__pyx_f_8sqlcycli_7charset_8Charsets__gen_charset_n_collate_key;
   __pyx_vtable_8sqlcycli_7charset_Charsets.by_id = (struct __pyx_obj_8sqlcycli_7charset_Charset *(*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_7charset_8Charsets_by_id;
   __pyx_vtable_8sqlcycli_7charset_Charsets.by_name = (struct __pyx_obj_8sqlcycli_7charset_Charset *(*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_7charset_8Charsets_by_name;
   __pyx_vtable_8sqlcycli_7charset_Charsets.by_collation = (struct __pyx_obj_8sqlcycli_7charset_Charset *(*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_7charset_8Charsets_by_collation;
   __pyx_vtable_8sqlcycli_7charset_Charsets.by_name_n_collation = (struct __pyx_obj_8sqlcycli_7charset_Charset *(*)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_7charset_8Charsets_by_name_n_collation;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_7charset_Charsets = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_7charset_Charsets_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_7charset_Charsets)) __PYX_ERR(0, 136, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_7charset_Charsets_spec, __pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_7charset_Charsets = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_7charset_Charsets_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_7charset_Charsets)) __PYX_ERR(0, 132, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_7charset_Charsets_spec, __pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_7charset_Charsets = &__pyx_type_8sqlcycli_7charset_Charsets;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_7charset_Charsets->tp_print = 0;
@@ -16308,7 +15613,7 @@ static int __Pyx_modinit_type_init_code(void) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 136, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 132, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_8sqlcycli_7charset_8Charsets___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_8sqlcycli_7charset_8Charsets___init__.doc = __pyx_doc_8sqlcycli_7charset_8Charsets___init__;
@@ -16316,24 +15621,24 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_vtabptr_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_vtabptr_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Charsets_2, (PyObject *) __pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Charsets_2, (PyObject *) __pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_7charset_Charsets) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr)) __PYX_ERR(0, 306, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr)) __PYX_ERR(0, 295, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 295, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr = &__pyx_type_8sqlcycli_7charset___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 306, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 295, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_7charset___pyx_scope_struct__genexpr->tp_print = 0;
@@ -16732,9 +16037,9 @@ if (!__Pyx_RefNanny) {
  */
   __pyx_t_2 = PyList_New(7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_INCREF(__pyx_n_u_Charset_2);
-  __Pyx_GIVEREF(__pyx_n_u_Charset_2);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_u_Charset_2)) __PYX_ERR(0, 15, __pyx_L1_error);
+  __Pyx_INCREF(__pyx_n_u_Charset);
+  __Pyx_GIVEREF(__pyx_n_u_Charset);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_u_Charset)) __PYX_ERR(0, 15, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_Charsets_2);
   __Pyx_GIVEREF(__pyx_n_u_Charsets_2);
   if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_n_u_Charsets_2)) __PYX_ERR(0, 15, __pyx_L1_error);
@@ -16756,16 +16061,16 @@ if (!__Pyx_RefNanny) {
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_all, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/charset.py":95
+  /* "sqlcycli/charset.py":101
  * 
  *     # Methods ----------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def is_binary(self) -> cython.bint:
- *         "Whether the charset is binary `<'bool'>`."
+ *         """Check if this charset is the MySQL binary charset (ID == 63). `<'bool'>`."""
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7Charset_3is_binary, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charset_is_binary, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__11)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7Charset_3is_binary, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charset_is_binary, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset, __pyx_n_s_is_binary, __pyx_t_2) < 0) __PYX_ERR(0, 95, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset, __pyx_n_s_is_binary, __pyx_t_2) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charset);
 
@@ -16774,7 +16079,7 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7Charset_13__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charset___reduce_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__13)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7Charset_11__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charset___reduce_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset, __pyx_n_s_reduce_cython, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16782,104 +16087,104 @@ if (!__Pyx_RefNanny) {
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_Charset, (type(self), 0x6b3cff1, state)
+ *         return __pyx_unpickle_Charset, (type(self), 0xe3ae338, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Charset__set_state(self, __pyx_state)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7Charset_15__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charset___setstate_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7Charset_13__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charset___setstate_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset, __pyx_n_s_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charset);
 
-  /* "sqlcycli/charset.py":152
+  /* "sqlcycli/charset.py":148
  * 
  *     # Add Charset ------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def add(self, charset: Charset) -> cython.bint:
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_charset, __pyx_n_s_Charset_2) < 0) __PYX_ERR(0, 152, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_3add, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_add, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_charset, __pyx_n_s_Charset) < 0) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_3add, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_add, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_add, __pyx_t_3) < 0) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_add, __pyx_t_3) < 0) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charsets);
 
-  /* "sqlcycli/charset.py":230
+  /* "sqlcycli/charset.py":219
  * 
  *     # Access Charset ---------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_id(self, id: object) -> Charset:
- *         """Get MySQL charset by id `<'Charset'>`.
+ *         """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_id, __pyx_n_s_object) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_5by_id, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_id, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_id, __pyx_n_s_object) < 0) __PYX_ERR(0, 219, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_5by_id, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_id, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_id, __pyx_t_2) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_id, __pyx_t_2) < 0) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charsets);
 
-  /* "sqlcycli/charset.py":244
+  /* "sqlcycli/charset.py":233
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name(self, name: object) -> Charset:
- *         """Get MySQL charset by name `<'Charset'>`.
+ *         """Retrieve a default Charset by its name `<'Charset'>`.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_n_s_object) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_7by_name, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_name, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_n_s_object) < 0) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_7by_name, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_name, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_name, __pyx_t_3) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_name, __pyx_t_3) < 0) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charsets);
 
-  /* "sqlcycli/charset.py":261
+  /* "sqlcycli/charset.py":250
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_collation(self, collation: object) -> Charset:
- *         """Get MySQL charset by collation `<'Charset'>`.
+ *         """Retrieve a Charset by its collation `<'Charset'>`.
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, __pyx_n_s_object) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_9by_collation, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__23)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, __pyx_n_s_object) < 0) __PYX_ERR(0, 250, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_9by_collation, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_collation, __pyx_t_2) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_collation, __pyx_t_2) < 0) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charsets);
 
-  /* "sqlcycli/charset.py":278
+  /* "sqlcycli/charset.py":267
  *         return cython.cast(Charset, val)
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def by_name_n_collation(self, name: object, collation: object) -> Charset:
- *         """Get MySQL charset by name and collation `<'Charset'>`.
+ *         """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_n_s_object) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, __pyx_n_s_object) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_11by_name_n_collation, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_name_n_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 278, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_n_s_object) < 0) __PYX_ERR(0, 267, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, __pyx_n_s_object) < 0) __PYX_ERR(0, 267, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_11by_name_n_collation, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets_by_name_n_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_name_n_collation, __pyx_t_3) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_by_name_n_collation, __pyx_t_3) < 0) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charsets);
 
@@ -16888,7 +16193,7 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_17__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets___reduce_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_17__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets___reduce_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -16900,1829 +16205,1829 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Charsets__set_state(self, __pyx_state)
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_19__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets___setstate_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_8Charsets_19__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Charsets___setstate_cython, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets, __pyx_n_s_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_7charset_Charsets);
 
-  /* "sqlcycli/charset.py":310
+  /* "sqlcycli/charset.py":299
  * 
  * 
  * _charsets: Charsets = Charsets()             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_3 = __Pyx_PyObject_CallNoArg(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallNoArg(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charsets)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 299, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_XGOTREF((PyObject *)__pyx_v_8sqlcycli_7charset__charsets);
   __Pyx_DECREF_SET(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charsets *)__pyx_t_3));
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":314
+  /* "sqlcycli/charset.py":303
  * 
  * # Functions -----------------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def all_charsets() -> Charsets:
- *     """Get the collection of all the MySQL charsets `<'Charsets'>`."""
+ *     """Retrieve the collection of all the MySQL charsets `<'Charsets'>`."""
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_1all_charsets, 0, __pyx_n_s_all_charsets, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_1all_charsets, 0, __pyx_n_s_all_charsets, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_all_charsets, __pyx_t_3) < 0) __PYX_ERR(0, 314, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_all_charsets, __pyx_t_3) < 0) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":320
+  /* "sqlcycli/charset.py":309
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_id(id: object) -> Charset:
- *     """Get MySQL charset by id `<'Charset'>`.
+ *     """Retrieve a Charset by its MySQL ID `<'Charset'>`.
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_id, __pyx_n_s_object) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_3by_id, 0, __pyx_n_s_by_id, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 320, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_id, __pyx_n_s_object) < 0) __PYX_ERR(0, 309, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_3by_id, 0, __pyx_n_s_by_id, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_id, __pyx_t_2) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_id, __pyx_t_2) < 0) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/charset.py":329
+  /* "sqlcycli/charset.py":318
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name(name: object) -> Charset:
- *     """Get MySQL charset by name `<'Charset'>`.
+ *     """Retrieve a default Charset by its name `<'Charset'>`.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 329, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_n_s_object) < 0) __PYX_ERR(0, 329, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_5by_name, 0, __pyx_n_s_by_name, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__32)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 329, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_n_s_object) < 0) __PYX_ERR(0, 318, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_5by_name, 0, __pyx_n_s_by_name, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__35)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_name, __pyx_t_3) < 0) __PYX_ERR(0, 329, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_name, __pyx_t_3) < 0) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":338
+  /* "sqlcycli/charset.py":327
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_collation(collation: object) -> Charset:
- *     """Get MySQL charset by collation `<'Charset'>`.
+ *     """Retrieve a Charset by its collation `<'Charset'>`.
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, __pyx_n_s_object) < 0) __PYX_ERR(0, 338, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7by_collation, 0, __pyx_n_s_by_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 338, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_collation, __pyx_n_s_object) < 0) __PYX_ERR(0, 327, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_7by_collation, 0, __pyx_n_s_by_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__37)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_collation, __pyx_t_2) < 0) __PYX_ERR(0, 338, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_collation, __pyx_t_2) < 0) __PYX_ERR(0, 327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/charset.py":347
+  /* "sqlcycli/charset.py":336
  * 
  * 
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def by_name_n_collation(name: str | Any, collation: str | Any) -> Charset:
- *     """Get MySQL charset by name and collation `<'Charset'>`.
+ *     """Retrieve a Charset by both its name and collation combination `<'Charset'>`.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_kp_s_str_Any) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, __pyx_kp_s_str_Any) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_9by_name_n_collation, 0, __pyx_n_s_by_name_n_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__36)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 347, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name, __pyx_kp_s_str_Any) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_collation, __pyx_kp_s_str_Any) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_9by_name_n_collation, 0, __pyx_n_s_by_name_n_collation, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__39)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_name_n_collation, __pyx_t_3) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_by_name_n_collation, __pyx_t_3) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":357
+  /* "sqlcycli/charset.py":346
  * 
  * 
  * _charsets.add(Charset(1, "big5", "big5_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__37, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__40, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":358
+  /* "sqlcycli/charset.py":347
  * 
  * _charsets.add(Charset(1, "big5", "big5_chinese_ci", True))
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__38, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__41, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 358, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":359
+  /* "sqlcycli/charset.py":348
  * _charsets.add(Charset(1, "big5", "big5_chinese_ci", True))
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__39, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__42, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 348, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 359, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 348, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":360
+  /* "sqlcycli/charset.py":349
  * _charsets.add(Charset(2, "latin2", "latin2_czech_cs"))
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__40, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__43, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 349, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 349, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":361
+  /* "sqlcycli/charset.py":350
  * _charsets.add(Charset(3, "dec8", "dec8_swedish_ci", True))
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__41, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 361, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__44, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 350, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 361, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 350, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":362
+  /* "sqlcycli/charset.py":351
  * _charsets.add(Charset(4, "cp850", "cp850_general_ci", True))
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__42, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__45, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 351, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 351, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":363
+  /* "sqlcycli/charset.py":352
  * _charsets.add(Charset(5, "latin1", "latin1_german1_ci"))
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__43, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__46, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 352, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 352, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":364
+  /* "sqlcycli/charset.py":353
  * _charsets.add(Charset(6, "hp8", "hp8_english_ci", True))
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__44, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__47, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 353, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 364, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 353, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":365
+  /* "sqlcycli/charset.py":354
  * _charsets.add(Charset(7, "koi8r", "koi8r_general_ci", True))
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__45, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__48, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 365, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":366
+  /* "sqlcycli/charset.py":355
  * _charsets.add(Charset(8, "latin1", "latin1_swedish_ci", True))
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__46, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__49, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":367
+  /* "sqlcycli/charset.py":356
  * _charsets.add(Charset(9, "latin2", "latin2_general_ci", True))
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__47, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__50, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 356, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 356, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":368
+  /* "sqlcycli/charset.py":357
  * _charsets.add(Charset(10, "swe7", "swe7_swedish_ci", True))
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__48, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 368, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__51, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 368, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":369
+  /* "sqlcycli/charset.py":358
  * _charsets.add(Charset(11, "ascii", "ascii_general_ci", True))
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__49, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__52, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":370
+  /* "sqlcycli/charset.py":359
  * _charsets.add(Charset(12, "ujis", "ujis_japanese_ci", True))
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__50, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 370, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__53, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 370, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 359, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":371
+  /* "sqlcycli/charset.py":360
  * _charsets.add(Charset(13, "sjis", "sjis_japanese_ci", True))
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__51, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 371, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__54, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 371, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":372
+  /* "sqlcycli/charset.py":361
  * _charsets.add(Charset(14, "cp1251", "cp1251_bulgarian_ci"))
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__52, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__55, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 361, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 372, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 361, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":373
+  /* "sqlcycli/charset.py":362
  * _charsets.add(Charset(15, "latin1", "latin1_danish_ci"))
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__53, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 373, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__56, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 373, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":374
+  /* "sqlcycli/charset.py":363
  * _charsets.add(Charset(16, "hebrew", "hebrew_general_ci", True))
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__54, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 374, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__57, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 374, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":375
+  /* "sqlcycli/charset.py":364
  * _charsets.add(Charset(18, "tis620", "tis620_thai_ci", True))
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__55, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__58, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 375, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":376
+  /* "sqlcycli/charset.py":365
  * _charsets.add(Charset(19, "euckr", "euckr_korean_ci", True))
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__56, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 376, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__59, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 376, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 365, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":377
+  /* "sqlcycli/charset.py":366
  * _charsets.add(Charset(20, "latin7", "latin7_estonian_cs"))
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__57, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__60, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 366, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 366, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":378
+  /* "sqlcycli/charset.py":367
  * _charsets.add(Charset(21, "latin2", "latin2_hungarian_ci"))
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__58, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__61, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 378, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 367, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":379
+  /* "sqlcycli/charset.py":368
  * _charsets.add(Charset(22, "koi8u", "koi8u_general_ci", True))
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__59, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 379, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__62, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 379, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 368, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":380
+  /* "sqlcycli/charset.py":369
  * _charsets.add(Charset(23, "cp1251", "cp1251_ukrainian_ci"))
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__60, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 380, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__63, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 380, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 369, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":381
+  /* "sqlcycli/charset.py":370
  * _charsets.add(Charset(24, "gb2312", "gb2312_chinese_ci", True))
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__61, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 381, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__64, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 370, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 381, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 370, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":382
+  /* "sqlcycli/charset.py":371
  * _charsets.add(Charset(25, "greek", "greek_general_ci", True))
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__62, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__65, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 371, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 382, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 371, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":383
+  /* "sqlcycli/charset.py":372
  * _charsets.add(Charset(26, "cp1250", "cp1250_general_ci", True))
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__63, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 383, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__66, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 383, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":384
+  /* "sqlcycli/charset.py":373
  * _charsets.add(Charset(27, "latin2", "latin2_croatian_ci"))
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__64, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 384, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__67, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 373, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 384, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 373, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":385
+  /* "sqlcycli/charset.py":374
  * _charsets.add(Charset(28, "gbk", "gbk_chinese_ci", True))
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__65, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__68, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 374, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 374, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":386
+  /* "sqlcycli/charset.py":375
  * _charsets.add(Charset(29, "cp1257", "cp1257_lithuanian_ci"))
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__66, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 386, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__69, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 386, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":387
+  /* "sqlcycli/charset.py":376
  * _charsets.add(Charset(30, "latin5", "latin5_turkish_ci", True))
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__67, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__70, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":388
+  /* "sqlcycli/charset.py":377
  * _charsets.add(Charset(31, "latin1", "latin1_german2_ci"))
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__68, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__71, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 377, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 377, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":389
+  /* "sqlcycli/charset.py":378
  * _charsets.add(Charset(32, "armscii8", "armscii8_general_ci", True))
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__69, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 389, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__72, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 389, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":390
+  /* "sqlcycli/charset.py":379
  * _charsets.add(Charset(33, "utf8mb3", "utf8mb3_general_ci", True))
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__70, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 390, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__73, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 379, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 390, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 379, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":391
+  /* "sqlcycli/charset.py":380
  * _charsets.add(Charset(34, "cp1250", "cp1250_czech_cs"))
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__71, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__74, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 380, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 391, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 380, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":392
+  /* "sqlcycli/charset.py":381
  * _charsets.add(Charset(36, "cp866", "cp866_general_ci", True))
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__72, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 392, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__75, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 392, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":393
+  /* "sqlcycli/charset.py":382
  * _charsets.add(Charset(37, "keybcs2", "keybcs2_general_ci", True))
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__73, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 393, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__76, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 393, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 382, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":394
+  /* "sqlcycli/charset.py":383
  * _charsets.add(Charset(38, "macce", "macce_general_ci", True))
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__74, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__77, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 383, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 394, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 383, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":395
+  /* "sqlcycli/charset.py":384
  * _charsets.add(Charset(39, "macroman", "macroman_general_ci", True))
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__75, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 395, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__78, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 384, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 395, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 384, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":396
+  /* "sqlcycli/charset.py":385
  * _charsets.add(Charset(40, "cp852", "cp852_general_ci", True))
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__76, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 396, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__79, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 385, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 396, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 385, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":397
+  /* "sqlcycli/charset.py":386
  * _charsets.add(Charset(41, "latin7", "latin7_general_ci", True))
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  * _charsets.add(Charset(43, "macce", "macce_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__77, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 397, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__80, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 386, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 397, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 386, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":398
+  /* "sqlcycli/charset.py":387
  * _charsets.add(Charset(42, "latin7", "latin7_general_cs"))
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__78, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__81, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 387, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 387, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":399
+  /* "sqlcycli/charset.py":388
  * _charsets.add(Charset(43, "macce", "macce_bin"))
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__79, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 399, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__82, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 388, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 399, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 388, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":400
+  /* "sqlcycli/charset.py":389
  * _charsets.add(Charset(44, "cp1250", "cp1250_croatian_ci"))
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__80, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__83, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":401
+  /* "sqlcycli/charset.py":390
  * _charsets.add(Charset(45, "utf8mb4", "utf8mb4_general_ci", True))
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__81, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 401, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__84, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 390, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 401, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 390, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":402
+  /* "sqlcycli/charset.py":391
  * _charsets.add(Charset(46, "utf8mb4", "utf8mb4_bin"))
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__82, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 402, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__85, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 402, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":403
+  /* "sqlcycli/charset.py":392
  * _charsets.add(Charset(47, "latin1", "latin1_bin"))
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__83, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 403, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__86, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 403, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":404
+  /* "sqlcycli/charset.py":393
  * _charsets.add(Charset(48, "latin1", "latin1_general_ci"))
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__84, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 404, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__87, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 393, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 404, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 393, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":405
+  /* "sqlcycli/charset.py":394
  * _charsets.add(Charset(49, "latin1", "latin1_general_cs"))
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__85, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 405, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__88, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 405, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 394, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":406
+  /* "sqlcycli/charset.py":395
  * _charsets.add(Charset(50, "cp1251", "cp1251_bin"))
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__86, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 406, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__89, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 395, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 406, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 395, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":407
+  /* "sqlcycli/charset.py":396
  * _charsets.add(Charset(51, "cp1251", "cp1251_general_ci", True))
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__87, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 407, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__90, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 396, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 407, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 396, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":408
+  /* "sqlcycli/charset.py":397
  * _charsets.add(Charset(52, "cp1251", "cp1251_general_cs"))
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__88, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 408, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__91, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 397, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 408, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 397, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":409
+  /* "sqlcycli/charset.py":398
  * _charsets.add(Charset(53, "macroman", "macroman_bin"))
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  * _charsets.add(Charset(63, "binary", "binary", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__89, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 409, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__92, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 409, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 398, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":410
+  /* "sqlcycli/charset.py":399
  * _charsets.add(Charset(57, "cp1256", "cp1256_general_ci", True))
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(63, "binary", "binary", True))
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__90, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 410, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__93, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 410, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":411
+  /* "sqlcycli/charset.py":400
  * _charsets.add(Charset(58, "cp1257", "cp1257_bin"))
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  * _charsets.add(Charset(63, "binary", "binary", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__91, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 411, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__94, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 400, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 411, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 400, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":412
+  /* "sqlcycli/charset.py":401
  * _charsets.add(Charset(59, "cp1257", "cp1257_general_ci", True))
  * _charsets.add(Charset(63, "binary", "binary", True))
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__92, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__95, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 412, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":413
+  /* "sqlcycli/charset.py":402
  * _charsets.add(Charset(63, "binary", "binary", True))
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__93, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__96, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 402, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 413, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 402, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":414
+  /* "sqlcycli/charset.py":403
  * _charsets.add(Charset(64, "armscii8", "armscii8_bin"))
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__94, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 414, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__97, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 403, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 414, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 403, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":415
+  /* "sqlcycli/charset.py":404
  * _charsets.add(Charset(65, "ascii", "ascii_bin"))
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__95, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 415, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__98, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 404, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 415, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 404, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":416
+  /* "sqlcycli/charset.py":405
  * _charsets.add(Charset(66, "cp1250", "cp1250_bin"))
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__96, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 416, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__99, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 405, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 416, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 405, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":417
+  /* "sqlcycli/charset.py":406
  * _charsets.add(Charset(67, "cp1256", "cp1256_bin"))
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__97, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__100, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 406, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 406, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":418
+  /* "sqlcycli/charset.py":407
  * _charsets.add(Charset(68, "cp866", "cp866_bin"))
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  * _charsets.add(Charset(70, "greek", "greek_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__98, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__101, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 407, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 407, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":419
+  /* "sqlcycli/charset.py":408
  * _charsets.add(Charset(69, "dec8", "dec8_bin"))
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__99, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__102, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 408, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 419, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 408, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":420
+  /* "sqlcycli/charset.py":409
  * _charsets.add(Charset(70, "greek", "greek_bin"))
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__100, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 420, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__103, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 409, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 420, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 409, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":421
+  /* "sqlcycli/charset.py":410
  * _charsets.add(Charset(71, "hebrew", "hebrew_bin"))
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__101, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 421, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__104, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 410, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 421, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 410, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":422
+  /* "sqlcycli/charset.py":411
  * _charsets.add(Charset(72, "hp8", "hp8_bin"))
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__102, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 422, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__105, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 422, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":423
+  /* "sqlcycli/charset.py":412
  * _charsets.add(Charset(73, "keybcs2", "keybcs2_bin"))
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__103, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__106, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 412, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 423, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 412, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":424
+  /* "sqlcycli/charset.py":413
  * _charsets.add(Charset(74, "koi8r", "koi8r_bin"))
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__104, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__107, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 413, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 413, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":425
+  /* "sqlcycli/charset.py":414
  * _charsets.add(Charset(75, "koi8u", "koi8u_bin"))
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__105, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 425, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__108, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 425, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":426
+  /* "sqlcycli/charset.py":415
  * _charsets.add(Charset(76, "utf8mb3", "utf8mb3_tolower_ci"))
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__106, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__109, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 415, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 415, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":427
+  /* "sqlcycli/charset.py":416
  * _charsets.add(Charset(77, "latin2", "latin2_bin"))
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__107, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 427, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__110, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 416, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 427, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 416, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":428
+  /* "sqlcycli/charset.py":417
  * _charsets.add(Charset(78, "latin5", "latin5_bin"))
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__108, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 428, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__111, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 417, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 428, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 417, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":429
+  /* "sqlcycli/charset.py":418
  * _charsets.add(Charset(79, "latin7", "latin7_bin"))
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__109, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__112, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":430
+  /* "sqlcycli/charset.py":419
  * _charsets.add(Charset(80, "cp850", "cp850_bin"))
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__110, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__113, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 430, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":431
+  /* "sqlcycli/charset.py":420
  * _charsets.add(Charset(81, "cp852", "cp852_bin"))
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__111, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__114, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 420, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 431, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 420, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":432
+  /* "sqlcycli/charset.py":421
  * _charsets.add(Charset(82, "swe7", "swe7_bin"))
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  * _charsets.add(Charset(84, "big5", "big5_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__112, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 432, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__115, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 421, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 432, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 421, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":433
+  /* "sqlcycli/charset.py":422
  * _charsets.add(Charset(83, "utf8mb3", "utf8mb3_bin"))
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__113, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__116, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 422, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 433, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 422, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":434
+  /* "sqlcycli/charset.py":423
  * _charsets.add(Charset(84, "big5", "big5_bin"))
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__114, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 434, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__117, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 423, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 434, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 423, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":435
+  /* "sqlcycli/charset.py":424
  * _charsets.add(Charset(85, "euckr", "euckr_bin"))
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__115, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__118, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 424, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 424, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":436
+  /* "sqlcycli/charset.py":425
  * _charsets.add(Charset(86, "gb2312", "gb2312_bin"))
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__116, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 436, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__119, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 436, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":437
+  /* "sqlcycli/charset.py":426
  * _charsets.add(Charset(87, "gbk", "gbk_bin"))
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__117, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 437, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__120, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 426, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 437, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 426, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":438
+  /* "sqlcycli/charset.py":427
  * _charsets.add(Charset(88, "sjis", "sjis_bin"))
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__118, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 438, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__121, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 427, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 438, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 427, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":439
+  /* "sqlcycli/charset.py":428
  * _charsets.add(Charset(89, "tis620", "tis620_bin"))
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__119, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__122, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 428, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 428, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":440
+  /* "sqlcycli/charset.py":429
  * _charsets.add(Charset(91, "ujis", "ujis_bin"))
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__120, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__123, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 429, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 429, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":441
+  /* "sqlcycli/charset.py":430
  * _charsets.add(Charset(92, "geostd8", "geostd8_general_ci", True))
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__121, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__124, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 441, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":442
+  /* "sqlcycli/charset.py":431
  * _charsets.add(Charset(93, "geostd8", "geostd8_bin"))
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__122, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 442, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__125, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 442, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":443
+  /* "sqlcycli/charset.py":432
  * _charsets.add(Charset(94, "latin1", "latin1_spanish_ci"))
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__123, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__126, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 432, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 443, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 432, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":444
+  /* "sqlcycli/charset.py":433
  * _charsets.add(Charset(95, "cp932", "cp932_japanese_ci", True))
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__124, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 444, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__127, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 433, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 444, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 433, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":445
+  /* "sqlcycli/charset.py":434
  * _charsets.add(Charset(96, "cp932", "cp932_bin"))
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__125, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__128, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 434, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 445, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 434, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":446
+  /* "sqlcycli/charset.py":435
  * _charsets.add(Charset(97, "eucjpms", "eucjpms_japanese_ci", True))
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__126, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__129, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 435, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 435, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":447
+  /* "sqlcycli/charset.py":436
  * _charsets.add(Charset(98, "eucjpms", "eucjpms_bin"))
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__127, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__130, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 436, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 436, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":448
+  /* "sqlcycli/charset.py":437
  * _charsets.add(Charset(99, "cp1250", "cp1250_polish_ci"))
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__128, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__131, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 448, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 437, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":449
+  /* "sqlcycli/charset.py":438
  * _charsets.add(Charset(192, "utf8mb3", "utf8mb3_unicode_ci"))
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__129, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__132, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 438, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":450
+  /* "sqlcycli/charset.py":439
  * _charsets.add(Charset(193, "utf8mb3", "utf8mb3_icelandic_ci"))
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__130, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__133, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 439, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 450, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 439, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":451
+  /* "sqlcycli/charset.py":440
  * _charsets.add(Charset(194, "utf8mb3", "utf8mb3_latvian_ci"))
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__131, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 451, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__134, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 440, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 451, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 440, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":452
+  /* "sqlcycli/charset.py":441
  * _charsets.add(Charset(195, "utf8mb3", "utf8mb3_romanian_ci"))
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__132, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 452, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__135, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 452, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":453
+  /* "sqlcycli/charset.py":442
  * _charsets.add(Charset(196, "utf8mb3", "utf8mb3_slovenian_ci"))
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__133, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__136, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 442, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 442, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":454
+  /* "sqlcycli/charset.py":443
  * _charsets.add(Charset(197, "utf8mb3", "utf8mb3_polish_ci"))
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__134, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 454, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__137, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 454, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":455
+  /* "sqlcycli/charset.py":444
  * _charsets.add(Charset(198, "utf8mb3", "utf8mb3_estonian_ci"))
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__135, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__138, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":456
+  /* "sqlcycli/charset.py":445
  * _charsets.add(Charset(199, "utf8mb3", "utf8mb3_spanish_ci"))
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__136, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 456, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__139, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 456, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":457
+  /* "sqlcycli/charset.py":446
  * _charsets.add(Charset(200, "utf8mb3", "utf8mb3_swedish_ci"))
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__137, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__140, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 446, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":458
+  /* "sqlcycli/charset.py":447
  * _charsets.add(Charset(201, "utf8mb3", "utf8mb3_turkish_ci"))
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__138, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__141, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":459
+  /* "sqlcycli/charset.py":448
  * _charsets.add(Charset(202, "utf8mb3", "utf8mb3_czech_ci"))
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__139, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 459, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__142, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 459, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":460
+  /* "sqlcycli/charset.py":449
  * _charsets.add(Charset(203, "utf8mb3", "utf8mb3_danish_ci"))
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__140, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 460, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__143, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 449, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 460, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 449, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":461
+  /* "sqlcycli/charset.py":450
  * _charsets.add(Charset(204, "utf8mb3", "utf8mb3_lithuanian_ci"))
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__141, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 461, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__144, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 461, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":462
+  /* "sqlcycli/charset.py":451
  * _charsets.add(Charset(205, "utf8mb3", "utf8mb3_slovak_ci"))
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__142, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__145, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 451, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 462, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 451, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":463
+  /* "sqlcycli/charset.py":452
  * _charsets.add(Charset(206, "utf8mb3", "utf8mb3_spanish2_ci"))
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__143, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__146, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 452, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 452, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":464
+  /* "sqlcycli/charset.py":453
  * _charsets.add(Charset(207, "utf8mb3", "utf8mb3_roman_ci"))
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__144, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 464, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__147, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 453, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 464, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 453, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":465
+  /* "sqlcycli/charset.py":454
  * _charsets.add(Charset(208, "utf8mb3", "utf8mb3_persian_ci"))
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__145, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 465, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__148, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 465, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":466
+  /* "sqlcycli/charset.py":455
  * _charsets.add(Charset(209, "utf8mb3", "utf8mb3_esperanto_ci"))
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__146, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 466, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__149, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 455, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 466, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 455, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":467
+  /* "sqlcycli/charset.py":456
  * _charsets.add(Charset(210, "utf8mb3", "utf8mb3_hungarian_ci"))
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__147, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 467, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__150, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 467, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":468
+  /* "sqlcycli/charset.py":457
  * _charsets.add(Charset(211, "utf8mb3", "utf8mb3_sinhala_ci"))
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__148, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 468, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__151, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 457, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 468, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 457, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":469
+  /* "sqlcycli/charset.py":458
  * _charsets.add(Charset(212, "utf8mb3", "utf8mb3_german2_ci"))
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__149, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 469, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__152, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 469, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":470
+  /* "sqlcycli/charset.py":459
  * _charsets.add(Charset(213, "utf8mb3", "utf8mb3_croatian_ci"))
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__150, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__153, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 470, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":471
+  /* "sqlcycli/charset.py":460
  * _charsets.add(Charset(214, "utf8mb3", "utf8mb3_unicode_520_ci"))
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__151, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__154, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 460, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 460, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":472
+  /* "sqlcycli/charset.py":461
  * _charsets.add(Charset(215, "utf8mb3", "utf8mb3_vietnamese_ci"))
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__152, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 472, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__155, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 461, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 472, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 461, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":473
+  /* "sqlcycli/charset.py":462
  * _charsets.add(Charset(223, "utf8mb3", "utf8mb3_general_mysql500_ci"))
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__153, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 473, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__156, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 473, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":474
+  /* "sqlcycli/charset.py":463
  * _charsets.add(Charset(224, "utf8mb4", "utf8mb4_unicode_ci"))
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__154, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__157, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 463, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 463, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":475
+  /* "sqlcycli/charset.py":464
  * _charsets.add(Charset(225, "utf8mb4", "utf8mb4_icelandic_ci"))
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__155, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 475, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__158, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 464, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 475, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 464, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":476
+  /* "sqlcycli/charset.py":465
  * _charsets.add(Charset(226, "utf8mb4", "utf8mb4_latvian_ci"))
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__156, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__159, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 476, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":477
+  /* "sqlcycli/charset.py":466
  * _charsets.add(Charset(227, "utf8mb4", "utf8mb4_romanian_ci"))
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__157, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__160, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 466, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":478
+  /* "sqlcycli/charset.py":467
  * _charsets.add(Charset(228, "utf8mb4", "utf8mb4_slovenian_ci"))
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__158, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__161, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 467, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":479
+  /* "sqlcycli/charset.py":468
  * _charsets.add(Charset(229, "utf8mb4", "utf8mb4_polish_ci"))
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__159, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 479, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__162, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 468, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 479, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 468, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":480
+  /* "sqlcycli/charset.py":469
  * _charsets.add(Charset(230, "utf8mb4", "utf8mb4_estonian_ci"))
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__160, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__163, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 480, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":481
+  /* "sqlcycli/charset.py":470
  * _charsets.add(Charset(231, "utf8mb4", "utf8mb4_spanish_ci"))
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__161, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__164, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 470, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":482
+  /* "sqlcycli/charset.py":471
  * _charsets.add(Charset(232, "utf8mb4", "utf8mb4_swedish_ci"))
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__162, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 482, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__165, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 482, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":483
+  /* "sqlcycli/charset.py":472
  * _charsets.add(Charset(233, "utf8mb4", "utf8mb4_turkish_ci"))
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__163, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 483, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__166, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 483, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":484
+  /* "sqlcycli/charset.py":473
  * _charsets.add(Charset(234, "utf8mb4", "utf8mb4_czech_ci"))
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__164, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__167, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 473, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 473, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":485
+  /* "sqlcycli/charset.py":474
  * _charsets.add(Charset(235, "utf8mb4", "utf8mb4_danish_ci"))
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__165, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 485, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__168, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 474, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 485, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 474, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":486
+  /* "sqlcycli/charset.py":475
  * _charsets.add(Charset(236, "utf8mb4", "utf8mb4_lithuanian_ci"))
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__166, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 486, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__169, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 475, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 486, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 475, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":487
+  /* "sqlcycli/charset.py":476
  * _charsets.add(Charset(237, "utf8mb4", "utf8mb4_slovak_ci"))
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__167, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 487, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__170, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 487, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":488
+  /* "sqlcycli/charset.py":477
  * _charsets.add(Charset(238, "utf8mb4", "utf8mb4_spanish2_ci"))
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__168, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 488, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__171, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 488, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":489
+  /* "sqlcycli/charset.py":478
  * _charsets.add(Charset(239, "utf8mb4", "utf8mb4_roman_ci"))
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__169, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 489, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__172, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 489, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":490
+  /* "sqlcycli/charset.py":479
  * _charsets.add(Charset(240, "utf8mb4", "utf8mb4_persian_ci"))
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__170, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__173, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 479, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 479, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":491
+  /* "sqlcycli/charset.py":480
  * _charsets.add(Charset(241, "utf8mb4", "utf8mb4_esperanto_ci"))
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__171, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 491, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__174, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 480, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 491, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 480, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":492
+  /* "sqlcycli/charset.py":481
  * _charsets.add(Charset(242, "utf8mb4", "utf8mb4_hungarian_ci"))
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__172, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 492, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__175, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 481, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 492, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 481, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":493
+  /* "sqlcycli/charset.py":482
  * _charsets.add(Charset(243, "utf8mb4", "utf8mb4_sinhala_ci"))
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__173, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 493, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__176, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 493, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":494
+  /* "sqlcycli/charset.py":483
  * _charsets.add(Charset(244, "utf8mb4", "utf8mb4_german2_ci"))
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__174, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__177, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 483, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 483, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":495
+  /* "sqlcycli/charset.py":484
  * _charsets.add(Charset(245, "utf8mb4", "utf8mb4_croatian_ci"))
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__175, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__178, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":496
+  /* "sqlcycli/charset.py":485
  * _charsets.add(Charset(246, "utf8mb4", "utf8mb4_unicode_520_ci"))
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__176, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__179, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 485, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 485, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":497
+  /* "sqlcycli/charset.py":486
  * _charsets.add(Charset(247, "utf8mb4", "utf8mb4_vietnamese_ci"))
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))
  * _charsets.add(Charset(255, "utf8mb4", "utf8mb4_0900_ai_ci"))
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__177, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 497, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__180, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 497, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":498
+  /* "sqlcycli/charset.py":487
  * _charsets.add(Charset(248, "gb18030", "gb18030_chinese_ci", True))
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))             # <<<<<<<<<<<<<<
  * _charsets.add(Charset(255, "utf8mb4", "utf8mb4_0900_ai_ci"))
  * 
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__178, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 498, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__181, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 487, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 498, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 487, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":499
+  /* "sqlcycli/charset.py":488
  * _charsets.add(Charset(249, "gb18030", "gb18030_bin"))
  * _charsets.add(Charset(250, "gb18030", "gb18030_unicode_520_ci"))
  * _charsets.add(Charset(255, "utf8mb4", "utf8mb4_0900_ai_ci"))             # <<<<<<<<<<<<<<
  * 
  * # default utf8mb4: utf8mb4_general_ci
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__179, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 499, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_7charset_Charset), __pyx_tuple__182, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 499, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->add(__pyx_v_8sqlcycli_7charset__charsets, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3), 0); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/charset.py":502
+  /* "sqlcycli/charset.py":491
  * 
  * # default utf8mb4: utf8mb4_general_ci
  * _default_utf8mb4: Charset = _charsets.by_id(45)             # <<<<<<<<<<<<<<
  */
-  __pyx_t_3 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_id(__pyx_v_8sqlcycli_7charset__charsets, __pyx_int_45, 0)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 502, __pyx_L1_error)
+  __pyx_t_3 = ((PyObject *)((struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *)__pyx_v_8sqlcycli_7charset__charsets->__pyx_vtab)->by_id(__pyx_v_8sqlcycli_7charset__charsets, __pyx_int_45, 0)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 491, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_XGOTREF((PyObject *)__pyx_v_8sqlcycli_7charset__default_utf8mb4);
   __Pyx_DECREF_SET(__pyx_v_8sqlcycli_7charset__default_utf8mb4, ((struct __pyx_obj_8sqlcycli_7charset_Charset *)__pyx_t_3));
@@ -18734,7 +18039,7 @@ if (!__Pyx_RefNanny) {
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_11__pyx_unpickle_Charset, 0, __pyx_n_s_pyx_unpickle_Charset, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__181)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_11__pyx_unpickle_Charset, 0, __pyx_n_s_pyx_unpickle_Charset, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__184)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_Charset, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -18743,10 +18048,10 @@ if (!__Pyx_RefNanny) {
  *         __pyx_unpickle_Charset__set_state(<Charset> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_Charset__set_state(Charset __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._id = __pyx_state[3]; __pyx_result._is_default = __pyx_state[4]; __pyx_result._name = __pyx_state[5]
- *     if len(__pyx_state) > 6 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._collation = __pyx_state[0]; __pyx_result._encoding = __pyx_state[1]; __pyx_result._encoding_c = __pyx_state[2]; __pyx_result._hashcode = __pyx_state[3]; __pyx_result._id = __pyx_state[4]; __pyx_result._is_default = __pyx_state[5]; __pyx_result._name = __pyx_state[6]
+ *     if len(__pyx_state) > 7 and hasattr(__pyx_result, '__dict__'):
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_13__pyx_unpickle_Charsets, 0, __pyx_n_s_pyx_unpickle_Charsets, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__182)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_7charset_13__pyx_unpickle_Charsets, 0, __pyx_n_s_pyx_unpickle_Charsets, NULL, __pyx_n_s_sqlcycli_charset, __pyx_d, ((PyObject *)__pyx_codeobj__185)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_Charsets, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -19462,6 +18767,167 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg
 }
 #endif
 
+/* RaiseException */
+#if PY_MAJOR_VERSION < 3
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
+    __Pyx_PyThreadState_declare
+    CYTHON_UNUSED_VAR(cause);
+    Py_XINCREF(type);
+    if (!value || value == Py_None)
+        value = NULL;
+    else
+        Py_INCREF(value);
+    if (!tb || tb == Py_None)
+        tb = NULL;
+    else {
+        Py_INCREF(tb);
+        if (!PyTraceBack_Check(tb)) {
+            PyErr_SetString(PyExc_TypeError,
+                "raise: arg 3 must be a traceback or None");
+            goto raise_error;
+        }
+    }
+    if (PyType_Check(type)) {
+#if CYTHON_COMPILING_IN_PYPY
+        if (!value) {
+            Py_INCREF(Py_None);
+            value = Py_None;
+        }
+#endif
+        PyErr_NormalizeException(&type, &value, &tb);
+    } else {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto raise_error;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(type);
+        Py_INCREF(type);
+        if (!PyType_IsSubtype((PyTypeObject *)type, (PyTypeObject *)PyExc_BaseException)) {
+            PyErr_SetString(PyExc_TypeError,
+                "raise: exception class must be a subclass of BaseException");
+            goto raise_error;
+        }
+    }
+    __Pyx_PyThreadState_assign
+    __Pyx_ErrRestore(type, value, tb);
+    return;
+raise_error:
+    Py_XDECREF(value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+    return;
+}
+#else
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
+    PyObject* owned_instance = NULL;
+    if (tb == Py_None) {
+        tb = 0;
+    } else if (tb && !PyTraceBack_Check(tb)) {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: arg 3 must be a traceback or None");
+        goto bad;
+    }
+    if (value == Py_None)
+        value = 0;
+    if (PyExceptionInstance_Check(type)) {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto bad;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(value);
+    } else if (PyExceptionClass_Check(type)) {
+        PyObject *instance_class = NULL;
+        if (value && PyExceptionInstance_Check(value)) {
+            instance_class = (PyObject*) Py_TYPE(value);
+            if (instance_class != type) {
+                int is_subclass = PyObject_IsSubclass(instance_class, type);
+                if (!is_subclass) {
+                    instance_class = NULL;
+                } else if (unlikely(is_subclass == -1)) {
+                    goto bad;
+                } else {
+                    type = instance_class;
+                }
+            }
+        }
+        if (!instance_class) {
+            PyObject *args;
+            if (!value)
+                args = PyTuple_New(0);
+            else if (PyTuple_Check(value)) {
+                Py_INCREF(value);
+                args = value;
+            } else
+                args = PyTuple_Pack(1, value);
+            if (!args)
+                goto bad;
+            owned_instance = PyObject_Call(type, args, NULL);
+            Py_DECREF(args);
+            if (!owned_instance)
+                goto bad;
+            value = owned_instance;
+            if (!PyExceptionInstance_Check(value)) {
+                PyErr_Format(PyExc_TypeError,
+                             "calling %R should have returned an instance of "
+                             "BaseException, not %R",
+                             type, Py_TYPE(value));
+                goto bad;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: exception class must be a subclass of BaseException");
+        goto bad;
+    }
+    if (cause) {
+        PyObject *fixed_cause;
+        if (cause == Py_None) {
+            fixed_cause = NULL;
+        } else if (PyExceptionClass_Check(cause)) {
+            fixed_cause = PyObject_CallObject(cause, NULL);
+            if (fixed_cause == NULL)
+                goto bad;
+        } else if (PyExceptionInstance_Check(cause)) {
+            fixed_cause = cause;
+            Py_INCREF(fixed_cause);
+        } else {
+            PyErr_SetString(PyExc_TypeError,
+                            "exception causes must derive from "
+                            "BaseException");
+            goto bad;
+        }
+        PyException_SetCause(value, fixed_cause);
+    }
+    PyErr_SetObject(type, value);
+    if (tb) {
+      #if PY_VERSION_HEX >= 0x030C00A6
+        PyException_SetTraceback(value, tb);
+      #elif CYTHON_FAST_THREAD_STATE
+        PyThreadState *tstate = __Pyx_PyThreadState_Current;
+        PyObject* tmp_tb = tstate->curexc_traceback;
+        if (tb != tmp_tb) {
+            Py_INCREF(tb);
+            tstate->curexc_traceback = tb;
+            Py_XDECREF(tmp_tb);
+        }
+#else
+        PyObject *tmp_type, *tmp_value, *tmp_tb;
+        PyErr_Fetch(&tmp_type, &tmp_value, &tmp_tb);
+        Py_INCREF(tb);
+        PyErr_Restore(tmp_type, tmp_value, tb);
+        Py_XDECREF(tmp_tb);
+#endif
+    }
+bad:
+    Py_XDECREF(owned_instance);
+    return;
+}
+#endif
+
 /* UnpackUnboundCMethod */
 static PyObject *__Pyx_SelflessCall(PyObject *method, PyObject *args, PyObject *kwargs) {
     PyObject *result;
@@ -20152,6 +19618,64 @@ bad:
 #endif
 }
 
+/* ExtTypeTest */
+static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
+    __Pyx_TypeName obj_type_name;
+    __Pyx_TypeName type_name;
+    if (unlikely(!type)) {
+        PyErr_SetString(PyExc_SystemError, "Missing type object");
+        return 0;
+    }
+    if (likely(__Pyx_TypeCheck(obj, type)))
+        return 1;
+    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
+    type_name = __Pyx_PyType_GetName(type);
+    PyErr_Format(PyExc_TypeError,
+                 "Cannot convert " __Pyx_FMT_TYPENAME " to " __Pyx_FMT_TYPENAME,
+                 obj_type_name, type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    __Pyx_DECREF_TypeName(type_name);
+    return 0;
+}
+
+/* PyObjectCallOneArg */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg) {
+    PyObject *args[2] = {NULL, arg};
+    return __Pyx_PyObject_FastCall(func, args+1, 1 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
+}
+
+/* GetAttr3 */
+#if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
+static PyObject *__Pyx_GetAttr3Default(PyObject *d) {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (unlikely(!__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
+        return NULL;
+    __Pyx_PyErr_Clear();
+    Py_INCREF(d);
+    return d;
+}
+#endif
+static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject *d) {
+    PyObject *r;
+#if __PYX_LIMITED_VERSION_HEX >= 0x030d00A1
+    int res = PyObject_GetOptionalAttr(o, n, &r);
+    return (res != 0) ? r : __Pyx_NewRef(d);
+#else
+  #if CYTHON_USE_TYPE_SLOTS
+    if (likely(PyString_Check(n))) {
+        r = __Pyx_PyObject_GetAttrStrNoError(o, n);
+        if (unlikely(!r) && likely(!PyErr_Occurred())) {
+            r = __Pyx_NewRef(d);
+        }
+        return r;
+    }
+  #endif
+    r = PyObject_GetAttr(o, n);
+    return (likely(r)) ? r : __Pyx_GetAttr3Default(d);
+#endif
+}
+
 /* GetModuleGlobalName */
 #if CYTHON_USE_DICT_VERSIONS
 static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
@@ -20195,219 +19719,6 @@ static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
     return __Pyx_GetBuiltinName(name);
 }
 
-/* RaiseException */
-#if PY_MAJOR_VERSION < 3
-static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
-    __Pyx_PyThreadState_declare
-    CYTHON_UNUSED_VAR(cause);
-    Py_XINCREF(type);
-    if (!value || value == Py_None)
-        value = NULL;
-    else
-        Py_INCREF(value);
-    if (!tb || tb == Py_None)
-        tb = NULL;
-    else {
-        Py_INCREF(tb);
-        if (!PyTraceBack_Check(tb)) {
-            PyErr_SetString(PyExc_TypeError,
-                "raise: arg 3 must be a traceback or None");
-            goto raise_error;
-        }
-    }
-    if (PyType_Check(type)) {
-#if CYTHON_COMPILING_IN_PYPY
-        if (!value) {
-            Py_INCREF(Py_None);
-            value = Py_None;
-        }
-#endif
-        PyErr_NormalizeException(&type, &value, &tb);
-    } else {
-        if (value) {
-            PyErr_SetString(PyExc_TypeError,
-                "instance exception may not have a separate value");
-            goto raise_error;
-        }
-        value = type;
-        type = (PyObject*) Py_TYPE(type);
-        Py_INCREF(type);
-        if (!PyType_IsSubtype((PyTypeObject *)type, (PyTypeObject *)PyExc_BaseException)) {
-            PyErr_SetString(PyExc_TypeError,
-                "raise: exception class must be a subclass of BaseException");
-            goto raise_error;
-        }
-    }
-    __Pyx_PyThreadState_assign
-    __Pyx_ErrRestore(type, value, tb);
-    return;
-raise_error:
-    Py_XDECREF(value);
-    Py_XDECREF(type);
-    Py_XDECREF(tb);
-    return;
-}
-#else
-static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
-    PyObject* owned_instance = NULL;
-    if (tb == Py_None) {
-        tb = 0;
-    } else if (tb && !PyTraceBack_Check(tb)) {
-        PyErr_SetString(PyExc_TypeError,
-            "raise: arg 3 must be a traceback or None");
-        goto bad;
-    }
-    if (value == Py_None)
-        value = 0;
-    if (PyExceptionInstance_Check(type)) {
-        if (value) {
-            PyErr_SetString(PyExc_TypeError,
-                "instance exception may not have a separate value");
-            goto bad;
-        }
-        value = type;
-        type = (PyObject*) Py_TYPE(value);
-    } else if (PyExceptionClass_Check(type)) {
-        PyObject *instance_class = NULL;
-        if (value && PyExceptionInstance_Check(value)) {
-            instance_class = (PyObject*) Py_TYPE(value);
-            if (instance_class != type) {
-                int is_subclass = PyObject_IsSubclass(instance_class, type);
-                if (!is_subclass) {
-                    instance_class = NULL;
-                } else if (unlikely(is_subclass == -1)) {
-                    goto bad;
-                } else {
-                    type = instance_class;
-                }
-            }
-        }
-        if (!instance_class) {
-            PyObject *args;
-            if (!value)
-                args = PyTuple_New(0);
-            else if (PyTuple_Check(value)) {
-                Py_INCREF(value);
-                args = value;
-            } else
-                args = PyTuple_Pack(1, value);
-            if (!args)
-                goto bad;
-            owned_instance = PyObject_Call(type, args, NULL);
-            Py_DECREF(args);
-            if (!owned_instance)
-                goto bad;
-            value = owned_instance;
-            if (!PyExceptionInstance_Check(value)) {
-                PyErr_Format(PyExc_TypeError,
-                             "calling %R should have returned an instance of "
-                             "BaseException, not %R",
-                             type, Py_TYPE(value));
-                goto bad;
-            }
-        }
-    } else {
-        PyErr_SetString(PyExc_TypeError,
-            "raise: exception class must be a subclass of BaseException");
-        goto bad;
-    }
-    if (cause) {
-        PyObject *fixed_cause;
-        if (cause == Py_None) {
-            fixed_cause = NULL;
-        } else if (PyExceptionClass_Check(cause)) {
-            fixed_cause = PyObject_CallObject(cause, NULL);
-            if (fixed_cause == NULL)
-                goto bad;
-        } else if (PyExceptionInstance_Check(cause)) {
-            fixed_cause = cause;
-            Py_INCREF(fixed_cause);
-        } else {
-            PyErr_SetString(PyExc_TypeError,
-                            "exception causes must derive from "
-                            "BaseException");
-            goto bad;
-        }
-        PyException_SetCause(value, fixed_cause);
-    }
-    PyErr_SetObject(type, value);
-    if (tb) {
-      #if PY_VERSION_HEX >= 0x030C00A6
-        PyException_SetTraceback(value, tb);
-      #elif CYTHON_FAST_THREAD_STATE
-        PyThreadState *tstate = __Pyx_PyThreadState_Current;
-        PyObject* tmp_tb = tstate->curexc_traceback;
-        if (tb != tmp_tb) {
-            Py_INCREF(tb);
-            tstate->curexc_traceback = tb;
-            Py_XDECREF(tmp_tb);
-        }
-#else
-        PyObject *tmp_type, *tmp_value, *tmp_tb;
-        PyErr_Fetch(&tmp_type, &tmp_value, &tmp_tb);
-        Py_INCREF(tb);
-        PyErr_Restore(tmp_type, tmp_value, tb);
-        Py_XDECREF(tmp_tb);
-#endif
-    }
-bad:
-    Py_XDECREF(owned_instance);
-    return;
-}
-#endif
-
-/* GetAttr3 */
-#if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
-static PyObject *__Pyx_GetAttr3Default(PyObject *d) {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    if (unlikely(!__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
-        return NULL;
-    __Pyx_PyErr_Clear();
-    Py_INCREF(d);
-    return d;
-}
-#endif
-static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject *d) {
-    PyObject *r;
-#if __PYX_LIMITED_VERSION_HEX >= 0x030d00A1
-    int res = PyObject_GetOptionalAttr(o, n, &r);
-    return (res != 0) ? r : __Pyx_NewRef(d);
-#else
-  #if CYTHON_USE_TYPE_SLOTS
-    if (likely(PyString_Check(n))) {
-        r = __Pyx_PyObject_GetAttrStrNoError(o, n);
-        if (unlikely(!r) && likely(!PyErr_Occurred())) {
-            r = __Pyx_NewRef(d);
-        }
-        return r;
-    }
-  #endif
-    r = PyObject_GetAttr(o, n);
-    return (likely(r)) ? r : __Pyx_GetAttr3Default(d);
-#endif
-}
-
-/* ExtTypeTest */
-static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
-    __Pyx_TypeName obj_type_name;
-    __Pyx_TypeName type_name;
-    if (unlikely(!type)) {
-        PyErr_SetString(PyExc_SystemError, "Missing type object");
-        return 0;
-    }
-    if (likely(__Pyx_TypeCheck(obj, type)))
-        return 1;
-    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
-    type_name = __Pyx_PyType_GetName(type);
-    PyErr_Format(PyExc_TypeError,
-                 "Cannot convert " __Pyx_FMT_TYPENAME " to " __Pyx_FMT_TYPENAME,
-                 obj_type_name, type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    __Pyx_DECREF_TypeName(type_name);
-    return 0;
-}
-
 /* py_dict_values */
 static CYTHON_INLINE PyObject* __Pyx_PyDict_Values(PyObject* d) {
     if (PY_MAJOR_VERSION >= 3)
@@ -20435,12 +19746,6 @@ static CYTHON_INLINE int __Pyx_IterFinish(void) {
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func) {
     PyObject *arg[2] = {NULL, NULL};
     return __Pyx_PyObject_FastCall(func, arg + 1, 0 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
-}
-
-/* PyObjectCallOneArg */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg) {
-    PyObject *args[2] = {NULL, arg};
-    return __Pyx_PyObject_FastCall(func, args+1, 1 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
 
 /* PyObjectGetMethod */
@@ -20968,7 +20273,7 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
         if (unlikely(!module_name_str)) { goto modbad; }
         module_name = PyUnicode_FromString(module_name_str);
         if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__8);
+        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__11);
         if (unlikely(!module_dot)) { goto modbad; }
         full_name = PyUnicode_Concat(module_dot, name);
         if (unlikely(!full_name)) { goto modbad; }
@@ -23808,7 +23113,7 @@ __Pyx_PyType_GetName(PyTypeObject* tp)
     if (unlikely(name == NULL) || unlikely(!PyUnicode_Check(name))) {
         PyErr_Clear();
         Py_XDECREF(name);
-        name = __Pyx_NewRef(__pyx_n_s__183);
+        name = __Pyx_NewRef(__pyx_n_s__186);
     }
     return name;
 }

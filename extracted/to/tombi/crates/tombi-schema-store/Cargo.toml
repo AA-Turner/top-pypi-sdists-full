@@ -24,6 +24,7 @@ surf = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true
 tombi-ast.workspace = true
+tombi-cache.workspace = true
 tombi-config.workspace = true
 tombi-document.workspace = true
 tombi-document-tree.workspace = true
@@ -40,9 +41,8 @@ pretty_assertions.workspace = true
 rstest.workspace = true
 
 [features]
-default = ["native"]
 gloo-net06 = ["dep:gloo-net"]
-native = ["reqwest01"]
+native = ["reqwest01", "tombi-future/native"]
 reqwest01 = ["dep:reqwest"]
 surf2 = ["dep:surf"]
-wasm = ["gloo-net06"]
+wasm = ["gloo-net06", "tombi-future/wasm"]

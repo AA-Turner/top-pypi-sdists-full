@@ -13,7 +13,7 @@
             "-Wno-unreachable-code"
         ],
         "include_dirs": [
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "sqlcycli.protocol",
         "sources": [
@@ -1533,10 +1533,11 @@ struct __pyx_obj_8sqlcycli_7charset_Charset {
   PyObject *_encoding;
   char *_encoding_c;
   int _is_default;
+  Py_ssize_t _hashcode;
 };
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1604,7 +1605,7 @@ struct __pyx_obj_8sqlcycli_8protocol_FieldDescriptorPacket {
 };
 
 
-/* "sqlcycli/protocol.py":636
+/* "sqlcycli/protocol.py":669
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, v) for k, v in reprs.items()),             # <<<<<<<<<<<<<<
@@ -1633,7 +1634,7 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charset {
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcycli_7charset_Charset;
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1643,10 +1644,10 @@ static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcyc
 
 struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
   int (*add)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *, int __pyx_skip_dispatch);
-  int (*_add_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
   PyObject *(*_gen_charset_n_collate_key)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
@@ -1660,8 +1661,8 @@ static struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets *__pyx_vtabptr_8sqlcy
  * # MySQL Packet --------------------------------------------------------------------------------
  * @cython.cclass
  * class MysqlPacket:             # <<<<<<<<<<<<<<
- *     """Represents the MySQL response packet. Reads in the packet
- *     from the network socket, removes packet header and provides an
+ *     """Represents a raw MySQL protocol packet, providing methods to
+ *     parse and interpret packet contents (OK, ERR, EOF, AuthSwitch,
  */
 
 struct __pyx_vtabstruct_8sqlcycli_8protocol_MysqlPacket {
@@ -1714,12 +1715,12 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
 static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_raise_error(struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *);
 
 
-/* "sqlcycli/protocol.py":456
+/* "sqlcycli/protocol.py":459
  * 
  * @cython.cclass
  * class FieldDescriptorPacket(MysqlPacket):             # <<<<<<<<<<<<<<
- *     """Represents the MySQL response packet which
- *     contains column's metadata in the result. Parsing
+ *     """Represent a column's metadata packet in a MySQL result set.
+ * 
  */
 
 struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket {
@@ -2912,8 +2913,6 @@ static const char __pyx_k_FieldDescriptorPacket_descriptio[] = "FieldDescriptorP
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x7f51f59, 0x519feb7, 0x75fd0fc) = (_affected_rows, _data, _data_c, _encoding, _filename, _has_next, _insert_id, _message, _plugin_name, _pos, _salt, _server_status, _size, _warning_count))";
 static const char __pyx_k_MysqlPacket_read_auth_switch_req[] = "MysqlPacket.read_auth_switch_request";
 static const char __pyx_k_MysqlPacket_read_load_local_pack[] = "MysqlPacket.read_load_local_packet";
-static const char __pyx_k_Provides_a_7_item_tuple_compatib[] = "Provides a 7-item tuple compatible with the Python PEP249 DB Spec `<'tuple'>`.\n        >>> (name, type_code, display_length, internal_size, precision, scale, null_ok)\n        ";
-static const char __pyx_k_FieldDescriptorPacket_descriptio_2[] = "FieldDescriptorPacket.description (line 586)";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0_2[] = "Incompatible checksums (0x%x vs (0x5f50933, 0x89282bb, 0x4aae0bc) = (_affected_rows, _catalog, _charsetnr, _column, _column_org, _data, _data_c, _db, _encoding, _filename, _flags, _has_next, _insert_id, _is_binary, _length, _message, _plugin_name, _pos, _salt, _scale, _server_status, _size, _table, _table_org, _type_code, _warning_count))";
 /* #### Code section: decls ### */
 static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *__pyx_v_self, PyObject *__pyx_v_data, PyObject *__pyx_v_encoding); /* proto */
@@ -3043,7 +3042,6 @@ typedef struct {
   PyObject *__pyx_n_s_FieldDescriptorPacket___reduce_c;
   PyObject *__pyx_n_s_FieldDescriptorPacket___setstate;
   PyObject *__pyx_n_s_FieldDescriptorPacket_descriptio;
-  PyObject *__pyx_kp_u_FieldDescriptorPacket_descriptio_2;
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0;
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2;
   PyObject *__pyx_n_s_InvalidSQLArgsErorr;
@@ -3059,7 +3057,6 @@ typedef struct {
   PyObject *__pyx_n_s_MysqlPacket_read_ok_packet;
   PyObject *__pyx_kp_u_None;
   PyObject *__pyx_n_s_PickleError;
-  PyObject *__pyx_kp_u_Provides_a_7_item_tuple_compatib;
   PyObject *__pyx_kp_u_Requested_data_size_overflow_Ex;
   PyObject *__pyx_n_s_SERVER_STATUS;
   PyObject *__pyx_kp_u_With;
@@ -3234,7 +3231,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_FieldDescriptorPacket___reduce_c);
   Py_CLEAR(clear_module_state->__pyx_n_s_FieldDescriptorPacket___setstate);
   Py_CLEAR(clear_module_state->__pyx_n_s_FieldDescriptorPacket_descriptio);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_FieldDescriptorPacket_descriptio_2);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2);
   Py_CLEAR(clear_module_state->__pyx_n_s_InvalidSQLArgsErorr);
@@ -3250,7 +3246,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_MysqlPacket_read_ok_packet);
   Py_CLEAR(clear_module_state->__pyx_kp_u_None);
   Py_CLEAR(clear_module_state->__pyx_n_s_PickleError);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Provides_a_7_item_tuple_compatib);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Requested_data_size_overflow_Ex);
   Py_CLEAR(clear_module_state->__pyx_n_s_SERVER_STATUS);
   Py_CLEAR(clear_module_state->__pyx_kp_u_With);
@@ -3403,7 +3398,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_FieldDescriptorPacket___reduce_c);
   Py_VISIT(traverse_module_state->__pyx_n_s_FieldDescriptorPacket___setstate);
   Py_VISIT(traverse_module_state->__pyx_n_s_FieldDescriptorPacket_descriptio);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_FieldDescriptorPacket_descriptio_2);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2);
   Py_VISIT(traverse_module_state->__pyx_n_s_InvalidSQLArgsErorr);
@@ -3419,7 +3413,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_MysqlPacket_read_ok_packet);
   Py_VISIT(traverse_module_state->__pyx_kp_u_None);
   Py_VISIT(traverse_module_state->__pyx_n_s_PickleError);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Provides_a_7_item_tuple_compatib);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Requested_data_size_overflow_Ex);
   Py_VISIT(traverse_module_state->__pyx_n_s_SERVER_STATUS);
   Py_VISIT(traverse_module_state->__pyx_kp_u_With);
@@ -3616,7 +3609,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_FieldDescriptorPacket___reduce_c __pyx_mstate_global->__pyx_n_s_FieldDescriptorPacket___reduce_c
 #define __pyx_n_s_FieldDescriptorPacket___setstate __pyx_mstate_global->__pyx_n_s_FieldDescriptorPacket___setstate
 #define __pyx_n_s_FieldDescriptorPacket_descriptio __pyx_mstate_global->__pyx_n_s_FieldDescriptorPacket_descriptio
-#define __pyx_kp_u_FieldDescriptorPacket_descriptio_2 __pyx_mstate_global->__pyx_kp_u_FieldDescriptorPacket_descriptio_2
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2
 #define __pyx_n_s_InvalidSQLArgsErorr __pyx_mstate_global->__pyx_n_s_InvalidSQLArgsErorr
@@ -3632,7 +3624,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_MysqlPacket_read_ok_packet __pyx_mstate_global->__pyx_n_s_MysqlPacket_read_ok_packet
 #define __pyx_kp_u_None __pyx_mstate_global->__pyx_kp_u_None
 #define __pyx_n_s_PickleError __pyx_mstate_global->__pyx_n_s_PickleError
-#define __pyx_kp_u_Provides_a_7_item_tuple_compatib __pyx_mstate_global->__pyx_kp_u_Provides_a_7_item_tuple_compatib
 #define __pyx_kp_u_Requested_data_size_overflow_Ex __pyx_mstate_global->__pyx_kp_u_Requested_data_size_overflow_Ex
 #define __pyx_n_s_SERVER_STATUS __pyx_mstate_global->__pyx_n_s_SERVER_STATUS
 #define __pyx_kp_u_With __pyx_mstate_global->__pyx_kp_u_With
@@ -6487,17 +6478,17 @@ static CYTHON_INLINE PY_LONG_LONG __pyx_f_8sqlcycli_5utils_unpack_int64(char *__
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":43
+/* "sqlcycli/protocol.py":44
  *     _salt: bytes
  * 
  *     def __init__(self, data: bytes, encoding: bytes) -> None:             # <<<<<<<<<<<<<<
- *         """The MySQL response packet. Reads in the packet from the
- *         network socket, removes packet header and provides an interface
+ *         """The raw MySQL protocol packet, providing methods to
+ *         parse and interpret packet contents (OK, ERR, EOF, AuthSwitch,
  */
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket___init__, "The MySQL response packet. Reads in the packet from the\n        network socket, removes packet header and provides an interface\n        for reading/parsing the packet results.\n\n        :param data `<'bytes'>`: The raw data of the packet.\n        :param encoding `<'bytes'>`: The encoding of the packet data.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket___init__, "The raw MySQL protocol packet, providing methods to\n        parse and interpret packet contents (OK, ERR, EOF, AuthSwitch,\n        Resultset, etc.).\n\n        :param data `<'bytes'>`: The raw packet payload (excluding the 4-byte header).\n        :param encoding `<'bytes'>`: The encoding of the packet data.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_8protocol_11MysqlPacket___init__;
 #endif
@@ -6538,7 +6529,7 @@ static int __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_1__init__(PyObject *__pyx_
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 43, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 44, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -6546,14 +6537,14 @@ static int __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_1__init__(PyObject *__pyx_
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 43, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 44, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(1, 43, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(1, 44, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(1, 43, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(1, 44, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -6566,7 +6557,7 @@ static int __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_1__init__(PyObject *__pyx_
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(1, 43, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(1, 44, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6580,8 +6571,8 @@ static int __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_1__init__(PyObject *__pyx_
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 0, "data", 1))) __PYX_ERR(1, 43, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_encoding), (&PyBytes_Type), 0, "encoding", 1))) __PYX_ERR(1, 43, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 0, "data", 1))) __PYX_ERR(1, 44, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_encoding), (&PyBytes_Type), 0, "encoding", 1))) __PYX_ERR(1, 44, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self), __pyx_v_data, __pyx_v_encoding);
 
   /* function exit code */
@@ -6609,7 +6600,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/protocol.py":52
+  /* "sqlcycli/protocol.py":53
  *         """
  *         # Raw Data
  *         self._data = data             # <<<<<<<<<<<<<<
@@ -6622,37 +6613,37 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_data);
   __pyx_v_self->_data = __pyx_v_data;
 
-  /* "sqlcycli/protocol.py":53
+  /* "sqlcycli/protocol.py":54
  *         # Raw Data
  *         self._data = data
  *         self._data_c = bytes_to_chars(data)             # <<<<<<<<<<<<<<
  *         self._encoding = bytes_to_chars(encoding)
  *         self._size = bytes_len(data)
  */
-  __pyx_t_1 = PyBytes_AsString(__pyx_v_data); if (unlikely(__pyx_t_1 == ((char *)NULL))) __PYX_ERR(1, 53, __pyx_L1_error)
+  __pyx_t_1 = PyBytes_AsString(__pyx_v_data); if (unlikely(__pyx_t_1 == ((char *)NULL))) __PYX_ERR(1, 54, __pyx_L1_error)
   __pyx_v_self->_data_c = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":54
+  /* "sqlcycli/protocol.py":55
  *         self._data = data
  *         self._data_c = bytes_to_chars(data)
  *         self._encoding = bytes_to_chars(encoding)             # <<<<<<<<<<<<<<
  *         self._size = bytes_len(data)
  *         self._pos = 0
  */
-  __pyx_t_1 = PyBytes_AsString(__pyx_v_encoding); if (unlikely(__pyx_t_1 == ((char *)NULL))) __PYX_ERR(1, 54, __pyx_L1_error)
+  __pyx_t_1 = PyBytes_AsString(__pyx_v_encoding); if (unlikely(__pyx_t_1 == ((char *)NULL))) __PYX_ERR(1, 55, __pyx_L1_error)
   __pyx_v_self->_encoding = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":55
+  /* "sqlcycli/protocol.py":56
  *         self._data_c = bytes_to_chars(data)
  *         self._encoding = bytes_to_chars(encoding)
  *         self._size = bytes_len(data)             # <<<<<<<<<<<<<<
  *         self._pos = 0
  *         # Packet Data
  */
-  __pyx_t_2 = PyBytes_Size(__pyx_v_data); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 55, __pyx_L1_error)
+  __pyx_t_2 = PyBytes_Size(__pyx_v_data); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 56, __pyx_L1_error)
   __pyx_v_self->_size = __pyx_t_2;
 
-  /* "sqlcycli/protocol.py":56
+  /* "sqlcycli/protocol.py":57
  *         self._encoding = bytes_to_chars(encoding)
  *         self._size = bytes_len(data)
  *         self._pos = 0             # <<<<<<<<<<<<<<
@@ -6661,7 +6652,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
  */
   __pyx_v_self->_pos = 0;
 
-  /* "sqlcycli/protocol.py":58
+  /* "sqlcycli/protocol.py":59
  *         self._pos = 0
  *         # Packet Data
  *         self._affected_rows = 0             # <<<<<<<<<<<<<<
@@ -6670,7 +6661,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
  */
   __pyx_v_self->_affected_rows = 0;
 
-  /* "sqlcycli/protocol.py":59
+  /* "sqlcycli/protocol.py":60
  *         # Packet Data
  *         self._affected_rows = 0
  *         self._insert_id = 0             # <<<<<<<<<<<<<<
@@ -6679,7 +6670,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
  */
   __pyx_v_self->_insert_id = 0;
 
-  /* "sqlcycli/protocol.py":60
+  /* "sqlcycli/protocol.py":61
  *         self._affected_rows = 0
  *         self._insert_id = 0
  *         self._server_status = -1             # <<<<<<<<<<<<<<
@@ -6688,7 +6679,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
  */
   __pyx_v_self->_server_status = -1;
 
-  /* "sqlcycli/protocol.py":61
+  /* "sqlcycli/protocol.py":62
  *         self._insert_id = 0
  *         self._server_status = -1
  *         self._warning_count = 0             # <<<<<<<<<<<<<<
@@ -6697,7 +6688,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
  */
   __pyx_v_self->_warning_count = 0;
 
-  /* "sqlcycli/protocol.py":62
+  /* "sqlcycli/protocol.py":63
  *         self._server_status = -1
  *         self._warning_count = 0
  *         self._has_next = False             # <<<<<<<<<<<<<<
@@ -6706,7 +6697,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
  */
   __pyx_v_self->_has_next = 0;
 
-  /* "sqlcycli/protocol.py":63
+  /* "sqlcycli/protocol.py":64
  *         self._warning_count = 0
  *         self._has_next = False
  *         self._message = None             # <<<<<<<<<<<<<<
@@ -6719,7 +6710,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_message);
   __pyx_v_self->_message = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":64
+  /* "sqlcycli/protocol.py":65
  *         self._has_next = False
  *         self._message = None
  *         self._filename = None             # <<<<<<<<<<<<<<
@@ -6732,7 +6723,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_filename);
   __pyx_v_self->_filename = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":65
+  /* "sqlcycli/protocol.py":66
  *         self._message = None
  *         self._filename = None
  *         self._plugin_name = None             # <<<<<<<<<<<<<<
@@ -6745,7 +6736,7 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_plugin_name);
   __pyx_v_self->_plugin_name = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":66
+  /* "sqlcycli/protocol.py":67
  *         self._filename = None
  *         self._plugin_name = None
  *         self._salt = None             # <<<<<<<<<<<<<<
@@ -6758,12 +6749,12 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   __Pyx_DECREF(__pyx_v_self->_salt);
   __pyx_v_self->_salt = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":43
+  /* "sqlcycli/protocol.py":44
  *     _salt: bytes
  * 
  *     def __init__(self, data: bytes, encoding: bytes) -> None:             # <<<<<<<<<<<<<<
- *         """The MySQL response packet. Reads in the packet from the
- *         network socket, removes packet header and provides an interface
+ *         """The raw MySQL protocol packet, providing methods to
+ *         parse and interpret packet contents (OK, ERR, EOF, AuthSwitch,
  */
 
   /* function exit code */
@@ -6777,12 +6768,12 @@ static int __pyx_pf_8sqlcycli_8protocol_11MysqlPacket___init__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":69
+/* "sqlcycli/protocol.py":70
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def affected_rows(self) -> int:
- *         """The number of affected rows by the query `<'int'>`.
+ *         """Number of rows affected by the last DML statement `<'int'>`.
  */
 
 /* Python wrapper */
@@ -6809,26 +6800,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13affected_rows___ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":75
- *         Only valid for OKPacket after 'read_*()', else returns 0.
+  /* "sqlcycli/protocol.py":76
+ *         - Only valid after reading an OK packet.
  *         """
  *         return self._affected_rows             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_affected_rows); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 75, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_affected_rows); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":69
+  /* "sqlcycli/protocol.py":70
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def affected_rows(self) -> int:
- *         """The number of affected rows by the query `<'int'>`.
+ *         """Number of rows affected by the last DML statement `<'int'>`.
  */
 
   /* function exit code */
@@ -6842,12 +6833,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13affected_rows___ge
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":77
+/* "sqlcycli/protocol.py":78
  *         return self._affected_rows
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def insert_id(self) -> int:
- *         """The last insert id of the query `<'int'>`.
+ *         """Last-inserted auto-increment ID from an INSERT `<'int'>`.
  */
 
 /* Python wrapper */
@@ -6874,26 +6865,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_9insert_id___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":83
- *         Only valid for OKPacketafter 'read', else returns 0.
+  /* "sqlcycli/protocol.py":84
+ *         - Only valid after reading an OK packet.
  *         """
  *         return self._insert_id             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_insert_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 83, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_insert_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 84, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":77
+  /* "sqlcycli/protocol.py":78
  *         return self._affected_rows
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def insert_id(self) -> int:
- *         """The last insert id of the query `<'int'>`.
+ *         """Last-inserted auto-increment ID from an INSERT `<'int'>`.
  */
 
   /* function exit code */
@@ -6907,12 +6898,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_9insert_id___get__(s
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":85
+/* "sqlcycli/protocol.py":86
  *         return self._insert_id
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def server_status(self) -> int | None:
- *         """The server status of the query `<'int/None'>`.
+ *         """The server status flag `<'int/None'>`.
  */
 
 /* Python wrapper */
@@ -6941,8 +6932,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13server_status___ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":91
- *         Valid for OKPacket, EOFPacket after 'read_*()', else returns None.
+  /* "sqlcycli/protocol.py":92
+ *         - Only valid after reading an OKPacket or EOFPacket.
  *         """
  *         return None if self._server_status == -1 else self._server_status             # <<<<<<<<<<<<<<
  * 
@@ -6954,7 +6945,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13server_status___ge
     __Pyx_INCREF(Py_None);
     __pyx_t_1 = Py_None;
   } else {
-    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->_server_status); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 91, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->_server_status); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 92, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -6963,12 +6954,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13server_status___ge
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":85
+  /* "sqlcycli/protocol.py":86
  *         return self._insert_id
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def server_status(self) -> int | None:
- *         """The server status of the query `<'int/None'>`.
+ *         """The server status flag `<'int/None'>`.
  */
 
   /* function exit code */
@@ -6983,12 +6974,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13server_status___ge
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":93
+/* "sqlcycli/protocol.py":94
  *         return None if self._server_status == -1 else self._server_status
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def warning_count(self) -> int:
- *         """The number of warnings raised by the query `<'int'>`.
+ *         """Number of warnings generated by the last statement. `<'int'>`.
  */
 
 /* Python wrapper */
@@ -7015,26 +7006,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13warning_count___ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":99
- *         Only valid for OKPacket after 'read_*()', else returns 0.
+  /* "sqlcycli/protocol.py":100
+ *         - Only valid after reading an OK packet.
  *         """
  *         return self._warning_count             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_warning_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 99, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_warning_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":93
+  /* "sqlcycli/protocol.py":94
  *         return None if self._server_status == -1 else self._server_status
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def warning_count(self) -> int:
- *         """The number of warnings raised by the query `<'int'>`.
+ *         """Number of warnings generated by the last statement. `<'int'>`.
  */
 
   /* function exit code */
@@ -7048,12 +7039,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_13warning_count___ge
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":101
+/* "sqlcycli/protocol.py":102
  *         return self._warning_count
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def has_next(self) -> bool:
- *         """The flag represents if there is more result exists `<'bool'>`.
+ *         """Whether more result sets are available `<'bool'>`.
  */
 
 /* Python wrapper */
@@ -7080,26 +7071,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8has_next___get__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":107
- *         Only valid for OKPacket, EOFPacket after 'read_*()', else returns False.
+  /* "sqlcycli/protocol.py":108
+ *         - Only valid after reading an OKPacket or EOFPacket.
  *         """
  *         return self._has_next             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_has_next); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 107, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_has_next); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 108, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":101
+  /* "sqlcycli/protocol.py":102
  *         return self._warning_count
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def has_next(self) -> bool:
- *         """The flag represents if there is more result exists `<'bool'>`.
+ *         """Whether more result sets are available `<'bool'>`.
  */
 
   /* function exit code */
@@ -7113,12 +7104,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8has_next___get__(st
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":109
+/* "sqlcycli/protocol.py":110
  *         return self._has_next
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def message(self) -> bytes | None:
- *         """The message of the query `<'bytes/None'>`.
+ *         """Text message from an OK or Error packet `<'bytes/None'>`.
  */
 
 /* Python wrapper */
@@ -7141,8 +7132,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_7message___get__(str
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":115
- *         Only valid for OKPacket after 'read_*()', else returns None.
+  /* "sqlcycli/protocol.py":116
+ *         - Only valid after reading an OK packet.
  *         """
  *         return self._message             # <<<<<<<<<<<<<<
  * 
@@ -7153,12 +7144,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_7message___get__(str
   __pyx_r = __pyx_v_self->_message;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":109
+  /* "sqlcycli/protocol.py":110
  *         return self._has_next
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def message(self) -> bytes | None:
- *         """The message of the query `<'bytes/None'>`.
+ *         """Text message from an OK or Error packet `<'bytes/None'>`.
  */
 
   /* function exit code */
@@ -7168,12 +7159,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_7message___get__(str
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":117
+/* "sqlcycli/protocol.py":118
  *         return self._message
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def filename(self) -> bytes | None:
- *         """The filename of local file to be load `<'bytes/None'>`.
+ *         """Filename specified in a LOAD DATA LOCAL INFILE packet `<'bytes/None'>`.
  */
 
 /* Python wrapper */
@@ -7196,8 +7187,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8filename___get__(st
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":123
- *         Only valid for LoadLocalPacket after 'read_*()', else returns None.
+  /* "sqlcycli/protocol.py":124
+ *         - Only valid after reading a LoadLocalPacket.
  *         """
  *         return self._filename             # <<<<<<<<<<<<<<
  * 
@@ -7208,12 +7199,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8filename___get__(st
   __pyx_r = __pyx_v_self->_filename;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":117
+  /* "sqlcycli/protocol.py":118
  *         return self._message
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def filename(self) -> bytes | None:
- *         """The filename of local file to be load `<'bytes/None'>`.
+ *         """Filename specified in a LOAD DATA LOCAL INFILE packet `<'bytes/None'>`.
  */
 
   /* function exit code */
@@ -7223,12 +7214,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8filename___get__(st
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":125
+/* "sqlcycli/protocol.py":126
  *         return self._filename
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def plugin_name(self) -> bytes | None:
- *         """The plugin name for authentication switch `<'bytes/None'>`.
+ *         """Authentication plugin name from an AuthSwitchRequest packet `<'bytes/None'>`.
  */
 
 /* Python wrapper */
@@ -7251,8 +7242,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_11plugin_name___get_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":131
- *         Only valid for AuthSwitchRequest after 'read_*()', else returns None.
+  /* "sqlcycli/protocol.py":132
+ *         - Only valid after reading an AuthSwitchRequest.
  *         """
  *         return self._plugin_name             # <<<<<<<<<<<<<<
  * 
@@ -7263,12 +7254,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_11plugin_name___get_
   __pyx_r = __pyx_v_self->_plugin_name;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":125
+  /* "sqlcycli/protocol.py":126
  *         return self._filename
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def plugin_name(self) -> bytes | None:
- *         """The plugin name for authentication switch `<'bytes/None'>`.
+ *         """Authentication plugin name from an AuthSwitchRequest packet `<'bytes/None'>`.
  */
 
   /* function exit code */
@@ -7278,12 +7269,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_11plugin_name___get_
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":133
+/* "sqlcycli/protocol.py":134
  *         return self._plugin_name
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def salt(self) -> bytes | None:
- *         """The salt for authentication switch `<'bytes/None'>`.
+ *         """Authentication salt/challenge from an AuthSwitchRequest packet `<'bytes/None'>`.
  */
 
 /* Python wrapper */
@@ -7306,8 +7297,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_4salt___get__(struct
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":139
- *         Only valid for AuthSwitchRequest after 'read_*()', else returns None.
+  /* "sqlcycli/protocol.py":140
+ *         - Only valid after reading an AuthSwitchRequest.
  *         """
  *         return self._salt             # <<<<<<<<<<<<<<
  * 
@@ -7318,12 +7309,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_4salt___get__(struct
   __pyx_r = __pyx_v_self->_salt;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":133
+  /* "sqlcycli/protocol.py":134
  *         return self._plugin_name
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def salt(self) -> bytes | None:
- *         """The salt for authentication switch `<'bytes/None'>`.
+ *         """Authentication salt/challenge from an AuthSwitchRequest packet `<'bytes/None'>`.
  */
 
   /* function exit code */
@@ -7333,7 +7324,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_4salt___get__(struct
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":142
+/* "sqlcycli/protocol.py":143
  * 
  *     # Read Data -------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7346,9 +7337,9 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_al
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("read_all_data", 1);
 
-  /* "sqlcycli/protocol.py":147
- *         """(cfunc) Read all of the data at once without
- *         affecting packet cursor position `<'bytes'>`."""
+  /* "sqlcycli/protocol.py":149
+ *         without advancing the cursor `<'bytes'>`.
+ *         """
  *         return self._data             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
@@ -7358,7 +7349,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_al
   __pyx_r = __pyx_v_self->_data;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":142
+  /* "sqlcycli/protocol.py":143
  * 
  *     # Read Data -------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7373,7 +7364,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_al
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":149
+/* "sqlcycli/protocol.py":151
  *         return self._data
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7401,9 +7392,9 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read", 1);
 
-  /* "sqlcycli/protocol.py":154
- *         """(cfunc) Read data of the given 'size' from the current packet
- *         cursor position and advance cursor forward `<'bytes'>`."""
+  /* "sqlcycli/protocol.py":161
+ *         :raises `MysqlPacketCursorError`: If reading past end of packet.
+ *         """
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         end: cython.ulonglong = pos + size
  *         if end > self._size:
@@ -7411,8 +7402,8 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":155
- *         cursor position and advance cursor forward `<'bytes'>`."""
+  /* "sqlcycli/protocol.py":162
+ *         """
  *         pos: cython.ulonglong = self._pos
  *         end: cython.ulonglong = pos + size             # <<<<<<<<<<<<<<
  *         if end > self._size:
@@ -7420,7 +7411,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
  */
   __pyx_v_end = (__pyx_v_pos + __pyx_v_size);
 
-  /* "sqlcycli/protocol.py":156
+  /* "sqlcycli/protocol.py":163
  *         pos: cython.ulonglong = self._pos
  *         end: cython.ulonglong = pos + size
  *         if end > self._size:             # <<<<<<<<<<<<<<
@@ -7430,27 +7421,27 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
   __pyx_t_2 = (__pyx_v_end > __pyx_v_self->_size);
   if (unlikely(__pyx_t_2)) {
 
-    /* "sqlcycli/protocol.py":157
+    /* "sqlcycli/protocol.py":164
  *         end: cython.ulonglong = pos + size
  *         if end > self._size:
  *             raise errors.MysqlPacketCursorError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nRequested data size overflow:\n"
  *                 "Expected Size=%d | Current Position: %d | Data Length: %d"
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_errors); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 157, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_errors); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_MysqlPacketCursorError); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 157, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_MysqlPacketCursorError); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "sqlcycli/protocol.py":158
+    /* "sqlcycli/protocol.py":165
  *         if end > self._size:
  *             raise errors.MysqlPacketCursorError(
  *                 "<'%s'>\nRequested data size overflow:\n"             # <<<<<<<<<<<<<<
  *                 "Expected Size=%d | Current Position: %d | Data Length: %d"
  *                 % (self.__class__.__name__, size, self._pos, self._size)
  */
-    __pyx_t_4 = PyTuple_New(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 158, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 165, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_6 = 0;
     __pyx_t_7 = 127;
@@ -7459,19 +7450,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
     __Pyx_GIVEREF(__pyx_kp_u_);
     PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_kp_u_);
 
-    /* "sqlcycli/protocol.py":160
+    /* "sqlcycli/protocol.py":167
  *                 "<'%s'>\nRequested data size overflow:\n"
  *                 "Expected Size=%d | Current Position: %d | Data Length: %d"
  *                 % (self.__class__.__name__, size, self._pos, self._size)             # <<<<<<<<<<<<<<
  *             )
  *         self._pos = end
  */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 160, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 160, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_name); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 160, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_9), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
@@ -7483,7 +7474,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
     __pyx_t_6 += 47;
     __Pyx_GIVEREF(__pyx_kp_u_Requested_data_size_overflow_Ex);
     PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_kp_u_Requested_data_size_overflow_Ex);
-    __pyx_t_8 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 160, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
     __Pyx_GIVEREF(__pyx_t_8);
@@ -7493,7 +7484,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
     __pyx_t_6 += 21;
     __Pyx_GIVEREF(__pyx_kp_u_Current_Position);
     PyTuple_SET_ITEM(__pyx_t_4, 4, __pyx_kp_u_Current_Position);
-    __pyx_t_8 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 160, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
     __Pyx_GIVEREF(__pyx_t_8);
@@ -7503,21 +7494,21 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
     __pyx_t_6 += 16;
     __Pyx_GIVEREF(__pyx_kp_u_Data_Length);
     PyTuple_SET_ITEM(__pyx_t_4, 6, __pyx_kp_u_Data_Length);
-    __pyx_t_8 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 160, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
     __Pyx_GIVEREF(__pyx_t_8);
     PyTuple_SET_ITEM(__pyx_t_4, 7, __pyx_t_8);
     __pyx_t_8 = 0;
 
-    /* "sqlcycli/protocol.py":158
+    /* "sqlcycli/protocol.py":165
  *         if end > self._size:
  *             raise errors.MysqlPacketCursorError(
  *                 "<'%s'>\nRequested data size overflow:\n"             # <<<<<<<<<<<<<<
  *                 "Expected Size=%d | Current Position: %d | Data Length: %d"
  *                 % (self.__class__.__name__, size, self._pos, self._size)
  */
-    __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_4, 8, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 158, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_4, 8, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 165, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_4 = NULL;
@@ -7539,15 +7530,15 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 157, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 164, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(1, 157, __pyx_L1_error)
+    __PYX_ERR(1, 164, __pyx_L1_error)
 
-    /* "sqlcycli/protocol.py":156
+    /* "sqlcycli/protocol.py":163
  *         pos: cython.ulonglong = self._pos
  *         end: cython.ulonglong = pos + size
  *         if end > self._size:             # <<<<<<<<<<<<<<
@@ -7556,7 +7547,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
  */
   }
 
-  /* "sqlcycli/protocol.py":162
+  /* "sqlcycli/protocol.py":169
  *                 % (self.__class__.__name__, size, self._pos, self._size)
  *             )
  *         self._pos = end             # <<<<<<<<<<<<<<
@@ -7565,7 +7556,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
  */
   __pyx_v_self->_pos = __pyx_v_end;
 
-  /* "sqlcycli/protocol.py":163
+  /* "sqlcycli/protocol.py":170
  *             )
  *         self._pos = end
  *         return self._data_c[pos:end]             # <<<<<<<<<<<<<<
@@ -7573,13 +7564,13 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
  *     @cython.cfunc
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_pos, __pyx_v_end - __pyx_v_pos); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 163, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_pos, __pyx_v_end - __pyx_v_pos); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":149
+  /* "sqlcycli/protocol.py":151
  *         return self._data
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7602,7 +7593,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(st
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":165
+/* "sqlcycli/protocol.py":172
  *         return self._data_c[pos:end]
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7622,8 +7613,8 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_remains", 1);
 
-  /* "sqlcycli/protocol.py":170
- *         """(cfunc) Read the data remains in the packet `<'bytes'>`."""
+  /* "sqlcycli/protocol.py":179
+ *         """
  *         # No more data remains
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         if pos >= self._size:
@@ -7632,7 +7623,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":171
+  /* "sqlcycli/protocol.py":180
  *         # No more data remains
  *         pos: cython.ulonglong = self._pos
  *         if pos >= self._size:             # <<<<<<<<<<<<<<
@@ -7642,7 +7633,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
   __pyx_t_2 = (__pyx_v_pos >= __pyx_v_self->_size);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":172
+    /* "sqlcycli/protocol.py":181
  *         pos: cython.ulonglong = self._pos
  *         if pos >= self._size:
  *             return b""             # <<<<<<<<<<<<<<
@@ -7654,7 +7645,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
     __pyx_r = __pyx_kp_b__2;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":171
+    /* "sqlcycli/protocol.py":180
  *         # No more data remains
  *         pos: cython.ulonglong = self._pos
  *         if pos >= self._size:             # <<<<<<<<<<<<<<
@@ -7663,7 +7654,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
  */
   }
 
-  /* "sqlcycli/protocol.py":174
+  /* "sqlcycli/protocol.py":183
  *             return b""
  *         # Read remaining data
  *         self._pos = self._size  # eof             # <<<<<<<<<<<<<<
@@ -7673,7 +7664,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
   __pyx_t_1 = __pyx_v_self->_size;
   __pyx_v_self->_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":175
+  /* "sqlcycli/protocol.py":184
  *         # Read remaining data
  *         self._pos = self._size  # eof
  *         return self._data_c[pos : self._size]             # <<<<<<<<<<<<<<
@@ -7681,13 +7672,13 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
  *     @cython.cfunc
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_pos, __pyx_v_self->_size - __pyx_v_pos); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 175, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_pos, __pyx_v_self->_size - __pyx_v_pos); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 184, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":165
+  /* "sqlcycli/protocol.py":172
  *         return self._data_c[pos:end]
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7706,7 +7697,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_re
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":177
+/* "sqlcycli/protocol.py":186
  *         return self._data_c[pos : self._size]
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7726,17 +7717,17 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":186
- *         bytes depending on the value of the first byte.
+  /* "sqlcycli/protocol.py":192
+ *         and advances the cursor by 1-9 bytes depending on the value `<'int'>`.
  *         """
  *         code: cython.uchar = self._read_uint8()             # <<<<<<<<<<<<<<
  *         if code < utils.UNSIGNED_CHAR_COLUMN:
  *             return code
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint8(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 186, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint8(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 192, __pyx_L1_error)
   __pyx_v_code = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":187
+  /* "sqlcycli/protocol.py":193
  *         """
  *         code: cython.uchar = self._read_uint8()
  *         if code < utils.UNSIGNED_CHAR_COLUMN:             # <<<<<<<<<<<<<<
@@ -7746,7 +7737,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_t_2 = (__pyx_v_code < __pyx_v_8sqlcycli_5utils_UNSIGNED_CHAR_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":188
+    /* "sqlcycli/protocol.py":194
  *         code: cython.uchar = self._read_uint8()
  *         if code < utils.UNSIGNED_CHAR_COLUMN:
  *             return code             # <<<<<<<<<<<<<<
@@ -7756,7 +7747,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
     __pyx_r = __pyx_v_code;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":187
+    /* "sqlcycli/protocol.py":193
  *         """
  *         code: cython.uchar = self._read_uint8()
  *         if code < utils.UNSIGNED_CHAR_COLUMN:             # <<<<<<<<<<<<<<
@@ -7765,7 +7756,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
  */
   }
 
-  /* "sqlcycli/protocol.py":189
+  /* "sqlcycli/protocol.py":195
  *         if code < utils.UNSIGNED_CHAR_COLUMN:
  *             return code
  *         if code == utils.NULL_COLUMN:             # <<<<<<<<<<<<<<
@@ -7775,7 +7766,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_t_2 = (__pyx_v_code == __pyx_v_8sqlcycli_5utils_NULL_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":190
+    /* "sqlcycli/protocol.py":196
  *             return code
  *         if code == utils.NULL_COLUMN:
  *             return 0             # <<<<<<<<<<<<<<
@@ -7785,7 +7776,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":189
+    /* "sqlcycli/protocol.py":195
  *         if code < utils.UNSIGNED_CHAR_COLUMN:
  *             return code
  *         if code == utils.NULL_COLUMN:             # <<<<<<<<<<<<<<
@@ -7794,7 +7785,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
  */
   }
 
-  /* "sqlcycli/protocol.py":191
+  /* "sqlcycli/protocol.py":197
  *         if code == utils.NULL_COLUMN:
  *             return 0
  *         if code == utils.UNSIGNED_SHORT_COLUMN:             # <<<<<<<<<<<<<<
@@ -7804,18 +7795,18 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_t_2 = (__pyx_v_code == __pyx_v_8sqlcycli_5utils_UNSIGNED_SHORT_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":192
+    /* "sqlcycli/protocol.py":198
  *             return 0
  *         if code == utils.UNSIGNED_SHORT_COLUMN:
  *             return self._read_uint16()             # <<<<<<<<<<<<<<
  *         if code == utils.UNSIGNED_INT24_COLUMN:
  *             return self._read_uint24()
  */
-    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 192, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 198, __pyx_L1_error)
     __pyx_r = __pyx_t_3;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":191
+    /* "sqlcycli/protocol.py":197
  *         if code == utils.NULL_COLUMN:
  *             return 0
  *         if code == utils.UNSIGNED_SHORT_COLUMN:             # <<<<<<<<<<<<<<
@@ -7824,7 +7815,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
  */
   }
 
-  /* "sqlcycli/protocol.py":193
+  /* "sqlcycli/protocol.py":199
  *         if code == utils.UNSIGNED_SHORT_COLUMN:
  *             return self._read_uint16()
  *         if code == utils.UNSIGNED_INT24_COLUMN:             # <<<<<<<<<<<<<<
@@ -7834,18 +7825,18 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_t_2 = (__pyx_v_code == __pyx_v_8sqlcycli_5utils_UNSIGNED_INT24_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":194
+    /* "sqlcycli/protocol.py":200
  *             return self._read_uint16()
  *         if code == utils.UNSIGNED_INT24_COLUMN:
  *             return self._read_uint24()             # <<<<<<<<<<<<<<
  *         if code == utils.UNSIGNED_INT64_COLUMN:
  *             return self._read_uint64()
  */
-    __pyx_t_4 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint24(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 194, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint24(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 200, __pyx_L1_error)
     __pyx_r = __pyx_t_4;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":193
+    /* "sqlcycli/protocol.py":199
  *         if code == utils.UNSIGNED_SHORT_COLUMN:
  *             return self._read_uint16()
  *         if code == utils.UNSIGNED_INT24_COLUMN:             # <<<<<<<<<<<<<<
@@ -7854,7 +7845,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
  */
   }
 
-  /* "sqlcycli/protocol.py":195
+  /* "sqlcycli/protocol.py":201
  *         if code == utils.UNSIGNED_INT24_COLUMN:
  *             return self._read_uint24()
  *         if code == utils.UNSIGNED_INT64_COLUMN:             # <<<<<<<<<<<<<<
@@ -7864,18 +7855,18 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_t_2 = (__pyx_v_code == __pyx_v_8sqlcycli_5utils_UNSIGNED_INT64_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":196
+    /* "sqlcycli/protocol.py":202
  *             return self._read_uint24()
  *         if code == utils.UNSIGNED_INT64_COLUMN:
  *             return self._read_uint64()             # <<<<<<<<<<<<<<
  *         return 0
  * 
  */
-    __pyx_t_5 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint64(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 196, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint64(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 202, __pyx_L1_error)
     __pyx_r = __pyx_t_5;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":195
+    /* "sqlcycli/protocol.py":201
  *         if code == utils.UNSIGNED_INT24_COLUMN:
  *             return self._read_uint24()
  *         if code == utils.UNSIGNED_INT64_COLUMN:             # <<<<<<<<<<<<<<
@@ -7884,7 +7875,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
  */
   }
 
-  /* "sqlcycli/protocol.py":197
+  /* "sqlcycli/protocol.py":203
  *         if code == utils.UNSIGNED_INT64_COLUMN:
  *             return self._read_uint64()
  *         return 0             # <<<<<<<<<<<<<<
@@ -7894,7 +7885,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":177
+  /* "sqlcycli/protocol.py":186
  *         return self._data_c[pos : self._size]
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7910,7 +7901,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":199
+/* "sqlcycli/protocol.py":205
  *         return 0
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -7933,17 +7924,17 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_length_encoded_string", 1);
 
-  /* "sqlcycli/protocol.py":210
- *         (For example "cat" would be "3cat".)
+  /* "sqlcycli/protocol.py":215
+ *         binary string. For example: "cat" would be "3cat".
  *         """
  *         length: cython.uchar = self._read_uint8()             # <<<<<<<<<<<<<<
  *         if length < utils.UNSIGNED_CHAR_COLUMN:
  *             return self.read(length)
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint8(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 210, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint8(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 215, __pyx_L1_error)
   __pyx_v_length = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":211
+  /* "sqlcycli/protocol.py":216
  *         """
  *         length: cython.uchar = self._read_uint8()
  *         if length < utils.UNSIGNED_CHAR_COLUMN:             # <<<<<<<<<<<<<<
@@ -7953,7 +7944,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   __pyx_t_2 = (__pyx_v_length < __pyx_v_8sqlcycli_5utils_UNSIGNED_CHAR_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":212
+    /* "sqlcycli/protocol.py":217
  *         length: cython.uchar = self._read_uint8()
  *         if length < utils.UNSIGNED_CHAR_COLUMN:
  *             return self.read(length)             # <<<<<<<<<<<<<<
@@ -7961,13 +7952,13 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  *             return None
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 212, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 217, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":211
+    /* "sqlcycli/protocol.py":216
  *         """
  *         length: cython.uchar = self._read_uint8()
  *         if length < utils.UNSIGNED_CHAR_COLUMN:             # <<<<<<<<<<<<<<
@@ -7976,7 +7967,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  */
   }
 
-  /* "sqlcycli/protocol.py":213
+  /* "sqlcycli/protocol.py":218
  *         if length < utils.UNSIGNED_CHAR_COLUMN:
  *             return self.read(length)
  *         if length == utils.NULL_COLUMN:             # <<<<<<<<<<<<<<
@@ -7986,7 +7977,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   __pyx_t_2 = (__pyx_v_length == __pyx_v_8sqlcycli_5utils_NULL_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":214
+    /* "sqlcycli/protocol.py":219
  *             return self.read(length)
  *         if length == utils.NULL_COLUMN:
  *             return None             # <<<<<<<<<<<<<<
@@ -7997,7 +7988,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
     __pyx_r = ((PyObject*)Py_None); __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":213
+    /* "sqlcycli/protocol.py":218
  *         if length < utils.UNSIGNED_CHAR_COLUMN:
  *             return self.read(length)
  *         if length == utils.NULL_COLUMN:             # <<<<<<<<<<<<<<
@@ -8006,7 +7997,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  */
   }
 
-  /* "sqlcycli/protocol.py":215
+  /* "sqlcycli/protocol.py":220
  *         if length == utils.NULL_COLUMN:
  *             return None
  *         if length == utils.UNSIGNED_SHORT_COLUMN:             # <<<<<<<<<<<<<<
@@ -8016,7 +8007,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   __pyx_t_2 = (__pyx_v_length == __pyx_v_8sqlcycli_5utils_UNSIGNED_SHORT_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":216
+    /* "sqlcycli/protocol.py":221
  *             return None
  *         if length == utils.UNSIGNED_SHORT_COLUMN:
  *             return self.read(self._read_uint16())             # <<<<<<<<<<<<<<
@@ -8024,14 +8015,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  *             return self.read(self._read_uint24())
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 216, __pyx_L1_error)
-    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 216, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 221, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 221, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":215
+    /* "sqlcycli/protocol.py":220
  *         if length == utils.NULL_COLUMN:
  *             return None
  *         if length == utils.UNSIGNED_SHORT_COLUMN:             # <<<<<<<<<<<<<<
@@ -8040,7 +8031,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  */
   }
 
-  /* "sqlcycli/protocol.py":217
+  /* "sqlcycli/protocol.py":222
  *         if length == utils.UNSIGNED_SHORT_COLUMN:
  *             return self.read(self._read_uint16())
  *         if length == utils.UNSIGNED_INT24_COLUMN:             # <<<<<<<<<<<<<<
@@ -8050,7 +8041,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   __pyx_t_2 = (__pyx_v_length == __pyx_v_8sqlcycli_5utils_UNSIGNED_INT24_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":218
+    /* "sqlcycli/protocol.py":223
  *             return self.read(self._read_uint16())
  *         if length == utils.UNSIGNED_INT24_COLUMN:
  *             return self.read(self._read_uint24())             # <<<<<<<<<<<<<<
@@ -8058,14 +8049,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  *             return self.read(self._read_uint64())
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint24(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 218, __pyx_L1_error)
-    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 218, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint24(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 223, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 223, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":217
+    /* "sqlcycli/protocol.py":222
  *         if length == utils.UNSIGNED_SHORT_COLUMN:
  *             return self.read(self._read_uint16())
  *         if length == utils.UNSIGNED_INT24_COLUMN:             # <<<<<<<<<<<<<<
@@ -8074,7 +8065,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  */
   }
 
-  /* "sqlcycli/protocol.py":219
+  /* "sqlcycli/protocol.py":224
  *         if length == utils.UNSIGNED_INT24_COLUMN:
  *             return self.read(self._read_uint24())
  *         if length == utils.UNSIGNED_INT64_COLUMN:             # <<<<<<<<<<<<<<
@@ -8084,7 +8075,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   __pyx_t_2 = (__pyx_v_length == __pyx_v_8sqlcycli_5utils_UNSIGNED_INT64_COLUMN);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/protocol.py":220
+    /* "sqlcycli/protocol.py":225
  *             return self.read(self._read_uint24())
  *         if length == utils.UNSIGNED_INT64_COLUMN:
  *             return self.read(self._read_uint64())             # <<<<<<<<<<<<<<
@@ -8092,14 +8083,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  * 
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint64(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 220, __pyx_L1_error)
-    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 220, __pyx_L1_error)
+    __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint64(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 225, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read(__pyx_v_self, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 225, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":219
+    /* "sqlcycli/protocol.py":224
  *         if length == utils.UNSIGNED_INT24_COLUMN:
  *             return self.read(self._read_uint24())
  *         if length == utils.UNSIGNED_INT64_COLUMN:             # <<<<<<<<<<<<<<
@@ -8108,7 +8099,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
  */
   }
 
-  /* "sqlcycli/protocol.py":221
+  /* "sqlcycli/protocol.py":226
  *         if length == utils.UNSIGNED_INT64_COLUMN:
  *             return self.read(self._read_uint64())
  *         return None             # <<<<<<<<<<<<<<
@@ -8119,7 +8110,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   __pyx_r = ((PyObject*)Py_None); __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":199
+  /* "sqlcycli/protocol.py":205
  *         return 0
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8138,7 +8129,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_le
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":223
+/* "sqlcycli/protocol.py":228
  *         return None
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8155,8 +8146,8 @@ static CYTHON_INLINE unsigned char __pyx_f_8sqlcycli_8protocol_11MysqlPacket__re
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":228
- *         """(cfunc) Read the 8-bit unsigned integer from the current packet
+  /* "sqlcycli/protocol.py":233
+ *         """(internal) Read a 8-bit unsigned integer from the current packet
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         self._pos = pos + 1
@@ -8165,7 +8156,7 @@ static CYTHON_INLINE unsigned char __pyx_f_8sqlcycli_8protocol_11MysqlPacket__re
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":229
+  /* "sqlcycli/protocol.py":234
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 1             # <<<<<<<<<<<<<<
@@ -8174,18 +8165,18 @@ static CYTHON_INLINE unsigned char __pyx_f_8sqlcycli_8protocol_11MysqlPacket__re
  */
   __pyx_v_self->_pos = (__pyx_v_pos + 1);
 
-  /* "sqlcycli/protocol.py":230
+  /* "sqlcycli/protocol.py":235
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 1
  *         return utils.unpack_uint8(self._data_c, pos)             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 230, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 235, __pyx_L1_error)
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":223
+  /* "sqlcycli/protocol.py":228
  *         return None
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8201,7 +8192,7 @@ static CYTHON_INLINE unsigned char __pyx_f_8sqlcycli_8protocol_11MysqlPacket__re
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":232
+/* "sqlcycli/protocol.py":237
  *         return utils.unpack_uint8(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8218,8 +8209,8 @@ static CYTHON_INLINE unsigned short __pyx_f_8sqlcycli_8protocol_11MysqlPacket__r
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":237
- *         """(cfunc) Read the 16-bit unsigned integer from the current packet
+  /* "sqlcycli/protocol.py":242
+ *         """(internal) Read a 16-bit unsigned integer from the current packet
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         self._pos = pos + 2
@@ -8228,7 +8219,7 @@ static CYTHON_INLINE unsigned short __pyx_f_8sqlcycli_8protocol_11MysqlPacket__r
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":238
+  /* "sqlcycli/protocol.py":243
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 2             # <<<<<<<<<<<<<<
@@ -8237,18 +8228,18 @@ static CYTHON_INLINE unsigned short __pyx_f_8sqlcycli_8protocol_11MysqlPacket__r
  */
   __pyx_v_self->_pos = (__pyx_v_pos + 2);
 
-  /* "sqlcycli/protocol.py":239
+  /* "sqlcycli/protocol.py":244
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 2
  *         return utils.unpack_uint16(self._data_c, pos)             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint16(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned short)-1) && PyErr_Occurred())) __PYX_ERR(1, 239, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint16(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned short)-1) && PyErr_Occurred())) __PYX_ERR(1, 244, __pyx_L1_error)
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":232
+  /* "sqlcycli/protocol.py":237
  *         return utils.unpack_uint8(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8264,7 +8255,7 @@ static CYTHON_INLINE unsigned short __pyx_f_8sqlcycli_8protocol_11MysqlPacket__r
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":241
+/* "sqlcycli/protocol.py":246
  *         return utils.unpack_uint16(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8281,8 +8272,8 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":246
- *         """(cfunc) Read the 24-bit unsigned integer from the current packet
+  /* "sqlcycli/protocol.py":251
+ *         """(internal) Read a 24-bit unsigned integer from the current packet
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         self._pos = pos + 3
@@ -8291,7 +8282,7 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":247
+  /* "sqlcycli/protocol.py":252
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 3             # <<<<<<<<<<<<<<
@@ -8300,18 +8291,18 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
  */
   __pyx_v_self->_pos = (__pyx_v_pos + 3);
 
-  /* "sqlcycli/protocol.py":248
+  /* "sqlcycli/protocol.py":253
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 3
  *         return utils.unpack_uint24(self._data_c, pos)             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint24(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(1, 248, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint24(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(1, 253, __pyx_L1_error)
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":241
+  /* "sqlcycli/protocol.py":246
  *         return utils.unpack_uint16(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8327,7 +8318,7 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":250
+/* "sqlcycli/protocol.py":255
  *         return utils.unpack_uint24(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8344,8 +8335,8 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":255
- *         """(cfunc) Read the 32-bit unsigned integer from the current packet
+  /* "sqlcycli/protocol.py":260
+ *         """(internal) Read a 32-bit unsigned integer from the current packet
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         self._pos = pos + 4
@@ -8354,7 +8345,7 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":256
+  /* "sqlcycli/protocol.py":261
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 4             # <<<<<<<<<<<<<<
@@ -8363,18 +8354,18 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
  */
   __pyx_v_self->_pos = (__pyx_v_pos + 4);
 
-  /* "sqlcycli/protocol.py":257
+  /* "sqlcycli/protocol.py":262
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 4
  *         return utils.unpack_uint32(self._data_c, pos)             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint32(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(1, 257, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_5utils_unpack_uint32(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_2 == ((unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(1, 262, __pyx_L1_error)
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":250
+  /* "sqlcycli/protocol.py":255
  *         return utils.unpack_uint24(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8390,7 +8381,7 @@ static CYTHON_INLINE unsigned int __pyx_f_8sqlcycli_8protocol_11MysqlPacket__rea
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":259
+/* "sqlcycli/protocol.py":264
  *         return utils.unpack_uint32(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8406,8 +8397,8 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":264
- *         """(cfunc) Read the 64-bit unsigned integer from the current packet
+  /* "sqlcycli/protocol.py":269
+ *         """(internal) Read a 64-bit unsigned integer from the current packet
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos             # <<<<<<<<<<<<<<
  *         self._pos = pos + 8
@@ -8416,7 +8407,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   __pyx_t_1 = __pyx_v_self->_pos;
   __pyx_v_pos = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":265
+  /* "sqlcycli/protocol.py":270
  *         cursor position and advance the cursor forward `<'int'>`."""
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 8             # <<<<<<<<<<<<<<
@@ -8425,18 +8416,18 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
  */
   __pyx_v_self->_pos = (__pyx_v_pos + 8);
 
-  /* "sqlcycli/protocol.py":266
+  /* "sqlcycli/protocol.py":271
  *         pos: cython.ulonglong = self._pos
  *         self._pos = pos + 8
  *         return utils.unpack_uint64(self._data_c, pos)             # <<<<<<<<<<<<<<
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint64(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_1 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 266, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint64(__pyx_v_self->_data_c, __pyx_v_pos); if (unlikely(__pyx_t_1 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 271, __pyx_L1_error)
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":259
+  /* "sqlcycli/protocol.py":264
  *         return utils.unpack_uint32(self._data_c, pos)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8452,7 +8443,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_11MysqlPa
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":269
+/* "sqlcycli/protocol.py":274
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8465,8 +8456,8 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_ok_packet(
   int __pyx_t_1;
   int __pyx_t_2;
 
-  /* "sqlcycli/protocol.py":275
- *         """(cfunc) Check if is OKPacket `<'bool'>`."""
+  /* "sqlcycli/protocol.py":280
+ *         """(cfunc) Check if is an OK packet `<'bool'>`."""
  *         # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
  *         return self._size >= 7 and self._data_c[0] == 0             # <<<<<<<<<<<<<<
  * 
@@ -8484,7 +8475,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_ok_packet(
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":269
+  /* "sqlcycli/protocol.py":274
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8497,7 +8488,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_ok_packet(
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":277
+/* "sqlcycli/protocol.py":282
  *         return self._size >= 7 and self._data_c[0] == 0
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -8537,7 +8528,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_ok_packet); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 277, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_ok_packet); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 282, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_3read_ok_packet)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -8559,11 +8550,11 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 277, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 282, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 277, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 282, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -8582,18 +8573,18 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
     #endif
   }
 
-  /* "sqlcycli/protocol.py":286
+  /* "sqlcycli/protocol.py":290
  *         """
  *         # Not OKPacket
  *         if not self.is_ok_packet():             # <<<<<<<<<<<<<<
  *             return False
  *         # Parse Data
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_ok_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 286, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_ok_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 290, __pyx_L1_error)
   __pyx_t_7 = (!__pyx_t_6);
   if (__pyx_t_7) {
 
-    /* "sqlcycli/protocol.py":287
+    /* "sqlcycli/protocol.py":291
  *         # Not OKPacket
  *         if not self.is_ok_packet():
  *             return False             # <<<<<<<<<<<<<<
@@ -8603,7 +8594,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":286
+    /* "sqlcycli/protocol.py":290
  *         """
  *         # Not OKPacket
  *         if not self.is_ok_packet():             # <<<<<<<<<<<<<<
@@ -8612,7 +8603,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
  */
   }
 
-  /* "sqlcycli/protocol.py":289
+  /* "sqlcycli/protocol.py":293
  *             return False
  *         # Parse Data
  *         self._pos += 1  # skip 1 (0)             # <<<<<<<<<<<<<<
@@ -8621,54 +8612,54 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
  */
   __pyx_v_self->_pos = (__pyx_v_self->_pos + 1);
 
-  /* "sqlcycli/protocol.py":290
+  /* "sqlcycli/protocol.py":294
  *         # Parse Data
  *         self._pos += 1  # skip 1 (0)
  *         self._affected_rows = self.read_length_encoded_integer()             # <<<<<<<<<<<<<<
  *         self._insert_id = self.read_length_encoded_integer()
  *         self._server_status = self._read_uint16()
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_length_encoded_integer(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 290, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_length_encoded_integer(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 294, __pyx_L1_error)
   __pyx_v_self->_affected_rows = __pyx_t_8;
 
-  /* "sqlcycli/protocol.py":291
+  /* "sqlcycli/protocol.py":295
  *         self._pos += 1  # skip 1 (0)
  *         self._affected_rows = self.read_length_encoded_integer()
  *         self._insert_id = self.read_length_encoded_integer()             # <<<<<<<<<<<<<<
  *         self._server_status = self._read_uint16()
  *         self._warning_count = self._read_uint16()
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_length_encoded_integer(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 291, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_length_encoded_integer(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 295, __pyx_L1_error)
   __pyx_v_self->_insert_id = __pyx_t_8;
 
-  /* "sqlcycli/protocol.py":292
+  /* "sqlcycli/protocol.py":296
  *         self._affected_rows = self.read_length_encoded_integer()
  *         self._insert_id = self.read_length_encoded_integer()
  *         self._server_status = self._read_uint16()             # <<<<<<<<<<<<<<
  *         self._warning_count = self._read_uint16()
  *         self._message = self.read_remains()
  */
-  __pyx_t_9 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 292, __pyx_L1_error)
+  __pyx_t_9 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 296, __pyx_L1_error)
   __pyx_v_self->_server_status = __pyx_t_9;
 
-  /* "sqlcycli/protocol.py":293
+  /* "sqlcycli/protocol.py":297
  *         self._insert_id = self.read_length_encoded_integer()
  *         self._server_status = self._read_uint16()
  *         self._warning_count = self._read_uint16()             # <<<<<<<<<<<<<<
  *         self._message = self.read_remains()
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS
  */
-  __pyx_t_9 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 293, __pyx_L1_error)
+  __pyx_t_9 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 297, __pyx_L1_error)
   __pyx_v_self->_warning_count = __pyx_t_9;
 
-  /* "sqlcycli/protocol.py":294
+  /* "sqlcycli/protocol.py":298
  *         self._server_status = self._read_uint16()
  *         self._warning_count = self._read_uint16()
  *         self._message = self.read_remains()             # <<<<<<<<<<<<<<
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS
  *         return True
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_remains(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 294, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_remains(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 298, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_message);
@@ -8676,7 +8667,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
   __pyx_v_self->_message = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/protocol.py":295
+  /* "sqlcycli/protocol.py":299
  *         self._warning_count = self._read_uint16()
  *         self._message = self.read_remains()
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS             # <<<<<<<<<<<<<<
@@ -8685,7 +8676,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
  */
   __pyx_v_self->_has_next = (__pyx_v_self->_server_status & __pyx_v_8sqlcycli_9constants_14_SERVER_STATUS_SERVER_MORE_RESULTS_EXISTS);
 
-  /* "sqlcycli/protocol.py":296
+  /* "sqlcycli/protocol.py":300
  *         self._message = self.read_remains()
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS
  *         return True             # <<<<<<<<<<<<<<
@@ -8695,7 +8686,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(struct __pyx
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":277
+  /* "sqlcycli/protocol.py":282
  *         return self._size >= 7 and self._data_c[0] == 0
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -8724,7 +8715,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_2read_ok_packet, "Read OKPacket data `<'bool'>`.\n\n        Returns True if is OKPacket and parsed successfully,\n        else False if is `NOT` OKPacket.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_2read_ok_packet, "Read as OK packet data `<'bool'>`.\n\n        :returns `<'bool'>` `True` if parsed as OK packet, else `False`.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_3read_ok_packet = {"read_ok_packet", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_3read_ok_packet, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8protocol_11MysqlPacket_2read_ok_packet};
 static PyObject *__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_3read_ok_packet(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -8768,8 +8759,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_2read_ok_packet(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_ok_packet", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 277, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 277, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_ok_packet(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 282, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -8786,7 +8777,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_2read_ok_packet(stru
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":298
+/* "sqlcycli/protocol.py":302
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8801,18 +8792,18 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_load_local
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":303
+  /* "sqlcycli/protocol.py":307
  *     def is_load_local_packet(self) -> cython.bint:
- *         """(cfunc) Check if is LoadLocalPacket `<'bool'>`."""
+ *         """(cfunc) Check if is a LOAD DATA LOCAL INFILE packet `<'bool'>`."""
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFB             # <<<<<<<<<<<<<<
  * 
  *     @cython.ccall
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 303, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 307, __pyx_L1_error)
   __pyx_r = (__pyx_t_1 == 0xFB);
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":298
+  /* "sqlcycli/protocol.py":302
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -8828,7 +8819,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_load_local
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":305
+/* "sqlcycli/protocol.py":309
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFB
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -8866,7 +8857,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_load_local_packet); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 305, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_load_local_packet); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 309, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_5read_load_local_packet)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -8888,11 +8879,11 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 305, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 309, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 305, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 309, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -8911,18 +8902,18 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
     #endif
   }
 
-  /* "sqlcycli/protocol.py":314
+  /* "sqlcycli/protocol.py":317
  *         """
  *         # Not LoadLocalPacket
  *         if not self.is_load_local_packet():             # <<<<<<<<<<<<<<
  *             return False
  *         # Prase Data
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_load_local_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 314, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_load_local_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 317, __pyx_L1_error)
   __pyx_t_7 = (!__pyx_t_6);
   if (__pyx_t_7) {
 
-    /* "sqlcycli/protocol.py":315
+    /* "sqlcycli/protocol.py":318
  *         # Not LoadLocalPacket
  *         if not self.is_load_local_packet():
  *             return False             # <<<<<<<<<<<<<<
@@ -8932,7 +8923,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":314
+    /* "sqlcycli/protocol.py":317
  *         """
  *         # Not LoadLocalPacket
  *         if not self.is_load_local_packet():             # <<<<<<<<<<<<<<
@@ -8941,7 +8932,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
  */
   }
 
-  /* "sqlcycli/protocol.py":317
+  /* "sqlcycli/protocol.py":320
  *             return False
  *         # Prase Data
  *         self._pos += 1  # skip 1 (0)             # <<<<<<<<<<<<<<
@@ -8950,14 +8941,14 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
  */
   __pyx_v_self->_pos = (__pyx_v_self->_pos + 1);
 
-  /* "sqlcycli/protocol.py":318
+  /* "sqlcycli/protocol.py":321
  *         # Prase Data
  *         self._pos += 1  # skip 1 (0)
  *         self._filename = self.read_remains()             # <<<<<<<<<<<<<<
  *         return True
  * 
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_remains(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 318, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_remains(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 321, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_filename);
@@ -8965,7 +8956,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
   __pyx_v_self->_filename = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/protocol.py":319
+  /* "sqlcycli/protocol.py":322
  *         self._pos += 1  # skip 1 (0)
  *         self._filename = self.read_remains()
  *         return True             # <<<<<<<<<<<<<<
@@ -8975,7 +8966,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(stru
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":305
+  /* "sqlcycli/protocol.py":309
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFB
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -9004,7 +8995,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_4read_load_local_packet, "Read LoadLocalPacket data `<'bool'>`.\n\n        Returns True if is LoadLocalPacket and parsed successfully,\n        else False if is `NOT` LoadLocalPacket.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_4read_load_local_packet, "Read as LOAD DATA LOCAL INFILE packet data `<'bool'>`.\n\n        :returns `<'bool'>` `True` if parsed as LOAD DATA LOCAL INFILE packet, else `False`.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_5read_load_local_packet = {"read_load_local_packet", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_5read_load_local_packet, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8protocol_11MysqlPacket_4read_load_local_packet};
 static PyObject *__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_5read_load_local_packet(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -9048,8 +9039,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_4read_load_local_pac
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_load_local_packet", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 305, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 305, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_load_local_packet(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 309, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -9066,7 +9057,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_4read_load_local_pac
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":321
+/* "sqlcycli/protocol.py":324
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9083,7 +9074,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_eof_packet
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":329
+  /* "sqlcycli/protocol.py":332
  *         # Caution: \xFE may be LengthEncodedInteger.
  *         # If \xFE is LengthEncodedInteger header, 8bytes followed.
  *         return self._size < 9 and utils.unpack_uint8(self._data_c, 0) == 0xFE             # <<<<<<<<<<<<<<
@@ -9096,14 +9087,14 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_eof_packet
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_3 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 329, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_3 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 332, __pyx_L1_error)
   __pyx_t_2 = (__pyx_t_3 == 0xFE);
   __pyx_t_1 = __pyx_t_2;
   __pyx_L3_bool_binop_done:;
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":321
+  /* "sqlcycli/protocol.py":324
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9119,7 +9110,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_eof_packet
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":331
+/* "sqlcycli/protocol.py":334
  *         return self._size < 9 and utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -9158,7 +9149,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_eof_packet); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 331, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_eof_packet); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 334, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_7read_eof_packet)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -9180,11 +9171,11 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 331, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 334, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 331, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 334, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9203,18 +9194,18 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
     #endif
   }
 
-  /* "sqlcycli/protocol.py":340
+  /* "sqlcycli/protocol.py":342
  *         """
  *         # Not EOFPacket
  *         if not self.is_eof_packet():             # <<<<<<<<<<<<<<
  *             return False
  *         # Parse Data
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_eof_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 340, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_eof_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 342, __pyx_L1_error)
   __pyx_t_7 = (!__pyx_t_6);
   if (__pyx_t_7) {
 
-    /* "sqlcycli/protocol.py":341
+    /* "sqlcycli/protocol.py":343
  *         # Not EOFPacket
  *         if not self.is_eof_packet():
  *             return False             # <<<<<<<<<<<<<<
@@ -9224,7 +9215,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":340
+    /* "sqlcycli/protocol.py":342
  *         """
  *         # Not EOFPacket
  *         if not self.is_eof_packet():             # <<<<<<<<<<<<<<
@@ -9233,7 +9224,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
  */
   }
 
-  /* "sqlcycli/protocol.py":343
+  /* "sqlcycli/protocol.py":345
  *             return False
  *         # Parse Data
  *         self._pos += 1  # skip 1 (0)             # <<<<<<<<<<<<<<
@@ -9242,27 +9233,27 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
  */
   __pyx_v_self->_pos = (__pyx_v_self->_pos + 1);
 
-  /* "sqlcycli/protocol.py":344
+  /* "sqlcycli/protocol.py":346
  *         # Parse Data
  *         self._pos += 1  # skip 1 (0)
  *         self._warning_count = self._read_uint16()             # <<<<<<<<<<<<<<
  *         self._server_status = self._read_uint16()
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 344, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 346, __pyx_L1_error)
   __pyx_v_self->_warning_count = __pyx_t_8;
 
-  /* "sqlcycli/protocol.py":345
+  /* "sqlcycli/protocol.py":347
  *         self._pos += 1  # skip 1 (0)
  *         self._warning_count = self._read_uint16()
  *         self._server_status = self._read_uint16()             # <<<<<<<<<<<<<<
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS
  *         return True
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 345, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket__read_uint16(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 347, __pyx_L1_error)
   __pyx_v_self->_server_status = __pyx_t_8;
 
-  /* "sqlcycli/protocol.py":346
+  /* "sqlcycli/protocol.py":348
  *         self._warning_count = self._read_uint16()
  *         self._server_status = self._read_uint16()
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS             # <<<<<<<<<<<<<<
@@ -9271,7 +9262,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
  */
   __pyx_v_self->_has_next = (__pyx_v_self->_server_status & __pyx_v_8sqlcycli_9constants_14_SERVER_STATUS_SERVER_MORE_RESULTS_EXISTS);
 
-  /* "sqlcycli/protocol.py":347
+  /* "sqlcycli/protocol.py":349
  *         self._server_status = self._read_uint16()
  *         self._has_next = self._server_status & _SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS
  *         return True             # <<<<<<<<<<<<<<
@@ -9281,7 +9272,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(struct __py
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":331
+  /* "sqlcycli/protocol.py":334
  *         return self._size < 9 and utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -9310,7 +9301,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_6read_eof_packet, "Read EOFPacket data `<'bool'>.\n\n        Returns True if is EOFPacket and parsed successfully,\n        else False if is `NOT` EOFPacket.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_6read_eof_packet, "Read as EOF packet data `<'bool'>.\n\n        :returns `<'bool'>` `True` if parsed as EOF packet, else `False`.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_7read_eof_packet = {"read_eof_packet", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_7read_eof_packet, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8protocol_11MysqlPacket_6read_eof_packet};
 static PyObject *__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_7read_eof_packet(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -9354,8 +9345,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_6read_eof_packet(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_eof_packet", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 331, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 331, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_eof_packet(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 334, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -9372,7 +9363,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_6read_eof_packet(str
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":349
+/* "sqlcycli/protocol.py":351
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9387,18 +9378,18 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_auth_switc
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":355
- *         """(cfunc) Check if is AuthSwitchRequest Packet `<'bool'>`."""
+  /* "sqlcycli/protocol.py":357
+ *         """(cfunc) Check if is an AuthSwitchRequest packet `<'bool'>`."""
  *         # http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFE             # <<<<<<<<<<<<<<
  * 
  *     @cython.ccall
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 355, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 357, __pyx_L1_error)
   __pyx_r = (__pyx_t_1 == 0xFE);
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":349
+  /* "sqlcycli/protocol.py":351
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9414,7 +9405,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_auth_switc
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":357
+/* "sqlcycli/protocol.py":359
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -9454,7 +9445,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_auth_switch_request); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 357, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_read_auth_switch_request); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 359, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_9read_auth_switch_request)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -9476,11 +9467,11 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 357, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 359, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 357, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 359, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9499,18 +9490,18 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
     #endif
   }
 
-  /* "sqlcycli/protocol.py":366
+  /* "sqlcycli/protocol.py":367
  *         """
  *         # Not auth switch request
  *         if not self.is_auth_switch_request():             # <<<<<<<<<<<<<<
  *             return False
  *         # Parse
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_auth_switch_request(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 366, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_auth_switch_request(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 367, __pyx_L1_error)
   __pyx_t_7 = (!__pyx_t_6);
   if (__pyx_t_7) {
 
-    /* "sqlcycli/protocol.py":367
+    /* "sqlcycli/protocol.py":368
  *         # Not auth switch request
  *         if not self.is_auth_switch_request():
  *             return False             # <<<<<<<<<<<<<<
@@ -9520,7 +9511,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":366
+    /* "sqlcycli/protocol.py":367
  *         """
  *         # Not auth switch request
  *         if not self.is_auth_switch_request():             # <<<<<<<<<<<<<<
@@ -9529,7 +9520,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
  */
   }
 
-  /* "sqlcycli/protocol.py":369
+  /* "sqlcycli/protocol.py":370
  *             return False
  *         # Parse
  *         self._pos += 1  # skip 1 (0)             # <<<<<<<<<<<<<<
@@ -9538,17 +9529,17 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
  */
   __pyx_v_self->_pos = (__pyx_v_self->_pos + 1);
 
-  /* "sqlcycli/protocol.py":371
+  /* "sqlcycli/protocol.py":372
  *         self._pos += 1  # skip 1 (0)
  *         # . plugin name
  *         loc: cython.Py_ssize_t = utils.find_null_term(self._data_c, self._pos)             # <<<<<<<<<<<<<<
  *         if loc < 0:
  *             return True
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_5utils_find_null_term(__pyx_v_self->_data_c, __pyx_v_self->_pos); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-2L))) __PYX_ERR(1, 371, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_5utils_find_null_term(__pyx_v_self->_data_c, __pyx_v_self->_pos); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-2L))) __PYX_ERR(1, 372, __pyx_L1_error)
   __pyx_v_loc = __pyx_t_8;
 
-  /* "sqlcycli/protocol.py":372
+  /* "sqlcycli/protocol.py":373
  *         # . plugin name
  *         loc: cython.Py_ssize_t = utils.find_null_term(self._data_c, self._pos)
  *         if loc < 0:             # <<<<<<<<<<<<<<
@@ -9558,7 +9549,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
   __pyx_t_7 = (__pyx_v_loc < 0);
   if (__pyx_t_7) {
 
-    /* "sqlcycli/protocol.py":373
+    /* "sqlcycli/protocol.py":374
  *         loc: cython.Py_ssize_t = utils.find_null_term(self._data_c, self._pos)
  *         if loc < 0:
  *             return True             # <<<<<<<<<<<<<<
@@ -9568,7 +9559,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":372
+    /* "sqlcycli/protocol.py":373
  *         # . plugin name
  *         loc: cython.Py_ssize_t = utils.find_null_term(self._data_c, self._pos)
  *         if loc < 0:             # <<<<<<<<<<<<<<
@@ -9577,14 +9568,14 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
  */
   }
 
-  /* "sqlcycli/protocol.py":374
+  /* "sqlcycli/protocol.py":375
  *         if loc < 0:
  *             return True
  *         self._plugin_name = self._data_c[self._pos : loc]             # <<<<<<<<<<<<<<
  *         self._pos = loc + 1
  *         # . salt
  */
-  __pyx_t_1 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_self->_pos, __pyx_v_loc - __pyx_v_self->_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 374, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_self->_pos, __pyx_v_loc - __pyx_v_self->_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_plugin_name);
@@ -9592,7 +9583,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
   __pyx_v_self->_plugin_name = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/protocol.py":375
+  /* "sqlcycli/protocol.py":376
  *             return True
  *         self._plugin_name = self._data_c[self._pos : loc]
  *         self._pos = loc + 1             # <<<<<<<<<<<<<<
@@ -9601,17 +9592,17 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
  */
   __pyx_v_self->_pos = (__pyx_v_loc + 1);
 
-  /* "sqlcycli/protocol.py":377
+  /* "sqlcycli/protocol.py":378
  *         self._pos = loc + 1
  *         # . salt
  *         loc = utils.find_null_term(self._data_c, self._pos)             # <<<<<<<<<<<<<<
  *         if loc < 0:
  *             return True
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_5utils_find_null_term(__pyx_v_self->_data_c, __pyx_v_self->_pos); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-2L))) __PYX_ERR(1, 377, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_5utils_find_null_term(__pyx_v_self->_data_c, __pyx_v_self->_pos); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-2L))) __PYX_ERR(1, 378, __pyx_L1_error)
   __pyx_v_loc = __pyx_t_8;
 
-  /* "sqlcycli/protocol.py":378
+  /* "sqlcycli/protocol.py":379
  *         # . salt
  *         loc = utils.find_null_term(self._data_c, self._pos)
  *         if loc < 0:             # <<<<<<<<<<<<<<
@@ -9621,7 +9612,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
   __pyx_t_7 = (__pyx_v_loc < 0);
   if (__pyx_t_7) {
 
-    /* "sqlcycli/protocol.py":379
+    /* "sqlcycli/protocol.py":380
  *         loc = utils.find_null_term(self._data_c, self._pos)
  *         if loc < 0:
  *             return True             # <<<<<<<<<<<<<<
@@ -9631,7 +9622,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "sqlcycli/protocol.py":378
+    /* "sqlcycli/protocol.py":379
  *         # . salt
  *         loc = utils.find_null_term(self._data_c, self._pos)
  *         if loc < 0:             # <<<<<<<<<<<<<<
@@ -9640,14 +9631,14 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
  */
   }
 
-  /* "sqlcycli/protocol.py":380
+  /* "sqlcycli/protocol.py":381
  *         if loc < 0:
  *             return True
  *         self._salt = self._data_c[self._pos : loc]             # <<<<<<<<<<<<<<
  *         self._pos = loc + 1
  *         return True
  */
-  __pyx_t_1 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_self->_pos, __pyx_v_loc - __pyx_v_self->_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 380, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_self->_data_c + __pyx_v_self->_pos, __pyx_v_loc - __pyx_v_self->_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_salt);
@@ -9655,7 +9646,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
   __pyx_v_self->_salt = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/protocol.py":381
+  /* "sqlcycli/protocol.py":382
  *             return True
  *         self._salt = self._data_c[self._pos : loc]
  *         self._pos = loc + 1             # <<<<<<<<<<<<<<
@@ -9664,7 +9655,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
  */
   __pyx_v_self->_pos = (__pyx_v_loc + 1);
 
-  /* "sqlcycli/protocol.py":382
+  /* "sqlcycli/protocol.py":383
  *         self._salt = self._data_c[self._pos : loc]
  *         self._pos = loc + 1
  *         return True             # <<<<<<<<<<<<<<
@@ -9674,7 +9665,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(st
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":357
+  /* "sqlcycli/protocol.py":359
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -9703,7 +9694,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_8read_auth_switch_request, "Read AuthSwitchRequest Packet data `<'bool'>.\n\n        Returns True if is AuthSwitchRequest Packet and parsed\n        successfully, else False if `NOT` AuthSwitchRequest Packet.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_8read_auth_switch_request, "Read as AuthSwitchRequest packet data `<'bool'>.\n\n        :returns `<'bool'>` `True` if parsed as AuthSwitchRequest packet, else `False`.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_9read_auth_switch_request = {"read_auth_switch_request", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_9read_auth_switch_request, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8protocol_11MysqlPacket_8read_auth_switch_request};
 static PyObject *__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_9read_auth_switch_request(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -9747,8 +9738,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8read_auth_switch_re
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_auth_switch_request", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 357, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 357, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_read_auth_switch_request(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 359, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -9765,7 +9756,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8read_auth_switch_re
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":384
+/* "sqlcycli/protocol.py":385
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9776,8 +9767,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_8read_auth_switch_re
 static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_extra_auth_data(struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *__pyx_v_self) {
   int __pyx_r;
 
-  /* "sqlcycli/protocol.py":390
- *         """(cfunc) Check if has EXTRA AUTH data `<'bool'>`."""
+  /* "sqlcycli/protocol.py":391
+ *         """(cfunc) Check if the packet contains extra auth data `<'bool'>`."""
  *         # https://dev.mysql.com/doc/internals/en/successful-authentication.html
  *         return self._data_c[0] == 1             # <<<<<<<<<<<<<<
  * 
@@ -9786,7 +9777,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_extra_auth
   __pyx_r = ((__pyx_v_self->_data_c[0]) == 1);
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":384
+  /* "sqlcycli/protocol.py":385
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9799,7 +9790,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_extra_auth
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":392
+/* "sqlcycli/protocol.py":393
  *         return self._data_c[0] == 1
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9815,14 +9806,14 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_resultset_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":397
+  /* "sqlcycli/protocol.py":398
  *     def is_resultset_packet(self) -> cython.bint:
- *         """(cfunc) Check if is ResultPacket `<'bool'>`."""
+ *         """(cfunc) Check if is a resultset row packet `<'bool'>`."""
  *         return 1 <= utils.unpack_uint8(self._data_c, 0) <= 250             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 397, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 398, __pyx_L1_error)
   __pyx_t_2 = (1 <= __pyx_t_1);
   if (__pyx_t_2) {
     __pyx_t_2 = (__pyx_t_1 <= 0xFA);
@@ -9830,7 +9821,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_resultset_
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":392
+  /* "sqlcycli/protocol.py":393
  *         return self._data_c[0] == 1
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9846,7 +9837,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_resultset_
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":399
+/* "sqlcycli/protocol.py":400
  *         return 1 <= utils.unpack_uint8(self._data_c, 0) <= 250
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9861,18 +9852,18 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_error_pack
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":404
+  /* "sqlcycli/protocol.py":405
  *     def is_error_packet(self) -> cython.bint:
- *         """(cfunc) Check if is ErrorPacket `<'bool'>`."""
+ *         """(cfunc) Check if is an Error packet `<'bool'>`."""
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFF             # <<<<<<<<<<<<<<
  * 
  *     # Curosr ----------------------------------------------------------------------------------
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 404, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_5utils_unpack_uint8(__pyx_v_self->_data_c, 0); if (unlikely(__pyx_t_1 == ((unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(1, 405, __pyx_L1_error)
   __pyx_r = (__pyx_t_1 == 0xFF);
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":399
+  /* "sqlcycli/protocol.py":400
  *         return 1 <= utils.unpack_uint8(self._data_c, 0) <= 250
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9888,7 +9879,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_error_pack
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":407
+/* "sqlcycli/protocol.py":408
  * 
  *     # Curosr ----------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -9914,17 +9905,17 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("advance", 1);
 
-  /* "sqlcycli/protocol.py":412
+  /* "sqlcycli/protocol.py":413
  *     def advance(self, length: cython.ulonglong) -> cython.bint:
- *         """(cfunc) Advance the packet cursor position by the given 'length'."""
+ *         """(cfunc) Advance the internal cursor by `length` bytes."""
  *         pos: cython.ulonglong = self._pos + length             # <<<<<<<<<<<<<<
  *         if pos > self._size:
  *             raise errors.MysqlPacketCursorError(
  */
   __pyx_v_pos = (__pyx_v_self->_pos + __pyx_v_length);
 
-  /* "sqlcycli/protocol.py":413
- *         """(cfunc) Advance the packet cursor position by the given 'length'."""
+  /* "sqlcycli/protocol.py":414
+ *         """(cfunc) Advance the internal cursor by `length` bytes."""
  *         pos: cython.ulonglong = self._pos + length
  *         if pos > self._size:             # <<<<<<<<<<<<<<
  *             raise errors.MysqlPacketCursorError(
@@ -9933,27 +9924,27 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
   __pyx_t_1 = (__pyx_v_pos > __pyx_v_self->_size);
   if (unlikely(__pyx_t_1)) {
 
-    /* "sqlcycli/protocol.py":414
+    /* "sqlcycli/protocol.py":415
  *         pos: cython.ulonglong = self._pos + length
  *         if pos > self._size:
  *             raise errors.MysqlPacketCursorError(             # <<<<<<<<<<<<<<
  *                 "'<%s'>\nCan't advance packet cursor position by: %d\n"
  *                 "Current Position=%d | Data Length=%d"
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 414, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 415, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_MysqlPacketCursorError); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 414, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_MysqlPacketCursorError); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 415, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "sqlcycli/protocol.py":415
+    /* "sqlcycli/protocol.py":416
  *         if pos > self._size:
  *             raise errors.MysqlPacketCursorError(
  *                 "'<%s'>\nCan't advance packet cursor position by: %d\n"             # <<<<<<<<<<<<<<
  *                 "Current Position=%d | Data Length=%d"
  *                 % (self.__class__.__name__, pos, self._pos, self._size)
  */
-    __pyx_t_3 = PyTuple_New(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 415, __pyx_L1_error)
+    __pyx_t_3 = PyTuple_New(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 416, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 0;
     __pyx_t_6 = 127;
@@ -9962,19 +9953,19 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
     __Pyx_GIVEREF(__pyx_kp_u__3);
     PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u__3);
 
-    /* "sqlcycli/protocol.py":417
+    /* "sqlcycli/protocol.py":418
  *                 "'<%s'>\nCan't advance packet cursor position by: %d\n"
  *                 "Current Position=%d | Data Length=%d"
  *                 % (self.__class__.__name__, pos, self._pos, self._size)             # <<<<<<<<<<<<<<
  *             )
  *         self._pos = pos
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 417, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 417, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_8), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 417, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_8), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
@@ -9986,7 +9977,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
     __pyx_t_5 += 44;
     __Pyx_GIVEREF(__pyx_kp_u_Can_t_advance_packet_cursor_pos);
     PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u_Can_t_advance_packet_cursor_pos);
-    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 417, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_7);
@@ -9996,7 +9987,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
     __pyx_t_5 += 18;
     __Pyx_GIVEREF(__pyx_kp_u_Current_Position_2);
     PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_kp_u_Current_Position_2);
-    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 417, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_7);
@@ -10006,21 +9997,21 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
     __pyx_t_5 += 15;
     __Pyx_GIVEREF(__pyx_kp_u_Data_Length_2);
     PyTuple_SET_ITEM(__pyx_t_3, 6, __pyx_kp_u_Data_Length_2);
-    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 417, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_7);
     PyTuple_SET_ITEM(__pyx_t_3, 7, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "sqlcycli/protocol.py":415
+    /* "sqlcycli/protocol.py":416
  *         if pos > self._size:
  *             raise errors.MysqlPacketCursorError(
  *                 "'<%s'>\nCan't advance packet cursor position by: %d\n"             # <<<<<<<<<<<<<<
  *                 "Current Position=%d | Data Length=%d"
  *                 % (self.__class__.__name__, pos, self._pos, self._size)
  */
-    __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_3, 8, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 415, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_3, 8, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 416, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -10042,16 +10033,16 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 414, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 415, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(1, 414, __pyx_L1_error)
+    __PYX_ERR(1, 415, __pyx_L1_error)
 
-    /* "sqlcycli/protocol.py":413
- *         """(cfunc) Advance the packet cursor position by the given 'length'."""
+    /* "sqlcycli/protocol.py":414
+ *         """(cfunc) Advance the internal cursor by `length` bytes."""
  *         pos: cython.ulonglong = self._pos + length
  *         if pos > self._size:             # <<<<<<<<<<<<<<
  *             raise errors.MysqlPacketCursorError(
@@ -10059,7 +10050,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
  */
   }
 
-  /* "sqlcycli/protocol.py":419
+  /* "sqlcycli/protocol.py":420
  *                 % (self.__class__.__name__, pos, self._pos, self._size)
  *             )
  *         self._pos = pos             # <<<<<<<<<<<<<<
@@ -10068,7 +10059,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
  */
   __pyx_v_self->_pos = __pyx_v_pos;
 
-  /* "sqlcycli/protocol.py":420
+  /* "sqlcycli/protocol.py":421
  *             )
  *         self._pos = pos
  *         return True             # <<<<<<<<<<<<<<
@@ -10078,7 +10069,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":407
+  /* "sqlcycli/protocol.py":408
  * 
  *     # Curosr ----------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -10100,7 +10091,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_advance(struc
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":422
+/* "sqlcycli/protocol.py":423
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -10125,9 +10116,9 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("rewind", 1);
 
-  /* "sqlcycli/protocol.py":427
+  /* "sqlcycli/protocol.py":428
  *     def rewind(self, position: cython.ulonglong) -> cython.bint:
- *         """(cfunc) Set the packet cursor to the given 'position'."""
+ *         """(cfunc) Rewind or jump the cursor to the given absolute `position`."""
  *         if position > self._size:             # <<<<<<<<<<<<<<
  *             raise errors.MysqlPacketCursorError(
  *                 "'<%s'>\nCan't set packet cursor position to: %s\n"
@@ -10135,27 +10126,27 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
   __pyx_t_1 = (__pyx_v_position > __pyx_v_self->_size);
   if (unlikely(__pyx_t_1)) {
 
-    /* "sqlcycli/protocol.py":428
- *         """(cfunc) Set the packet cursor to the given 'position'."""
+    /* "sqlcycli/protocol.py":429
+ *         """(cfunc) Rewind or jump the cursor to the given absolute `position`."""
  *         if position > self._size:
  *             raise errors.MysqlPacketCursorError(             # <<<<<<<<<<<<<<
  *                 "'<%s'>\nCan't set packet cursor position to: %s\n"
  *                 "Current Position=%d | Data Length=%d"
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 428, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 429, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_MysqlPacketCursorError); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 428, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_MysqlPacketCursorError); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 429, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "sqlcycli/protocol.py":429
+    /* "sqlcycli/protocol.py":430
  *         if position > self._size:
  *             raise errors.MysqlPacketCursorError(
  *                 "'<%s'>\nCan't set packet cursor position to: %s\n"             # <<<<<<<<<<<<<<
  *                 "Current Position=%d | Data Length=%d"
  *                 % (self.__class__.__name__, position, self._pos, self._size)
  */
-    __pyx_t_3 = PyTuple_New(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 429, __pyx_L1_error)
+    __pyx_t_3 = PyTuple_New(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 430, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 0;
     __pyx_t_6 = 127;
@@ -10164,19 +10155,19 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
     __Pyx_GIVEREF(__pyx_kp_u__3);
     PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u__3);
 
-    /* "sqlcycli/protocol.py":431
+    /* "sqlcycli/protocol.py":432
  *                 "'<%s'>\nCan't set packet cursor position to: %s\n"
  *                 "Current Position=%d | Data Length=%d"
  *                 % (self.__class__.__name__, position, self._pos, self._size)             # <<<<<<<<<<<<<<
  *             )
  *         self._pos = position
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 431, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 431, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_8), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 431, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_8), __pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) : __pyx_t_6;
@@ -10188,7 +10179,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
     __pyx_t_5 += 40;
     __Pyx_GIVEREF(__pyx_kp_u_Can_t_set_packet_cursor_positio);
     PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u_Can_t_set_packet_cursor_positio);
-    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_position, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 431, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_position, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_7);
@@ -10198,7 +10189,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
     __pyx_t_5 += 18;
     __Pyx_GIVEREF(__pyx_kp_u_Current_Position_2);
     PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_kp_u_Current_Position_2);
-    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 431, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_pos, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_7);
@@ -10208,21 +10199,21 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
     __pyx_t_5 += 15;
     __Pyx_GIVEREF(__pyx_kp_u_Data_Length_2);
     PyTuple_SET_ITEM(__pyx_t_3, 6, __pyx_kp_u_Data_Length_2);
-    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 431, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_self->_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_7);
     PyTuple_SET_ITEM(__pyx_t_3, 7, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "sqlcycli/protocol.py":429
+    /* "sqlcycli/protocol.py":430
  *         if position > self._size:
  *             raise errors.MysqlPacketCursorError(
  *                 "'<%s'>\nCan't set packet cursor position to: %s\n"             # <<<<<<<<<<<<<<
  *                 "Current Position=%d | Data Length=%d"
  *                 % (self.__class__.__name__, position, self._pos, self._size)
  */
-    __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_3, 8, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 429, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_3, 8, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 430, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -10244,24 +10235,24 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 428, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 429, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(1, 428, __pyx_L1_error)
+    __PYX_ERR(1, 429, __pyx_L1_error)
 
-    /* "sqlcycli/protocol.py":427
+    /* "sqlcycli/protocol.py":428
  *     def rewind(self, position: cython.ulonglong) -> cython.bint:
- *         """(cfunc) Set the packet cursor to the given 'position'."""
+ *         """(cfunc) Rewind or jump the cursor to the given absolute `position`."""
  *         if position > self._size:             # <<<<<<<<<<<<<<
  *             raise errors.MysqlPacketCursorError(
  *                 "'<%s'>\nCan't set packet cursor position to: %s\n"
  */
   }
 
-  /* "sqlcycli/protocol.py":433
+  /* "sqlcycli/protocol.py":434
  *                 % (self.__class__.__name__, position, self._pos, self._size)
  *             )
  *         self._pos = position             # <<<<<<<<<<<<<<
@@ -10270,7 +10261,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
  */
   __pyx_v_self->_pos = __pyx_v_position;
 
-  /* "sqlcycli/protocol.py":434
+  /* "sqlcycli/protocol.py":435
  *             )
  *         self._pos = position
  *         return True             # <<<<<<<<<<<<<<
@@ -10280,7 +10271,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":422
+  /* "sqlcycli/protocol.py":423
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -10302,7 +10293,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_rewind(struct
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":437
+/* "sqlcycli/protocol.py":438
  * 
  *     # Error -----------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -10339,7 +10330,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_check_error(struct __pyx_ob
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_check_error); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 437, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_check_error); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 438, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_8protocol_11MysqlPacket_11check_error)) {
         __Pyx_INCREF(__pyx_t_1);
@@ -10361,11 +10352,11 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_check_error(struct __pyx_ob
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 437, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 438, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 437, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 438, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10384,35 +10375,35 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_check_error(struct __pyx_ob
     #endif
   }
 
-  /* "sqlcycli/protocol.py":441
+  /* "sqlcycli/protocol.py":442
  *     def check_error(self) -> cython.bint:
- *         """Check & raise packet error (if exists)."""
+ *         """Check and raise packet error (if is an error packet)."""
  *         if self.is_error_packet():             # <<<<<<<<<<<<<<
  *             self.raise_error()
  *         return True
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_error_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 441, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_is_error_packet(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 442, __pyx_L1_error)
   if (__pyx_t_6) {
 
-    /* "sqlcycli/protocol.py":442
- *         """Check & raise packet error (if exists)."""
+    /* "sqlcycli/protocol.py":443
+ *         """Check and raise packet error (if is an error packet)."""
  *         if self.is_error_packet():
  *             self.raise_error()             # <<<<<<<<<<<<<<
  *         return True
  * 
  */
-    __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_raise_error(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 442, __pyx_L1_error)
+    __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_raise_error(__pyx_v_self); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(1, 443, __pyx_L1_error)
 
-    /* "sqlcycli/protocol.py":441
+    /* "sqlcycli/protocol.py":442
  *     def check_error(self) -> cython.bint:
- *         """Check & raise packet error (if exists)."""
+ *         """Check and raise packet error (if is an error packet)."""
  *         if self.is_error_packet():             # <<<<<<<<<<<<<<
  *             self.raise_error()
  *         return True
  */
   }
 
-  /* "sqlcycli/protocol.py":443
+  /* "sqlcycli/protocol.py":444
  *         if self.is_error_packet():
  *             self.raise_error()
  *         return True             # <<<<<<<<<<<<<<
@@ -10422,7 +10413,7 @@ static int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_check_error(struct __pyx_ob
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":437
+  /* "sqlcycli/protocol.py":438
  * 
  *     # Error -----------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -10451,7 +10442,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_10check_error, "Check & raise packet error (if exists).");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_11MysqlPacket_10check_error, "Check and raise packet error (if is an error packet).");
 static PyMethodDef __pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_11check_error = {"check_error", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_11check_error, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8protocol_11MysqlPacket_10check_error};
 static PyObject *__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_11check_error(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -10495,8 +10486,8 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_10check_error(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("check_error", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_check_error(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 437, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 437, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_11MysqlPacket_check_error(__pyx_v_self, 1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 438, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -10513,7 +10504,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_10check_error(struct
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":445
+/* "sqlcycli/protocol.py":446
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -10528,17 +10519,17 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_raise_error(s
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "sqlcycli/protocol.py":451
- *         """(cfunc) Raise packet error. Should only be called if
- *         the packet is known to be an ErrorPacket."""
+  /* "sqlcycli/protocol.py":454
+ *         Should only be called if the packet is known to be an Error packet.
+ *         """
  *         errors.raise_mysql_exception(self._data_c, self._size)             # <<<<<<<<<<<<<<
  *         return True
  * 
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_6errors_raise_mysql_exception(__pyx_v_self->_data_c, __pyx_v_self->_size, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 451, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_6errors_raise_mysql_exception(__pyx_v_self->_data_c, __pyx_v_self->_size, 0); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 454, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":452
- *         the packet is known to be an ErrorPacket."""
+  /* "sqlcycli/protocol.py":455
+ *         """
  *         errors.raise_mysql_exception(self._data_c, self._size)
  *         return True             # <<<<<<<<<<<<<<
  * 
@@ -10547,7 +10538,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_8protocol_11MysqlPacket_raise_error(s
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":445
+  /* "sqlcycli/protocol.py":446
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -11062,17 +11053,17 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_11MysqlPacket_14__setstate_cython_
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":476
+/* "sqlcycli/protocol.py":489
  *     _is_binary: cython.bint
  * 
  *     def __init__(self, data: bytes, encoding: bytes) -> None:             # <<<<<<<<<<<<<<
- *         """The MySQL response packet which contains column's
- *         metadata in the result. Parsing is done automatically.
+ *         """The column's metadata packet in a MySQL result set.
+ * 
  */
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_21FieldDescriptorPacket___init__, "The MySQL response packet which contains column's\n        metadata in the result. Parsing is done automatically.\n\n        :param data `<'bytes'>`: The raw data of the packet.\n        :param encoding `<'bytes'>`: The encoding of the packet data.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_21FieldDescriptorPacket___init__, "The column's metadata packet in a MySQL result set.\n\n        Immediately upon initialization, reads the length-encoded fields:\n            - catalog\n            - database name\n            - table alias\n            - original table name\n            - column alias\n            - original column name\n        Then reads numeric metadata: character set, column length, type, flags, scale.\n\n        :param data `<'bytes'>`: The raw packet payload (excluding the 4-byte header).\n        :param encoding `<'bytes'>`: The encoding of the packet data.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_8protocol_21FieldDescriptorPacket___init__;
 #endif
@@ -11113,7 +11104,7 @@ static int __pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_1__init__(PyObje
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 476, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 489, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -11121,14 +11112,14 @@ static int __pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_1__init__(PyObje
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 476, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 489, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(1, 476, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(1, 489, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(1, 476, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(1, 489, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -11141,7 +11132,7 @@ static int __pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_1__init__(PyObje
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(1, 476, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(1, 489, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11155,8 +11146,8 @@ static int __pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_1__init__(PyObje
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 0, "data", 1))) __PYX_ERR(1, 476, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_encoding), (&PyBytes_Type), 0, "encoding", 1))) __PYX_ERR(1, 476, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 0, "data", 1))) __PYX_ERR(1, 489, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_encoding), (&PyBytes_Type), 0, "encoding", 1))) __PYX_ERR(1, 489, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(((struct __pyx_obj_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self), __pyx_v_data, __pyx_v_encoding);
 
   /* function exit code */
@@ -11189,7 +11180,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/protocol.py":484
+  /* "sqlcycli/protocol.py":505
  *         """
  *         # Raw Data
  *         self._data = data             # <<<<<<<<<<<<<<
@@ -11202,37 +11193,37 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __Pyx_DECREF(__pyx_v_self->__pyx_base._data);
   __pyx_v_self->__pyx_base._data = __pyx_v_data;
 
-  /* "sqlcycli/protocol.py":485
+  /* "sqlcycli/protocol.py":506
  *         # Raw Data
  *         self._data = data
  *         self._data_c = data             # <<<<<<<<<<<<<<
  *         self._encoding = encoding
  *         self._size = bytes_len(data)
  */
-  __pyx_t_1 = __Pyx_PyBytes_AsWritableString(__pyx_v_data); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(1, 485, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_AsWritableString(__pyx_v_data); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(1, 506, __pyx_L1_error)
   __pyx_v_self->__pyx_base._data_c = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":486
+  /* "sqlcycli/protocol.py":507
  *         self._data = data
  *         self._data_c = data
  *         self._encoding = encoding             # <<<<<<<<<<<<<<
  *         self._size = bytes_len(data)
  *         self._pos = 0
  */
-  __pyx_t_1 = __Pyx_PyBytes_AsWritableString(__pyx_v_encoding); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(1, 486, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_AsWritableString(__pyx_v_encoding); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(1, 507, __pyx_L1_error)
   __pyx_v_self->__pyx_base._encoding = __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":487
+  /* "sqlcycli/protocol.py":508
  *         self._data_c = data
  *         self._encoding = encoding
  *         self._size = bytes_len(data)             # <<<<<<<<<<<<<<
  *         self._pos = 0
  *         # Packet Data
  */
-  __pyx_t_2 = PyBytes_Size(__pyx_v_data); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 487, __pyx_L1_error)
+  __pyx_t_2 = PyBytes_Size(__pyx_v_data); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 508, __pyx_L1_error)
   __pyx_v_self->__pyx_base._size = __pyx_t_2;
 
-  /* "sqlcycli/protocol.py":488
+  /* "sqlcycli/protocol.py":509
  *         self._encoding = encoding
  *         self._size = bytes_len(data)
  *         self._pos = 0             # <<<<<<<<<<<<<<
@@ -11241,7 +11232,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._pos = 0;
 
-  /* "sqlcycli/protocol.py":490
+  /* "sqlcycli/protocol.py":511
  *         self._pos = 0
  *         # Packet Data
  *         self._affected_rows = 0             # <<<<<<<<<<<<<<
@@ -11250,7 +11241,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._affected_rows = 0;
 
-  /* "sqlcycli/protocol.py":491
+  /* "sqlcycli/protocol.py":512
  *         # Packet Data
  *         self._affected_rows = 0
  *         self._insert_id = 0             # <<<<<<<<<<<<<<
@@ -11259,7 +11250,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._insert_id = 0;
 
-  /* "sqlcycli/protocol.py":492
+  /* "sqlcycli/protocol.py":513
  *         self._affected_rows = 0
  *         self._insert_id = 0
  *         self._server_status = -1             # <<<<<<<<<<<<<<
@@ -11268,7 +11259,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._server_status = -1;
 
-  /* "sqlcycli/protocol.py":493
+  /* "sqlcycli/protocol.py":514
  *         self._insert_id = 0
  *         self._server_status = -1
  *         self._warning_count = 0             # <<<<<<<<<<<<<<
@@ -11277,7 +11268,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._warning_count = 0;
 
-  /* "sqlcycli/protocol.py":494
+  /* "sqlcycli/protocol.py":515
  *         self._server_status = -1
  *         self._warning_count = 0
  *         self._has_next = False             # <<<<<<<<<<<<<<
@@ -11286,7 +11277,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._has_next = 0;
 
-  /* "sqlcycli/protocol.py":495
+  /* "sqlcycli/protocol.py":516
  *         self._warning_count = 0
  *         self._has_next = False
  *         self._message = None             # <<<<<<<<<<<<<<
@@ -11299,7 +11290,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __Pyx_DECREF(__pyx_v_self->__pyx_base._message);
   __pyx_v_self->__pyx_base._message = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":496
+  /* "sqlcycli/protocol.py":517
  *         self._has_next = False
  *         self._message = None
  *         self._filename = None             # <<<<<<<<<<<<<<
@@ -11312,7 +11303,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __Pyx_DECREF(__pyx_v_self->__pyx_base._filename);
   __pyx_v_self->__pyx_base._filename = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":497
+  /* "sqlcycli/protocol.py":518
  *         self._message = None
  *         self._filename = None
  *         self._plugin_name = None             # <<<<<<<<<<<<<<
@@ -11325,7 +11316,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __Pyx_DECREF(__pyx_v_self->__pyx_base._plugin_name);
   __pyx_v_self->__pyx_base._plugin_name = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":498
+  /* "sqlcycli/protocol.py":519
  *         self._filename = None
  *         self._plugin_name = None
  *         self._salt = None             # <<<<<<<<<<<<<<
@@ -11338,14 +11329,14 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __Pyx_DECREF(__pyx_v_self->__pyx_base._salt);
   __pyx_v_self->__pyx_base._salt = ((PyObject*)Py_None);
 
-  /* "sqlcycli/protocol.py":501
+  /* "sqlcycli/protocol.py":522
  *         # Parse Field Descriptor
  *         # fmt: off
  *         self._catalog = self.read_length_encoded_string()             # <<<<<<<<<<<<<<
  *         self._db = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._table = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 501, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 522, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_3);
   __Pyx_GOTREF(__pyx_v_self->_catalog);
@@ -11353,16 +11344,16 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __pyx_v_self->_catalog = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/protocol.py":502
+  /* "sqlcycli/protocol.py":523
  *         # fmt: off
  *         self._catalog = self.read_length_encoded_string()
  *         self._db = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)             # <<<<<<<<<<<<<<
  *         self._table = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._table_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 502, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 523, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_3, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 502, __pyx_L1_error)
+  __pyx_t_4 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_3, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 523, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_GIVEREF(__pyx_t_4);
@@ -11371,16 +11362,16 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __pyx_v_self->_db = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/protocol.py":503
+  /* "sqlcycli/protocol.py":524
  *         self._catalog = self.read_length_encoded_string()
  *         self._db = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._table = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)             # <<<<<<<<<<<<<<
  *         self._table_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._column = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  */
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 503, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 524, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_4, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 503, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_4, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 524, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_GIVEREF(__pyx_t_3);
@@ -11389,16 +11380,16 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __pyx_v_self->_table = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/protocol.py":504
+  /* "sqlcycli/protocol.py":525
  *         self._db = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._table = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._table_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)             # <<<<<<<<<<<<<<
  *         self._column = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._column_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 504, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 525, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_3, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 504, __pyx_L1_error)
+  __pyx_t_4 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_3, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 525, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_GIVEREF(__pyx_t_4);
@@ -11407,16 +11398,16 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __pyx_v_self->_table_org = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/protocol.py":505
+  /* "sqlcycli/protocol.py":526
  *         self._table = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._table_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._column = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)             # <<<<<<<<<<<<<<
  *         self._column_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         # fmt: on
  */
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 505, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 526, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_4, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 505, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_4, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 526, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_GIVEREF(__pyx_t_3);
@@ -11425,16 +11416,16 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __pyx_v_self->_column = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/protocol.py":506
+  /* "sqlcycli/protocol.py":527
  *         self._table_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._column = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         self._column_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)             # <<<<<<<<<<<<<<
  *         # fmt: on
  *         self._pos += 1  # skip 1 (non-null)
  */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 506, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.read_length_encoded_string(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 527, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_3, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 506, __pyx_L1_error)
+  __pyx_t_4 = __pyx_f_8sqlcycli_5utils_decode_bytes(__pyx_t_3, __pyx_v_self->__pyx_base._encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 527, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_GIVEREF(__pyx_t_4);
@@ -11443,7 +11434,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   __pyx_v_self->_column_org = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "sqlcycli/protocol.py":508
+  /* "sqlcycli/protocol.py":529
  *         self._column_org = utils.decode_bytes(self.read_length_encoded_string(), self._encoding)
  *         # fmt: on
  *         self._pos += 1  # skip 1 (non-null)             # <<<<<<<<<<<<<<
@@ -11452,57 +11443,57 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._pos = (__pyx_v_self->__pyx_base._pos + 1);
 
-  /* "sqlcycli/protocol.py":509
+  /* "sqlcycli/protocol.py":530
  *         # fmt: on
  *         self._pos += 1  # skip 1 (non-null)
  *         self._charsetnr = self._read_uint16()             # <<<<<<<<<<<<<<
  *         self._length = self._read_uint32()
  *         self._type_code = self._read_uint8()
  */
-  __pyx_t_5 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint16(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 509, __pyx_L1_error)
+  __pyx_t_5 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint16(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 530, __pyx_L1_error)
   __pyx_v_self->_charsetnr = __pyx_t_5;
 
-  /* "sqlcycli/protocol.py":510
+  /* "sqlcycli/protocol.py":531
  *         self._pos += 1  # skip 1 (non-null)
  *         self._charsetnr = self._read_uint16()
  *         self._length = self._read_uint32()             # <<<<<<<<<<<<<<
  *         self._type_code = self._read_uint8()
  *         self._flags = self._read_uint16()
  */
-  __pyx_t_6 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint32(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 510, __pyx_L1_error)
+  __pyx_t_6 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint32(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 531, __pyx_L1_error)
   __pyx_v_self->_length = __pyx_t_6;
 
-  /* "sqlcycli/protocol.py":511
+  /* "sqlcycli/protocol.py":532
  *         self._charsetnr = self._read_uint16()
  *         self._length = self._read_uint32()
  *         self._type_code = self._read_uint8()             # <<<<<<<<<<<<<<
  *         self._flags = self._read_uint16()
  *         self._scale = self._read_uint8()
  */
-  __pyx_t_7 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint8(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 511, __pyx_L1_error)
+  __pyx_t_7 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint8(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 532, __pyx_L1_error)
   __pyx_v_self->_type_code = __pyx_t_7;
 
-  /* "sqlcycli/protocol.py":512
+  /* "sqlcycli/protocol.py":533
  *         self._length = self._read_uint32()
  *         self._type_code = self._read_uint8()
  *         self._flags = self._read_uint16()             # <<<<<<<<<<<<<<
  *         self._scale = self._read_uint8()
  *         self._pos += 2  # skip 2 (0x00)
  */
-  __pyx_t_5 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint16(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 512, __pyx_L1_error)
+  __pyx_t_5 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint16(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 533, __pyx_L1_error)
   __pyx_v_self->_flags = __pyx_t_5;
 
-  /* "sqlcycli/protocol.py":513
+  /* "sqlcycli/protocol.py":534
  *         self._type_code = self._read_uint8()
  *         self._flags = self._read_uint16()
  *         self._scale = self._read_uint8()             # <<<<<<<<<<<<<<
  *         self._pos += 2  # skip 2 (0x00)
  *         self._is_binary = self._charsetnr == 63
  */
-  __pyx_t_7 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint8(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 513, __pyx_L1_error)
+  __pyx_t_7 = ((struct __pyx_vtabstruct_8sqlcycli_8protocol_FieldDescriptorPacket *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._read_uint8(((struct __pyx_obj_8sqlcycli_8protocol_MysqlPacket *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 534, __pyx_L1_error)
   __pyx_v_self->_scale = __pyx_t_7;
 
-  /* "sqlcycli/protocol.py":514
+  /* "sqlcycli/protocol.py":535
  *         self._flags = self._read_uint16()
  *         self._scale = self._read_uint8()
  *         self._pos += 2  # skip 2 (0x00)             # <<<<<<<<<<<<<<
@@ -11511,7 +11502,7 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->__pyx_base._pos = (__pyx_v_self->__pyx_base._pos + 2);
 
-  /* "sqlcycli/protocol.py":515
+  /* "sqlcycli/protocol.py":536
  *         self._scale = self._read_uint8()
  *         self._pos += 2  # skip 2 (0x00)
  *         self._is_binary = self._charsetnr == 63             # <<<<<<<<<<<<<<
@@ -11520,12 +11511,12 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
  */
   __pyx_v_self->_is_binary = (__pyx_v_self->_charsetnr == 63);
 
-  /* "sqlcycli/protocol.py":476
+  /* "sqlcycli/protocol.py":489
  *     _is_binary: cython.bint
  * 
  *     def __init__(self, data: bytes, encoding: bytes) -> None:             # <<<<<<<<<<<<<<
- *         """The MySQL response packet which contains column's
- *         metadata in the result. Parsing is done automatically.
+ *         """The column's metadata packet in a MySQL result set.
+ * 
  */
 
   /* function exit code */
@@ -11541,12 +11532,12 @@ static int __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket___init__(struct 
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":518
+/* "sqlcycli/protocol.py":539
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def catalog(self) -> bytes:
- *         """The name of the catalog `<'bytes'>`.
+ *         """The catalog name `<'bytes'>`.
  */
 
 /* Python wrapper */
@@ -11569,7 +11560,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_7catalog__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":525
+  /* "sqlcycli/protocol.py":546
  *         is included for compatibility with SQL standards but
  *         is generally not used in MySQL."""
  *         return self._catalog             # <<<<<<<<<<<<<<
@@ -11581,12 +11572,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_7catalog__
   __pyx_r = __pyx_v_self->_catalog;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":518
+  /* "sqlcycli/protocol.py":539
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
  *     def catalog(self) -> bytes:
- *         """The name of the catalog `<'bytes'>`.
+ *         """The catalog name `<'bytes'>`.
  */
 
   /* function exit code */
@@ -11596,12 +11587,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_7catalog__
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":527
+/* "sqlcycli/protocol.py":548
  *         return self._catalog
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def db(self) -> str:
- *         """The name of the database where the table is located `<'str'>`."""
+ *         """The database name where the table resides `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -11624,9 +11615,9 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_2db___get_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":530
+  /* "sqlcycli/protocol.py":551
  *     def db(self) -> str:
- *         """The name of the database where the table is located `<'str'>`."""
+ *         """The database name where the table resides `<'str'>`."""
  *         return self._db             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -11636,12 +11627,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_2db___get_
   __pyx_r = __pyx_v_self->_db;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":527
+  /* "sqlcycli/protocol.py":548
  *         return self._catalog
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def db(self) -> str:
- *         """The name of the database where the table is located `<'str'>`."""
+ *         """The database name where the table resides `<'str'>`."""
  */
 
   /* function exit code */
@@ -11651,12 +11642,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_2db___get_
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":532
+/* "sqlcycli/protocol.py":553
  *         return self._db
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def table(self) -> str:
- *         """The alias of the table as specified in the SQL query `<'str'>`."""
+ *         """The table alias as used in the SQL query `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -11679,9 +11670,9 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5table___g
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":535
+  /* "sqlcycli/protocol.py":556
  *     def table(self) -> str:
- *         """The alias of the table as specified in the SQL query `<'str'>`."""
+ *         """The table alias as used in the SQL query `<'str'>`."""
  *         return self._table             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -11691,12 +11682,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5table___g
   __pyx_r = __pyx_v_self->_table;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":532
+  /* "sqlcycli/protocol.py":553
  *         return self._db
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def table(self) -> str:
- *         """The alias of the table as specified in the SQL query `<'str'>`."""
+ *         """The table alias as used in the SQL query `<'str'>`."""
  */
 
   /* function exit code */
@@ -11706,12 +11697,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5table___g
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":537
+/* "sqlcycli/protocol.py":558
  *         return self._table
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def table_org(self) -> str:
- *         """The original name of the table in the database `<'str'>`."""
+ *         """The original table name in the database `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -11734,9 +11725,9 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9table_org
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":540
+  /* "sqlcycli/protocol.py":561
  *     def table_org(self) -> str:
- *         """The original name of the table in the database `<'str'>`."""
+ *         """The original table name in the database `<'str'>`."""
  *         return self._table_org             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -11746,12 +11737,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9table_org
   __pyx_r = __pyx_v_self->_table_org;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":537
+  /* "sqlcycli/protocol.py":558
  *         return self._table
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def table_org(self) -> str:
- *         """The original name of the table in the database `<'str'>`."""
+ *         """The original table name in the database `<'str'>`."""
  */
 
   /* function exit code */
@@ -11761,12 +11752,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9table_org
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":542
+/* "sqlcycli/protocol.py":563
  *         return self._table_org
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def column(self) -> str:
- *         """The alias of the column as specified in the SQL query `<'str'>`."""
+ *         """The column alias as used in the SQL query `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -11789,9 +11780,9 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_6column___
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":545
+  /* "sqlcycli/protocol.py":566
  *     def column(self) -> str:
- *         """The alias of the column as specified in the SQL query `<'str'>`."""
+ *         """The column alias as used in the SQL query `<'str'>`."""
  *         return self._column             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -11801,12 +11792,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_6column___
   __pyx_r = __pyx_v_self->_column;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":542
+  /* "sqlcycli/protocol.py":563
  *         return self._table_org
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def column(self) -> str:
- *         """The alias of the column as specified in the SQL query `<'str'>`."""
+ *         """The column alias as used in the SQL query `<'str'>`."""
  */
 
   /* function exit code */
@@ -11816,12 +11807,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_6column___
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":547
+/* "sqlcycli/protocol.py":568
  *         return self._column
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def column_org(self) -> str:
- *         """The original name of the column in the table `<'str'>`."""
+ *         """The original column name in the table `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -11844,9 +11835,9 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_10column_o
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":550
+  /* "sqlcycli/protocol.py":571
  *     def column_org(self) -> str:
- *         """The original name of the column in the table `<'str'>`."""
+ *         """The original column name in the table `<'str'>`."""
  *         return self._column_org             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -11856,12 +11847,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_10column_o
   __pyx_r = __pyx_v_self->_column_org;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":547
+  /* "sqlcycli/protocol.py":568
  *         return self._column
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def column_org(self) -> str:
- *         """The original name of the column in the table `<'str'>`."""
+ *         """The original column name in the table `<'str'>`."""
  */
 
   /* function exit code */
@@ -11871,12 +11862,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_10column_o
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":552
+/* "sqlcycli/protocol.py":573
  *         return self._column_org
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def charsetnr(self) -> int:
- *         """The character set number for the column `<'int'>`."""
+ *         """The MySQL character set number (id) for this column `<'int'>`."""
  */
 
 /* Python wrapper */
@@ -11903,26 +11894,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9charsetnr
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":555
+  /* "sqlcycli/protocol.py":576
  *     def charsetnr(self) -> int:
- *         """The character set number for the column `<'int'>`."""
+ *         """The MySQL character set number (id) for this column `<'int'>`."""
  *         return self._charsetnr             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_charsetnr); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 555, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_charsetnr); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 576, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":552
+  /* "sqlcycli/protocol.py":573
  *         return self._column_org
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def charsetnr(self) -> int:
- *         """The character set number for the column `<'int'>`."""
+ *         """The MySQL character set number (id) for this column `<'int'>`."""
  */
 
   /* function exit code */
@@ -11936,12 +11927,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9charsetnr
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":557
+/* "sqlcycli/protocol.py":578
  *         return self._charsetnr
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def length(self) -> int:
- *         """The maximum length of the column `<'int'>`."""
+ *         """The maximum width of the column in bytes or characters
  */
 
 /* Python wrapper */
@@ -11968,26 +11959,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_6length___
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":560
- *     def length(self) -> int:
- *         """The maximum length of the column `<'int'>`."""
+  /* "sqlcycli/protocol.py":582
+ *         """The maximum width of the column in bytes or characters
+ *         (depends on the columns' data type) `<'int'>`."""
  *         return self._length             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_length); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 560, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_length); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 582, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":557
+  /* "sqlcycli/protocol.py":578
  *         return self._charsetnr
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def length(self) -> int:
- *         """The maximum length of the column `<'int'>`."""
+ *         """The maximum width of the column in bytes or characters
  */
 
   /* function exit code */
@@ -12001,12 +11992,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_6length___
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":562
+/* "sqlcycli/protocol.py":584
  *         return self._length
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def type_code(self) -> int:
- *         """The type code of the column `<'int'>`.
+ *         """The MySQL internal field type code (see `constants.FIELD_TYPE`) `<'int'>`."""
  */
 
 /* Python wrapper */
@@ -12033,26 +12024,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9type_code
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":568
- *         Please refer to 'sqlcycli.constants.FIELD_TYPE'
- *         for the corresponding data type."""
+  /* "sqlcycli/protocol.py":587
+ *     def type_code(self) -> int:
+ *         """The MySQL internal field type code (see `constants.FIELD_TYPE`) `<'int'>`."""
  *         return self._type_code             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_type_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 568, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_type_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 587, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":562
+  /* "sqlcycli/protocol.py":584
  *         return self._length
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def type_code(self) -> int:
- *         """The type code of the column `<'int'>`.
+ *         """The MySQL internal field type code (see `constants.FIELD_TYPE`) `<'int'>`."""
  */
 
   /* function exit code */
@@ -12066,12 +12057,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9type_code
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":570
+/* "sqlcycli/protocol.py":589
  *         return self._type_code
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def flags(self) -> int:
- *         """The flag that provides additional information about the column `<'int'>`."""
+ *         """The bitmask of column attributes (e.g., NOT_NULL_FLAG, PRI_KEY_FLAG) `<'int'>`."""
  */
 
 /* Python wrapper */
@@ -12098,26 +12089,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5flags___g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":573
+  /* "sqlcycli/protocol.py":592
  *     def flags(self) -> int:
- *         """The flag that provides additional information about the column `<'int'>`."""
+ *         """The bitmask of column attributes (e.g., NOT_NULL_FLAG, PRI_KEY_FLAG) `<'int'>`."""
  *         return self._flags             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 573, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 592, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":570
+  /* "sqlcycli/protocol.py":589
  *         return self._type_code
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def flags(self) -> int:
- *         """The flag that provides additional information about the column `<'int'>`."""
+ *         """The bitmask of column attributes (e.g., NOT_NULL_FLAG, PRI_KEY_FLAG) `<'int'>`."""
  */
 
   /* function exit code */
@@ -12131,12 +12122,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5flags___g
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":575
+/* "sqlcycli/protocol.py":594
  *         return self._flags
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def scale(self) -> int:
- *         """The number of decimal places for numeric columns `<'int'>`."""
+ *         """The number of decimal digits for numeric types. `<'int'>`."""
  */
 
 /* Python wrapper */
@@ -12163,26 +12154,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5scale___g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":578
+  /* "sqlcycli/protocol.py":597
  *     def scale(self) -> int:
- *         """The number of decimal places for numeric columns `<'int'>`."""
+ *         """The number of decimal digits for numeric types. `<'int'>`."""
  *         return self._scale             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_scale); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 578, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_scale); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 597, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":575
+  /* "sqlcycli/protocol.py":594
  *         return self._flags
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def scale(self) -> int:
- *         """The number of decimal places for numeric columns `<'int'>`."""
+ *         """The number of decimal digits for numeric types. `<'int'>`."""
  */
 
   /* function exit code */
@@ -12196,12 +12187,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_5scale___g
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":580
+/* "sqlcycli/protocol.py":599
  *         return self._scale
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_binary(self) -> bool:
- *         """Whether the column is binary `<'bool'>`."""
+ *         """Whether the column is binary data type `<'bool'>`."""
  */
 
 /* Python wrapper */
@@ -12228,26 +12219,26 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9is_binary
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/protocol.py":583
+  /* "sqlcycli/protocol.py":602
  *     def is_binary(self) -> bool:
- *         """Whether the column is binary `<'bool'>`."""
+ *         """Whether the column is binary data type `<'bool'>`."""
  *         return self._is_binary             # <<<<<<<<<<<<<<
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_binary); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 583, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_binary); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 602, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":580
+  /* "sqlcycli/protocol.py":599
  *         return self._scale
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_binary(self) -> bool:
- *         """Whether the column is binary `<'bool'>`."""
+ *         """Whether the column is binary data type `<'bool'>`."""
  */
 
   /* function exit code */
@@ -12261,12 +12252,12 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_9is_binary
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":586
+/* "sqlcycli/protocol.py":605
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def description(self) -> tuple[str, int, int, int, int, int, bool]:
- *         """Provides a 7-item tuple compatible with the Python PEP249 DB Spec `<'tuple'>`.
+ *         """Returns a tuple of of 7-item tuples, each contains the following
  */
 
 static PyObject *__pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_3description(PyObject *__pyx_v_self, 
@@ -12302,7 +12293,7 @@ static PyObject *__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_description); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 586, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_description); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 605, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_3description)) {
         __Pyx_XDECREF(__pyx_r);
@@ -12325,11 +12316,11 @@ static PyObject *__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 586, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 605, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(PyTuple_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("tuple", __pyx_t_2))) __PYX_ERR(1, 586, __pyx_L1_error)
+        if (!(likely(PyTuple_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("tuple", __pyx_t_2))) __PYX_ERR(1, 605, __pyx_L1_error)
         __pyx_r = ((PyObject*)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -12348,17 +12339,17 @@ static PyObject *__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description
     #endif
   }
 
-  /* "sqlcycli/protocol.py":591
- *         >>> (name, type_code, display_length, internal_size, precision, scale, null_ok)
+  /* "sqlcycli/protocol.py":620
+ *         - Compliance with PEP-0249.
  *         """
  *         length: cython.uint = self._get_column_length()             # <<<<<<<<<<<<<<
  *         return (
  *             self._column,
  */
-  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket__get_column_length(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 591, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket__get_column_length(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 620, __pyx_L1_error)
   __pyx_v_length = __pyx_t_6;
 
-  /* "sqlcycli/protocol.py":592
+  /* "sqlcycli/protocol.py":621
  *         """
  *         length: cython.uint = self._get_column_length()
  *         return (             # <<<<<<<<<<<<<<
@@ -12367,90 +12358,90 @@ static PyObject *__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description
  */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "sqlcycli/protocol.py":594
+  /* "sqlcycli/protocol.py":623
  *         return (
  *             self._column,
  *             self._type_code,             # <<<<<<<<<<<<<<
  *             self._length,  # TODO: display_length; should this be self.length?
  *             length,  # 'internal_size'
  */
-  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_type_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 594, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_type_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 623, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "sqlcycli/protocol.py":595
+  /* "sqlcycli/protocol.py":624
  *             self._column,
  *             self._type_code,
  *             self._length,  # TODO: display_length; should this be self.length?             # <<<<<<<<<<<<<<
  *             length,  # 'internal_size'
  *             length,  # 'precision'  # TODO: why!?!?
  */
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 595, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 624, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "sqlcycli/protocol.py":596
+  /* "sqlcycli/protocol.py":625
  *             self._type_code,
  *             self._length,  # TODO: display_length; should this be self.length?
  *             length,  # 'internal_size'             # <<<<<<<<<<<<<<
  *             length,  # 'precision'  # TODO: why!?!?
  *             self._scale,
  */
-  __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 596, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 625, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "sqlcycli/protocol.py":597
+  /* "sqlcycli/protocol.py":626
  *             self._length,  # TODO: display_length; should this be self.length?
  *             length,  # 'internal_size'
  *             length,  # 'precision'  # TODO: why!?!?             # <<<<<<<<<<<<<<
  *             self._scale,
  *             self._flags % 2 == 0,
  */
-  __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_length); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 597, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_length); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 626, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "sqlcycli/protocol.py":598
+  /* "sqlcycli/protocol.py":627
  *             length,  # 'internal_size'
  *             length,  # 'precision'  # TODO: why!?!?
  *             self._scale,             # <<<<<<<<<<<<<<
  *             self._flags % 2 == 0,
  *         )
  */
-  __pyx_t_7 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_scale); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 598, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_scale); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 627, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
 
-  /* "sqlcycli/protocol.py":599
+  /* "sqlcycli/protocol.py":628
  *             length,  # 'precision'  # TODO: why!?!?
  *             self._scale,
  *             self._flags % 2 == 0,             # <<<<<<<<<<<<<<
  *         )
  * 
  */
-  __pyx_t_8 = __Pyx_PyBool_FromLong((__Pyx_mod_long(__pyx_v_self->_flags, 2) == 0)); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 599, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyBool_FromLong((__Pyx_mod_long(__pyx_v_self->_flags, 2) == 0)); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 628, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
 
-  /* "sqlcycli/protocol.py":593
+  /* "sqlcycli/protocol.py":622
  *         length: cython.uint = self._get_column_length()
  *         return (
  *             self._column,             # <<<<<<<<<<<<<<
  *             self._type_code,
  *             self._length,  # TODO: display_length; should this be self.length?
  */
-  __pyx_t_9 = PyTuple_New(7); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 593, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_New(7); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 622, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_INCREF(__pyx_v_self->_column);
   __Pyx_GIVEREF(__pyx_v_self->_column);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_v_self->_column)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_v_self->_column)) __PYX_ERR(1, 622, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_1)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_1)) __PYX_ERR(1, 622, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, __pyx_t_2)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, __pyx_t_2)) __PYX_ERR(1, 622, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 3, __pyx_t_3)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 3, __pyx_t_3)) __PYX_ERR(1, 622, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 4, __pyx_t_4)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 4, __pyx_t_4)) __PYX_ERR(1, 622, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 5, __pyx_t_7)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 5, __pyx_t_7)) __PYX_ERR(1, 622, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 6, __pyx_t_8)) __PYX_ERR(1, 593, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 6, __pyx_t_8)) __PYX_ERR(1, 622, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
@@ -12461,12 +12452,12 @@ static PyObject *__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description
   __pyx_t_9 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":586
+  /* "sqlcycli/protocol.py":605
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def description(self) -> tuple[str, int, int, int, int, int, bool]:
- *         """Provides a 7-item tuple compatible with the Python PEP249 DB Spec `<'tuple'>`.
+ *         """Returns a tuple of of 7-item tuples, each contains the following
  */
 
   /* function exit code */
@@ -12494,7 +12485,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_21FieldDescriptorPacket_2description, "Provides a 7-item tuple compatible with the Python PEP249 DB Spec `<'tuple'>`.\n        >>> (name, type_code, display_length, internal_size, precision, scale, null_ok)\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_8protocol_21FieldDescriptorPacket_2description, "Returns a tuple of of 7-item tuples, each contains the following \n        information describing the columns `<'tuple[tuple]/None'>`.:\n        ```python\n        - \"name\"\n        - \"type_code\"\n        - \"display_size\"\n        - \"internal_size\"\n        - \"precision\"\n        - \"scale\"\n        - \"null_ok\"\n        ```\n        - Compliance with PEP-0249.\n        ");
 static PyMethodDef __pyx_mdef_8sqlcycli_8protocol_21FieldDescriptorPacket_3description = {"description", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_3description, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_8protocol_21FieldDescriptorPacket_2description};
 static PyObject *__pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_3description(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -12537,7 +12528,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_2descripti
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("description", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 586, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 605, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12554,7 +12545,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_2descripti
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":602
+/* "sqlcycli/protocol.py":631
  *         )
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -12566,9 +12557,9 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
   unsigned PY_LONG_LONG __pyx_r;
   int __pyx_t_1;
 
-  /* "sqlcycli/protocol.py":606
- *     def _get_column_length(self) -> cython.ulonglong:
- *         """(cfunc) Get the maximum length of the column `<'int'>`."""
+  /* "sqlcycli/protocol.py":639
+ *         Otherwise, returns the raw byte length.
+ *         """
  *         if self._type_code == _FIELD_TYPE.VAR_STRING:             # <<<<<<<<<<<<<<
  *             # PyMySQL.charset MBLENGTH
  *             # {8: 1, 33: 3, 88: 2, 91: 2}
@@ -12576,7 +12567,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
   __pyx_t_1 = (__pyx_v_self->_type_code == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_VAR_STRING);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/protocol.py":609
+    /* "sqlcycli/protocol.py":642
  *             # PyMySQL.charset MBLENGTH
  *             # {8: 1, 33: 3, 88: 2, 91: 2}
  *             if self._charsetnr == 8:             # <<<<<<<<<<<<<<
@@ -12586,7 +12577,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
     __pyx_t_1 = (__pyx_v_self->_charsetnr == 8);
     if (__pyx_t_1) {
 
-      /* "sqlcycli/protocol.py":610
+      /* "sqlcycli/protocol.py":643
  *             # {8: 1, 33: 3, 88: 2, 91: 2}
  *             if self._charsetnr == 8:
  *                 return self._length             # <<<<<<<<<<<<<<
@@ -12596,7 +12587,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
       __pyx_r = __pyx_v_self->_length;
       goto __pyx_L0;
 
-      /* "sqlcycli/protocol.py":609
+      /* "sqlcycli/protocol.py":642
  *             # PyMySQL.charset MBLENGTH
  *             # {8: 1, 33: 3, 88: 2, 91: 2}
  *             if self._charsetnr == 8:             # <<<<<<<<<<<<<<
@@ -12605,7 +12596,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
  */
     }
 
-    /* "sqlcycli/protocol.py":611
+    /* "sqlcycli/protocol.py":644
  *             if self._charsetnr == 8:
  *                 return self._length
  *             if self._charsetnr == 33:             # <<<<<<<<<<<<<<
@@ -12615,7 +12606,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
     __pyx_t_1 = (__pyx_v_self->_charsetnr == 33);
     if (__pyx_t_1) {
 
-      /* "sqlcycli/protocol.py":612
+      /* "sqlcycli/protocol.py":645
  *                 return self._length
  *             if self._charsetnr == 33:
  *                 return self._length // 3             # <<<<<<<<<<<<<<
@@ -12625,7 +12616,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
       __pyx_r = (__pyx_v_self->_length / 3);
       goto __pyx_L0;
 
-      /* "sqlcycli/protocol.py":611
+      /* "sqlcycli/protocol.py":644
  *             if self._charsetnr == 8:
  *                 return self._length
  *             if self._charsetnr == 33:             # <<<<<<<<<<<<<<
@@ -12634,7 +12625,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
  */
     }
 
-    /* "sqlcycli/protocol.py":613
+    /* "sqlcycli/protocol.py":646
  *             if self._charsetnr == 33:
  *                 return self._length // 3
  *             if self._charsetnr == 88:             # <<<<<<<<<<<<<<
@@ -12644,7 +12635,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
     __pyx_t_1 = (__pyx_v_self->_charsetnr == 88);
     if (__pyx_t_1) {
 
-      /* "sqlcycli/protocol.py":614
+      /* "sqlcycli/protocol.py":647
  *                 return self._length // 3
  *             if self._charsetnr == 88:
  *                 return self._length // 2             # <<<<<<<<<<<<<<
@@ -12654,7 +12645,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
       __pyx_r = (__pyx_v_self->_length / 2);
       goto __pyx_L0;
 
-      /* "sqlcycli/protocol.py":613
+      /* "sqlcycli/protocol.py":646
  *             if self._charsetnr == 33:
  *                 return self._length // 3
  *             if self._charsetnr == 88:             # <<<<<<<<<<<<<<
@@ -12663,7 +12654,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
  */
     }
 
-    /* "sqlcycli/protocol.py":615
+    /* "sqlcycli/protocol.py":648
  *             if self._charsetnr == 88:
  *                 return self._length // 2
  *             if self._charsetnr == 91:             # <<<<<<<<<<<<<<
@@ -12673,7 +12664,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
     __pyx_t_1 = (__pyx_v_self->_charsetnr == 91);
     if (__pyx_t_1) {
 
-      /* "sqlcycli/protocol.py":616
+      /* "sqlcycli/protocol.py":649
  *                 return self._length // 2
  *             if self._charsetnr == 91:
  *                 return self._length // 2             # <<<<<<<<<<<<<<
@@ -12683,7 +12674,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
       __pyx_r = (__pyx_v_self->_length / 2);
       goto __pyx_L0;
 
-      /* "sqlcycli/protocol.py":615
+      /* "sqlcycli/protocol.py":648
  *             if self._charsetnr == 88:
  *                 return self._length // 2
  *             if self._charsetnr == 91:             # <<<<<<<<<<<<<<
@@ -12692,16 +12683,16 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
  */
     }
 
-    /* "sqlcycli/protocol.py":606
- *     def _get_column_length(self) -> cython.ulonglong:
- *         """(cfunc) Get the maximum length of the column `<'int'>`."""
+    /* "sqlcycli/protocol.py":639
+ *         Otherwise, returns the raw byte length.
+ *         """
  *         if self._type_code == _FIELD_TYPE.VAR_STRING:             # <<<<<<<<<<<<<<
  *             # PyMySQL.charset MBLENGTH
  *             # {8: 1, 33: 3, 88: 2, 91: 2}
  */
   }
 
-  /* "sqlcycli/protocol.py":617
+  /* "sqlcycli/protocol.py":650
  *             if self._charsetnr == 91:
  *                 return self._length // 2
  *         return self._length             # <<<<<<<<<<<<<<
@@ -12711,7 +12702,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
   __pyx_r = __pyx_v_self->_length;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":602
+  /* "sqlcycli/protocol.py":631
  *         )
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -12724,7 +12715,7 @@ static CYTHON_INLINE unsigned PY_LONG_LONG __pyx_f_8sqlcycli_8protocol_21FieldDe
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":619
+/* "sqlcycli/protocol.py":652
  *         return self._length
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -12748,7 +12739,7 @@ static PyObject *__pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_5__repr__(
 }
 static PyObject *__pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/protocol.py":636
+/* "sqlcycli/protocol.py":669
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, v) for k, v in reprs.items()),             # <<<<<<<<<<<<<<
@@ -12767,7 +12758,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_8protocol___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(1, 636, __pyx_L1_error)
+    __PYX_ERR(1, 669, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12775,7 +12766,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli_protocol); if (unlikely(!gen)) __PYX_ERR(1, 636, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli_protocol); if (unlikely(!gen)) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12816,12 +12807,12 @@ static PyObject *__pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(1, 636, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(1, 636, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(1, 669, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(1, 669, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(1, 636, __pyx_L1_error) }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 636, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(1, 669, __pyx_L1_error) }
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 669, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -12829,7 +12820,7 @@ static PyObject *__pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(1, 636, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -12840,11 +12831,11 @@ static PyObject *__pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 636, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_8 = 0;
     __pyx_t_9 = 127;
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 636, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
@@ -12855,17 +12846,17 @@ static PyObject *__pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
     __pyx_t_8 += 1;
     __Pyx_GIVEREF(__pyx_kp_u__4);
     PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__4);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_cur_scope->__pyx_v_v), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 636, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_cur_scope->__pyx_v_v), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_5);
     PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_5);
     __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 636, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(1, 636, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(1, 669, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -12891,7 +12882,7 @@ static PyObject *__pyx_gb_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___
   return __pyx_r;
 }
 
-/* "sqlcycli/protocol.py":619
+/* "sqlcycli/protocol.py":652
  *         return self._length
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -12914,137 +12905,137 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_4__repr__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "sqlcycli/protocol.py":621
+  /* "sqlcycli/protocol.py":654
  *     def __repr__(self) -> str:
  *         reprs = {
  *             "catalog": self._catalog,             # <<<<<<<<<<<<<<
  *             "db": self._db,
  *             "table_name": self._table,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(12); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 621, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(12); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_catalog, __pyx_v_self->_catalog) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_catalog, __pyx_v_self->_catalog) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":622
+  /* "sqlcycli/protocol.py":655
  *         reprs = {
  *             "catalog": self._catalog,
  *             "db": self._db,             # <<<<<<<<<<<<<<
  *             "table_name": self._table,
  *             "org_table": self._table_org,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_db, __pyx_v_self->_db) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_db, __pyx_v_self->_db) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":623
+  /* "sqlcycli/protocol.py":656
  *             "catalog": self._catalog,
  *             "db": self._db,
  *             "table_name": self._table,             # <<<<<<<<<<<<<<
  *             "org_table": self._table_org,
  *             "name": self._column,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_table_name, __pyx_v_self->_table) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_table_name, __pyx_v_self->_table) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":624
+  /* "sqlcycli/protocol.py":657
  *             "db": self._db,
  *             "table_name": self._table,
  *             "org_table": self._table_org,             # <<<<<<<<<<<<<<
  *             "name": self._column,
  *             "org_name": self._column_org,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_org_table, __pyx_v_self->_table_org) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_org_table, __pyx_v_self->_table_org) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":625
+  /* "sqlcycli/protocol.py":658
  *             "table_name": self._table,
  *             "org_table": self._table_org,
  *             "name": self._column,             # <<<<<<<<<<<<<<
  *             "org_name": self._column_org,
  *             "charsetnr": self._charsetnr,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_name_2, __pyx_v_self->_column) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_name_2, __pyx_v_self->_column) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":626
+  /* "sqlcycli/protocol.py":659
  *             "org_table": self._table_org,
  *             "name": self._column,
  *             "org_name": self._column_org,             # <<<<<<<<<<<<<<
  *             "charsetnr": self._charsetnr,
  *             "length": self._length,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_org_name, __pyx_v_self->_column_org) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_org_name, __pyx_v_self->_column_org) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":627
+  /* "sqlcycli/protocol.py":660
  *             "name": self._column,
  *             "org_name": self._column_org,
  *             "charsetnr": self._charsetnr,             # <<<<<<<<<<<<<<
  *             "length": self._length,
  *             "type_code": self._type_code,
  */
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_charsetnr); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 627, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_charsetnr); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 660, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charsetnr, __pyx_t_2) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charsetnr, __pyx_t_2) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/protocol.py":628
+  /* "sqlcycli/protocol.py":661
  *             "org_name": self._column_org,
  *             "charsetnr": self._charsetnr,
  *             "length": self._length,             # <<<<<<<<<<<<<<
  *             "type_code": self._type_code,
  *             "flags": self._flags,
  */
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 628, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_self->_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 661, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_length, __pyx_t_2) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_length, __pyx_t_2) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/protocol.py":629
+  /* "sqlcycli/protocol.py":662
  *             "charsetnr": self._charsetnr,
  *             "length": self._length,
  *             "type_code": self._type_code,             # <<<<<<<<<<<<<<
  *             "flags": self._flags,
  *             "scale": self._scale,
  */
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_type_code); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 629, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_type_code); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 662, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_type_code, __pyx_t_2) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_type_code, __pyx_t_2) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/protocol.py":630
+  /* "sqlcycli/protocol.py":663
  *             "length": self._length,
  *             "type_code": self._type_code,
  *             "flags": self._flags,             # <<<<<<<<<<<<<<
  *             "scale": self._scale,
  *             "is_binary": self._is_binary,
  */
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_flags); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 630, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_flags); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 663, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_flags, __pyx_t_2) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_flags, __pyx_t_2) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/protocol.py":631
+  /* "sqlcycli/protocol.py":664
  *             "type_code": self._type_code,
  *             "flags": self._flags,
  *             "scale": self._scale,             # <<<<<<<<<<<<<<
  *             "is_binary": self._is_binary,
  *         }
  */
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_scale); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 631, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_self->_scale); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 664, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_scale, __pyx_t_2) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_scale, __pyx_t_2) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/protocol.py":632
+  /* "sqlcycli/protocol.py":665
  *             "flags": self._flags,
  *             "scale": self._scale,
  *             "is_binary": self._is_binary,             # <<<<<<<<<<<<<<
  *         }
  *         return "<%s(\n  %s)>" % (
  */
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_binary); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 632, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->_is_binary); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 665, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_is_binary, __pyx_t_2) < 0) __PYX_ERR(1, 621, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_is_binary, __pyx_t_2) < 0) __PYX_ERR(1, 654, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_reprs = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/protocol.py":634
+  /* "sqlcycli/protocol.py":667
  *             "is_binary": self._is_binary,
  *         }
  *         return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
@@ -13052,7 +13043,7 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_4__repr__(
  *             ",\n  ".join("%s=%r" % (k, v) for k, v in reprs.items()),
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 634, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 667, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3 = 0;
   __pyx_t_4 = 127;
@@ -13061,19 +13052,19 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_4__repr__(
   __Pyx_GIVEREF(__pyx_kp_u__5);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u__5);
 
-  /* "sqlcycli/protocol.py":635
+  /* "sqlcycli/protocol.py":668
  *         }
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,             # <<<<<<<<<<<<<<
  *             ",\n  ".join("%s=%r" % (k, v) for k, v in reprs.items()),
  *         )
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 635, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 668, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 635, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 668, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_5), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 635, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_5), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 668, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_4;
@@ -13086,18 +13077,18 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_4__repr__(
   __Pyx_GIVEREF(__pyx_kp_u__6);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__6);
 
-  /* "sqlcycli/protocol.py":636
+  /* "sqlcycli/protocol.py":669
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, v) for k, v in reprs.items()),             # <<<<<<<<<<<<<<
  *         )
  */
-  __pyx_t_2 = __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___genexpr(NULL, __pyx_v_reprs); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 636, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_8__repr___genexpr(NULL, __pyx_v_reprs); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 669, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_Generator_Next(__pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 636, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Generator_Next(__pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 669, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyUnicode_Join(__pyx_kp_u__7, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 636, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Join(__pyx_kp_u__7, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 669, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_4;
@@ -13110,21 +13101,21 @@ static PyObject *__pyx_pf_8sqlcycli_8protocol_21FieldDescriptorPacket_4__repr__(
   __Pyx_GIVEREF(__pyx_kp_u__8);
   PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u__8);
 
-  /* "sqlcycli/protocol.py":634
+  /* "sqlcycli/protocol.py":667
  *             "is_binary": self._is_binary,
  *         }
  *         return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, v) for k, v in reprs.items()),
  */
-  __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 634, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 667, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/protocol.py":619
+  /* "sqlcycli/protocol.py":652
  *         return self._length
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -15030,21 +15021,21 @@ static PyMethodDef __pyx_methods_8sqlcycli_8protocol_MysqlPacket[] = {
 };
 
 static struct PyGetSetDef __pyx_getsets_8sqlcycli_8protocol_MysqlPacket[] = {
-  {(char *)"affected_rows", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_affected_rows, 0, (char *)PyDoc_STR("The number of affected rows by the query `<'int'>`.\n\n        Only valid for OKPacket after 'read_*()', else returns 0.\n        "), 0},
-  {(char *)"insert_id", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_insert_id, 0, (char *)PyDoc_STR("The last insert id of the query `<'int'>`.\n\n        Only valid for OKPacketafter 'read', else returns 0.\n        "), 0},
-  {(char *)"server_status", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_server_status, 0, (char *)PyDoc_STR("The server status of the query `<'int/None'>`.\n        \n        Valid for OKPacket, EOFPacket after 'read_*()', else returns None.\n        "), 0},
-  {(char *)"warning_count", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_warning_count, 0, (char *)PyDoc_STR("The number of warnings raised by the query `<'int'>`.\n\n        Only valid for OKPacket after 'read_*()', else returns 0.\n        "), 0},
-  {(char *)"has_next", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_has_next, 0, (char *)PyDoc_STR("The flag represents if there is more result exists `<'bool'>`.\n        \n        Only valid for OKPacket, EOFPacket after 'read_*()', else returns False.\n        "), 0},
-  {(char *)"message", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_message, 0, (char *)PyDoc_STR("The message of the query `<'bytes/None'>`.\n        \n        Only valid for OKPacket after 'read_*()', else returns None.\n        "), 0},
-  {(char *)"filename", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_filename, 0, (char *)PyDoc_STR("The filename of local file to be load `<'bytes/None'>`.\n        \n        Only valid for LoadLocalPacket after 'read_*()', else returns None.\n        "), 0},
-  {(char *)"plugin_name", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_plugin_name, 0, (char *)PyDoc_STR("The plugin name for authentication switch `<'bytes/None'>`.\n        \n        Only valid for AuthSwitchRequest after 'read_*()', else returns None.\n        "), 0},
-  {(char *)"salt", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_salt, 0, (char *)PyDoc_STR("The salt for authentication switch `<'bytes/None'>`.\n        \n        Only valid for AuthSwitchRequest after 'read_*()', else returns None.\n        "), 0},
+  {(char *)"affected_rows", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_affected_rows, 0, (char *)PyDoc_STR("Number of rows affected by the last DML statement `<'int'>`.\n\n        - Only valid after reading an OK packet.\n        "), 0},
+  {(char *)"insert_id", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_insert_id, 0, (char *)PyDoc_STR("Last-inserted auto-increment ID from an INSERT `<'int'>`.\n\n        - Only valid after reading an OK packet.\n        "), 0},
+  {(char *)"server_status", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_server_status, 0, (char *)PyDoc_STR("The server status flag `<'int/None'>`.\n\n        - Only valid after reading an OKPacket or EOFPacket.\n        "), 0},
+  {(char *)"warning_count", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_warning_count, 0, (char *)PyDoc_STR("Number of warnings generated by the last statement. `<'int'>`.\n\n        - Only valid after reading an OK packet.\n        "), 0},
+  {(char *)"has_next", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_has_next, 0, (char *)PyDoc_STR("Whether more result sets are available `<'bool'>`.\n\n        - Only valid after reading an OKPacket or EOFPacket.\n        "), 0},
+  {(char *)"message", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_message, 0, (char *)PyDoc_STR("Text message from an OK or Error packet `<'bytes/None'>`.\n\n        - Only valid after reading an OK packet.\n        "), 0},
+  {(char *)"filename", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_filename, 0, (char *)PyDoc_STR("Filename specified in a LOAD DATA LOCAL INFILE packet `<'bytes/None'>`.\n\n        - Only valid after reading a LoadLocalPacket.\n        "), 0},
+  {(char *)"plugin_name", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_plugin_name, 0, (char *)PyDoc_STR("Authentication plugin name from an AuthSwitchRequest packet `<'bytes/None'>`.\n\n        - Only valid after reading an AuthSwitchRequest.\n        "), 0},
+  {(char *)"salt", __pyx_getprop_8sqlcycli_8protocol_11MysqlPacket_salt, 0, (char *)PyDoc_STR("Authentication salt/challenge from an AuthSwitchRequest packet `<'bytes/None'>`.\n\n        - Only valid after reading an AuthSwitchRequest.\n        "), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_8sqlcycli_8protocol_MysqlPacket_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_8protocol_MysqlPacket},
-  {Py_tp_doc, (void *)PyDoc_STR("Represents the MySQL response packet. Reads in the packet\n    from the network socket, removes packet header and provides an\n    interface for reading/parsing the packet results.")},
+  {Py_tp_doc, (void *)PyDoc_STR("Represents a raw MySQL protocol packet, providing methods to\n    parse and interpret packet contents (OK, ERR, EOF, AuthSwitch,\n    Resultset, etc.).\n    ")},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_8protocol_MysqlPacket},
   {Py_tp_getset, (void *)__pyx_getsets_8sqlcycli_8protocol_MysqlPacket},
   {Py_tp_init, (void *)__pyx_pw_8sqlcycli_8protocol_11MysqlPacket_1__init__},
@@ -15091,7 +15082,7 @@ static PyTypeObject __pyx_type_8sqlcycli_8protocol_MysqlPacket = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE, /*tp_flags*/
-  PyDoc_STR("Represents the MySQL response packet. Reads in the packet\n    from the network socket, removes packet header and provides an\n    interface for reading/parsing the packet results."), /*tp_doc*/
+  PyDoc_STR("Represents a raw MySQL protocol packet, providing methods to\n    parse and interpret packet contents (OK, ERR, EOF, AuthSwitch,\n    Resultset, etc.).\n    "), /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -15239,25 +15230,25 @@ static PyMethodDef __pyx_methods_8sqlcycli_8protocol_FieldDescriptorPacket[] = {
 };
 
 static struct PyGetSetDef __pyx_getsets_8sqlcycli_8protocol_FieldDescriptorPacket[] = {
-  {(char *)"catalog", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_catalog, 0, (char *)PyDoc_STR("The name of the catalog `<'bytes'>`.\n\n        In MySQL, the catalog is alwasy `b'def'`. This field\n        is included for compatibility with SQL standards but\n        is generally not used in MySQL."), 0},
-  {(char *)"db", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_db, 0, (char *)PyDoc_STR("The name of the database where the table is located `<'str'>`."), 0},
-  {(char *)"table", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_table, 0, (char *)PyDoc_STR("The alias of the table as specified in the SQL query `<'str'>`."), 0},
-  {(char *)"table_org", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_table_org, 0, (char *)PyDoc_STR("The original name of the table in the database `<'str'>`."), 0},
-  {(char *)"column", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_column, 0, (char *)PyDoc_STR("The alias of the column as specified in the SQL query `<'str'>`."), 0},
-  {(char *)"column_org", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_column_org, 0, (char *)PyDoc_STR("The original name of the column in the table `<'str'>`."), 0},
-  {(char *)"charsetnr", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_charsetnr, 0, (char *)PyDoc_STR("The character set number for the column `<'int'>`."), 0},
-  {(char *)"length", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_length, 0, (char *)PyDoc_STR("The maximum length of the column `<'int'>`."), 0},
-  {(char *)"type_code", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_type_code, 0, (char *)PyDoc_STR("The type code of the column `<'int'>`.\n\n        Please refer to 'sqlcycli.constants.FIELD_TYPE'\n        for the corresponding data type."), 0},
-  {(char *)"flags", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_flags, 0, (char *)PyDoc_STR("The flag that provides additional information about the column `<'int'>`."), 0},
-  {(char *)"scale", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_scale, 0, (char *)PyDoc_STR("The number of decimal places for numeric columns `<'int'>`."), 0},
-  {(char *)"is_binary", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_is_binary, 0, (char *)PyDoc_STR("Whether the column is binary `<'bool'>`."), 0},
+  {(char *)"catalog", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_catalog, 0, (char *)PyDoc_STR("The catalog name `<'bytes'>`.\n\n        In MySQL, the catalog is alwasy `b'def'`. This field\n        is included for compatibility with SQL standards but\n        is generally not used in MySQL."), 0},
+  {(char *)"db", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_db, 0, (char *)PyDoc_STR("The database name where the table resides `<'str'>`."), 0},
+  {(char *)"table", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_table, 0, (char *)PyDoc_STR("The table alias as used in the SQL query `<'str'>`."), 0},
+  {(char *)"table_org", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_table_org, 0, (char *)PyDoc_STR("The original table name in the database `<'str'>`."), 0},
+  {(char *)"column", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_column, 0, (char *)PyDoc_STR("The column alias as used in the SQL query `<'str'>`."), 0},
+  {(char *)"column_org", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_column_org, 0, (char *)PyDoc_STR("The original column name in the table `<'str'>`."), 0},
+  {(char *)"charsetnr", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_charsetnr, 0, (char *)PyDoc_STR("The MySQL character set number (id) for this column `<'int'>`."), 0},
+  {(char *)"length", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_length, 0, (char *)PyDoc_STR("The maximum width of the column in bytes or characters \n        (depends on the columns' data type) `<'int'>`."), 0},
+  {(char *)"type_code", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_type_code, 0, (char *)PyDoc_STR("The MySQL internal field type code (see `constants.FIELD_TYPE`) `<'int'>`."), 0},
+  {(char *)"flags", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_flags, 0, (char *)PyDoc_STR("The bitmask of column attributes (e.g., NOT_NULL_FLAG, PRI_KEY_FLAG) `<'int'>`."), 0},
+  {(char *)"scale", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_scale, 0, (char *)PyDoc_STR("The number of decimal digits for numeric types. `<'int'>`."), 0},
+  {(char *)"is_binary", __pyx_getprop_8sqlcycli_8protocol_21FieldDescriptorPacket_is_binary, 0, (char *)PyDoc_STR("Whether the column is binary data type `<'bool'>`."), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_8sqlcycli_8protocol_FieldDescriptorPacket_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_8protocol_FieldDescriptorPacket},
   {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_5__repr__},
-  {Py_tp_doc, (void *)PyDoc_STR("Represents the MySQL response packet which\n    contains column's metadata in the result. Parsing\n    is done automatically.\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("Represent a column's metadata packet in a MySQL result set.\n\n    Immediately upon initialization, reads the length-encoded fields:\n        - catalog\n        - database name\n        - table alias\n        - original table name\n        - column alias\n        - original column name\n    Then reads numeric metadata: character set, column length, type, flags, scale.\n\n    Provides PEP 249-style column description and individual \n    properties for each piece of metadata.\n    ")},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_8protocol_FieldDescriptorPacket},
   {Py_tp_getset, (void *)__pyx_getsets_8sqlcycli_8protocol_FieldDescriptorPacket},
   {Py_tp_init, (void *)__pyx_pw_8sqlcycli_8protocol_21FieldDescriptorPacket_1__init__},
@@ -15304,7 +15295,7 @@ static PyTypeObject __pyx_type_8sqlcycli_8protocol_FieldDescriptorPacket = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE, /*tp_flags*/
-  PyDoc_STR("Represents the MySQL response packet which\n    contains column's metadata in the result. Parsing\n    is done automatically.\n    "), /*tp_doc*/
+  PyDoc_STR("Represent a column's metadata packet in a MySQL result set.\n\n    Immediately upon initialization, reads the length-encoded fields:\n        - catalog\n        - database name\n        - table alias\n        - original table name\n        - column alias\n        - original column name\n    Then reads numeric metadata: character set, column length, type, flags, scale.\n\n    Provides PEP 249-style column description and individual \n    properties for each piece of metadata.\n    "), /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -15561,7 +15552,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_FieldDescriptorPacket___reduce_c, __pyx_k_FieldDescriptorPacket___reduce_c, sizeof(__pyx_k_FieldDescriptorPacket___reduce_c), 0, 0, 1, 1},
     {&__pyx_n_s_FieldDescriptorPacket___setstate, __pyx_k_FieldDescriptorPacket___setstate, sizeof(__pyx_k_FieldDescriptorPacket___setstate), 0, 0, 1, 1},
     {&__pyx_n_s_FieldDescriptorPacket_descriptio, __pyx_k_FieldDescriptorPacket_descriptio, sizeof(__pyx_k_FieldDescriptorPacket_descriptio), 0, 0, 1, 1},
-    {&__pyx_kp_u_FieldDescriptorPacket_descriptio_2, __pyx_k_FieldDescriptorPacket_descriptio_2, sizeof(__pyx_k_FieldDescriptorPacket_descriptio_2), 0, 1, 0, 0},
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0, __pyx_k_Incompatible_checksums_0x_x_vs_0, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0), 0, 0, 1, 0},
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0_2, __pyx_k_Incompatible_checksums_0x_x_vs_0_2, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0_2), 0, 0, 1, 0},
     {&__pyx_n_s_InvalidSQLArgsErorr, __pyx_k_InvalidSQLArgsErorr, sizeof(__pyx_k_InvalidSQLArgsErorr), 0, 0, 1, 1},
@@ -15577,7 +15567,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_MysqlPacket_read_ok_packet, __pyx_k_MysqlPacket_read_ok_packet, sizeof(__pyx_k_MysqlPacket_read_ok_packet), 0, 0, 1, 1},
     {&__pyx_kp_u_None, __pyx_k_None, sizeof(__pyx_k_None), 0, 1, 0, 0},
     {&__pyx_n_s_PickleError, __pyx_k_PickleError, sizeof(__pyx_k_PickleError), 0, 0, 1, 1},
-    {&__pyx_kp_u_Provides_a_7_item_tuple_compatib, __pyx_k_Provides_a_7_item_tuple_compatib, sizeof(__pyx_k_Provides_a_7_item_tuple_compatib), 0, 1, 0, 0},
     {&__pyx_kp_u_Requested_data_size_overflow_Ex, __pyx_k_Requested_data_size_overflow_Ex, sizeof(__pyx_k_Requested_data_size_overflow_Ex), 0, 1, 0, 0},
     {&__pyx_n_s_SERVER_STATUS, __pyx_k_SERVER_STATUS, sizeof(__pyx_k_SERVER_STATUS), 0, 0, 1, 1},
     {&__pyx_kp_u_With, __pyx_k_With, sizeof(__pyx_k_With), 0, 1, 0, 0},
@@ -15693,53 +15682,53 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__11);
   __Pyx_GIVEREF(__pyx_tuple__11);
 
-  /* "sqlcycli/protocol.py":277
+  /* "sqlcycli/protocol.py":282
  *         return self._size >= 7 and self._data_c[0] == 0
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_ok_packet(self) -> cython.bint:
  */
-  __pyx_tuple__12 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(1, 277, __pyx_L1_error)
+  __pyx_tuple__12 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(1, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__12);
   __Pyx_GIVEREF(__pyx_tuple__12);
-  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_ok_packet, 277, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(1, 277, __pyx_L1_error)
+  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_ok_packet, 282, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(1, 282, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":305
+  /* "sqlcycli/protocol.py":309
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFB
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_load_local_packet(self) -> cython.bint:
  */
-  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_load_local_packet, 305, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(1, 305, __pyx_L1_error)
+  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_load_local_packet, 309, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(1, 309, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":331
+  /* "sqlcycli/protocol.py":334
  *         return self._size < 9 and utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_eof_packet(self) -> cython.bint:
  */
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_eof_packet, 331, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(1, 331, __pyx_L1_error)
+  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_eof_packet, 334, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(1, 334, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":357
+  /* "sqlcycli/protocol.py":359
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_auth_switch_request(self) -> cython.bint:
  */
-  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_auth_switch_request, 357, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(1, 357, __pyx_L1_error)
+  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_read_auth_switch_request, 359, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(1, 359, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":437
+  /* "sqlcycli/protocol.py":438
  * 
  *     # Error -----------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def check_error(self) -> cython.bint:
  */
-  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_check_error, 437, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(1, 437, __pyx_L1_error)
+  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_check_error, 438, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(1, 438, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -15762,14 +15751,14 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__20);
   __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(2, 16, __pyx_L1_error)
 
-  /* "sqlcycli/protocol.py":586
+  /* "sqlcycli/protocol.py":605
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def description(self) -> tuple[str, int, int, int, int, int, bool]:
- *         """Provides a 7-item tuple compatible with the Python PEP249 DB Spec `<'tuple'>`.
+ *         """Returns a tuple of of 7-item tuples, each contains the following
  */
-  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_description, 586, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(1, 586, __pyx_L1_error)
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_protocol_py, __pyx_n_s_description, 605, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(1, 605, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -15931,12 +15920,12 @@ static int __Pyx_modinit_type_init_code(void) {
   __pyx_vtable_8sqlcycli_8protocol_FieldDescriptorPacket.description = (PyObject *(*)(struct __pyx_obj_8sqlcycli_8protocol_FieldDescriptorPacket *, int __pyx_skip_dispatch))__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket_description;
   __pyx_vtable_8sqlcycli_8protocol_FieldDescriptorPacket._get_column_length = (unsigned PY_LONG_LONG (*)(struct __pyx_obj_8sqlcycli_8protocol_FieldDescriptorPacket *))__pyx_f_8sqlcycli_8protocol_21FieldDescriptorPacket__get_column_length;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 456, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 459, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8protocol_FieldDescriptorPacket_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket)) __PYX_ERR(1, 456, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8protocol_FieldDescriptorPacket_spec, __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 456, __pyx_L1_error)
+  if (unlikely(!__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket)) __PYX_ERR(1, 459, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8protocol_FieldDescriptorPacket_spec, __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 459, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket = &__pyx_type_8sqlcycli_8protocol_FieldDescriptorPacket;
   #endif
@@ -15944,7 +15933,7 @@ static int __Pyx_modinit_type_init_code(void) {
   __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket->tp_base = __pyx_ptype_8sqlcycli_8protocol_MysqlPacket;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 456, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 459, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket->tp_print = 0;
@@ -15956,7 +15945,7 @@ static int __Pyx_modinit_type_init_code(void) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(1, 456, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(1, 459, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_8sqlcycli_8protocol_21FieldDescriptorPacket___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_8sqlcycli_8protocol_21FieldDescriptorPacket___init__.doc = __pyx_doc_8sqlcycli_8protocol_21FieldDescriptorPacket___init__;
@@ -15964,24 +15953,24 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket, __pyx_vtabptr_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 456, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket, __pyx_vtabptr_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 459, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 456, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 459, __pyx_L1_error)
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_FieldDescriptorPacket, (PyObject *) __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 456, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_FieldDescriptorPacket, (PyObject *) __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 459, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 456, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket) < 0) __PYX_ERR(1, 459, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8protocol___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr)) __PYX_ERR(1, 636, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8protocol___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr) < 0) __PYX_ERR(1, 636, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_8protocol___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr)) __PYX_ERR(1, 669, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_8protocol___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr) < 0) __PYX_ERR(1, 669, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr = &__pyx_type_8sqlcycli_8protocol___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr) < 0) __PYX_ERR(1, 636, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr) < 0) __PYX_ERR(1, 669, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_8protocol___pyx_scope_struct__genexpr->tp_print = 0;
@@ -16023,8 +16012,8 @@ static int __Pyx_modinit_type_import_code(void) {
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_ptype_8sqlcycli_7charset_Charset = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charset", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charset), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charset),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charset) __PYX_ERR(4, 4, __pyx_L1_error)
   __pyx_vtabptr_8sqlcycli_7charset_Charset = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charset*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charset); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charset)) __PYX_ERR(4, 4, __pyx_L1_error)
-  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(4, 15, __pyx_L1_error)
-  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(4, 15, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(4, 16, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(4, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -16496,68 +16485,68 @@ if (!__Pyx_RefNanny) {
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_all, __pyx_t_2) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/protocol.py":277
+  /* "sqlcycli/protocol.py":282
  *         return self._size >= 7 and self._data_c[0] == 0
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_ok_packet(self) -> cython.bint:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_3read_ok_packet, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_ok_packet, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__13)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 277, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_3read_ok_packet, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_ok_packet, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__13)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_ok_packet, __pyx_t_2) < 0) __PYX_ERR(1, 277, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_ok_packet, __pyx_t_2) < 0) __PYX_ERR(1, 282, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_MysqlPacket);
 
-  /* "sqlcycli/protocol.py":305
+  /* "sqlcycli/protocol.py":309
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFB
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_load_local_packet(self) -> cython.bint:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_5read_load_local_packet, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_load_local_pack, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 305, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_5read_load_local_packet, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_load_local_pack, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_load_local_packet, __pyx_t_2) < 0) __PYX_ERR(1, 305, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_load_local_packet, __pyx_t_2) < 0) __PYX_ERR(1, 309, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_MysqlPacket);
 
-  /* "sqlcycli/protocol.py":331
+  /* "sqlcycli/protocol.py":334
  *         return self._size < 9 and utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_eof_packet(self) -> cython.bint:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_7read_eof_packet, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_eof_packet, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 331, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_7read_eof_packet, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_eof_packet, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_eof_packet, __pyx_t_2) < 0) __PYX_ERR(1, 331, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_eof_packet, __pyx_t_2) < 0) __PYX_ERR(1, 334, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_MysqlPacket);
 
-  /* "sqlcycli/protocol.py":357
+  /* "sqlcycli/protocol.py":359
  *         return utils.unpack_uint8(self._data_c, 0) == 0xFE
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def read_auth_switch_request(self) -> cython.bint:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_9read_auth_switch_request, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_auth_switch_req, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 357, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_9read_auth_switch_request, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_read_auth_switch_req, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_auth_switch_request, __pyx_t_2) < 0) __PYX_ERR(1, 357, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_read_auth_switch_request, __pyx_t_2) < 0) __PYX_ERR(1, 359, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_MysqlPacket);
 
-  /* "sqlcycli/protocol.py":437
+  /* "sqlcycli/protocol.py":438
  * 
  *     # Error -----------------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     @cython.exceptval(-1, check=False)
  *     def check_error(self) -> cython.bint:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_11check_error, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_check_error, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 437, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_11MysqlPacket_11check_error, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_MysqlPacket_check_error, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_check_error, __pyx_t_2) < 0) __PYX_ERR(1, 437, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_MysqlPacket, __pyx_n_s_check_error, __pyx_t_2) < 0) __PYX_ERR(1, 438, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_MysqlPacket);
 
@@ -16584,16 +16573,16 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_MysqlPacket);
 
-  /* "sqlcycli/protocol.py":586
+  /* "sqlcycli/protocol.py":605
  * 
  *     # Read Packet -----------------------------------------------------------------------------
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def description(self) -> tuple[str, int, int, int, int, int, bool]:
- *         """Provides a 7-item tuple compatible with the Python PEP249 DB Spec `<'tuple'>`.
+ *         """Returns a tuple of of 7-item tuples, each contains the following
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_21FieldDescriptorPacket_3description, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_FieldDescriptorPacket_descriptio, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 586, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_8protocol_21FieldDescriptorPacket_3description, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_FieldDescriptorPacket_descriptio, NULL, __pyx_n_s_sqlcycli_protocol, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 605, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket, __pyx_n_s_description, __pyx_t_2) < 0) __PYX_ERR(1, 586, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket, __pyx_n_s_description, __pyx_t_2) < 0) __PYX_ERR(1, 605, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_8sqlcycli_8protocol_FieldDescriptorPacket);
 
@@ -16647,9 +16636,8 @@ if (!__Pyx_RefNanny) {
  * # cython: wraparound=False
  * # cython: boundscheck=False
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_kp_u_FieldDescriptorPacket_descriptio_2, __pyx_kp_u_Provides_a_7_item_tuple_compatib) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 

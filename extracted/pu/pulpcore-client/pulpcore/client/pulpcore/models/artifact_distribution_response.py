@@ -28,18 +28,18 @@ class ArtifactDistributionResponse(BaseModel):
     """
     A serializer for ArtifactDistribution.
     """ # noqa: E501
+    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
-    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
-    pulp_href: Optional[StrictStr] = None
-    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
     hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
-    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
-    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
-    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
-    __properties: ClassVar[List[str]] = ["base_url", "no_content_change_since", "pulp_href", "content_guard", "hidden", "pulp_labels", "pulp_created", "name", "prn", "pulp_last_updated", "base_path"]
+    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
+    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
+    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
+    pulp_href: Optional[StrictStr] = None
+    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
+    __properties: ClassVar[List[str]] = ["pulp_created", "base_url", "hidden", "pulp_labels", "base_path", "content_guard", "pulp_last_updated", "no_content_change_since", "prn", "pulp_href", "name"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,12 +79,12 @@ class ArtifactDistributionResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
-            "base_url",
-            "no_content_change_since",
-            "pulp_href",
             "pulp_created",
-            "prn",
+            "base_url",
             "pulp_last_updated",
+            "no_content_change_since",
+            "prn",
+            "pulp_href",
         ])
 
         _dict = self.model_dump(
@@ -109,17 +109,17 @@ class ArtifactDistributionResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "pulp_created": obj.get("pulp_created"),
             "base_url": obj.get("base_url"),
-            "no_content_change_since": obj.get("no_content_change_since"),
-            "pulp_href": obj.get("pulp_href"),
-            "content_guard": obj.get("content_guard"),
             "hidden": obj.get("hidden") if obj.get("hidden") is not None else False,
             "pulp_labels": obj.get("pulp_labels"),
-            "pulp_created": obj.get("pulp_created"),
-            "name": obj.get("name"),
-            "prn": obj.get("prn"),
+            "base_path": obj.get("base_path"),
+            "content_guard": obj.get("content_guard"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
-            "base_path": obj.get("base_path")
+            "no_content_change_since": obj.get("no_content_change_since"),
+            "prn": obj.get("prn"),
+            "pulp_href": obj.get("pulp_href"),
+            "name": obj.get("name")
         })
         return _obj
 

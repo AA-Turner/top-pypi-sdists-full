@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyqrack-cpu
-Version: 1.61.0
+Version: 1.61.3
 Summary: pyqrack - Pure Python vm6502q/qrack Wrapper
 Home-page: https://github.com/vm6502q/pyqrack
 Author: Daniel Strano

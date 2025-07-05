@@ -13,7 +13,7 @@
             "-Wno-unreachable-code"
         ],
         "include_dirs": [
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "sqlcycli.sqlintvl",
         "sources": [

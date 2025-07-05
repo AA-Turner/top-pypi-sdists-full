@@ -167,9 +167,7 @@ class CythonParseError(Exception):
 
 def err_msg(node: Node, expected: str) -> NoReturn:
     msg = (
-        f"Unexpected error, please report bug. "
-        f"Expected {expected}, got {node}\n"
-        f"{node}\n"
+        f"Unexpected error, please report bug. Expected {expected}, got {node}\n{node}\n"
     )
     if hasattr(node, "pos"):
         msg += f"pos: {node.pos}\n"
@@ -281,7 +279,7 @@ def visit_funcdef(
                 (
                     _def[1],
                     _def[2] + 1,
-                    f"'{_def[0]}' defined but unused " "(try prefixing with underscore?)",
+                    f"'{_def[0]}' defined but unused (try prefixing with underscore?)",
                 )
             )
         if _def[0] in [_import[0] for _import in global_imports]:
@@ -293,7 +291,7 @@ def visit_funcdef(
                     _def[1],
                     _def[2] + 1,
                     f"'{_def[0]}' shadows global import on line "
-                    f"{_global_import[1]} col {_global_import[2]+1}",
+                    f"{_global_import[1]} col {_global_import[2] + 1}",
                 )
             )
 
@@ -404,12 +402,12 @@ def _traverse_file(  # noqa: PLR0915
         context = StringParseContext(filename)
         context.set_language_level(3)
         tree = parse_from_strings(filename, code, context=context)
-    except Exception as exp:  # pragma: no cover  # noqa: BLE001
+    except Exception as exp:  # pragma: no cover
         # If Cython can't parse this file, just skip it.
         print(
-            f"Skipping file {filename}, as it cannot be parsed. Error: " f"{exp!r}",
+            f"Skipping file {filename}, as it cannot be parsed. Error: {exp!r}",
         )
-        raise CythonParseError  # noqa: B904
+        raise CythonParseError from exp
     nodes = list(traverse(tree))
     imported_names: list[Token] = []
     global_imports: list[Token] = []
@@ -626,7 +624,7 @@ def _traverse_file(  # noqa: PLR0915
                 (
                     node.pos[1],
                     node.pos[2] + 1,
-                    f"Using '{node.function.attribute}' with " "repeated elements",
+                    f"Using '{node.function.attribute}' with repeated elements",
                 ),
             )
 
@@ -726,13 +724,21 @@ def sanitise_input(
         if i in exclude_lines:
             _file = os.path.join(_dir, line.split()[-1].strip("'\""))
             if os.path.exists(f"{_file}.in"):
-                with open(f"{_file}.in", encoding="utf-8") as fd:
-                    content = fd.read()
-                pyxcontent = Tempita.sub(content)
+                try:
+                    with open(f"{_file}.in", encoding="utf-8") as fd:
+                        content = fd.read()
+                    pyxcontent = Tempita.sub(content)
+                except Exception as exc:  # pragma: no cover
+                    # If Cython can't parse this file, just skip it.
+                    raise CythonParseError from exc
                 included_texts.append(pyxcontent)
             elif os.path.exists(_file):
-                with open(_file, encoding="utf-8") as fd:
-                    content = fd.read()
+                try:
+                    with open(_file, encoding="utf-8") as fd:
+                        content = fd.read()
+                except Exception as exc:  # pragma: no cover
+                    # If Cython can't parse this file, just skip it.
+                    raise CythonParseError from exc
                 included_texts.append(content)
             lines[i] = "\n"
         else:
@@ -797,7 +803,7 @@ def run_pycodestyle(
     output = subprocess.run(
         [
             "pycodestyle",
-            f'--ignore={",".join(PYCODESTYLE_CODES | ignore)}',
+            f"--ignore={','.join(PYCODESTYLE_CODES | ignore)}",
             f"--max-line-length={line_length}",
             "--format=%(row)d:%(col)d:%(code)s %(text)s",
             filename,
@@ -884,7 +890,7 @@ def _get_config(paths: list[pathlib.Path]) -> dict[str, Any]:
         for basename in (".cython-lint.toml", "pyproject.toml"):
             config_file = root / basename
             if config_file.is_file():
-                config = tomllib.loads(config_file.read_text())
+                config: dict[str, Any] = tomllib.loads(config_file.read_text())
                 config = config.get("tool", {}).get("cython-lint", {})
                 if config:
                     return config

@@ -13,7 +13,7 @@
             "-Wno-unreachable-code"
         ],
         "include_dirs": [
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "sqlcycli.errors",
         "sources": [
@@ -1529,10 +1529,11 @@ struct __pyx_obj_8sqlcycli_7charset_Charset {
   PyObject *_encoding;
   char *_encoding_c;
   int _is_default;
+  Py_ssize_t _hashcode;
 };
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1564,7 +1565,7 @@ struct __pyx_vtabstruct_8sqlcycli_7charset_Charset {
 static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcycli_7charset_Charset;
 
 
-/* "sqlcycli/charset.pxd":15
+/* "sqlcycli/charset.pxd":16
  *     cpdef bint is_binary(self)
  * 
  * cdef class Charsets:             # <<<<<<<<<<<<<<
@@ -1574,10 +1575,10 @@ static struct __pyx_vtabstruct_8sqlcycli_7charset_Charset *__pyx_vtabptr_8sqlcyc
 
 struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets {
   int (*add)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *, int __pyx_skip_dispatch);
-  int (*_add_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
-  int (*_add_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
+  int (*_index_by_name_n_collation)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, struct __pyx_obj_8sqlcycli_7charset_Charset *);
   PyObject *(*_gen_charset_n_collate_key)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, PyObject *);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_id)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
   struct __pyx_obj_8sqlcycli_7charset_Charset *(*by_name)(struct __pyx_obj_8sqlcycli_7charset_Charsets *, PyObject *, int __pyx_skip_dispatch);
@@ -7413,8 +7414,8 @@ static int __Pyx_modinit_type_import_code(void) {
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_ptype_8sqlcycli_7charset_Charset = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charset", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charset), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charset),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charset) __PYX_ERR(3, 4, __pyx_L1_error)
   __pyx_vtabptr_8sqlcycli_7charset_Charset = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charset*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charset); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charset)) __PYX_ERR(3, 4, __pyx_L1_error)
-  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(3, 15, __pyx_L1_error)
-  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(3, 15, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_7charset_Charsets = __Pyx_ImportType_3_0_12(__pyx_t_1, "sqlcycli.charset", "Charsets", sizeof(struct __pyx_obj_8sqlcycli_7charset_Charsets), __PYX_GET_STRUCT_ALIGNMENT_3_0_12(struct __pyx_obj_8sqlcycli_7charset_Charsets),__Pyx_ImportType_CheckSize_Warn_3_0_12); if (!__pyx_ptype_8sqlcycli_7charset_Charsets) __PYX_ERR(3, 16, __pyx_L1_error)
+  __pyx_vtabptr_8sqlcycli_7charset_Charsets = (struct __pyx_vtabstruct_8sqlcycli_7charset_Charsets*)__Pyx_GetVtable(__pyx_ptype_8sqlcycli_7charset_Charsets); if (unlikely(!__pyx_vtabptr_8sqlcycli_7charset_Charsets)) __PYX_ERR(3, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;

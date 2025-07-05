@@ -5,7 +5,6 @@ use tombi_config::TomlVersion;
 use tombi_extension::CompletionContent;
 use tombi_extension::CompletionHint;
 use tombi_extension::CompletionKind;
-use tombi_future::BoxFuture;
 use tombi_future::Boxable;
 use tombi_schema_store::dig_accessors;
 use tombi_schema_store::matches_accessors;
@@ -285,8 +284,9 @@ fn complete_crate_feature<'a: 'b, 'b>(
     features_accessors: &'a [Accessor],
     position: tombi_text::Position,
     toml_version: TomlVersion,
-    editting_feature_string: Option<&'a tombi_document_tree::String>,
-) -> BoxFuture<'b, Result<Option<Vec<CompletionContent>>, tower_lsp::jsonrpc::Error>> {
+    editing_feature_string: Option<&'a tombi_document_tree::String>,
+) -> tombi_future::BoxFuture<'b, Result<Option<Vec<CompletionContent>>, tower_lsp::jsonrpc::Error>>
+{
     async move {
         // Check if this is a path dependency
         let features = if let Some((_, tombi_document_tree::Value::String(path_value))) =
@@ -339,7 +339,7 @@ fn complete_crate_feature<'a: 'b, 'b>(
                     ],
                     position,
                     toml_version,
-                    editting_feature_string,
+                    editing_feature_string,
                 )
                 .await;
             } else {
@@ -399,7 +399,7 @@ fn complete_crate_feature<'a: 'b, 'b>(
                 filter_text: None,
                 schema_url: None,
                 deprecated: None,
-                edit: editting_feature_string.map(|value| tombi_extension::CompletionEdit {
+                edit: editing_feature_string.map(|value| tombi_extension::CompletionEdit {
                     text_edit: tower_lsp::lsp_types::CompletionTextEdit::Edit(
                         tower_lsp::lsp_types::TextEdit {
                             range: tombi_text::Range::at(position).into(),

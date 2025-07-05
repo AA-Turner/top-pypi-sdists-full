@@ -9,13 +9,13 @@ class RedisCacheNamespaces(BaseModel):
     def create(
         self,
         *ext: str,
-        type: BaseEnums.CacheType,
+        layer: BaseEnums.CacheLayer,
         base_override: BaseTypes.OptionalString = None
     ) -> str:
-        return ":".join([self.base if base_override is None else base_override, type, *ext])
+        return ":".join([self.base if base_override is None else base_override, layer, *ext])
 
 class RedisCacheConfigurations(BaseModel):
-    ttl: Union[int, float] = Field(BaseEnums.CacheTTL.TTL_5MN, description="Default TTL")
+    ttl: Union[int, float] = Field(BaseEnums.Expiration.EXP_5MN, description="Default TTL")
     namespaces: RedisCacheNamespaces = Field(..., description="Redis cache's namepsaces")
     host: str = Field(..., description="Redis instance's host")
     port: int = Field(6379, description="Redis instance's port")

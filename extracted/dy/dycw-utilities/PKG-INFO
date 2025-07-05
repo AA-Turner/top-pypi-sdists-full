@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.139.9
+Version: 0.139.11
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -19,7 +19,7 @@ Requires-Dist: pytest-cov<6.3,>=6.2.1; extra == 'test'
 Requires-Dist: pytest-instafail<0.6,>=0.5.0; extra == 'test'
 Requires-Dist: pytest-lazy-fixtures<1.2,>=1.1.4; extra == 'test'
 Requires-Dist: pytest-randomly<3.17,>=3.16.0; extra == 'test'
-Requires-Dist: pytest-regressions<2.9,>=2.8.0; extra == 'test'
+Requires-Dist: pytest-regressions<2.9,>=2.8.1; extra == 'test'
 Requires-Dist: pytest-repeat<0.10,>=0.9.4; extra == 'test'
 Requires-Dist: pytest-rerunfailures<16,>=15.1; extra == 'test'
 Requires-Dist: pytest-rng<1.1,>=1.0.0; extra == 'test'

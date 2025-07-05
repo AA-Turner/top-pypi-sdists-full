@@ -54,6 +54,41 @@ metric = cloudwatch.Metric(
 )
 ```
 
+### Metric ID
+
+Metrics can be assigned a unique identifier using the `id` property. This is
+useful when referencing metrics in math expressions:
+
+```python
+metric = cloudwatch.Metric(
+    namespace="AWS/Lambda",
+    metric_name="Invocations",
+    dimensions_map={
+        "FunctionName": "MyFunction"
+    },
+    id="invocations"
+)
+```
+
+The `id` must start with a lowercase letter and can only contain letters, numbers, and underscores.
+
+### Metric Visible
+
+Metrics can be hidden from dashboard graphs using the `visible` property:
+
+```python
+# fn: lambda.Function
+
+
+metric = fn.metric_errors(
+    visible=False
+)
+```
+
+By default, all metrics are visible (`visible: true`). Setting `visible: false`
+hides the metric from dashboard visualizations while still allowing it to be
+used in math expressions given that it has an `id` set to it.
+
 ### Metric Math
 
 Math expressions are supported by instantiating the `MathExpression` class.
@@ -86,6 +121,32 @@ problem_percentage = cloudwatch.MathExpression(
         "problems": all_problems,
         "invocations": fn.metric_invocations()
     }
+)
+```
+
+### Metric ID Usage in Math Expressions
+
+When metrics have custom IDs, you can reference them directly in math expressions.
+
+```python
+# fn: lambda.Function
+
+
+invocations = fn.metric_invocations(
+    id="lambda_invocations"
+)
+
+errors = fn.metric_errors(
+    id="lambda_errors"
+)
+```
+
+When metrics have predefined IDs, they can be referenced directly in math expressions by their ID without requiring the `usingMetrics` property.
+
+```python
+error_rate = cloudwatch.MathExpression(
+    expression="lambda_errors / lambda_invocations * 100",
+    label="Error Rate (%)"
 )
 ```
 
@@ -6694,6 +6755,7 @@ class Color(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Color
         "account": "account",
         "color": "color",
         "dimensions_map": "dimensionsMap",
+        "id": "id",
         "label": "label",
         "period": "period",
         "region": "region",
@@ -6701,6 +6763,7 @@ class Color(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Color
         "stack_region": "stackRegion",
         "statistic": "statistic",
         "unit": "unit",
+        "visible": "visible",
     },
 )
 class CommonMetricOptions:
@@ -6710,6 +6773,7 @@ class CommonMetricOptions:
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -6717,12 +6781,14 @@ class CommonMetricOptions:
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional["Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options shared by most methods accepting metric options.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -6730,6 +6796,7 @@ class CommonMetricOptions:
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :exampleMetadata: fixture=_generated
 
@@ -6746,13 +6813,15 @@ class CommonMetricOptions:
                 dimensions_map={
                     "dimensions_map_key": "dimensionsMap"
                 },
+                id="id",
                 label="label",
                 period=cdk.Duration.minutes(30),
                 region="region",
                 stack_account="stackAccount",
                 stack_region="stackRegion",
                 statistic="statistic",
-                unit=cloudwatch.Unit.SECONDS
+                unit=cloudwatch.Unit.SECONDS,
+                visible=False
             )
         '''
         if __debug__:
@@ -6760,6 +6829,7 @@ class CommonMetricOptions:
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -6767,6 +6837,7 @@ class CommonMetricOptions:
             check_type(argname="argument stack_region", value=stack_region, expected_type=type_hints["stack_region"])
             check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if account is not None:
             self._values["account"] = account
@@ -6774,6 +6845,8 @@ class CommonMetricOptions:
             self._values["color"] = color
         if dimensions_map is not None:
             self._values["dimensions_map"] = dimensions_map
+        if id is not None:
+            self._values["id"] = id
         if label is not None:
             self._values["label"] = label
         if period is not None:
@@ -6788,6 +6861,8 @@ class CommonMetricOptions:
             self._values["statistic"] = statistic
         if unit is not None:
             self._values["unit"] = unit
+        if visible is not None:
+            self._values["visible"] = visible
 
     @builtins.property
     def account(self) -> typing.Optional[builtins.str]:
@@ -6817,6 +6892,19 @@ class CommonMetricOptions:
         '''
         result = self._values.get("dimensions_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''Unique identifier for this metric when used in dashboard widgets.
+
+        The id can be used as a variable to represent this metric in math expressions.
+        Valid characters are letters, numbers, and underscore. The first character
+        must be a lowercase letter.
+
+        :default: - No ID
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
@@ -6914,6 +7002,18 @@ class CommonMetricOptions:
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional["Unit"], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8770,20 +8870,15 @@ class MathExpression(
 
     Example::
 
-        # matchmaking_rule_set: gamelift.MatchmakingRuleSet
+        # fn: lambda.Function
         
-        # Alarm that triggers when the per-second average of not placed matches exceed 10%
-        rule_evaluation_ratio = cloudwatch.MathExpression(
-            expression="1 - (ruleEvaluationsPassed / ruleEvaluationsFailed)",
+        
+        all_problems = cloudwatch.MathExpression(
+            expression="errors + throttles",
             using_metrics={
-                "rule_evaluations_passed": matchmaking_rule_set.metric_rule_evaluations_passed(statistic=cloudwatch.Statistic.SUM),
-                "rule_evaluations_failed": matchmaking_rule_set.metric("ruleEvaluationsFailed")
+                "errors": fn.metric_errors(),
+                "throttles": fn.metric_throttles()
             }
-        )
-        cloudwatch.Alarm(self, "Alarm",
-            metric=rule_evaluation_ratio,
-            threshold=0.1,
-            evaluation_periods=3
         )
     '''
 
@@ -9161,20 +9256,15 @@ class MathExpressionProps(MathExpressionOptions):
 
         Example::
 
-            # matchmaking_rule_set: gamelift.MatchmakingRuleSet
+            # fn: lambda.Function
             
-            # Alarm that triggers when the per-second average of not placed matches exceed 10%
-            rule_evaluation_ratio = cloudwatch.MathExpression(
-                expression="1 - (ruleEvaluationsPassed / ruleEvaluationsFailed)",
+            
+            all_problems = cloudwatch.MathExpression(
+                expression="errors + throttles",
                 using_metrics={
-                    "rule_evaluations_passed": matchmaking_rule_set.metric_rule_evaluations_passed(statistic=cloudwatch.Statistic.SUM),
-                    "rule_evaluations_failed": matchmaking_rule_set.metric("ruleEvaluationsFailed")
+                    "errors": fn.metric_errors(),
+                    "throttles": fn.metric_throttles()
                 }
-            )
-            cloudwatch.Alarm(self, "Alarm",
-                metric=rule_evaluation_ratio,
-                threshold=0.1,
-                evaluation_periods=3
             )
         '''
         if __debug__:
@@ -9385,6 +9475,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -9392,6 +9483,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional["Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param metric_name: Name of the metric.
@@ -9399,6 +9491,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -9406,6 +9499,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = MetricProps(
             metric_name=metric_name,
@@ -9413,6 +9507,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -9420,6 +9515,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -9561,6 +9657,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -9568,6 +9665,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional["Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> "Metric":
         '''Return a copy of Metric ``with`` properties changed.
 
@@ -9576,6 +9674,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -9583,11 +9682,13 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
+            id=id,
             label=label,
             period=period,
             region=region,
@@ -9595,6 +9696,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
             stack_region=stack_region,
             statistic=statistic,
             unit=unit,
+            visible=visible,
         )
 
         return typing.cast("Metric", jsii.invoke(self, "with", [props]))
@@ -9642,6 +9744,12 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], jsii.get(self, "dimensions"))
 
     @builtins.property
+    @jsii.member(jsii_name="id")
+    def id(self) -> typing.Optional[builtins.str]:
+        '''Unique identifier for this metric when used in dashboard widgets.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "id"))
+
+    @builtins.property
     @jsii.member(jsii_name="label")
     def label(self) -> typing.Optional[builtins.str]:
         '''Label for this metric when added to a Graph in a Dashboard.'''
@@ -9658,6 +9766,12 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
     def unit(self) -> typing.Optional["Unit"]:
         '''Unit of the metric.'''
         return typing.cast(typing.Optional["Unit"], jsii.get(self, "unit"))
+
+    @builtins.property
+    @jsii.member(jsii_name="visible")
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.'''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "visible"))
 
     @builtins.property
     @jsii.member(jsii_name="warnings")
@@ -9936,6 +10050,7 @@ class MetricExpressionConfig:
         "account": "account",
         "color": "color",
         "dimensions_map": "dimensionsMap",
+        "id": "id",
         "label": "label",
         "period": "period",
         "region": "region",
@@ -9943,6 +10058,7 @@ class MetricExpressionConfig:
         "stack_region": "stackRegion",
         "statistic": "statistic",
         "unit": "unit",
+        "visible": "visible",
     },
 )
 class MetricOptions(CommonMetricOptions):
@@ -9952,6 +10068,7 @@ class MetricOptions(CommonMetricOptions):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -9959,12 +10076,14 @@ class MetricOptions(CommonMetricOptions):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional["Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties of a metric that can be changed.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -9972,6 +10091,7 @@ class MetricOptions(CommonMetricOptions):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :exampleMetadata: infused
 
@@ -10002,6 +10122,7 @@ class MetricOptions(CommonMetricOptions):
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -10009,6 +10130,7 @@ class MetricOptions(CommonMetricOptions):
             check_type(argname="argument stack_region", value=stack_region, expected_type=type_hints["stack_region"])
             check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if account is not None:
             self._values["account"] = account
@@ -10016,6 +10138,8 @@ class MetricOptions(CommonMetricOptions):
             self._values["color"] = color
         if dimensions_map is not None:
             self._values["dimensions_map"] = dimensions_map
+        if id is not None:
+            self._values["id"] = id
         if label is not None:
             self._values["label"] = label
         if period is not None:
@@ -10030,6 +10154,8 @@ class MetricOptions(CommonMetricOptions):
             self._values["statistic"] = statistic
         if unit is not None:
             self._values["unit"] = unit
+        if visible is not None:
+            self._values["visible"] = visible
 
     @builtins.property
     def account(self) -> typing.Optional[builtins.str]:
@@ -10059,6 +10185,19 @@ class MetricOptions(CommonMetricOptions):
         '''
         result = self._values.get("dimensions_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''Unique identifier for this metric when used in dashboard widgets.
+
+        The id can be used as a variable to represent this metric in math expressions.
+        Valid characters are letters, numbers, and underscore. The first character
+        must be a lowercase letter.
+
+        :default: - No ID
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
@@ -10157,6 +10296,18 @@ class MetricOptions(CommonMetricOptions):
         result = self._values.get("unit")
         return typing.cast(typing.Optional["Unit"], result)
 
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -10176,6 +10327,7 @@ class MetricOptions(CommonMetricOptions):
         "account": "account",
         "color": "color",
         "dimensions_map": "dimensionsMap",
+        "id": "id",
         "label": "label",
         "period": "period",
         "region": "region",
@@ -10183,6 +10335,7 @@ class MetricOptions(CommonMetricOptions):
         "stack_region": "stackRegion",
         "statistic": "statistic",
         "unit": "unit",
+        "visible": "visible",
         "metric_name": "metricName",
         "namespace": "namespace",
     },
@@ -10194,6 +10347,7 @@ class MetricProps(CommonMetricOptions):
         account: typing.Optional[builtins.str] = None,
         color: typing.Optional[builtins.str] = None,
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
         period: typing.Optional[_Duration_4839e8c3] = None,
         region: typing.Optional[builtins.str] = None,
@@ -10201,6 +10355,7 @@ class MetricProps(CommonMetricOptions):
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
         unit: typing.Optional["Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
         metric_name: builtins.str,
         namespace: builtins.str,
     ) -> None:
@@ -10209,6 +10364,7 @@ class MetricProps(CommonMetricOptions):
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
         :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
         :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
         :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
         :param region: Region which this metric comes from. Default: - Deployment region.
@@ -10216,6 +10372,7 @@ class MetricProps(CommonMetricOptions):
         :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
         :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         :param metric_name: Name of the metric.
         :param namespace: Namespace of the metric.
 
@@ -10248,6 +10405,7 @@ class MetricProps(CommonMetricOptions):
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -10255,6 +10413,7 @@ class MetricProps(CommonMetricOptions):
             check_type(argname="argument stack_region", value=stack_region, expected_type=type_hints["stack_region"])
             check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10267,6 +10426,8 @@ class MetricProps(CommonMetricOptions):
             self._values["color"] = color
         if dimensions_map is not None:
             self._values["dimensions_map"] = dimensions_map
+        if id is not None:
+            self._values["id"] = id
         if label is not None:
             self._values["label"] = label
         if period is not None:
@@ -10281,6 +10442,8 @@ class MetricProps(CommonMetricOptions):
             self._values["statistic"] = statistic
         if unit is not None:
             self._values["unit"] = unit
+        if visible is not None:
+            self._values["visible"] = visible
 
     @builtins.property
     def account(self) -> typing.Optional[builtins.str]:
@@ -10310,6 +10473,19 @@ class MetricProps(CommonMetricOptions):
         '''
         result = self._values.get("dimensions_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''Unique identifier for this metric when used in dashboard widgets.
+
+        The id can be used as a variable to represent this metric in math expressions.
+        Valid characters are letters, numbers, and underscore. The first character
+        must be a lowercase letter.
+
+        :default: - No ID
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
@@ -10407,6 +10583,18 @@ class MetricProps(CommonMetricOptions):
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional["Unit"], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def metric_name(self) -> builtins.str:
@@ -16925,6 +17113,7 @@ def _typecheckingstub__dd18f372aac3bb8d4a678dd4ee7a3b5bd34447637695b896086139ee2
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -16932,6 +17121,7 @@ def _typecheckingstub__dd18f372aac3bb8d4a678dd4ee7a3b5bd34447637695b896086139ee2
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17181,6 +17371,7 @@ def _typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d84
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17188,6 +17379,7 @@ def _typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d84
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17197,6 +17389,7 @@ def _typecheckingstub__5e1e153a11ab88ed91297aedb5d7a78a81e7bf88f8aeda51bc11ff42e
     account: typing.Optional[builtins.str] = None,
     color: typing.Optional[builtins.str] = None,
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
     period: typing.Optional[_Duration_4839e8c3] = None,
     region: typing.Optional[builtins.str] = None,
@@ -17204,6 +17397,7 @@ def _typecheckingstub__5e1e153a11ab88ed91297aedb5d7a78a81e7bf88f8aeda51bc11ff42e
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
     metric_name: builtins.str,
     namespace: builtins.str,
 ) -> None:

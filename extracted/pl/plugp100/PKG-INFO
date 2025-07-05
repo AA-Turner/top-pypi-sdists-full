@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugp100
-Version: 5.1.4
+Version: 5.1.5
 Summary: Controller for TP-Link Tapo P100 and other devices
 Home-page: https://github.com/petretiandrea/plugp100
 Download-URL: https://github.com/petretiandrea/plugp100
@@ -18,7 +18,7 @@ Requires-Dist: aiohttp>=3.8.1
 Requires-Dist: semantic-version==2.10.0
 Requires-Dist: cryptography>=38.0.3
 Requires-Dist: scapy>=2.5.0
-Requires-Dist: urllib3<2,>=1.26.5
+Requires-Dist: urllib3<3,>=2.5
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

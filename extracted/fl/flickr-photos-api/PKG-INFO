@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flickr-photos-api
-Version: 3.11.3
+Version: 3.12.0
 Summary: Look up information about photos and collections of photos from Flickr
 Author-email: Flickr Foundation <hello@flickr.org>
 Maintainer-email: Alex Chan <alex@flickr.org>

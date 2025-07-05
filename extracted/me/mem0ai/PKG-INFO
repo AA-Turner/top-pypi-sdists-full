@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 0.1.113
+Version: 0.1.114
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <founders@mem0.ai>
 License-File: LICENSE
@@ -21,8 +21,9 @@ Requires-Dist: elasticsearch>=8.0.0; extra == 'extras'
 Requires-Dist: langchain-community>=0.0.0; extra == 'extras'
 Requires-Dist: langchain-memgraph>=0.1.0; extra == 'extras'
 Requires-Dist: opensearch-py>=2.0.0; extra == 'extras'
-Requires-Dist: sentence-transformers>=2.2.2; extra == 'extras'
+Requires-Dist: sentence-transformers>=5.0.0; extra == 'extras'
 Provides-Extra: graph
+Requires-Dist: langchain-aws>=0.2.23; extra == 'graph'
 Requires-Dist: langchain-neo4j>=0.4.0; extra == 'graph'
 Requires-Dist: neo4j>=5.23.1; extra == 'graph'
 Requires-Dist: rank-bm25>=0.2.2; extra == 'graph'
@@ -42,8 +43,10 @@ Provides-Extra: vector-stores
 Requires-Dist: azure-search-documents>=11.4.0b8; extra == 'vector-stores'
 Requires-Dist: chromadb>=0.4.24; extra == 'vector-stores'
 Requires-Dist: faiss-cpu>=1.7.4; extra == 'vector-stores'
-Requires-Dist: pinecone-text>=0.1.1; extra == 'vector-stores'
-Requires-Dist: pinecone<7.0.0; extra == 'vector-stores'
+Requires-Dist: pinecone-text>=0.10.0; extra == 'vector-stores'
+Requires-Dist: pinecone<=7.3.0; extra == 'vector-stores'
+Requires-Dist: pymochow>=2.2.9; extra == 'vector-stores'
+Requires-Dist: pymongo>=4.13.2; extra == 'vector-stores'
 Requires-Dist: upstash-vector>=0.1.0; extra == 'vector-stores'
 Requires-Dist: vecs>=0.4.0; extra == 'vector-stores'
 Requires-Dist: weaviate-client>=4.4.0; extra == 'vector-stores'

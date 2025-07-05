@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: snakemake-executor-plugin-slurm
-Version: 1.4.0
+Version: 1.5.0
 Summary: A Snakemake executor plugin for submitting jobs to a SLURM cluster.
 License: MIT
 Keywords: snakemake,plugin,executor,cluster,slurm
@@ -12,6 +12,8 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: numpy (>=1.26.4,<2.0.0)
+Requires-Dist: pandas (>=2.2.3,<3.0.0)
 Requires-Dist: snakemake-executor-plugin-slurm-jobstep (>=0.3.0,<0.4.0)
 Requires-Dist: snakemake-interface-common (>=1.13.0,<2.0.0)
 Requires-Dist: snakemake-interface-executor-plugins (>=9.1.1,<10.0.0)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uuid6
-Version: 2025.0.0
+Version: 2025.0.1
 Summary: New time-based UUID formats which are suited for use as a database key
 Author: Oittaa
 License: MIT

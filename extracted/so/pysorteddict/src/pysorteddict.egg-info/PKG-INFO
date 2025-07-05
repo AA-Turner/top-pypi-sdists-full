@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pysorteddict
-Version: 0.8.1
+Version: 0.8.2
 Summary: Python dictionary in which the keys are always in ascending order
 Author: Vishal Pankaj Chandratreya
 Project-URL: Homepage, https://tfpf.github.io/pysorteddict/

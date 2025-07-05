@@ -19,26 +19,26 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
-
 
 class PortPreviewUrl(BaseModel):
     """
     PortPreviewUrl
-    """  # noqa: E501
-
+    """ # noqa: E501
     url: StrictStr = Field(description="Preview url")
     token: StrictStr = Field(description="Access token")
+    legacy_proxy_url: Optional[StrictStr] = Field(default=None, description="Legacy preview url using runner domain", alias="legacyProxyUrl")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["url", "token"]
+    __properties: ClassVar[List[str]] = ["url", "token", "legacyProxyUrl"]
 
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,11 +65,9 @@ class PortPreviewUrl(BaseModel):
           are ignored.
         * Fields in `self.additional_properties` are added to the output dict.
         """
-        excluded_fields: Set[str] = set(
-            [
-                "additional_properties",
-            ]
-        )
+        excluded_fields: Set[str] = set([
+            "additional_properties",
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -92,10 +90,16 @@ class PortPreviewUrl(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({"url": obj.get("url"), "token": obj.get("token")})
+        _obj = cls.model_validate({
+            "url": obj.get("url"),
+            "token": obj.get("token"),
+            "legacyProxyUrl": obj.get("legacyProxyUrl")
+        })
         # store additional fields in additional_properties
         for _key in obj.keys():
             if _key not in cls.__properties:
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
+
+

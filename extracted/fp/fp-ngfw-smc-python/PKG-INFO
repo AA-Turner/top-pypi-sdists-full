@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fp-NGFW-SMC-python
-Version: 1.0.29
+Version: 1.0.30
 Summary: Python based API to Forcepoint NGFW Management Center
 Home-page: http://github.com/Forcepoint/fp-NGFW-SMC-python
 Author: Forcepoint

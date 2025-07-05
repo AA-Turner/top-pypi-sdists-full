@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import sys
 from os import PathLike
 from typing import Protocol, TypedDict, TypeVar
@@ -35,6 +36,27 @@ class Stringify(Protocol):
 
 
 # =============================================================================
+# STD
+# =============================================================================
+class FileTypeDict(TypedDict):
+    is_dir: bool
+    is_file: bool
+    is_symlink: bool
+
+
+class MetadataDict(TypedDict):
+    is_dir: bool
+    is_file: bool
+    is_symlink: bool
+    len: int
+    readonly: bool
+    file_type: FileTypeDict | None
+    accessed: dt.datetime
+    created: dt.datetime
+    modified: dt.datetime
+
+
+# =============================================================================
 # JIFF
 # =============================================================================
 class DateTypedDict(TypedDict):
@@ -53,17 +75,7 @@ class TimeTypedDict(TypedDict):
     subsec_nanosecond: int
 
 
-class DateTimeTypedDict(TypedDict):
-    year: int
-    month: int
-    day: int
-    hour: int
-    minute: int
-    second: int
-    millisecond: int
-    microsecond: int
-    nanosecond: int
-    subsec_nanosecond: int
+class DateTimeTypedDict(DateTypedDict, TimeTypedDict): ...
 
 
 class TimeSpanTypedDict(TypedDict):

@@ -26,14 +26,10 @@
 //! We are permissive with whitespace, allowing `#type:ignore[code]` and
 //! `#  type:  ignore  [  code  ]`, but do not allow a space after the colon.
 
-use std::str::FromStr;
-
 use dupe::Dupe;
 use pyrefly_util::lined_buffer::LineNumber;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-
-use crate::error::kind::ErrorKind;
 
 /// The name of the tool that is being suppressed.
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
@@ -96,20 +92,38 @@ impl<'a> Lexer<'a> {
     }
 
     /// Trim whitespace from the start of the string.
-    fn trim_start(&mut self) {
+    /// Return `true` if the string was changed.
+    fn trim_start(&mut self) -> bool {
+        let before = self.0;
         self.0 = self.0.trim_start();
+        self.0.len() != before.len()
     }
 
     /// Return `true` if the string is empty or only whitespace.
     fn blank(&mut self) -> bool {
         self.0.trim_start().is_empty()
     }
+
+    /// Return `true` if the string is at the start of a word boundary.
+    /// That means the next char is not something that continues an identifier.
+    fn word_boundary(&mut self) -> bool {
+        self.0
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '-' && c != '_')
+    }
+
+    /// Finish and return the rest of the string.
+    fn rest(self) -> &'a str {
+        self.0
+    }
 }
 
-#[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
+#[derive(PartialEq, Debug, Clone, Hash, Eq)]
 pub struct Suppression {
     tool: Tool,
-    kind: Option<ErrorKind>,
+    /// The permissible error kinds, use empty Vec to many any are allowed
+    kind: Vec<String>,
 }
 
 /// Record the position of `# type: ignore[valid-type]` statements.
@@ -180,18 +194,21 @@ impl Ignore {
         // If we see a comment on a non-code line, move it to the next non-comment line.
         let mut pending = Vec::new();
         let mut line = LineNumber::default();
-        for (idx, x) in code.lines().enumerate() {
+        for (idx, line_str) in code.lines().enumerate() {
             line = LineNumber::from_zero_indexed(idx as u32);
-            let mut xs = x.split('#');
+            let mut xs = line_str.split('#');
             let first = xs.next().unwrap_or("");
-            if let Some(supp) = Self::get_suppression_kind(x) {
-                if first.trim_start().is_empty() {
-                    pending.push(supp);
-                } else {
-                    ignores.entry(line).or_default().push(supp);
-                }
-            } else if !pending.is_empty() && (x.is_empty() || !first.trim_start().is_empty()) {
+            if !pending.is_empty() && (line_str.is_empty() || !first.trim_start().is_empty()) {
                 ignores.entry(line).or_default().append(&mut pending);
+            }
+            for x in xs {
+                if let Some(supp) = Self::parse_ignore_comment(x) {
+                    if first.trim_start().is_empty() {
+                        pending.push(supp);
+                    } else {
+                        ignores.entry(line).or_default().push(supp);
+                    }
+                }
             }
         }
         if !pending.is_empty() {
@@ -203,50 +220,36 @@ impl Ignore {
         ignores
     }
 
-    fn get_suppression_kind(line: &str) -> Option<Suppression> {
-        fn match_pyrefly_ignore(line: &str) -> Option<Suppression> {
-            let mut words = line.split_whitespace();
-            if let Some("pyrefly:") = words.next() {
-                if let Some(word) = words.next() {
-                    if word == "ignore" {
-                        return Some(Suppression {
-                            tool: Tool::Pyrefly,
-                            kind: None,
-                        });
-                    }
+    /// Given the content of a comment, parse it as a suppression.
+    fn parse_ignore_comment(l: &str) -> Option<Suppression> {
+        let mut lex = Lexer(l);
+        lex.trim_start();
 
-                    if let Some(word) = word.strip_prefix("ignore[")
-                        && let Some(word) = word.strip_suffix(']')
-                    {
-                        if let Ok(kind) = ErrorKind::from_str(word) {
-                            return Some(Suppression {
-                                tool: Tool::Pyrefly,
-                                kind: Some(kind),
-                            });
-                        }
-                    }
-                }
+        let mut tool = None;
+        if let Some(t) = lex.starts_with_tool() {
+            lex.trim_start();
+            if lex.starts_with("ignore") {
+                tool = Some(t);
             }
-            None
+        } else if lex.starts_with("pyre-ignore") || lex.starts_with("pyre-fixme") {
+            tool = Some(Tool::Pyre);
         }
+        let tool = tool?;
 
-        for l in line.split("#").skip(1) {
-            let l = l.trim_start();
-            if let Some(l) = l.strip_prefix("type:")
-                && l.trim_start().starts_with("ignore")
-            {
-                return Some(Suppression {
-                    tool: Tool::Any,
-                    kind: None,
-                });
-            } else if let Some(value) = match_pyrefly_ignore(l) {
-                return Some(value);
-            } else if l.starts_with("pyre-ignore") || l.starts_with("pyre-fixme") {
-                return Some(Suppression {
-                    tool: Tool::Pyre,
-                    kind: None,
-                });
-            }
+        // We have seen `type: ignore` or `pyre-ignore`. Now look for `[code]` or the end.
+        let gap = lex.trim_start();
+        if lex.starts_with("[") {
+            let rest = lex.rest();
+            let inside = rest.split_once(']').map_or(rest, |x| x.0);
+            return Some(Suppression {
+                tool,
+                kind: inside.split(',').map(|x| x.trim().to_owned()).collect(),
+            });
+        } else if gap || lex.word_boundary() {
+            return Some(Suppression {
+                tool,
+                kind: Vec::new(),
+            });
         }
         None
     }
@@ -255,7 +258,7 @@ impl Ignore {
         &self,
         start_line: LineNumber,
         end_line: LineNumber,
-        kind: ErrorKind,
+        kind: &str,
         permissive_ignores: bool,
     ) -> bool {
         if self.ignore_all_strict || (permissive_ignores && self.ignore_all_permissive) {
@@ -268,7 +271,7 @@ impl Ignore {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
                 if suppressions.iter().any(|supp| match supp.tool {
                     // We only check the subkind if they do `# ignore: pyrefly`
-                    Tool::Pyrefly => supp.kind.is_none_or(|x| x == kind),
+                    Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
                     Tool::Any => true,
                     _ => permissive_ignores,
                 }) {
@@ -288,7 +291,7 @@ impl Ignore {
                 ignore
                     .1
                     .iter()
-                    .any(|s| s.tool == Tool::Pyrefly && s.kind.is_none())
+                    .any(|s| s.tool == Tool::Pyrefly && s.kind.is_empty())
             })
             .map(|(line, _)| *line)
             .collect()
@@ -297,115 +300,127 @@ impl Ignore {
 
 #[cfg(test)]
 mod tests {
-    use starlark_map::smallmap;
+    use pyrefly_util::prelude::SliceExt;
 
     use super::*;
 
     #[test]
-    fn test_get_suppression_kind() {
-        assert!(Ignore::get_suppression_kind("stuff # type: ignore # and then stuff").is_some());
-        assert!(Ignore::get_suppression_kind("more # stuff # type: ignore[valid-type]").is_some());
-        assert!(Ignore::get_suppression_kind("# ignore: pyrefly").is_none());
-        assert!(Ignore::get_suppression_kind(" pyrefly: ignore").is_none());
-        assert!(Ignore::get_suppression_kind("normal line").is_none());
-        assert!(
-            Ignore::get_suppression_kind("# pyrefly: ignore")
-                == Some(Suppression {
-                    tool: Tool::Pyrefly,
-                    kind: None
-                })
+    fn test_parse_ignores() {
+        fn f(x: &str, expect: &[(Tool, u32)]) {
+            assert_eq!(
+                &Ignore::parse_ignores(x)
+                    .into_iter()
+                    .flat_map(|(line, xs)| xs.map(|x| (x.tool, line.get())))
+                    .collect::<Vec<_>>(),
+                expect,
+                "{x:?}"
+            );
+        }
+
+        f("stuff # type: ignore # and then stuff", &[(Tool::Any, 1)]);
+        f("more # stuff # type: ignore", &[(Tool::Any, 1)]);
+        f(" pyrefly: ignore", &[]);
+        f("normal line", &[]);
+        f(
+            "code # mypy: ignore\n# pyre-fixme\nmore code",
+            &[(Tool::Mypy, 1), (Tool::Pyre, 3)],
         );
-        assert!(
-            Ignore::get_suppression_kind("# pyrefly: ignore[bad-return]")
-                == Some(Suppression {
-                    tool: Tool::Pyrefly,
-                    kind: Some(ErrorKind::BadReturn)
-                })
+        f(
+            "# type: ignore\n# mypy: ignore\n# bad\n\ncode",
+            &[(Tool::Any, 4), (Tool::Mypy, 4)],
         );
-        assert!(Ignore::get_suppression_kind("# pyrefly: ignore[]").is_none());
-        assert!(Ignore::get_suppression_kind("# pyrefly: ignore[bad-]").is_none());
+    }
+
+    #[test]
+    fn test_parse_ignore_comment() {
+        fn f(x: &str, tool: Option<Tool>, kind: &[&str]) {
+            assert_eq!(
+                Ignore::parse_ignore_comment(x),
+                tool.map(|tool| Suppression {
+                    tool,
+                    kind: kind.map(|x| (*x).to_owned()),
+                }),
+                "{x:?}"
+            );
+        }
+
+        f("ignore: pyrefly", None, &[]);
+        f("pyrefly: ignore", Some(Tool::Pyrefly), &[]);
+        f(
+            "pyrefly: ignore[bad-return]",
+            Some(Tool::Pyrefly),
+            &["bad-return"],
+        );
+        f("pyrefly: ignore[]", Some(Tool::Pyrefly), &[""]);
+        f("pyrefly: ignore[bad-]", Some(Tool::Pyrefly), &["bad-"]);
+
+        // Check spacing
+        f(" type: ignore ", Some(Tool::Any), &[]);
+        f("type:ignore", Some(Tool::Any), &[]);
+        f("type :ignore", None, &[]);
+
+        // Check extras
+        // Mypy rejects that, Pyright accepts it
+        f("type: ignore because it is wrong", Some(Tool::Any), &[]);
+        f("type: ignore_none", None, &[]);
+        f("type: ignore1", None, &[]);
+        f("type: ignore?", Some(Tool::Any), &[]);
+
+        f("mypy: ignore", Some(Tool::Mypy), &[]);
+        f("mypy: ignore[something]", Some(Tool::Mypy), &["something"]);
+
+        f("pyre-ignore", Some(Tool::Pyre), &[]);
+        f("pyre-ignore[7]", Some(Tool::Pyre), &["7"]);
+        f("pyre-fixme[7]", Some(Tool::Pyre), &["7"]);
+        f(
+            "pyre-fixme[61]: `x` may not be initialized here.",
+            Some(Tool::Pyre),
+            &["61"],
+        );
+        f("pyre-fixme: core type error", Some(Tool::Pyre), &[]);
+
+        // For a malformed comment, at least do something with it (works well incrementally)
+        f("type: ignore[hello", Some(Tool::Any), &["hello"]);
     }
 
     #[test]
     fn test_parse_ignore_all() {
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# pyrefly: ignore-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(1)}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# comment
-# pyrefly: ignore-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(2)}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# comment
-  # indented comment
-# pyrefly: ignore-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(3)}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-x = 5
-# pyrefly: ignore-errors
-"#
-            ),
-            smallmap! {}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# type: ignore
+        fn f(x: &str, ignores: &[(Tool, u32)]) {
+            assert_eq!(
+                Ignore::parse_ignore_all(x),
+                ignores
+                    .iter()
+                    .map(|x| (x.0, LineNumber::new(x.1).unwrap()))
+                    .collect(),
+                "{x:?}"
+            );
+        }
 
-x = 5
-"#
-            ),
-            smallmap! {Tool::Any => LineNumber::from_zero_indexed(1)}
+        f("# pyrefly: ignore-errors\nx = 5", &[(Tool::Pyrefly, 1)]);
+        f(
+            "# comment\n# pyrefly: ignore-errors\nx = 5",
+            &[(Tool::Pyrefly, 2)],
         );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# comment
-# type: ignore
-# comment
-x = 5
-"#
-            ),
-            smallmap! {Tool::Any => LineNumber::from_zero_indexed(2)}
+        f(
+            "#comment\n  # indent\n# pyrefly: ignore-errors\nx = 5",
+            &[(Tool::Pyrefly, 3)],
         );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# type: ignore
-x = 5
-"#
-            ),
-            smallmap! {}
+        f("x = 5\n# pyrefly: ignore-errors", &[]);
+        f("# type: ignore\n\nx = 5", &[(Tool::Any, 1)]);
+        f(
+            "# comment\n# type: ignore\n# comment\nx = 5",
+            &[(Tool::Any, 2)],
+        );
+        f("# type: ignore\nx = 5", &[]);
+        f("# pyre-ignore-all-errors\nx = 5", &[(Tool::Pyre, 1)]);
+        f(
+            "# mypy: ignore-errors\n#pyrefly:ignore-errors",
+            &[(Tool::Mypy, 1), (Tool::Pyrefly, 2)],
         );
 
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# pyre-ignore-all-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyre => LineNumber::from_zero_indexed(1)}
-        );
+        // Anything else on the line (other than space) makes it invalid
+        f("# pyrefly: ignore-errors because I want to\nx = 5", &[]);
+        f("# pyrefly: ignore-errors # because I want to\nx = 5", &[]);
+        f("# pyrefly: ignore-errors \nx = 5", &[(Tool::Pyrefly, 1)]);
     }
 }

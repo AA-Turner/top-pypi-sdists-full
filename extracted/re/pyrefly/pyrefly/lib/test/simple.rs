@@ -228,6 +228,14 @@ assert_type(__doc__, None)
 );
 
 testcase!(
+    test_import_globals,
+    r#"
+import typing
+typing.assert_type(typing.__name__, str)
+"#,
+);
+
+testcase!(
     test_argument_shadows_type,
     r#"
 class C: ...
@@ -1532,5 +1540,54 @@ testcase!(
     r#"
 # Used to crash https://github.com/facebook/pyrefly/issues/620
 def # E: # E:
+"#,
+);
+
+testcase!(
+    test_surprising_builtins,
+    r#"
+# These are defined in builtins, but exposed through special rules
+print(__import__)
+print(__build_class__)
+"#,
+);
+
+testcase!(
+    test_parameter_default_bad,
+    r#"
+def f(x: int = "test"): # E: Default `Literal['test']` is not assignable to parameter `x` with type `int`
+    pass
+"#,
+);
+
+testcase!(
+    test_parameter_default_infer,
+    r#"
+from typing import reveal_type
+
+def f(x = 1):
+    reveal_type(x) # E: revealed type: int | Unknown
+    return x
+
+reveal_type(f) # E: revealed type: (x: int | Unknown = ...) -> int | Unknown
+"#,
+);
+
+testcase!(
+    test_self_field_gets_lost,
+    r#"
+# From https://github.com/facebook/pyrefly/issues/621
+from typing import reveal_type
+
+class NameTable:
+    def __init__(self):
+        self.names: list[str] = []
+
+    def getName(self):
+        last = ""
+        for name in self.names:
+            reveal_type(name) # E: revealed type: str
+            last = name
+        return last
 "#,
 );

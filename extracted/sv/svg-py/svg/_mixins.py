@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from datetime import timedelta
+from typing import TYPE_CHECKING, Any
 
-from ._types import Length, Number
+from ._types import Length, Number, SemicolonSeparatedList, TimeBezierPoint
 
 
 if TYPE_CHECKING:
@@ -115,9 +116,10 @@ class ComponentTransferFunction(AttrsMixin):
 class Animation(AttrsMixin):
     # Animation value attributes
     calcMode: Literal["discrete", "linear", "paced", "spline"] | None = None
-    values: str | None = None
-    keyTimes: str | None = None
-    keySplines: str | None = None
+    values: str |  SemicolonSeparatedList[Any] | None = None
+    keyTimes: SemicolonSeparatedList[Number] | None = None
+    keySplines: SemicolonSeparatedList[TimeBezierPoint] | None = None
+    keyPoints: SemicolonSeparatedList[Number] | None = None
     from_: str | None = None
     to: str | None = None
     by: str | None = None
@@ -133,10 +135,11 @@ class Animation(AttrsMixin):
 @dataclass
 class AnimationTiming(AttrsMixin):
     begin: str | None = None
-    dur: str | None = None
+    dur: timedelta | None = None
     end: str | None = None
-    min: str | None = None
-    max: str | None = None
+    min: timedelta | None = None
+    max: timedelta | None = None
     restart: Literal["always", "never", "whenNotActive"] | None = None
-    repeatCount: str | None = None
-    repeatDur: str | None = None
+    repeatCount: Number | Literal["indefinite"] | None = None
+    repeatDur: timedelta | Literal["indefinite"] | None = None
+    fill: Literal["freeze", "remove"] | None = None

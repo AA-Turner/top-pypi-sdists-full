@@ -30,8 +30,12 @@ from maleo_foundation.types import BaseTypes
 from maleo_foundation.utils.exceptions import BaseExceptions
 from maleo_foundation.utils.logging import (
     SimpleConfig,
-    ServiceLogger,
-    MiddlewareLogger
+    ApplicationLogger,
+    CacheLogger,
+    DatabaseLogger,
+    MiddlewareLogger,
+    RepositoryLogger,
+    ServiceLogger
 )
 from .credential import CredentialManager
 from .configuration import ConfigurationManager
@@ -119,32 +123,37 @@ class ServiceManager:
         return self._keys
 
     def _initialize_loggers(self) -> None:
-        #* Service's loggers
-        application = ServiceLogger(
-            type=BaseEnums.LoggerType.APPLICATION,
+        application = ApplicationLogger(
             service_key=self.configurations.service.key,
             **self._log_config.model_dump()
         )
-        database = ServiceLogger(
-            type=BaseEnums.LoggerType.DATABASE,
+        cache = CacheLogger(
             service_key=self.configurations.service.key,
             **self._log_config.model_dump()
         )
-        repository = ServiceLogger(
-            type=BaseEnums.LoggerType.REPOSITORY,
+        database = DatabaseLogger(
             service_key=self.configurations.service.key,
             **self._log_config.model_dump()
         )
-        #* Middleware's logger
         middleware = MiddlewareLogger(
+            service_key=self.configurations.service.key,
+            **self._log_config.model_dump()
+        )
+        repository = RepositoryLogger(
+            service_key=self.configurations.service.key,
+            **self._log_config.model_dump()
+        )
+        service = ServiceLogger(
             service_key=self.configurations.service.key,
             **self._log_config.model_dump()
         )
         self._loggers = Loggers(
             application=application,
-            repository=repository,
+            cache=cache,
             database=database,
-            middleware=middleware
+            middleware=middleware,
+            repository=repository,
+            service=service
         )
 
     @property
@@ -163,10 +172,10 @@ class ServiceManager:
     async def check_redis_connection(self) -> bool:
         try:
             await self._redis.ping()
-            self._loggers.application.info("Redis connection check successful.")
+            self._loggers.cache.info("Redis connection check successful.")
             return True
         except RedisError as e:
-            self._loggers.application.error(f"Redis connection check failed: {e}", exc_info=True)
+            self._loggers.cache.error(f"Redis connection check failed: {e}", exc_info=True)
             return False
 
     async def initialize_cache(self) -> None:

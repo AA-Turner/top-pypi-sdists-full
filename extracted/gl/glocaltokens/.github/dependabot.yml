@@ -1,10 +1,9 @@
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv
     directory: "/"
-    versioning-strategy: lockfile-only
     schedule:
-      interval: daily
+      interval: weekly
     labels:
       - "dependencies"
   - package-ecosystem: github-actions
@@ -13,6 +12,3 @@ updates:
       interval: daily
     labels:
       - "dependencies"
-    ignore:
-      - dependency-name: "crazy-max/ghaction-github-labeler"
-        versions: ["5.1.0"]

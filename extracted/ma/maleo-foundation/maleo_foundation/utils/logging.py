@@ -72,9 +72,6 @@ class BaseLogger(logging.Logger):
 
         #* Define logger name
         if self._type == BaseEnums.LoggerType.CLIENT:
-            #* Ensure client_key is valid if logger type is client
-            if self._client_key is None:
-                raise ValueError("'client_key' parameter must be provided if 'logger_type' is 'client'")
             self._name = f"{self._service_key} - {self._type} - {self._client_key}"
         else:
             self._name = f"{self._service_key} - {self._type}"
@@ -145,35 +142,34 @@ class BaseLogger(logging.Logger):
             handler.close()
         self.handlers.clear()
 
-class MiddlewareLogger(BaseLogger):
+class ApplicationLogger(BaseLogger):
     def __init__(
         self,
         dir: str,
-        service_key: BaseTypes.OptionalString = None,
-        level = BaseEnums.LoggerLevel.INFO,
-        google_cloud_logging = None
-    ):
-        super().__init__(
-            dir=dir,
-            type=BaseEnums.LoggerType.MIDDLEWARE,
-            service_key=service_key,
-            client_key=None,
-            level=level,
-            google_cloud_logging=google_cloud_logging
-        )
-
-class ServiceLogger(BaseLogger):
-    def __init__(
-        self,
-        dir: str,
-        type: BaseEnums.ServiceLoggerType,
         service_key: BaseTypes.OptionalString = None,
         level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
         google_cloud_logging: Optional[GoogleCloudLogging] = None
     ):
         super().__init__(
             dir=dir,
-            type=type,
+            type=BaseEnums.LoggerType.APPLICATION,
+            service_key=service_key,
+            client_key=None,
+            level=level,
+            google_cloud_logging=google_cloud_logging
+        )
+
+class CacheLogger(BaseLogger):
+    def __init__(
+        self,
+        dir: str,
+        service_key: BaseTypes.OptionalString = None,
+        level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging: Optional[GoogleCloudLogging] = None
+    ):
+        super().__init__(
+            dir=dir,
+            type=BaseEnums.LoggerType.CACHE,
             service_key=service_key,
             client_key=None,
             level=level,
@@ -194,6 +190,74 @@ class ClientLogger(BaseLogger):
             type=BaseEnums.LoggerType.CLIENT,
             service_key=service_key,
             client_key=client_key,
+            level=level,
+            google_cloud_logging=google_cloud_logging
+        )
+
+class DatabaseLogger(BaseLogger):
+    def __init__(
+        self,
+        dir: str,
+        service_key: BaseTypes.OptionalString = None,
+        level = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging = None
+    ):
+        super().__init__(
+            dir=dir,
+            type=BaseEnums.LoggerType.DATABASE,
+            service_key=service_key,
+            client_key=None,
+            level=level,
+            google_cloud_logging=google_cloud_logging
+        )
+
+class MiddlewareLogger(BaseLogger):
+    def __init__(
+        self,
+        dir: str,
+        service_key: BaseTypes.OptionalString = None,
+        level = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging = None
+    ):
+        super().__init__(
+            dir=dir,
+            type=BaseEnums.LoggerType.MIDDLEWARE,
+            service_key=service_key,
+            client_key=None,
+            level=level,
+            google_cloud_logging=google_cloud_logging
+        )
+
+class RepositoryLogger(BaseLogger):
+    def __init__(
+        self,
+        dir: str,
+        service_key: BaseTypes.OptionalString = None,
+        level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging: Optional[GoogleCloudLogging] = None
+    ):
+        super().__init__(
+            dir=dir,
+            type=BaseEnums.LoggerType.REPOSITORY,
+            service_key=service_key,
+            client_key=None,
+            level=level,
+            google_cloud_logging=google_cloud_logging
+        )
+
+class ServiceLogger(BaseLogger):
+    def __init__(
+        self,
+        dir: str,
+        service_key: BaseTypes.OptionalString = None,
+        level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging: Optional[GoogleCloudLogging] = None
+    ):
+        super().__init__(
+            dir=dir,
+            type=BaseEnums.LoggerType.SERVICE,
+            service_key=service_key,
+            client_key=None,
             level=level,
             google_cloud_logging=google_cloud_logging
         )

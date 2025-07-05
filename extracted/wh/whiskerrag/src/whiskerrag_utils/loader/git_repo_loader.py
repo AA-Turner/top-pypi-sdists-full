@@ -152,7 +152,21 @@ class GithubRepoLoader(BaseLoader):
                     "Only HTTPS URLs are supported"
                 )
 
-            clone_url = f"{self.base_url}/{self.repo_name}.git"
+            # 兼容 github、gitlab 及其他平台的 clone_url 构建
+            if "github.com" in self.base_url:
+                clone_url = f"{self.base_url}/{self.repo_name}.git"
+            elif "gitlab.com" in self.base_url or "gitlab" in self.base_url:
+                # 兼容 gitlab.com 及第三方 gitlab
+                url_no_scheme = self.base_url.split("//", 1)[-1]
+                clone_url = (
+                    f"https://oauth2:{self.token}@{url_no_scheme}/{self.repo_name}.git"
+                )
+            elif self.token and self.token.startswith("git:"):
+                # 兼容 第三方 token 前缀
+                url_no_scheme = self.base_url.split("//", 1)[-1]
+                clone_url = f"https://{self.token}@{url_no_scheme}/{self.repo_name}.git"
+            else:
+                clone_url = f"{self.base_url}/{self.repo_name}.git"
 
             git_env = _get_temp_git_env()
 

@@ -318,6 +318,7 @@ class JsonSchema(Term):
             dict, str, type[BaseModel], _TypedDictMeta, type, SchemaBuilder
         ],
         whitespace_pattern: OptionalType[str] = None,
+        ensure_ascii: bool = True,
     ):
         """
         Parameters
@@ -326,22 +327,24 @@ class JsonSchema(Term):
             The object containing the JSON schema.
         whitespace_pattern
             The pattern to use to match whitespace characters.
+        ensure_ascii
+            Whether to ensure the schema is ASCII-only.
 
         """
         schema_str: str
 
         if is_dict_instance(schema):
-            schema_str = json.dumps(schema)
+            schema_str = json.dumps(schema, ensure_ascii=ensure_ascii)
         elif is_str_instance(schema):
             schema_str = str(schema)
         elif is_pydantic_model(schema):
-            schema_str = json.dumps(schema.model_json_schema())  # type: ignore
+            schema_str = json.dumps(schema.model_json_schema(), ensure_ascii=ensure_ascii) # type: ignore
         elif is_typed_dict(schema):
-            schema_str = json.dumps(TypeAdapter(schema).json_schema())
+            schema_str = json.dumps(TypeAdapter(schema).json_schema(), ensure_ascii=ensure_ascii)
         elif is_dataclass(schema):
-            schema_str = json.dumps(TypeAdapter(schema).json_schema())
+            schema_str = json.dumps(TypeAdapter(schema).json_schema(), ensure_ascii=ensure_ascii)
         elif is_genson_schema_builder(schema):
-            schema_str = schema.to_json()  # type: ignore
+            schema_str = schema.to_json(ensure_ascii=ensure_ascii)  # type: ignore
         else:
             raise ValueError(
                 f"Cannot parse schema {schema}. The schema must be either "
@@ -390,6 +393,25 @@ class JsonSchema(Term):
         with open(path, "r") as f:
             schema = json.load(f)
         return cls(schema)
+
+
+@dataclass
+class Choice(Term):
+    """Class representing a choice between different items.
+
+    Parameters
+    ----------
+    items
+        The items to choose from.
+
+    """
+    items: List[Any]
+
+    def _display_node(self) -> str:
+        return f"Choice({repr(self.items)})"
+
+    def __repr__(self):
+        return f"Choice(items={repr(self.items)})"
 
 
 @dataclass
@@ -913,6 +935,9 @@ def to_regex(term: Term) -> str:
         case JsonSchema():
             regex_str = build_regex_from_schema(term.schema, term.whitespace_pattern)
             return f"({regex_str})"
+        case Choice():
+            regexes = [to_regex(python_types_to_terms(item)) for item in term.items]
+            return f"({'|'.join(regexes)})"
         case KleeneStar():
             return f"({to_regex(term.term)})*"
         case KleenePlus():

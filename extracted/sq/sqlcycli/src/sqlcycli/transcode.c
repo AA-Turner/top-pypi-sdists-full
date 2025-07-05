@@ -10,17 +10,17 @@
             ]
         ],
         "depends": [
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include/numpy/ufuncobject.h"
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include/numpy/ufuncobject.h"
         ],
         "extra_compile_args": [
             "-Wno-unreachable-code"
         ],
         "include_dirs": [
-            "/tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "sqlcycli.transcode",
         "sources": [
@@ -1624,7 +1624,7 @@ static const char *__pyx_f[] = {
 
 /* #### Code section: numeric_typedefs ### */
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":743
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":743
  * # in Cython to enable them only on the right systems.
  * 
  * ctypedef npy_int8       int8_t             # <<<<<<<<<<<<<<
@@ -1633,7 +1633,7 @@ static const char *__pyx_f[] = {
  */
 typedef npy_int8 __pyx_t_5numpy_int8_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":744
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":744
  * 
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t             # <<<<<<<<<<<<<<
@@ -1642,7 +1642,7 @@ typedef npy_int8 __pyx_t_5numpy_int8_t;
  */
 typedef npy_int16 __pyx_t_5numpy_int16_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":745
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":745
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t             # <<<<<<<<<<<<<<
@@ -1651,7 +1651,7 @@ typedef npy_int16 __pyx_t_5numpy_int16_t;
  */
 typedef npy_int32 __pyx_t_5numpy_int32_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":746
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":746
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t
  * ctypedef npy_int64      int64_t             # <<<<<<<<<<<<<<
@@ -1660,7 +1660,7 @@ typedef npy_int32 __pyx_t_5numpy_int32_t;
  */
 typedef npy_int64 __pyx_t_5numpy_int64_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":748
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":748
  * ctypedef npy_int64      int64_t
  * 
  * ctypedef npy_uint8      uint8_t             # <<<<<<<<<<<<<<
@@ -1669,7 +1669,7 @@ typedef npy_int64 __pyx_t_5numpy_int64_t;
  */
 typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":749
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":749
  * 
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t             # <<<<<<<<<<<<<<
@@ -1678,7 +1678,7 @@ typedef npy_uint8 __pyx_t_5numpy_uint8_t;
  */
 typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":750
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":750
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t             # <<<<<<<<<<<<<<
@@ -1687,7 +1687,7 @@ typedef npy_uint16 __pyx_t_5numpy_uint16_t;
  */
 typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":751
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":751
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t
  * ctypedef npy_uint64     uint64_t             # <<<<<<<<<<<<<<
@@ -1696,7 +1696,7 @@ typedef npy_uint32 __pyx_t_5numpy_uint32_t;
  */
 typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":753
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":753
  * ctypedef npy_uint64     uint64_t
  * 
  * ctypedef npy_float32    float32_t             # <<<<<<<<<<<<<<
@@ -1705,7 +1705,7 @@ typedef npy_uint64 __pyx_t_5numpy_uint64_t;
  */
 typedef npy_float32 __pyx_t_5numpy_float32_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":754
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":754
  * 
  * ctypedef npy_float32    float32_t
  * ctypedef npy_float64    float64_t             # <<<<<<<<<<<<<<
@@ -1714,7 +1714,7 @@ typedef npy_float32 __pyx_t_5numpy_float32_t;
  */
 typedef npy_float64 __pyx_t_5numpy_float64_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":761
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":761
  * ctypedef double complex complex128_t
  * 
  * ctypedef npy_longlong   longlong_t             # <<<<<<<<<<<<<<
@@ -1723,7 +1723,7 @@ typedef npy_float64 __pyx_t_5numpy_float64_t;
  */
 typedef npy_longlong __pyx_t_5numpy_longlong_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":762
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":762
  * 
  * ctypedef npy_longlong   longlong_t
  * ctypedef npy_ulonglong  ulonglong_t             # <<<<<<<<<<<<<<
@@ -1732,7 +1732,7 @@ typedef npy_longlong __pyx_t_5numpy_longlong_t;
  */
 typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":764
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":764
  * ctypedef npy_ulonglong  ulonglong_t
  * 
  * ctypedef npy_intp       intp_t             # <<<<<<<<<<<<<<
@@ -1741,7 +1741,7 @@ typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
  */
 typedef npy_intp __pyx_t_5numpy_intp_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":765
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":765
  * 
  * ctypedef npy_intp       intp_t
  * ctypedef npy_uintp      uintp_t             # <<<<<<<<<<<<<<
@@ -1750,7 +1750,7 @@ typedef npy_intp __pyx_t_5numpy_intp_t;
  */
 typedef npy_uintp __pyx_t_5numpy_uintp_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":767
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":767
  * ctypedef npy_uintp      uintp_t
  * 
  * ctypedef npy_double     float_t             # <<<<<<<<<<<<<<
@@ -1759,7 +1759,7 @@ typedef npy_uintp __pyx_t_5numpy_uintp_t;
  */
 typedef npy_double __pyx_t_5numpy_float_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":768
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":768
  * 
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t             # <<<<<<<<<<<<<<
@@ -1768,7 +1768,7 @@ typedef npy_double __pyx_t_5numpy_float_t;
  */
 typedef npy_double __pyx_t_5numpy_double_t;
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":769
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":769
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t
  * ctypedef npy_longdouble longdouble_t             # <<<<<<<<<<<<<<
@@ -6674,7 +6674,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__94 __pyx_mstate_global->__pyx_codeobj__94
 /* #### Code section: module_code ### */
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":243
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":243
  * 
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6685,7 +6685,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":244
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":244
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:
  *             return PyDataType_ELSIZE(self)             # <<<<<<<<<<<<<<
@@ -6695,7 +6695,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   __pyx_r = PyDataType_ELSIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":243
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":243
  * 
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6708,7 +6708,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
  * 
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6719,7 +6719,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":248
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":248
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:
  *             return PyDataType_ALIGNMENT(self)             # <<<<<<<<<<<<<<
@@ -6729,7 +6729,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   __pyx_r = PyDataType_ALIGNMENT(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
  * 
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6742,7 +6742,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":253
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":253
  *         # for this using PyDataType_HASFIELDS.
  *         @property
  *         cdef inline object fields(self):             # <<<<<<<<<<<<<<
@@ -6756,7 +6756,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("fields", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":254
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":254
  *         @property
  *         cdef inline object fields(self):
  *             return <object>PyDataType_FIELDS(self)             # <<<<<<<<<<<<<<
@@ -6769,7 +6769,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   __pyx_r = ((PyObject *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":253
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":253
  *         # for this using PyDataType_HASFIELDS.
  *         @property
  *         cdef inline object fields(self):             # <<<<<<<<<<<<<<
@@ -6784,7 +6784,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":257
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":257
  * 
  *         @property
  *         cdef inline tuple names(self):             # <<<<<<<<<<<<<<
@@ -6798,7 +6798,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("names", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":258
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":258
  *         @property
  *         cdef inline tuple names(self):
  *             return <tuple>PyDataType_NAMES(self)             # <<<<<<<<<<<<<<
@@ -6811,7 +6811,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   __pyx_r = ((PyObject*)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":257
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":257
  * 
  *         @property
  *         cdef inline tuple names(self):             # <<<<<<<<<<<<<<
@@ -6826,7 +6826,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":264
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":264
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6837,7 +6837,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
 static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarray(PyArray_Descr *__pyx_v_self) {
   PyArray_ArrayDescr *__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:
  *             return PyDataType_SUBARRAY(self)             # <<<<<<<<<<<<<<
@@ -6847,7 +6847,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   __pyx_r = PyDataType_SUBARRAY(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":264
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":264
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6860,7 +6860,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":268
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":268
  * 
  *         @property
  *         cdef inline npy_uint64 flags(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6871,7 +6871,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
 static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr *__pyx_v_self) {
   npy_uint64 __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":270
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":270
  *         cdef inline npy_uint64 flags(self) noexcept nogil:
  *             """The data types flags."""
  *             return PyDataType_FLAGS(self)             # <<<<<<<<<<<<<<
@@ -6881,7 +6881,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   __pyx_r = PyDataType_FLAGS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":268
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":268
  * 
  *         @property
  *         cdef inline npy_uint64 flags(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6894,7 +6894,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
  * 
  *         @property
  *         cdef inline int numiter(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6905,7 +6905,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":282
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":282
  *         cdef inline int numiter(self) noexcept nogil:
  *             """The number of arrays that need to be broadcast to the same shape."""
  *             return PyArray_MultiIter_NUMITER(self)             # <<<<<<<<<<<<<<
@@ -6915,7 +6915,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   __pyx_r = PyArray_MultiIter_NUMITER(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
  * 
  *         @property
  *         cdef inline int numiter(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6928,7 +6928,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":285
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":285
  * 
  *         @property
  *         cdef inline npy_intp size(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6939,7 +6939,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":287
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":287
  *         cdef inline npy_intp size(self) noexcept nogil:
  *             """The total broadcasted size."""
  *             return PyArray_MultiIter_SIZE(self)             # <<<<<<<<<<<<<<
@@ -6949,7 +6949,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":285
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":285
  * 
  *         @property
  *         cdef inline npy_intp size(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6962,7 +6962,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":290
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":290
  * 
  *         @property
  *         cdef inline npy_intp index(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6973,7 +6973,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
  *         cdef inline npy_intp index(self) noexcept nogil:
  *             """The current (1-d) index into the broadcasted result."""
  *             return PyArray_MultiIter_INDEX(self)             # <<<<<<<<<<<<<<
@@ -6983,7 +6983,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   __pyx_r = PyArray_MultiIter_INDEX(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":290
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":290
  * 
  *         @property
  *         cdef inline npy_intp index(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6996,7 +6996,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":295
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":295
  * 
  *         @property
  *         cdef inline int nd(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7007,7 +7007,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
  *         cdef inline int nd(self) noexcept nogil:
  *             """The number of dimensions in the broadcasted result."""
  *             return PyArray_MultiIter_NDIM(self)             # <<<<<<<<<<<<<<
@@ -7017,7 +7017,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   __pyx_r = PyArray_MultiIter_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":295
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":295
  * 
  *         @property
  *         cdef inline int nd(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7030,7 +7030,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":300
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":300
  * 
  *         @property
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7041,7 +7041,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:
  *             """The shape of the broadcasted result."""
  *             return PyArray_MultiIter_DIMS(self)             # <<<<<<<<<<<<<<
@@ -7051,7 +7051,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   __pyx_r = PyArray_MultiIter_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":300
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":300
  * 
  *         @property
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7064,7 +7064,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":305
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":305
  * 
  *         @property
  *         cdef inline void** iters(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7075,7 +7075,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
 static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiIterObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":308
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":308
  *             """An array of iterator objects that holds the iterators for the arrays to be broadcast together.
  *             On return, the iterators are adjusted for broadcasting."""
  *             return PyArray_MultiIter_ITERS(self)             # <<<<<<<<<<<<<<
@@ -7085,7 +7085,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_ITERS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":305
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":305
  * 
  *         @property
  *         cdef inline void** iters(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7098,7 +7098,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":323
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":323
  * 
  *         @property
  *         cdef inline PyObject* base(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7109,7 +7109,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":326
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":326
  *             """Returns a borrowed reference to the object owning the data/memory.
  *             """
  *             return PyArray_BASE(self)             # <<<<<<<<<<<<<<
@@ -7119,7 +7119,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   __pyx_r = PyArray_BASE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":323
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":323
  * 
  *         @property
  *         cdef inline PyObject* base(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7132,7 +7132,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":329
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":329
  * 
  *         @property
  *         cdef inline dtype descr(self):             # <<<<<<<<<<<<<<
@@ -7146,7 +7146,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   PyArray_Descr *__pyx_t_1;
   __Pyx_RefNannySetupContext("descr", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":332
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":332
  *             """Returns an owned reference to the dtype of the array.
  *             """
  *             return <dtype>PyArray_DESCR(self)             # <<<<<<<<<<<<<<
@@ -7159,7 +7159,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   __pyx_r = ((PyArray_Descr *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":329
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":329
  * 
  *         @property
  *         cdef inline dtype descr(self):             # <<<<<<<<<<<<<<
@@ -7174,7 +7174,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
  * 
  *         @property
  *         cdef inline int ndim(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7185,7 +7185,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
 static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":338
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":338
  *             """Returns the number of dimensions in the array.
  *             """
  *             return PyArray_NDIM(self)             # <<<<<<<<<<<<<<
@@ -7195,7 +7195,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   __pyx_r = PyArray_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
  * 
  *         @property
  *         cdef inline int ndim(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7208,7 +7208,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
  * 
  *         @property
  *         cdef inline npy_intp *shape(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7219,7 +7219,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":346
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":346
  *             Can return NULL for 0-dimensional arrays.
  *             """
  *             return PyArray_DIMS(self)             # <<<<<<<<<<<<<<
@@ -7229,7 +7229,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   __pyx_r = PyArray_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
  * 
  *         @property
  *         cdef inline npy_intp *shape(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7242,7 +7242,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":349
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":349
  * 
  *         @property
  *         cdef inline npy_intp *strides(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7253,7 +7253,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
  *             The number of elements matches the number of dimensions of the array (ndim).
  *             """
  *             return PyArray_STRIDES(self)             # <<<<<<<<<<<<<<
@@ -7263,7 +7263,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   __pyx_r = PyArray_STRIDES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":349
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":349
  * 
  *         @property
  *         cdef inline npy_intp *strides(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7276,7 +7276,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":356
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":356
  * 
  *         @property
  *         cdef inline npy_intp size(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7287,7 +7287,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":359
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":359
  *             """Returns the total size (in number of elements) of the array.
  *             """
  *             return PyArray_SIZE(self)             # <<<<<<<<<<<<<<
@@ -7297,7 +7297,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   __pyx_r = PyArray_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":356
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":356
  * 
  *         @property
  *         cdef inline npy_intp size(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7310,7 +7310,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":362
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":362
  * 
  *         @property
  *         cdef inline char* data(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7321,7 +7321,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
 static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__pyx_v_self) {
   char *__pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
  *             of `PyArray_DATA()` instead, which returns a 'void*'.
  *             """
  *             return PyArray_BYTES(self)             # <<<<<<<<<<<<<<
@@ -7331,7 +7331,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   __pyx_r = PyArray_BYTES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":362
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":362
  * 
  *         @property
  *         cdef inline char* data(self) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7344,7 +7344,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -7361,7 +7361,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew1", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":777
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":777
  * 
  * cdef inline object PyArray_MultiIterNew1(a):
  *     return PyArray_MultiIterNew(1, <void*>a)             # <<<<<<<<<<<<<<
@@ -7375,7 +7375,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -7394,7 +7394,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -7411,7 +7411,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew2", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":780
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":780
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)             # <<<<<<<<<<<<<<
@@ -7425,7 +7425,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -7444,7 +7444,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -7461,7 +7461,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew3", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":783
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":783
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)             # <<<<<<<<<<<<<<
@@ -7475,7 +7475,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -7494,7 +7494,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -7511,7 +7511,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew4", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":786
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":786
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)             # <<<<<<<<<<<<<<
@@ -7525,7 +7525,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -7544,7 +7544,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -7561,7 +7561,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew5", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":789
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":789
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)             # <<<<<<<<<<<<<<
@@ -7575,7 +7575,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -7594,7 +7594,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -7609,7 +7609,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   PyObject *__pyx_t_2;
   __Pyx_RefNannySetupContext("PyDataType_SHAPE", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -7619,7 +7619,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   __pyx_t_1 = PyDataType_HASSUBARRAY(__pyx_v_d);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":793
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":793
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):
  *         return <tuple>d.subarray.shape             # <<<<<<<<<<<<<<
@@ -7632,7 +7632,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     __pyx_r = ((PyObject*)__pyx_t_2);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -7641,7 +7641,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
  */
   }
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":795
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":795
  *         return <tuple>d.subarray.shape
  *     else:
  *         return ()             # <<<<<<<<<<<<<<
@@ -7655,7 +7655,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     goto __pyx_L0;
   }
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -7670,7 +7670,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -7684,7 +7684,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":995
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":995
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!             # <<<<<<<<<<<<<<
@@ -7693,7 +7693,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
  */
   Py_INCREF(__pyx_v_base);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":996
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":996
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!
  *     PyArray_SetBaseObject(arr, base)             # <<<<<<<<<<<<<<
@@ -7702,7 +7702,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
  */
   __pyx_t_1 = PyArray_SetBaseObject(__pyx_v_arr, __pyx_v_base); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(2, 996, __pyx_L1_error)
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -7717,7 +7717,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   __pyx_L0:;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -7732,7 +7732,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("get_array_base", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":999
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":999
  * 
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)             # <<<<<<<<<<<<<<
@@ -7741,7 +7741,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
  */
   __pyx_v_base = PyArray_BASE(__pyx_v_arr);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -7751,7 +7751,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_t_1 = (__pyx_v_base == NULL);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1001
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1001
  *     base = PyArray_BASE(arr)
  *     if base is NULL:
  *         return None             # <<<<<<<<<<<<<<
@@ -7762,7 +7762,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -7771,7 +7771,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
  */
   }
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1002
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1002
  *     if base is NULL:
  *         return None
  *     return <object>base             # <<<<<<<<<<<<<<
@@ -7783,7 +7783,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_r = ((PyObject *)__pyx_v_base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -7798,7 +7798,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -7822,7 +7822,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_array", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7838,7 +7838,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1008
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1008
  * cdef inline int import_array() except -1:
  *     try:
  *         __pyx_import_array()             # <<<<<<<<<<<<<<
@@ -7847,7 +7847,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
  */
       __pyx_t_4 = _import_array(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(2, 1008, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7861,7 +7861,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1009
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1009
  *     try:
  *         __pyx_import_array()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -7876,7 +7876,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1010
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1010
  *         __pyx_import_array()
  *     except Exception:
  *         raise ImportError("numpy._core.multiarray failed to import")             # <<<<<<<<<<<<<<
@@ -7891,7 +7891,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7907,7 +7907,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -7930,7 +7930,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -7954,7 +7954,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_umath", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7970,7 +7970,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1014
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1014
  * cdef inline int import_umath() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -7979,7 +7979,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
  */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(2, 1014, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7993,7 +7993,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1015
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1015
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -8008,7 +8008,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1016
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1016
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -8023,7 +8023,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -8039,7 +8039,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -8062,7 +8062,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -8086,7 +8086,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_ufunc", 1);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -8102,7 +8102,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1020
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1020
  * cdef inline int import_ufunc() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -8111,7 +8111,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
  */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(2, 1020, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -8125,7 +8125,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1021
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1021
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -8140,7 +8140,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1022
+      /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1022
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -8155,7 +8155,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
+    /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -8171,7 +8171,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -8194,7 +8194,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -8205,7 +8205,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1037
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1037
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyTimedeltaArrType_Type)             # <<<<<<<<<<<<<<
@@ -8215,7 +8215,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyTimedeltaArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -8228,7 +8228,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -8239,7 +8239,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
 static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1052
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1052
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyDatetimeArrType_Type)             # <<<<<<<<<<<<<<
@@ -8249,7 +8249,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyDatetimeArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -8262,7 +8262,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -8273,7 +8273,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
 static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *__pyx_v_obj) {
   npy_datetime __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1062
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1062
  *     also needed.  That can be found using `get_datetime64_unit`.
  *     """
  *     return (<PyDatetimeScalarObject*>obj).obval             # <<<<<<<<<<<<<<
@@ -8283,7 +8283,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   __pyx_r = ((PyDatetimeScalarObject *)__pyx_v_obj)->obval;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -8296,7 +8296,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -8307,7 +8307,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
 static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject *__pyx_v_obj) {
   npy_timedelta __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
  *     returns the int64 value underlying scalar numpy timedelta64 object
  *     """
  *     return (<PyTimedeltaScalarObject*>obj).obval             # <<<<<<<<<<<<<<
@@ -8317,7 +8317,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   __pyx_r = ((PyTimedeltaScalarObject *)__pyx_v_obj)->obval;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -8330,7 +8330,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
+/* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -8341,7 +8341,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
 static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObject *__pyx_v_obj) {
   NPY_DATETIMEUNIT __pyx_r;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1076
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1076
  *     returns the unit part of the dtype for a numpy datetime64 object.
  *     """
  *     return <NPY_DATETIMEUNIT>(<PyDatetimeScalarObject*>obj).obmeta.base             # <<<<<<<<<<<<<<
@@ -8351,7 +8351,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   __pyx_r = ((NPY_DATETIMEUNIT)((PyDatetimeScalarObject *)__pyx_v_obj)->obmeta.base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -37269,7 +37269,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
  *     many: cython.bint = False,
  *     itemize: cython.bint = True,             # <<<<<<<<<<<<<<
  * ) -> object:
- *     """Escape 'data' to formatable object(s) `<'str/tuple/list[str/tuple]'>`.
+ *     """Prepare and escape arguments for SQL binding `<'str/tuple/list[str/tuple]'>`.
  */
   int __pyx_v_itemize = ((int)1);
   PyObject *__pyx_v_err = NULL;
@@ -37311,8 +37311,8 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
     }
   }
 
-  /* "sqlcycli/transcode.py":2673
- *       item count in each row.
+  /* "sqlcycli/transcode.py":2657
+ *     :raises `<'EscapeTypeError'>`: If escape fails due to unsupported type.
  *     """
  *     try:             # <<<<<<<<<<<<<<
  *         if itemize or many:
@@ -37327,7 +37327,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "sqlcycli/transcode.py":2674
+      /* "sqlcycli/transcode.py":2658
  *     """
  *     try:
  *         if itemize or many:             # <<<<<<<<<<<<<<
@@ -37343,7 +37343,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
       __pyx_L10_bool_binop_done:;
       if (__pyx_t_4) {
 
-        /* "sqlcycli/transcode.py":2675
+        /* "sqlcycli/transcode.py":2659
  *     try:
  *         if itemize or many:
  *             return _escape_item_common(data, many)             # <<<<<<<<<<<<<<
@@ -37351,13 +37351,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
  *             return _escape_common(data)
  */
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_5 = __pyx_f_8sqlcycli_9transcode__escape_item_common(__pyx_v_data, __pyx_v_many); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2675, __pyx_L3_error)
+        __pyx_t_5 = __pyx_f_8sqlcycli_9transcode__escape_item_common(__pyx_v_data, __pyx_v_many); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2659, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_r = __pyx_t_5;
         __pyx_t_5 = 0;
         goto __pyx_L7_try_return;
 
-        /* "sqlcycli/transcode.py":2674
+        /* "sqlcycli/transcode.py":2658
  *     """
  *     try:
  *         if itemize or many:             # <<<<<<<<<<<<<<
@@ -37366,7 +37366,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
  */
       }
 
-      /* "sqlcycli/transcode.py":2677
+      /* "sqlcycli/transcode.py":2661
  *             return _escape_item_common(data, many)
  *         else:
  *             return _escape_common(data)             # <<<<<<<<<<<<<<
@@ -37375,15 +37375,15 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
  */
       /*else*/ {
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_5 = __pyx_f_8sqlcycli_9transcode__escape_common(__pyx_v_data); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2677, __pyx_L3_error)
+        __pyx_t_5 = __pyx_f_8sqlcycli_9transcode__escape_common(__pyx_v_data); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2661, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_r = __pyx_t_5;
         __pyx_t_5 = 0;
         goto __pyx_L7_try_return;
       }
 
-      /* "sqlcycli/transcode.py":2673
- *       item count in each row.
+      /* "sqlcycli/transcode.py":2657
+ *     :raises `<'EscapeTypeError'>`: If escape fails due to unsupported type.
  *     """
  *     try:             # <<<<<<<<<<<<<<
  *         if itemize or many:
@@ -37393,7 +37393,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "sqlcycli/transcode.py":2678
+    /* "sqlcycli/transcode.py":2662
  *         else:
  *             return _escape_common(data)
  *     except Exception as err:             # <<<<<<<<<<<<<<
@@ -37403,7 +37403,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_6) {
       __Pyx_AddTraceback("sqlcycli.transcode.escape", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(1, 2678, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(1, 2662, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_8);
@@ -37411,27 +37411,27 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
       __pyx_v_err = __pyx_t_7;
       /*try:*/ {
 
-        /* "sqlcycli/transcode.py":2679
+        /* "sqlcycli/transcode.py":2663
  *             return _escape_common(data)
  *     except Exception as err:
  *         raise errors.EscapeError(             # <<<<<<<<<<<<<<
  *             "Failed to escape: %s\n%r\nError: %s" % (type(data), data, err)
  *         ) from err
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_n_s_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 2679, __pyx_L17_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_n_s_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 2663, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_EscapeError); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 2679, __pyx_L17_error)
+        __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_EscapeError); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 2663, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-        /* "sqlcycli/transcode.py":2680
+        /* "sqlcycli/transcode.py":2664
  *     except Exception as err:
  *         raise errors.EscapeError(
  *             "Failed to escape: %s\n%r\nError: %s" % (type(data), data, err)             # <<<<<<<<<<<<<<
  *         ) from err
  * 
  */
-        __pyx_t_10 = PyTuple_New(6); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 2680, __pyx_L17_error)
+        __pyx_t_10 = PyTuple_New(6); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 2664, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_12 = 0;
         __pyx_t_13 = 127;
@@ -37439,7 +37439,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
         __pyx_t_12 += 18;
         __Pyx_GIVEREF(__pyx_kp_u_Failed_to_escape);
         PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_kp_u_Failed_to_escape);
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_data))), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2680, __pyx_L17_error)
+        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(((PyObject *)Py_TYPE(__pyx_v_data))), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2664, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_14);
         __pyx_t_13 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_13) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_13;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
@@ -37450,7 +37450,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
         __pyx_t_12 += 1;
         __Pyx_GIVEREF(__pyx_kp_u__18);
         PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_kp_u__18);
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_data), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2680, __pyx_L17_error)
+        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_data), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2664, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_14);
         __pyx_t_13 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_13) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_13;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
@@ -37461,14 +37461,14 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
         __pyx_t_12 += 8;
         __Pyx_GIVEREF(__pyx_kp_u_Error);
         PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_kp_u_Error);
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2680, __pyx_L17_error)
+        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2664, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_14);
         __pyx_t_13 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_13) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_13;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
         __Pyx_GIVEREF(__pyx_t_14);
         PyTuple_SET_ITEM(__pyx_t_10, 5, __pyx_t_14);
         __pyx_t_14 = 0;
-        __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_10, 6, __pyx_t_12, __pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2680, __pyx_L17_error)
+        __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_10, 6, __pyx_t_12, __pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 2664, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_t_10 = NULL;
@@ -37490,12 +37490,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_15, 1+__pyx_t_15);
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 2679, __pyx_L17_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 2663, __pyx_L17_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         }
 
-        /* "sqlcycli/transcode.py":2681
+        /* "sqlcycli/transcode.py":2665
  *         raise errors.EscapeError(
  *             "Failed to escape: %s\n%r\nError: %s" % (type(data), data, err)
  *         ) from err             # <<<<<<<<<<<<<<
@@ -37504,10 +37504,10 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
  */
         __Pyx_Raise(__pyx_t_9, 0, 0, __pyx_v_err);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(1, 2679, __pyx_L17_error)
+        __PYX_ERR(1, 2663, __pyx_L17_error)
       }
 
-      /* "sqlcycli/transcode.py":2678
+      /* "sqlcycli/transcode.py":2662
  *         else:
  *             return _escape_common(data)
  *     except Exception as err:             # <<<<<<<<<<<<<<
@@ -37554,8 +37554,8 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_escape(PyObject *__pyx_v_data, CYT
     }
     goto __pyx_L5_except_error;
 
-    /* "sqlcycli/transcode.py":2673
- *       item count in each row.
+    /* "sqlcycli/transcode.py":2657
+ *     :raises `<'EscapeTypeError'>`: If escape fails due to unsupported type.
  *     """
  *     try:             # <<<<<<<<<<<<<<
  *         if itemize or many:
@@ -37609,7 +37609,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_9transcode_escape, "Escape 'data' to formatable object(s) `<'str/tuple/list[str/tuple]'>`.\n\n    :param data `<'object'>`: The object to escape, supports:\n        - Python native:\n          int, float, bool, str, None, datetime, date, time,\n          timedelta, struct_time, bytes, bytearray, memoryview,\n          Decimal, dict, list, tuple, set, frozenset, range.\n        - Library [numpy](https://github.com/numpy/numpy):\n          np.int, np.uint, np.float, np.bool, np.bytes,\n          np.str, np.datetime64, np.timedelta64, np.ndarray.\n        - Library [pandas](https://github.com/pandas-dev/pandas):\n          pd.Timestamp, pd.Timedelta, pd.DatetimeIndex,\n          pd.TimedeltaIndex, pd.Series, pd.DataFrame.\n        - Library [cytimes](https://github.com/AresJef/cyTimes):\n          pydt, pddt.\n\n\n    :param many `<'bool'>`: Wheter to escape 'data' as multi-rows. Defaults to `False`.\n        * When 'many=True', the argument 'itemize' is ignored.\n        * 1. sequence and mapping (e.g. `list`, `tuple`, `dict`, etc)\n          escapes to `<'list[str/tuple[str]]'>`. Each element represents\n          one row of the 'data'.\n        * 2. `pd.Series` and 1-dimensional `np.ndarray` escapes to\n          `<'list[str]'>`. Each element represents one row of the 'data'.\n        * 3. `pd.DataFrame` and 2-dimensional `np.ndarray` escapes\n          to `<'list[tuple[str]]'>`. Each tuple represents one row\n          of the 'data'.\n        * 4. Single object (such as `int`, `float`, `str`, etc) escapes\n          to one literal string `<'str'>`.\n\n    :param itemize `<'bool'>`: Whether to escape each items of the 'data' individual. Defaults to `True`.\n        - When 'itemize=True', the 'data' type determines how to escape.\n            * 1. Sequence or Mapping (e.g. `list`, `tuple`, `dict`, etc)\n              escapes to `<'tuple[str]'>`.\n            * 2. `pd.Series` and 1-dimensional `np.ndarray` escapes to\n              `<'tuple[str]'>`.\n            * 3. `pd.DataFrame` and 2""-dimensional `np.ndarray` escapes\n              to `<'list[tuple[str]]'>`. Each tuple represents one row\n              of the 'data' .\n            * 4. Single object (such as `int`, `float`, `str`, etc) escapes\n              to one literal string `<'str'>`.\n        - When 'itemize=False', regardless of the 'data' type, all\n          escapes to one single literal string `<'str'>`.\n\n    :raises `<'EscapeError'>`: If any error occurs during escaping.\n\n    ## Returns\n    - If returns a `<'str'>`, it represents a single literal string.\n      The 'sql' should only have one '%s' placeholder.\n    - If returns a `<'tuple'>`, it represents a single row of literal\n      strings. The 'sql' should have '%s' placeholders equal to the\n      tuple length.\n    - If returns a `<'list'>`, it represents multiple rows of literal\n      strings. The 'sql' should have '%s' placeholders equal to the\n      item count in each row.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_9transcode_escape, "Prepare and escape arguments for SQL binding `<'str/tuple/list[str/tuple]'>`.\n\n    :param args `<'Any'>`: Arguments to escape, supports:\n\n        - **Python built-ins**:\n            int, float, bool, str, None, datetime, date, time,\n            timedelta, struct_time, bytes, bytearray, memoryview,\n            Decimal, dict, list, tuple, set, frozenset, range\n        - **Library [numpy](https://github.com/numpy/numpy)**:\n            np.int, np.uint, np.float, np.bool, np.bytes,\n            np.str, np.datetime64, np.timedelta64, np.ndarray\n        - **Library [pandas](https://github.com/pandas-dev/pandas)**:\n            pd.Timestamp, pd.Timedelta, pd.DatetimeIndex,\n            pd.TimedeltaIndex, pd.Series, pd.DataFrame\n        - **Library [cytimes](https://github.com/AresJef/cyTimes)**:\n            cytimes.Pydt, cytimes.Pddt\n\n    :param many `<'bool'>`: Whether the 'args' is multi-row data. Defaults to `False`.\n    - `many=False`: The 'itemize' parameter determines how to escape the 'args'.\n    - `many=True`: The 'itemize' parameter is ignored, and the 'args' data type determines how escape is done.\n        - 1. Sequence or Mapping (e.g. `list`, `tuple`, `dict`, etc) escapes to `<'list[str]'>`.\n        - 2. `pd.Series` and 1-dimensional `np.ndarray` escapes to `<'list[str]'>`.\n        - 3. `pd.DataFrame` and 2-dimensional `np.ndarray` escapes to `<'list[tuple[str]]'>`.\n        - 4. Single object (such as `int`, `float`, `str`, etc) escapes to one literal string `<'str'>`.\n\n    :param itemize `<'bool'>`: Whether to escape items of the 'args' individually. Defaults to `True`.\n    - `itemize=False`: Always escapes to one single literal string `<'str'>`, regardless of the 'args' type.\n    - `itemize=True`: The 'args' data type determines how escape is done.\n        - 1. Sequence or Mapping (e.g. `list`, `tuple`, `dict`, etc) escapes to `<'tuple[str]'>`.\n        - 2. `pd.Series` and 1-dimensional `np.ndarray` escapes to `<'tuple[str]'>`.\n     ""   - 3. `pd.DataFrame` and 2-dimensional `np.ndarray` escapes to `<'list[tuple[str]]'>`.\n        - 4. Single object (such as `int`, `float`, `str`, etc) escapes to one literal string `<'str'>`.\n\n    :returns `<'str/tuple/list'>`:\n    - If returns `<'str'>`, it represents a single literal string.\n    - If returns `<'tuple'>`, it represents a single row of literal strings.\n    - If returns `<'list'>`, it represents multiple rows of literal strings.\n\n    :raises `<'EscapeTypeError'>`: If escape fails due to unsupported type.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_9transcode_1escape = {"escape", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_9transcode_1escape, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_9transcode_escape};
 static PyObject *__pyx_pw_8sqlcycli_9transcode_1escape(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -37716,7 +37716,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  *     many: cython.bint = False,
  *     itemize: cython.bint = True,             # <<<<<<<<<<<<<<
  * ) -> object:
- *     """Escape 'data' to formatable object(s) `<'str/tuple/list[str/tuple]'>`.
+ *     """Prepare and escape arguments for SQL binding `<'str/tuple/list[str/tuple]'>`.
  */
       __pyx_v_itemize = ((int)1);
     }
@@ -37788,7 +37788,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_escape(CYTHON_UNUSED PyObject *__
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2685
+/* "sqlcycli/transcode.py":2669
  * 
  * # Decode ======================================================================================
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -37806,7 +37806,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_string(PyObject *__pyx_v_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_string", 1);
 
-  /* "sqlcycli/transcode.py":2705
+  /* "sqlcycli/transcode.py":2689
  *     >>> 'hello world'
  *     """
  *     return value if is_binary else decode_bytes(value, encoding)  # type: ignore             # <<<<<<<<<<<<<<
@@ -37818,7 +37818,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_string(PyObject *__pyx_v_v
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2705, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2689, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = __pyx_t_2;
     __pyx_t_2 = 0;
@@ -37827,7 +37827,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_string(PyObject *__pyx_v_v
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/transcode.py":2685
+  /* "sqlcycli/transcode.py":2669
  * 
  * # Decode ======================================================================================
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -37847,7 +37847,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_string(PyObject *__pyx_v_v
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2708
+/* "sqlcycli/transcode.py":2692
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -37869,7 +37869,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
   __Pyx_RefNannySetupContext("_decode_bit", 0);
   __Pyx_INCREF(__pyx_v_value);
 
-  /* "sqlcycli/transcode.py":2724
+  /* "sqlcycli/transcode.py":2708
  *     >>> b'\\x01'
  *     """
  *     if not decode_bit:             # <<<<<<<<<<<<<<
@@ -37879,7 +37879,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
   __pyx_t_1 = (!__pyx_v_decode_bit);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/transcode.py":2725
+    /* "sqlcycli/transcode.py":2709
  *     """
  *     if not decode_bit:
  *         return value  # exit             # <<<<<<<<<<<<<<
@@ -37891,7 +37891,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2724
+    /* "sqlcycli/transcode.py":2708
  *     >>> b'\\x01'
  *     """
  *     if not decode_bit:             # <<<<<<<<<<<<<<
@@ -37900,31 +37900,31 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
  */
   }
 
-  /* "sqlcycli/transcode.py":2726
+  /* "sqlcycli/transcode.py":2710
  *     if not decode_bit:
  *         return value  # exit
  *     if bytes_len(value) < 8:             # <<<<<<<<<<<<<<
  *         value = value.rjust(8, b"\x00")
  *     return unpack_uint64_big_endian(value, 0)  # type: ignore
  */
-  __pyx_t_2 = PyBytes_Size(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 2726, __pyx_L1_error)
+  __pyx_t_2 = PyBytes_Size(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 2710, __pyx_L1_error)
   __pyx_t_1 = (__pyx_t_2 < 8);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/transcode.py":2727
+    /* "sqlcycli/transcode.py":2711
  *         return value  # exit
  *     if bytes_len(value) < 8:
  *         value = value.rjust(8, b"\x00")             # <<<<<<<<<<<<<<
  *     return unpack_uint64_big_endian(value, 0)  # type: ignore
  * 
  */
-    __pyx_t_3 = __Pyx_CallUnboundCMethod2(&__pyx_umethod_PyBytes_Type_rjust, __pyx_v_value, __pyx_int_8, __pyx_kp_b__28); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2727, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_CallUnboundCMethod2(&__pyx_umethod_PyBytes_Type_rjust, __pyx_v_value, __pyx_int_8, __pyx_kp_b__28); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2711, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(1, 2727, __pyx_L1_error)
+    if (!(likely(PyBytes_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_3))) __PYX_ERR(1, 2711, __pyx_L1_error)
     __Pyx_DECREF_SET(__pyx_v_value, ((PyObject*)__pyx_t_3));
     __pyx_t_3 = 0;
 
-    /* "sqlcycli/transcode.py":2726
+    /* "sqlcycli/transcode.py":2710
  *     if not decode_bit:
  *         return value  # exit
  *     if bytes_len(value) < 8:             # <<<<<<<<<<<<<<
@@ -37933,7 +37933,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
  */
   }
 
-  /* "sqlcycli/transcode.py":2728
+  /* "sqlcycli/transcode.py":2712
  *     if bytes_len(value) < 8:
  *         value = value.rjust(8, b"\x00")
  *     return unpack_uint64_big_endian(value, 0)  # type: ignore             # <<<<<<<<<<<<<<
@@ -37943,17 +37943,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_value == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-    __PYX_ERR(1, 2728, __pyx_L1_error)
+    __PYX_ERR(1, 2712, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(1, 2728, __pyx_L1_error)
-  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_unpack_uint64_big_endian(__pyx_t_4, 0); if (unlikely(__pyx_t_5 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2728, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2728, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(1, 2712, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_unpack_uint64_big_endian(__pyx_t_4, 0); if (unlikely(__pyx_t_5 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2712, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2712, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/transcode.py":2708
+  /* "sqlcycli/transcode.py":2692
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -37973,7 +37973,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_bit(PyObject *__pyx_v_valu
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2731
+/* "sqlcycli/transcode.py":2715
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -37995,17 +37995,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_int(PyObject *__pyx_v_valu
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_int", 1);
 
-  /* "sqlcycli/transcode.py":2740
+  /* "sqlcycli/transcode.py":2724
  *     >>> -9223372036854775808
  *     """
  *     chs: cython.pchar = bytes_to_chars(value)             # <<<<<<<<<<<<<<
  *     if chs[0] == 45:  # negative "-" sign
  *         return chars_to_ll(chs)  # type: ignore
  */
-  __pyx_t_1 = PyBytes_AsString(__pyx_v_value); if (unlikely(__pyx_t_1 == ((char *)NULL))) __PYX_ERR(1, 2740, __pyx_L1_error)
+  __pyx_t_1 = PyBytes_AsString(__pyx_v_value); if (unlikely(__pyx_t_1 == ((char *)NULL))) __PYX_ERR(1, 2724, __pyx_L1_error)
   __pyx_v_chs = __pyx_t_1;
 
-  /* "sqlcycli/transcode.py":2741
+  /* "sqlcycli/transcode.py":2725
  *     """
  *     chs: cython.pchar = bytes_to_chars(value)
  *     if chs[0] == 45:  # negative "-" sign             # <<<<<<<<<<<<<<
@@ -38015,7 +38015,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_int(PyObject *__pyx_v_valu
   __pyx_t_2 = ((__pyx_v_chs[0]) == 45);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":2742
+    /* "sqlcycli/transcode.py":2726
  *     chs: cython.pchar = bytes_to_chars(value)
  *     if chs[0] == 45:  # negative "-" sign
  *         return chars_to_ll(chs)  # type: ignore             # <<<<<<<<<<<<<<
@@ -38023,14 +38023,14 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_int(PyObject *__pyx_v_valu
  *         return chars_to_ull(chs)  # type: ignore
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __pyx_f_8sqlcycli_9transcode_chars_to_ll(__pyx_v_chs); if (unlikely(__pyx_t_3 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2742, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyInt_From_PY_LONG_LONG(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2742, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_9transcode_chars_to_ll(__pyx_v_chs); if (unlikely(__pyx_t_3 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2726, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_PY_LONG_LONG(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2726, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2741
+    /* "sqlcycli/transcode.py":2725
  *     """
  *     chs: cython.pchar = bytes_to_chars(value)
  *     if chs[0] == 45:  # negative "-" sign             # <<<<<<<<<<<<<<
@@ -38039,7 +38039,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_int(PyObject *__pyx_v_valu
  */
   }
 
-  /* "sqlcycli/transcode.py":2744
+  /* "sqlcycli/transcode.py":2728
  *         return chars_to_ll(chs)  # type: ignore
  *     else:
  *         return chars_to_ull(chs)  # type: ignore             # <<<<<<<<<<<<<<
@@ -38048,15 +38048,15 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_int(PyObject *__pyx_v_valu
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_chars_to_ull(__pyx_v_chs); if (unlikely(__pyx_t_5 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2744, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2744, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_chars_to_ull(__pyx_v_chs); if (unlikely(__pyx_t_5 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2728, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2728, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/transcode.py":2731
+  /* "sqlcycli/transcode.py":2715
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38075,7 +38075,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_int(PyObject *__pyx_v_valu
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2747
+/* "sqlcycli/transcode.py":2731
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38094,7 +38094,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_float(PyObject *__pyx_v_va
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_float", 1);
 
-  /* "sqlcycli/transcode.py":2756
+  /* "sqlcycli/transcode.py":2740
  *     >>> -3.141592653589793
  *     """
  *     return chars_to_ld(value)  # type: ignore             # <<<<<<<<<<<<<<
@@ -38102,15 +38102,15 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_float(PyObject *__pyx_v_va
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBytes_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(1, 2756, __pyx_L1_error)
-  __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_chars_to_ld(__pyx_t_1); if (unlikely(__pyx_t_2 == ((long double)-1) && PyErr_Occurred())) __PYX_ERR(1, 2756, __pyx_L1_error)
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2756, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(1, 2740, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_chars_to_ld(__pyx_t_1); if (unlikely(__pyx_t_2 == ((long double)-1) && PyErr_Occurred())) __PYX_ERR(1, 2740, __pyx_L1_error)
+  __pyx_t_3 = PyFloat_FromDouble(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2740, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/transcode.py":2747
+  /* "sqlcycli/transcode.py":2731
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38129,7 +38129,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_float(PyObject *__pyx_v_va
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2759
+/* "sqlcycli/transcode.py":2743
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38150,7 +38150,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_decimal", 1);
 
-  /* "sqlcycli/transcode.py":2775
+  /* "sqlcycli/transcode.py":2759
  *     >>> -3.141592653589793
  *     """
  *     if use_decimal:             # <<<<<<<<<<<<<<
@@ -38159,7 +38159,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
  */
   if (__pyx_v_use_decimal) {
 
-    /* "sqlcycli/transcode.py":2776
+    /* "sqlcycli/transcode.py":2760
  *     """
  *     if use_decimal:
  *         return typeref.DECIMAL(decode_bytes_ascii(value))  # type: ignore             # <<<<<<<<<<<<<<
@@ -38167,7 +38167,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
  *         return _decode_float(value)
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2776, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2760, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_v_8sqlcycli_7typeref_DECIMAL);
     __pyx_t_3 = __pyx_v_8sqlcycli_7typeref_DECIMAL; __pyx_t_4 = NULL;
@@ -38189,7 +38189,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2776, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2760, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -38197,7 +38197,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2775
+    /* "sqlcycli/transcode.py":2759
  *     >>> -3.141592653589793
  *     """
  *     if use_decimal:             # <<<<<<<<<<<<<<
@@ -38206,7 +38206,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
  */
   }
 
-  /* "sqlcycli/transcode.py":2778
+  /* "sqlcycli/transcode.py":2762
  *         return typeref.DECIMAL(decode_bytes_ascii(value))  # type: ignore
  *     else:
  *         return _decode_float(value)             # <<<<<<<<<<<<<<
@@ -38215,14 +38215,14 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __pyx_f_8sqlcycli_9transcode__decode_float(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2778, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_8sqlcycli_9transcode__decode_float(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2762, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/transcode.py":2759
+  /* "sqlcycli/transcode.py":2743
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38244,7 +38244,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_decimal(PyObject *__pyx_v_
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2781
+/* "sqlcycli/transcode.py":2765
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38269,7 +38269,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_datetime", 1);
 
-  /* "sqlcycli/transcode.py":2794
+  /* "sqlcycli/transcode.py":2778
  *     >>> None
  *     """
  *     try:             # <<<<<<<<<<<<<<
@@ -38285,7 +38285,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "sqlcycli/transcode.py":2795
+      /* "sqlcycli/transcode.py":2779
  *     """
  *     try:
  *         return datetime.datetime.fromisoformat(decode_bytes_ascii(value))  # type: ignore             # <<<<<<<<<<<<<<
@@ -38293,9 +38293,9 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
  *         return None
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_7cpython_8datetime_datetime), __pyx_n_s_fromisoformat); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2795, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_7cpython_8datetime_datetime), __pyx_n_s_fromisoformat); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2779, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 2795, __pyx_L3_error)
+      __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 2779, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -38316,7 +38316,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2795, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2779, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
@@ -38324,7 +38324,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "sqlcycli/transcode.py":2794
+      /* "sqlcycli/transcode.py":2778
  *     >>> None
  *     """
  *     try:             # <<<<<<<<<<<<<<
@@ -38338,7 +38338,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "sqlcycli/transcode.py":2796
+    /* "sqlcycli/transcode.py":2780
  *     try:
  *         return datetime.datetime.fromisoformat(decode_bytes_ascii(value))  # type: ignore
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -38348,12 +38348,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("sqlcycli.transcode._decode_datetime", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(1, 2796, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(1, 2780, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "sqlcycli/transcode.py":2797
+      /* "sqlcycli/transcode.py":2781
  *         return datetime.datetime.fromisoformat(decode_bytes_ascii(value))  # type: ignore
  *     except Exception:
  *         return None             # <<<<<<<<<<<<<<
@@ -38369,7 +38369,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
     }
     goto __pyx_L5_except_error;
 
-    /* "sqlcycli/transcode.py":2794
+    /* "sqlcycli/transcode.py":2778
  *     >>> None
  *     """
  *     try:             # <<<<<<<<<<<<<<
@@ -38396,7 +38396,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/transcode.py":2781
+  /* "sqlcycli/transcode.py":2765
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38418,7 +38418,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_datetime(PyObject *__pyx_v
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2800
+/* "sqlcycli/transcode.py":2784
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38443,7 +38443,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_date", 1);
 
-  /* "sqlcycli/transcode.py":2813
+  /* "sqlcycli/transcode.py":2797
  *     >>> None
  *     """
  *     try:             # <<<<<<<<<<<<<<
@@ -38459,7 +38459,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "sqlcycli/transcode.py":2814
+      /* "sqlcycli/transcode.py":2798
  *     """
  *     try:
  *         return datetime.date.fromisoformat(decode_bytes_ascii(value))  # type: ignore             # <<<<<<<<<<<<<<
@@ -38467,9 +38467,9 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
  *         return None
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_7cpython_8datetime_date), __pyx_n_s_fromisoformat); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2814, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_7cpython_8datetime_date), __pyx_n_s_fromisoformat); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 2798, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 2814, __pyx_L3_error)
+      __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 2798, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -38490,7 +38490,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2814, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2798, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
@@ -38498,7 +38498,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "sqlcycli/transcode.py":2813
+      /* "sqlcycli/transcode.py":2797
  *     >>> None
  *     """
  *     try:             # <<<<<<<<<<<<<<
@@ -38512,7 +38512,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "sqlcycli/transcode.py":2815
+    /* "sqlcycli/transcode.py":2799
  *     try:
  *         return datetime.date.fromisoformat(decode_bytes_ascii(value))  # type: ignore
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -38522,12 +38522,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("sqlcycli.transcode._decode_date", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(1, 2815, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(1, 2799, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "sqlcycli/transcode.py":2816
+      /* "sqlcycli/transcode.py":2800
  *         return datetime.date.fromisoformat(decode_bytes_ascii(value))  # type: ignore
  *     except Exception:
  *         return None             # <<<<<<<<<<<<<<
@@ -38543,7 +38543,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
     }
     goto __pyx_L5_except_error;
 
-    /* "sqlcycli/transcode.py":2813
+    /* "sqlcycli/transcode.py":2797
  *     >>> None
  *     """
  *     try:             # <<<<<<<<<<<<<<
@@ -38570,7 +38570,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/transcode.py":2800
+  /* "sqlcycli/transcode.py":2784
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38592,7 +38592,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_date(PyObject *__pyx_v_val
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2819
+/* "sqlcycli/transcode.py":2803
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -38630,17 +38630,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_timedelta", 1);
 
-  /* "sqlcycli/transcode.py":2837
+  /* "sqlcycli/transcode.py":2821
  *     """
  *     # Empty value
  *     length: cython.Py_ssize_t = bytes_len(value)             # <<<<<<<<<<<<<<
  *     if length == 0:
  *         return None  # eixt
  */
-  __pyx_t_1 = PyBytes_Size(__pyx_v_value); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 2837, __pyx_L1_error)
+  __pyx_t_1 = PyBytes_Size(__pyx_v_value); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1L))) __PYX_ERR(1, 2821, __pyx_L1_error)
   __pyx_v_length = __pyx_t_1;
 
-  /* "sqlcycli/transcode.py":2838
+  /* "sqlcycli/transcode.py":2822
  *     # Empty value
  *     length: cython.Py_ssize_t = bytes_len(value)
  *     if length == 0:             # <<<<<<<<<<<<<<
@@ -38650,7 +38650,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   __pyx_t_2 = (__pyx_v_length == 0);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":2839
+    /* "sqlcycli/transcode.py":2823
  *     length: cython.Py_ssize_t = bytes_len(value)
  *     if length == 0:
  *         return None  # eixt             # <<<<<<<<<<<<<<
@@ -38661,7 +38661,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2838
+    /* "sqlcycli/transcode.py":2822
  *     # Empty value
  *     length: cython.Py_ssize_t = bytes_len(value)
  *     if length == 0:             # <<<<<<<<<<<<<<
@@ -38670,17 +38670,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   }
 
-  /* "sqlcycli/transcode.py":2840
+  /* "sqlcycli/transcode.py":2824
  *     if length == 0:
  *         return None  # eixt
  *     chs: cython.pchar = bytes_to_chars(value)             # <<<<<<<<<<<<<<
  * 
  *     # Parse negate and setup position
  */
-  __pyx_t_3 = PyBytes_AsString(__pyx_v_value); if (unlikely(__pyx_t_3 == ((char *)NULL))) __PYX_ERR(1, 2840, __pyx_L1_error)
+  __pyx_t_3 = PyBytes_AsString(__pyx_v_value); if (unlikely(__pyx_t_3 == ((char *)NULL))) __PYX_ERR(1, 2824, __pyx_L1_error)
   __pyx_v_chs = __pyx_t_3;
 
-  /* "sqlcycli/transcode.py":2843
+  /* "sqlcycli/transcode.py":2827
  * 
  *     # Parse negate and setup position
  *     ch: cython.Py_UCS4 = chs[0]             # <<<<<<<<<<<<<<
@@ -38689,7 +38689,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   __pyx_v_ch = (__pyx_v_chs[0]);
 
-  /* "sqlcycli/transcode.py":2844
+  /* "sqlcycli/transcode.py":2828
  *     # Parse negate and setup position
  *     ch: cython.Py_UCS4 = chs[0]
  *     if ch == "-":             # <<<<<<<<<<<<<<
@@ -38699,7 +38699,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   __pyx_t_2 = (__pyx_v_ch == 45);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":2845
+    /* "sqlcycli/transcode.py":2829
  *     ch: cython.Py_UCS4 = chs[0]
  *     if ch == "-":
  *         negate: cython.int = -1             # <<<<<<<<<<<<<<
@@ -38708,7 +38708,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_negate = -1;
 
-    /* "sqlcycli/transcode.py":2846
+    /* "sqlcycli/transcode.py":2830
  *     if ch == "-":
  *         negate: cython.int = -1
  *         start: cython.Py_ssize_t = 1             # <<<<<<<<<<<<<<
@@ -38717,7 +38717,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_start = 1;
 
-    /* "sqlcycli/transcode.py":2844
+    /* "sqlcycli/transcode.py":2828
  *     # Parse negate and setup position
  *     ch: cython.Py_UCS4 = chs[0]
  *     if ch == "-":             # <<<<<<<<<<<<<<
@@ -38727,7 +38727,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     goto __pyx_L4;
   }
 
-  /* "sqlcycli/transcode.py":2848
+  /* "sqlcycli/transcode.py":2832
  *         start: cython.Py_ssize_t = 1
  *     else:
  *         negate: cython.int = 1             # <<<<<<<<<<<<<<
@@ -38737,7 +38737,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   /*else*/ {
     __pyx_v_negate = 1;
 
-    /* "sqlcycli/transcode.py":2849
+    /* "sqlcycli/transcode.py":2833
  *     else:
  *         negate: cython.int = 1
  *         start: cython.Py_ssize_t = 0             # <<<<<<<<<<<<<<
@@ -38748,7 +38748,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   }
   __pyx_L4:;
 
-  /* "sqlcycli/transcode.py":2850
+  /* "sqlcycli/transcode.py":2834
  *         negate: cython.int = 1
  *         start: cython.Py_ssize_t = 0
  *     idx: cython.Py_ssize_t = 1             # <<<<<<<<<<<<<<
@@ -38757,7 +38757,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   __pyx_v_idx = 1;
 
-  /* "sqlcycli/transcode.py":2853
+  /* "sqlcycli/transcode.py":2837
  * 
  *     # Parse HH
  *     hh: cython.int = -1             # <<<<<<<<<<<<<<
@@ -38766,7 +38766,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   __pyx_v_hh = -1;
 
-  /* "sqlcycli/transcode.py":2854
+  /* "sqlcycli/transcode.py":2838
  *     # Parse HH
  *     hh: cython.int = -1
  *     while idx < length:             # <<<<<<<<<<<<<<
@@ -38777,7 +38777,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_2 = (__pyx_v_idx < __pyx_v_length);
     if (!__pyx_t_2) break;
 
-    /* "sqlcycli/transcode.py":2855
+    /* "sqlcycli/transcode.py":2839
  *     hh: cython.int = -1
  *     while idx < length:
  *         ch = chs[idx]             # <<<<<<<<<<<<<<
@@ -38786,7 +38786,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_ch = (__pyx_v_chs[__pyx_v_idx]);
 
-    /* "sqlcycli/transcode.py":2856
+    /* "sqlcycli/transcode.py":2840
  *     while idx < length:
  *         ch = chs[idx]
  *         idx += 1             # <<<<<<<<<<<<<<
@@ -38795,7 +38795,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_idx = (__pyx_v_idx + 1);
 
-    /* "sqlcycli/transcode.py":2857
+    /* "sqlcycli/transcode.py":2841
  *         ch = chs[idx]
  *         idx += 1
  *         if ch == ":":             # <<<<<<<<<<<<<<
@@ -38805,7 +38805,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_2 = (__pyx_v_ch == 58);
     if (__pyx_t_2) {
 
-      /* "sqlcycli/transcode.py":2858
+      /* "sqlcycli/transcode.py":2842
  *         idx += 1
  *         if ch == ":":
  *             try:             # <<<<<<<<<<<<<<
@@ -38821,17 +38821,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XGOTREF(__pyx_t_6);
         /*try:*/ {
 
-          /* "sqlcycli/transcode.py":2859
+          /* "sqlcycli/transcode.py":2843
  *         if ch == ":":
  *             try:
  *                 hh = slice_to_int(chs, start, idx)  # type: ignore             # <<<<<<<<<<<<<<
  *             except Exception:
  *                 return None  # exit: invalid HH
  */
-          __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2859, __pyx_L8_error)
+          __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2843, __pyx_L8_error)
           __pyx_v_hh = __pyx_t_7;
 
-          /* "sqlcycli/transcode.py":2858
+          /* "sqlcycli/transcode.py":2842
  *         idx += 1
  *         if ch == ":":
  *             try:             # <<<<<<<<<<<<<<
@@ -38845,7 +38845,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         goto __pyx_L15_try_end;
         __pyx_L8_error:;
 
-        /* "sqlcycli/transcode.py":2860
+        /* "sqlcycli/transcode.py":2844
  *             try:
  *                 hh = slice_to_int(chs, start, idx)  # type: ignore
  *             except Exception:             # <<<<<<<<<<<<<<
@@ -38855,12 +38855,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
         if (__pyx_t_8) {
           __Pyx_AddTraceback("sqlcycli.transcode._decode_timedelta", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(1, 2860, __pyx_L10_except_error)
+          if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(1, 2844, __pyx_L10_except_error)
           __Pyx_XGOTREF(__pyx_t_9);
           __Pyx_XGOTREF(__pyx_t_10);
           __Pyx_XGOTREF(__pyx_t_11);
 
-          /* "sqlcycli/transcode.py":2861
+          /* "sqlcycli/transcode.py":2845
  *                 hh = slice_to_int(chs, start, idx)  # type: ignore
  *             except Exception:
  *                 return None  # exit: invalid HH             # <<<<<<<<<<<<<<
@@ -38876,7 +38876,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         }
         goto __pyx_L10_except_error;
 
-        /* "sqlcycli/transcode.py":2858
+        /* "sqlcycli/transcode.py":2842
  *         idx += 1
  *         if ch == ":":
  *             try:             # <<<<<<<<<<<<<<
@@ -38898,7 +38898,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_L15_try_end:;
       }
 
-      /* "sqlcycli/transcode.py":2862
+      /* "sqlcycli/transcode.py":2846
  *             except Exception:
  *                 return None  # exit: invalid HH
  *             start = idx             # <<<<<<<<<<<<<<
@@ -38907,7 +38907,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
       __pyx_v_start = __pyx_v_idx;
 
-      /* "sqlcycli/transcode.py":2863
+      /* "sqlcycli/transcode.py":2847
  *                 return None  # exit: invalid HH
  *             start = idx
  *             break             # <<<<<<<<<<<<<<
@@ -38916,7 +38916,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
       goto __pyx_L6_break;
 
-      /* "sqlcycli/transcode.py":2857
+      /* "sqlcycli/transcode.py":2841
  *         ch = chs[idx]
  *         idx += 1
  *         if ch == ":":             # <<<<<<<<<<<<<<
@@ -38927,7 +38927,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   }
   __pyx_L6_break:;
 
-  /* "sqlcycli/transcode.py":2864
+  /* "sqlcycli/transcode.py":2848
  *             start = idx
  *             break
  *     if hh < 0:             # <<<<<<<<<<<<<<
@@ -38937,7 +38937,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   __pyx_t_2 = (__pyx_v_hh < 0);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":2865
+    /* "sqlcycli/transcode.py":2849
  *             break
  *     if hh < 0:
  *         return None  # exit: invalid HH             # <<<<<<<<<<<<<<
@@ -38948,7 +38948,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2864
+    /* "sqlcycli/transcode.py":2848
  *             start = idx
  *             break
  *     if hh < 0:             # <<<<<<<<<<<<<<
@@ -38957,7 +38957,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   }
 
-  /* "sqlcycli/transcode.py":2868
+  /* "sqlcycli/transcode.py":2852
  * 
  *     # Parse MM
  *     mm: cython.int = -1             # <<<<<<<<<<<<<<
@@ -38966,7 +38966,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   __pyx_v_mm = -1;
 
-  /* "sqlcycli/transcode.py":2869
+  /* "sqlcycli/transcode.py":2853
  *     # Parse MM
  *     mm: cython.int = -1
  *     while idx < length:             # <<<<<<<<<<<<<<
@@ -38977,7 +38977,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_2 = (__pyx_v_idx < __pyx_v_length);
     if (!__pyx_t_2) break;
 
-    /* "sqlcycli/transcode.py":2870
+    /* "sqlcycli/transcode.py":2854
  *     mm: cython.int = -1
  *     while idx < length:
  *         ch = chs[idx]             # <<<<<<<<<<<<<<
@@ -38986,7 +38986,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_ch = (__pyx_v_chs[__pyx_v_idx]);
 
-    /* "sqlcycli/transcode.py":2871
+    /* "sqlcycli/transcode.py":2855
  *     while idx < length:
  *         ch = chs[idx]
  *         idx += 1             # <<<<<<<<<<<<<<
@@ -38995,7 +38995,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_idx = (__pyx_v_idx + 1);
 
-    /* "sqlcycli/transcode.py":2872
+    /* "sqlcycli/transcode.py":2856
  *         ch = chs[idx]
  *         idx += 1
  *         if ch == ":":             # <<<<<<<<<<<<<<
@@ -39005,7 +39005,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_2 = (__pyx_v_ch == 58);
     if (__pyx_t_2) {
 
-      /* "sqlcycli/transcode.py":2873
+      /* "sqlcycli/transcode.py":2857
  *         idx += 1
  *         if ch == ":":
  *             try:             # <<<<<<<<<<<<<<
@@ -39021,17 +39021,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XGOTREF(__pyx_t_4);
         /*try:*/ {
 
-          /* "sqlcycli/transcode.py":2874
+          /* "sqlcycli/transcode.py":2858
  *         if ch == ":":
  *             try:
  *                 mm = slice_to_int(chs, start, idx)  # type: ignore             # <<<<<<<<<<<<<<
  *             except Exception:
  *                 return None  # exit: invalid MM
  */
-          __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2874, __pyx_L22_error)
+          __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2858, __pyx_L22_error)
           __pyx_v_mm = __pyx_t_7;
 
-          /* "sqlcycli/transcode.py":2873
+          /* "sqlcycli/transcode.py":2857
  *         idx += 1
  *         if ch == ":":
  *             try:             # <<<<<<<<<<<<<<
@@ -39048,7 +39048,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-        /* "sqlcycli/transcode.py":2875
+        /* "sqlcycli/transcode.py":2859
  *             try:
  *                 mm = slice_to_int(chs, start, idx)  # type: ignore
  *             except Exception:             # <<<<<<<<<<<<<<
@@ -39058,12 +39058,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
         if (__pyx_t_8) {
           __Pyx_AddTraceback("sqlcycli.transcode._decode_timedelta", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(1, 2875, __pyx_L24_except_error)
+          if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(1, 2859, __pyx_L24_except_error)
           __Pyx_XGOTREF(__pyx_t_11);
           __Pyx_XGOTREF(__pyx_t_10);
           __Pyx_XGOTREF(__pyx_t_9);
 
-          /* "sqlcycli/transcode.py":2876
+          /* "sqlcycli/transcode.py":2860
  *                 mm = slice_to_int(chs, start, idx)  # type: ignore
  *             except Exception:
  *                 return None  # exit: invalid MM             # <<<<<<<<<<<<<<
@@ -39079,7 +39079,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         }
         goto __pyx_L24_except_error;
 
-        /* "sqlcycli/transcode.py":2873
+        /* "sqlcycli/transcode.py":2857
  *         idx += 1
  *         if ch == ":":
  *             try:             # <<<<<<<<<<<<<<
@@ -39101,7 +39101,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_L29_try_end:;
       }
 
-      /* "sqlcycli/transcode.py":2877
+      /* "sqlcycli/transcode.py":2861
  *             except Exception:
  *                 return None  # exit: invalid MM
  *             start = idx             # <<<<<<<<<<<<<<
@@ -39110,7 +39110,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
       __pyx_v_start = __pyx_v_idx;
 
-      /* "sqlcycli/transcode.py":2878
+      /* "sqlcycli/transcode.py":2862
  *                 return None  # exit: invalid MM
  *             start = idx
  *             break             # <<<<<<<<<<<<<<
@@ -39119,7 +39119,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
       goto __pyx_L20_break;
 
-      /* "sqlcycli/transcode.py":2872
+      /* "sqlcycli/transcode.py":2856
  *         ch = chs[idx]
  *         idx += 1
  *         if ch == ":":             # <<<<<<<<<<<<<<
@@ -39130,7 +39130,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   }
   __pyx_L20_break:;
 
-  /* "sqlcycli/transcode.py":2879
+  /* "sqlcycli/transcode.py":2863
  *             start = idx
  *             break
  *     if not 0 <= mm <= 59:             # <<<<<<<<<<<<<<
@@ -39144,7 +39144,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   __pyx_t_12 = (!__pyx_t_2);
   if (__pyx_t_12) {
 
-    /* "sqlcycli/transcode.py":2880
+    /* "sqlcycli/transcode.py":2864
  *             break
  *     if not 0 <= mm <= 59:
  *         return None  # exit: invalid MM             # <<<<<<<<<<<<<<
@@ -39155,7 +39155,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2879
+    /* "sqlcycli/transcode.py":2863
  *             start = idx
  *             break
  *     if not 0 <= mm <= 59:             # <<<<<<<<<<<<<<
@@ -39164,7 +39164,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   }
 
-  /* "sqlcycli/transcode.py":2883
+  /* "sqlcycli/transcode.py":2867
  * 
  *     # Parse SS and Fraction
  *     ss: cython.int = -1             # <<<<<<<<<<<<<<
@@ -39173,7 +39173,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   __pyx_v_ss = -1;
 
-  /* "sqlcycli/transcode.py":2884
+  /* "sqlcycli/transcode.py":2868
  *     # Parse SS and Fraction
  *     ss: cython.int = -1
  *     us: cython.int = 0             # <<<<<<<<<<<<<<
@@ -39182,7 +39182,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   __pyx_v_us = 0;
 
-  /* "sqlcycli/transcode.py":2885
+  /* "sqlcycli/transcode.py":2869
  *     ss: cython.int = -1
  *     us: cython.int = 0
  *     while idx < length:             # <<<<<<<<<<<<<<
@@ -39193,7 +39193,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_12 = (__pyx_v_idx < __pyx_v_length);
     if (!__pyx_t_12) break;
 
-    /* "sqlcycli/transcode.py":2886
+    /* "sqlcycli/transcode.py":2870
  *     us: cython.int = 0
  *     while idx < length:
  *         ch = chs[idx]             # <<<<<<<<<<<<<<
@@ -39202,7 +39202,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_ch = (__pyx_v_chs[__pyx_v_idx]);
 
-    /* "sqlcycli/transcode.py":2887
+    /* "sqlcycli/transcode.py":2871
  *     while idx < length:
  *         ch = chs[idx]
  *         idx += 1             # <<<<<<<<<<<<<<
@@ -39211,7 +39211,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
     __pyx_v_idx = (__pyx_v_idx + 1);
 
-    /* "sqlcycli/transcode.py":2888
+    /* "sqlcycli/transcode.py":2872
  *         ch = chs[idx]
  *         idx += 1
  *         if ch == ".":             # <<<<<<<<<<<<<<
@@ -39221,7 +39221,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_12 = (__pyx_v_ch == 46);
     if (__pyx_t_12) {
 
-      /* "sqlcycli/transcode.py":2890
+      /* "sqlcycli/transcode.py":2874
  *         if ch == ".":
  *             # . parse SS
  *             try:             # <<<<<<<<<<<<<<
@@ -39237,17 +39237,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XGOTREF(__pyx_t_6);
         /*try:*/ {
 
-          /* "sqlcycli/transcode.py":2891
+          /* "sqlcycli/transcode.py":2875
  *             # . parse SS
  *             try:
  *                 ss = slice_to_int(chs, start, idx)  # type: ignore             # <<<<<<<<<<<<<<
  *             except Exception:
  *                 return None  # exit: invalid SS
  */
-          __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2891, __pyx_L36_error)
+          __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2875, __pyx_L36_error)
           __pyx_v_ss = __pyx_t_7;
 
-          /* "sqlcycli/transcode.py":2890
+          /* "sqlcycli/transcode.py":2874
  *         if ch == ".":
  *             # . parse SS
  *             try:             # <<<<<<<<<<<<<<
@@ -39264,7 +39264,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-        /* "sqlcycli/transcode.py":2892
+        /* "sqlcycli/transcode.py":2876
  *             try:
  *                 ss = slice_to_int(chs, start, idx)  # type: ignore
  *             except Exception:             # <<<<<<<<<<<<<<
@@ -39274,12 +39274,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
         if (__pyx_t_8) {
           __Pyx_AddTraceback("sqlcycli.transcode._decode_timedelta", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(1, 2892, __pyx_L38_except_error)
+          if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(1, 2876, __pyx_L38_except_error)
           __Pyx_XGOTREF(__pyx_t_9);
           __Pyx_XGOTREF(__pyx_t_10);
           __Pyx_XGOTREF(__pyx_t_11);
 
-          /* "sqlcycli/transcode.py":2893
+          /* "sqlcycli/transcode.py":2877
  *                 ss = slice_to_int(chs, start, idx)  # type: ignore
  *             except Exception:
  *                 return None  # exit: invalid SS             # <<<<<<<<<<<<<<
@@ -39295,7 +39295,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         }
         goto __pyx_L38_except_error;
 
-        /* "sqlcycli/transcode.py":2890
+        /* "sqlcycli/transcode.py":2874
  *         if ch == ".":
  *             # . parse SS
  *             try:             # <<<<<<<<<<<<<<
@@ -39317,7 +39317,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_L43_try_end:;
       }
 
-      /* "sqlcycli/transcode.py":2895
+      /* "sqlcycli/transcode.py":2879
  *                 return None  # exit: invalid SS
  *             # . parse US
  *             try:             # <<<<<<<<<<<<<<
@@ -39333,17 +39333,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XGOTREF(__pyx_t_4);
         /*try:*/ {
 
-          /* "sqlcycli/transcode.py":2896
+          /* "sqlcycli/transcode.py":2880
  *             # . parse US
  *             try:
  *                 us = parse_us_fraction(chs, idx, length)  # type: ignore             # <<<<<<<<<<<<<<
  *             except Exception:
  *                 return None  # exit: invalid us
  */
-          __pyx_t_8 = __pyx_f_8sqlcycli_9transcode_parse_us_fraction(__pyx_v_chs, __pyx_v_idx, __pyx_v_length); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2896, __pyx_L46_error)
+          __pyx_t_8 = __pyx_f_8sqlcycli_9transcode_parse_us_fraction(__pyx_v_chs, __pyx_v_idx, __pyx_v_length); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2880, __pyx_L46_error)
           __pyx_v_us = __pyx_t_8;
 
-          /* "sqlcycli/transcode.py":2895
+          /* "sqlcycli/transcode.py":2879
  *                 return None  # exit: invalid SS
  *             # . parse US
  *             try:             # <<<<<<<<<<<<<<
@@ -39360,7 +39360,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-        /* "sqlcycli/transcode.py":2897
+        /* "sqlcycli/transcode.py":2881
  *             try:
  *                 us = parse_us_fraction(chs, idx, length)  # type: ignore
  *             except Exception:             # <<<<<<<<<<<<<<
@@ -39370,12 +39370,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
         if (__pyx_t_8) {
           __Pyx_AddTraceback("sqlcycli.transcode._decode_timedelta", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(1, 2897, __pyx_L48_except_error)
+          if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(1, 2881, __pyx_L48_except_error)
           __Pyx_XGOTREF(__pyx_t_11);
           __Pyx_XGOTREF(__pyx_t_10);
           __Pyx_XGOTREF(__pyx_t_9);
 
-          /* "sqlcycli/transcode.py":2898
+          /* "sqlcycli/transcode.py":2882
  *                 us = parse_us_fraction(chs, idx, length)  # type: ignore
  *             except Exception:
  *                 return None  # exit: invalid us             # <<<<<<<<<<<<<<
@@ -39391,7 +39391,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         }
         goto __pyx_L48_except_error;
 
-        /* "sqlcycli/transcode.py":2895
+        /* "sqlcycli/transcode.py":2879
  *                 return None  # exit: invalid SS
  *             # . parse US
  *             try:             # <<<<<<<<<<<<<<
@@ -39413,7 +39413,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
         __pyx_L53_try_end:;
       }
 
-      /* "sqlcycli/transcode.py":2899
+      /* "sqlcycli/transcode.py":2883
  *             except Exception:
  *                 return None  # exit: invalid us
  *             break             # <<<<<<<<<<<<<<
@@ -39422,7 +39422,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
       goto __pyx_L34_break;
 
-      /* "sqlcycli/transcode.py":2888
+      /* "sqlcycli/transcode.py":2872
  *         ch = chs[idx]
  *         idx += 1
  *         if ch == ".":             # <<<<<<<<<<<<<<
@@ -39433,7 +39433,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   }
   __pyx_L34_break:;
 
-  /* "sqlcycli/transcode.py":2901
+  /* "sqlcycli/transcode.py":2885
  *             break
  *     # There is not fraction, and SS is the last component
  *     if ss == -1:             # <<<<<<<<<<<<<<
@@ -39443,7 +39443,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   __pyx_t_12 = (__pyx_v_ss == -1L);
   if (__pyx_t_12) {
 
-    /* "sqlcycli/transcode.py":2902
+    /* "sqlcycli/transcode.py":2886
  *     # There is not fraction, and SS is the last component
  *     if ss == -1:
  *         try:             # <<<<<<<<<<<<<<
@@ -39459,17 +39459,17 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
       __Pyx_XGOTREF(__pyx_t_6);
       /*try:*/ {
 
-        /* "sqlcycli/transcode.py":2903
+        /* "sqlcycli/transcode.py":2887
  *     if ss == -1:
  *         try:
  *             ss = slice_to_int(chs, start, idx)  # type: ignore             # <<<<<<<<<<<<<<
  *         except Exception:
  *             return None
  */
-        __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2903, __pyx_L57_error)
+        __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, __pyx_v_start, __pyx_v_idx); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 2887, __pyx_L57_error)
         __pyx_v_ss = __pyx_t_7;
 
-        /* "sqlcycli/transcode.py":2902
+        /* "sqlcycli/transcode.py":2886
  *     # There is not fraction, and SS is the last component
  *     if ss == -1:
  *         try:             # <<<<<<<<<<<<<<
@@ -39486,7 +39486,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "sqlcycli/transcode.py":2904
+      /* "sqlcycli/transcode.py":2888
  *         try:
  *             ss = slice_to_int(chs, start, idx)  # type: ignore
  *         except Exception:             # <<<<<<<<<<<<<<
@@ -39496,12 +39496,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
       __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
       if (__pyx_t_8) {
         __Pyx_AddTraceback("sqlcycli.transcode._decode_timedelta", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(1, 2904, __pyx_L59_except_error)
+        if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(1, 2888, __pyx_L59_except_error)
         __Pyx_XGOTREF(__pyx_t_9);
         __Pyx_XGOTREF(__pyx_t_10);
         __Pyx_XGOTREF(__pyx_t_11);
 
-        /* "sqlcycli/transcode.py":2905
+        /* "sqlcycli/transcode.py":2889
  *             ss = slice_to_int(chs, start, idx)  # type: ignore
  *         except Exception:
  *             return None             # <<<<<<<<<<<<<<
@@ -39517,7 +39517,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
       }
       goto __pyx_L59_except_error;
 
-      /* "sqlcycli/transcode.py":2902
+      /* "sqlcycli/transcode.py":2886
  *     # There is not fraction, and SS is the last component
  *     if ss == -1:
  *         try:             # <<<<<<<<<<<<<<
@@ -39539,7 +39539,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
       __pyx_L62_try_end:;
     }
 
-    /* "sqlcycli/transcode.py":2901
+    /* "sqlcycli/transcode.py":2885
  *             break
  *     # There is not fraction, and SS is the last component
  *     if ss == -1:             # <<<<<<<<<<<<<<
@@ -39548,7 +39548,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   }
 
-  /* "sqlcycli/transcode.py":2906
+  /* "sqlcycli/transcode.py":2890
  *         except Exception:
  *             return None
  *     if not 0 <= ss <= 59:             # <<<<<<<<<<<<<<
@@ -39562,7 +39562,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   __pyx_t_2 = (!__pyx_t_12);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":2907
+    /* "sqlcycli/transcode.py":2891
  *             return None
  *     if not 0 <= ss <= 59:
  *         return None  # exit: invalid SS             # <<<<<<<<<<<<<<
@@ -39573,7 +39573,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2906
+    /* "sqlcycli/transcode.py":2890
  *         except Exception:
  *             return None
  *     if not 0 <= ss <= 59:             # <<<<<<<<<<<<<<
@@ -39582,7 +39582,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
   }
 
-  /* "sqlcycli/transcode.py":2910
+  /* "sqlcycli/transcode.py":2894
  * 
  *     # Generate timedelta
  *     try:             # <<<<<<<<<<<<<<
@@ -39598,7 +39598,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "sqlcycli/transcode.py":2911
+      /* "sqlcycli/transcode.py":2895
  *     # Generate timedelta
  *     try:
  *         return datetime.timedelta_new(             # <<<<<<<<<<<<<<
@@ -39607,20 +39607,20 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
  */
       __Pyx_XDECREF(__pyx_r);
 
-      /* "sqlcycli/transcode.py":2912
+      /* "sqlcycli/transcode.py":2896
  *     try:
  *         return datetime.timedelta_new(
  *             0, (negate * hh * 3600 + negate * mm * 60 + negate * ss), negate * us             # <<<<<<<<<<<<<<
  *         )
  *     except Exception:
  */
-      __pyx_t_11 = ((PyObject *)__pyx_f_7cpython_8datetime_timedelta_new(0, ((((__pyx_v_negate * __pyx_v_hh) * 0xE10) + ((__pyx_v_negate * __pyx_v_mm) * 60)) + (__pyx_v_negate * __pyx_v_ss)), (__pyx_v_negate * __pyx_v_us))); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 2911, __pyx_L66_error)
+      __pyx_t_11 = ((PyObject *)__pyx_f_7cpython_8datetime_timedelta_new(0, ((((__pyx_v_negate * __pyx_v_hh) * 0xE10) + ((__pyx_v_negate * __pyx_v_mm) * 60)) + (__pyx_v_negate * __pyx_v_ss)), (__pyx_v_negate * __pyx_v_us))); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 2895, __pyx_L66_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_r = __pyx_t_11;
       __pyx_t_11 = 0;
       goto __pyx_L70_try_return;
 
-      /* "sqlcycli/transcode.py":2910
+      /* "sqlcycli/transcode.py":2894
  * 
  *     # Generate timedelta
  *     try:             # <<<<<<<<<<<<<<
@@ -39633,7 +39633,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "sqlcycli/transcode.py":2914
+    /* "sqlcycli/transcode.py":2898
  *             0, (negate * hh * 3600 + negate * mm * 60 + negate * ss), negate * us
  *         )
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -39643,12 +39643,12 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_8) {
       __Pyx_AddTraceback("sqlcycli.transcode._decode_timedelta", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(1, 2914, __pyx_L68_except_error)
+      if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(1, 2898, __pyx_L68_except_error)
       __Pyx_XGOTREF(__pyx_t_11);
       __Pyx_XGOTREF(__pyx_t_10);
       __Pyx_XGOTREF(__pyx_t_9);
 
-      /* "sqlcycli/transcode.py":2915
+      /* "sqlcycli/transcode.py":2899
  *         )
  *     except Exception:
  *         return None  # exit: value overflow             # <<<<<<<<<<<<<<
@@ -39664,7 +39664,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     }
     goto __pyx_L68_except_error;
 
-    /* "sqlcycli/transcode.py":2910
+    /* "sqlcycli/transcode.py":2894
  * 
  *     # Generate timedelta
  *     try:             # <<<<<<<<<<<<<<
@@ -39691,7 +39691,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/transcode.py":2819
+  /* "sqlcycli/transcode.py":2803
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39712,7 +39712,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_timedelta(PyObject *__pyx_
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2918
+/* "sqlcycli/transcode.py":2902
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39729,7 +39729,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_enum(PyObject *__pyx_v_val
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_enum", 1);
 
-  /* "sqlcycli/transcode.py":2927
+  /* "sqlcycli/transcode.py":2911
  *     >>> 'enum1'
  *     """
  *     return decode_bytes(value, encoding)  # type: ignore             # <<<<<<<<<<<<<<
@@ -39737,13 +39737,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_enum(PyObject *__pyx_v_val
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2927, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2911, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/transcode.py":2918
+  /* "sqlcycli/transcode.py":2902
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39762,7 +39762,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_enum(PyObject *__pyx_v_val
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2930
+/* "sqlcycli/transcode.py":2914
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39780,7 +39780,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_set(PyObject *__pyx_v_valu
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_set", 1);
 
-  /* "sqlcycli/transcode.py":2939
+  /* "sqlcycli/transcode.py":2923
  *     >>> {'val1', 'val2', 'val3'}
  *     """
  *     return set(str_split(decode_bytes(value, encoding), ",", -1))  # type: ignore             # <<<<<<<<<<<<<<
@@ -39788,19 +39788,19 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_set(PyObject *__pyx_v_valu
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2939, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2923, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyUnicode_Split(__pyx_t_1, __pyx_kp_u__19, -1L); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2939, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Split(__pyx_t_1, __pyx_kp_u__19, -1L); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2923, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2939, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2923, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/transcode.py":2930
+  /* "sqlcycli/transcode.py":2914
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39820,7 +39820,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_set(PyObject *__pyx_v_valu
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2942
+/* "sqlcycli/transcode.py":2926
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39839,19 +39839,19 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_json(PyObject *__pyx_v_val
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode_json", 1);
 
-  /* "sqlcycli/transcode.py":2963
+  /* "sqlcycli/transcode.py":2947
  *     >>> {"a": 1, "b": 2, "c": 3}
  *     """
  *     val = decode_bytes(value, encoding)  # type: ignore             # <<<<<<<<<<<<<<
  *     return _orjson_loads(val) if decode_json else val
  * 
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2963, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2947, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_val = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":2964
+  /* "sqlcycli/transcode.py":2948
  *     """
  *     val = decode_bytes(value, encoding)  # type: ignore
  *     return _orjson_loads(val) if decode_json else val             # <<<<<<<<<<<<<<
@@ -39860,7 +39860,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_json(PyObject *__pyx_v_val
  */
   __Pyx_XDECREF(__pyx_r);
   if (__pyx_v_decode_json) {
-    __pyx_t_2 = __pyx_f_8sqlcycli_9transcode__orjson_loads(__pyx_v_val); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2964, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8sqlcycli_9transcode__orjson_loads(__pyx_v_val); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 2948, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = __pyx_t_2;
     __pyx_t_2 = 0;
@@ -39872,7 +39872,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_json(PyObject *__pyx_v_val
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/transcode.py":2942
+  /* "sqlcycli/transcode.py":2926
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -39893,7 +39893,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode__decode_json(PyObject *__pyx_v_val
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":2968
+/* "sqlcycli/transcode.py":2952
  * 
  * # Decode Function -----------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -39923,7 +39923,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode", 1);
 
-  /* "sqlcycli/transcode.py":2990
+  /* "sqlcycli/transcode.py":2975
  *     """
  *     # Char / Binary
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -39932,7 +39932,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":2991
+  /* "sqlcycli/transcode.py":2976
  *     # Char / Binary
  *     if field_type in (
  *         _FIELD_TYPE.STRING,  # CHAR / BINARY 254             # <<<<<<<<<<<<<<
@@ -39946,7 +39946,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":2990
+  /* "sqlcycli/transcode.py":2975
  *     """
  *     # Char / Binary
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -39960,7 +39960,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":2993
+  /* "sqlcycli/transcode.py":2978
  *         _FIELD_TYPE.STRING,  # CHAR / BINARY 254
  *         _FIELD_TYPE.VAR_STRING,  # VARCHAR / VARBINARY 253
  *         _FIELD_TYPE.VARCHAR,  # VARCHAR / VARBINARY 15             # <<<<<<<<<<<<<<
@@ -39971,7 +39971,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
 
-  /* "sqlcycli/transcode.py":2990
+  /* "sqlcycli/transcode.py":2975
  *     """
  *     # Char / Binary
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -39981,7 +39981,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":2995
+    /* "sqlcycli/transcode.py":2980
  *         _FIELD_TYPE.VARCHAR,  # VARCHAR / VARBINARY 15
  *     ):
  *         return _decode_string(value, encoding, is_binary)             # <<<<<<<<<<<<<<
@@ -39989,13 +39989,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type in (
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_string(__pyx_v_value, __pyx_v_encoding, __pyx_v_is_binary); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2995, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_string(__pyx_v_value, __pyx_v_encoding, __pyx_v_is_binary); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2980, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2990
+    /* "sqlcycli/transcode.py":2975
  *     """
  *     # Char / Binary
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40004,7 +40004,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":2997
+  /* "sqlcycli/transcode.py":2982
  *         return _decode_string(value, encoding, is_binary)
  *     # Integer
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40013,7 +40013,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":2998
+  /* "sqlcycli/transcode.py":2983
  *     # Integer
  *     if field_type in (
  *         _FIELD_TYPE.TINY,  # TINYINT 1             # <<<<<<<<<<<<<<
@@ -40027,7 +40027,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L8_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":2997
+  /* "sqlcycli/transcode.py":2982
  *         return _decode_string(value, encoding, is_binary)
  *     # Integer
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40041,7 +40041,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L8_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3000
+  /* "sqlcycli/transcode.py":2985
  *         _FIELD_TYPE.TINY,  # TINYINT 1
  *         _FIELD_TYPE.LONGLONG,  # BIGINT 8
  *         _FIELD_TYPE.LONG,  # INT 3             # <<<<<<<<<<<<<<
@@ -40055,7 +40055,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L8_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":2997
+  /* "sqlcycli/transcode.py":2982
  *         return _decode_string(value, encoding, is_binary)
  *     # Integer
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40069,7 +40069,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L8_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3002
+  /* "sqlcycli/transcode.py":2987
  *         _FIELD_TYPE.LONG,  # INT 3
  *         _FIELD_TYPE.INT24,  # MEDIUMINT 9
  *         _FIELD_TYPE.SHORT,  # SMALLINT 2             # <<<<<<<<<<<<<<
@@ -40080,7 +40080,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = __pyx_t_2;
   __pyx_L8_bool_binop_done:;
 
-  /* "sqlcycli/transcode.py":2997
+  /* "sqlcycli/transcode.py":2982
  *         return _decode_string(value, encoding, is_binary)
  *     # Integer
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40090,7 +40090,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_2 = __pyx_t_3;
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":3004
+    /* "sqlcycli/transcode.py":2989
  *         _FIELD_TYPE.SHORT,  # SMALLINT 2
  *     ):
  *         return _decode_int(value)             # <<<<<<<<<<<<<<
@@ -40098,13 +40098,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type in (
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_int(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3004, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_int(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2989, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":2997
+    /* "sqlcycli/transcode.py":2982
  *         return _decode_string(value, encoding, is_binary)
  *     # Integer
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40113,7 +40113,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3006
+  /* "sqlcycli/transcode.py":2991
  *         return _decode_int(value)
  *     # Decimal / Float
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40122,7 +40122,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":3007
+  /* "sqlcycli/transcode.py":2992
  *     # Decimal / Float
  *     if field_type in (
  *         _FIELD_TYPE.NEWDECIMAL,  # DECIMAL 246             # <<<<<<<<<<<<<<
@@ -40136,7 +40136,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L14_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3006
+  /* "sqlcycli/transcode.py":2991
  *         return _decode_int(value)
  *     # Decimal / Float
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40149,7 +40149,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3010
+    /* "sqlcycli/transcode.py":2995
  *         _FIELD_TYPE.DECIMAL,  # DECIMAL 0
  *     ):
  *         return _decode_decimal(value, use_decimal)             # <<<<<<<<<<<<<<
@@ -40157,13 +40157,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *         _FIELD_TYPE.DOUBLE,  # DOUBLE 5
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_decimal(__pyx_v_value, __pyx_v_use_decimal); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3010, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_decimal(__pyx_v_value, __pyx_v_use_decimal); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 2995, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3006
+    /* "sqlcycli/transcode.py":2991
  *         return _decode_int(value)
  *     # Decimal / Float
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40172,7 +40172,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3011
+  /* "sqlcycli/transcode.py":2996
  *     ):
  *         return _decode_decimal(value, use_decimal)
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40181,7 +40181,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":3012
+  /* "sqlcycli/transcode.py":2997
  *         return _decode_decimal(value, use_decimal)
  *     if field_type in (
  *         _FIELD_TYPE.DOUBLE,  # DOUBLE 5             # <<<<<<<<<<<<<<
@@ -40195,7 +40195,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L17_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3011
+  /* "sqlcycli/transcode.py":2996
  *     ):
  *         return _decode_decimal(value, use_decimal)
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40208,7 +40208,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_2 = __pyx_t_3;
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":3015
+    /* "sqlcycli/transcode.py":3000
  *         _FIELD_TYPE.FLOAT,  # FLOAT 4
  *     ):
  *         return _decode_float(value)             # <<<<<<<<<<<<<<
@@ -40216,13 +40216,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type in (
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_float(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3015, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_float(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3000, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3011
+    /* "sqlcycli/transcode.py":2996
  *     ):
  *         return _decode_decimal(value, use_decimal)
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40231,7 +40231,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3017
+  /* "sqlcycli/transcode.py":3002
  *         return _decode_float(value)
  *     # DATETIME / TIMESTAMP
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40240,7 +40240,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":3018
+  /* "sqlcycli/transcode.py":3003
  *     # DATETIME / TIMESTAMP
  *     if field_type in (
  *         _FIELD_TYPE.DATETIME,  # DATETIME 12             # <<<<<<<<<<<<<<
@@ -40254,7 +40254,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L20_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3017
+  /* "sqlcycli/transcode.py":3002
  *         return _decode_float(value)
  *     # DATETIME / TIMESTAMP
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40267,7 +40267,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3021
+    /* "sqlcycli/transcode.py":3006
  *         _FIELD_TYPE.TIMESTAMP,  # TIMESTAMP 7
  *     ):
  *         return _decode_datetime(value)             # <<<<<<<<<<<<<<
@@ -40275,13 +40275,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type in (
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_datetime(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3021, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_datetime(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3006, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3017
+    /* "sqlcycli/transcode.py":3002
  *         return _decode_float(value)
  *     # DATETIME / TIMESTAMP
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40290,7 +40290,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3023
+  /* "sqlcycli/transcode.py":3008
  *         return _decode_datetime(value)
  *     # DATE
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40299,7 +40299,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":3024
+  /* "sqlcycli/transcode.py":3009
  *     # DATE
  *     if field_type in (
  *         _FIELD_TYPE.DATE,  # DATE 10             # <<<<<<<<<<<<<<
@@ -40313,7 +40313,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L23_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3023
+  /* "sqlcycli/transcode.py":3008
  *         return _decode_datetime(value)
  *     # DATE
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40326,7 +40326,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_2 = __pyx_t_3;
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":3027
+    /* "sqlcycli/transcode.py":3012
  *         _FIELD_TYPE.NEWDATE,  # DATE 14
  *     ):
  *         return _decode_date(value)             # <<<<<<<<<<<<<<
@@ -40334,13 +40334,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.TIME:  # TIME 11
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_date(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3027, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_date(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3012, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3023
+    /* "sqlcycli/transcode.py":3008
  *         return _decode_datetime(value)
  *     # DATE
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40349,7 +40349,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3029
+  /* "sqlcycli/transcode.py":3014
  *         return _decode_date(value)
  *     # TIME
  *     if field_type == _FIELD_TYPE.TIME:  # TIME 11             # <<<<<<<<<<<<<<
@@ -40359,7 +40359,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_2 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_TIME);
   if (__pyx_t_2) {
 
-    /* "sqlcycli/transcode.py":3030
+    /* "sqlcycli/transcode.py":3015
  *     # TIME
  *     if field_type == _FIELD_TYPE.TIME:  # TIME 11
  *         return _decode_timedelta(value)             # <<<<<<<<<<<<<<
@@ -40367,13 +40367,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type in (
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_timedelta(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3030, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_timedelta(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3015, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3029
+    /* "sqlcycli/transcode.py":3014
  *         return _decode_date(value)
  *     # TIME
  *     if field_type == _FIELD_TYPE.TIME:  # TIME 11             # <<<<<<<<<<<<<<
@@ -40382,7 +40382,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3032
+  /* "sqlcycli/transcode.py":3017
  *         return _decode_timedelta(value)
  *     # TEXT / BLOB
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40391,7 +40391,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   __pyx_t_1 = __pyx_v_field_type;
 
-  /* "sqlcycli/transcode.py":3033
+  /* "sqlcycli/transcode.py":3018
  *     # TEXT / BLOB
  *     if field_type in (
  *         _FIELD_TYPE.TINY_BLOB,  # TINYTEXT / TINYBLOB 249             # <<<<<<<<<<<<<<
@@ -40405,7 +40405,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L27_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3032
+  /* "sqlcycli/transcode.py":3017
  *         return _decode_timedelta(value)
  *     # TEXT / BLOB
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40419,7 +40419,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L27_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3035
+  /* "sqlcycli/transcode.py":3020
  *         _FIELD_TYPE.TINY_BLOB,  # TINYTEXT / TINYBLOB 249
  *         _FIELD_TYPE.BLOB,  # TEXT / BLOB 252
  *         _FIELD_TYPE.MEDIUM_BLOB,  # MEDIUMTEXT / MEDIUMBLOB 250             # <<<<<<<<<<<<<<
@@ -40433,7 +40433,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     goto __pyx_L27_bool_binop_done;
   }
 
-  /* "sqlcycli/transcode.py":3032
+  /* "sqlcycli/transcode.py":3017
  *         return _decode_timedelta(value)
  *     # TEXT / BLOB
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40446,7 +40446,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3038
+    /* "sqlcycli/transcode.py":3023
  *         _FIELD_TYPE.LONG_BLOB,  # LONGTEXT / LONGBLOB 251
  *     ):
  *         return _decode_string(value, encoding, is_binary)             # <<<<<<<<<<<<<<
@@ -40454,13 +40454,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.BIT:  # BIT 16
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_string(__pyx_v_value, __pyx_v_encoding, __pyx_v_is_binary); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3038, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_string(__pyx_v_value, __pyx_v_encoding, __pyx_v_is_binary); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3023, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3032
+    /* "sqlcycli/transcode.py":3017
  *         return _decode_timedelta(value)
  *     # TEXT / BLOB
  *     if field_type in (             # <<<<<<<<<<<<<<
@@ -40469,7 +40469,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3040
+  /* "sqlcycli/transcode.py":3025
  *         return _decode_string(value, encoding, is_binary)
  *     # BIT
  *     if field_type == _FIELD_TYPE.BIT:  # BIT 16             # <<<<<<<<<<<<<<
@@ -40479,7 +40479,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_BIT);
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3041
+    /* "sqlcycli/transcode.py":3026
  *     # BIT
  *     if field_type == _FIELD_TYPE.BIT:  # BIT 16
  *         return _decode_bit(value, decode_bit)             # <<<<<<<<<<<<<<
@@ -40487,13 +40487,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.ENUM:  # ENUM 247
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_bit(__pyx_v_value, __pyx_v_decode_bit); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3041, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_bit(__pyx_v_value, __pyx_v_decode_bit); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3026, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3040
+    /* "sqlcycli/transcode.py":3025
  *         return _decode_string(value, encoding, is_binary)
  *     # BIT
  *     if field_type == _FIELD_TYPE.BIT:  # BIT 16             # <<<<<<<<<<<<<<
@@ -40502,7 +40502,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3043
+  /* "sqlcycli/transcode.py":3028
  *         return _decode_bit(value, decode_bit)
  *     # ENUM
  *     if field_type == _FIELD_TYPE.ENUM:  # ENUM 247             # <<<<<<<<<<<<<<
@@ -40512,7 +40512,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_ENUM);
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3044
+    /* "sqlcycli/transcode.py":3029
  *     # ENUM
  *     if field_type == _FIELD_TYPE.ENUM:  # ENUM 247
  *         return _decode_enum(value, encoding)             # <<<<<<<<<<<<<<
@@ -40520,13 +40520,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.SET:  # SET 248
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_enum(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3044, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_enum(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3029, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3043
+    /* "sqlcycli/transcode.py":3028
  *         return _decode_bit(value, decode_bit)
  *     # ENUM
  *     if field_type == _FIELD_TYPE.ENUM:  # ENUM 247             # <<<<<<<<<<<<<<
@@ -40535,7 +40535,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3046
+  /* "sqlcycli/transcode.py":3031
  *         return _decode_enum(value, encoding)
  *     # SET
  *     if field_type == _FIELD_TYPE.SET:  # SET 248             # <<<<<<<<<<<<<<
@@ -40545,7 +40545,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_SET);
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3047
+    /* "sqlcycli/transcode.py":3032
  *     # SET
  *     if field_type == _FIELD_TYPE.SET:  # SET 248
  *         return _decode_set(value, encoding)             # <<<<<<<<<<<<<<
@@ -40553,13 +40553,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.JSON:  # JSON 245
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_set(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3047, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_set(__pyx_v_value, __pyx_v_encoding); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3032, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3046
+    /* "sqlcycli/transcode.py":3031
  *         return _decode_enum(value, encoding)
  *     # SET
  *     if field_type == _FIELD_TYPE.SET:  # SET 248             # <<<<<<<<<<<<<<
@@ -40568,7 +40568,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3049
+  /* "sqlcycli/transcode.py":3034
  *         return _decode_set(value, encoding)
  *     # JSON
  *     if field_type == _FIELD_TYPE.JSON:  # JSON 245             # <<<<<<<<<<<<<<
@@ -40578,7 +40578,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_JSON);
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3050
+    /* "sqlcycli/transcode.py":3035
  *     # JSON
  *     if field_type == _FIELD_TYPE.JSON:  # JSON 245
  *         return _decode_json(value, encoding, decode_json)             # <<<<<<<<<<<<<<
@@ -40586,13 +40586,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.GEOMETRY:  # GEOMETRY 255
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_json(__pyx_v_value, __pyx_v_encoding, __pyx_v_decode_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3050, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_json(__pyx_v_value, __pyx_v_encoding, __pyx_v_decode_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3035, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3049
+    /* "sqlcycli/transcode.py":3034
  *         return _decode_set(value, encoding)
  *     # JSON
  *     if field_type == _FIELD_TYPE.JSON:  # JSON 245             # <<<<<<<<<<<<<<
@@ -40601,7 +40601,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3052
+  /* "sqlcycli/transcode.py":3037
  *         return _decode_json(value, encoding, decode_json)
  *     # GEOMETRY
  *     if field_type == _FIELD_TYPE.GEOMETRY:  # GEOMETRY 255             # <<<<<<<<<<<<<<
@@ -40611,7 +40611,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_GEOMETRY);
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3053
+    /* "sqlcycli/transcode.py":3038
  *     # GEOMETRY
  *     if field_type == _FIELD_TYPE.GEOMETRY:  # GEOMETRY 255
  *         return _decode_string(value, encoding, is_binary)             # <<<<<<<<<<<<<<
@@ -40619,13 +40619,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     if field_type == _FIELD_TYPE.YEAR:  # YEAR 13
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_string(__pyx_v_value, __pyx_v_encoding, __pyx_v_is_binary); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3053, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_string(__pyx_v_value, __pyx_v_encoding, __pyx_v_is_binary); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3038, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3052
+    /* "sqlcycli/transcode.py":3037
  *         return _decode_json(value, encoding, decode_json)
  *     # GEOMETRY
  *     if field_type == _FIELD_TYPE.GEOMETRY:  # GEOMETRY 255             # <<<<<<<<<<<<<<
@@ -40634,7 +40634,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3055
+  /* "sqlcycli/transcode.py":3040
  *         return _decode_string(value, encoding, is_binary)
  *     # YEAR
  *     if field_type == _FIELD_TYPE.YEAR:  # YEAR 13             # <<<<<<<<<<<<<<
@@ -40644,7 +40644,7 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
   __pyx_t_3 = (__pyx_v_field_type == __pyx_v_8sqlcycli_9constants_11_FIELD_TYPE_YEAR);
   if (__pyx_t_3) {
 
-    /* "sqlcycli/transcode.py":3056
+    /* "sqlcycli/transcode.py":3041
  *     # YEAR
  *     if field_type == _FIELD_TYPE.YEAR:  # YEAR 13
  *         return _decode_int(value)             # <<<<<<<<<<<<<<
@@ -40652,13 +40652,13 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  *     raise errors.DecodeError("Unknown 'field_type': %d." % field_type)
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_int(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3056, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8sqlcycli_9transcode__decode_int(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3041, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "sqlcycli/transcode.py":3055
+    /* "sqlcycli/transcode.py":3040
  *         return _decode_string(value, encoding, is_binary)
  *     # YEAR
  *     if field_type == _FIELD_TYPE.YEAR:  # YEAR 13             # <<<<<<<<<<<<<<
@@ -40667,21 +40667,21 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
  */
   }
 
-  /* "sqlcycli/transcode.py":3058
+  /* "sqlcycli/transcode.py":3043
  *         return _decode_int(value)
  *     # Unknown
  *     raise errors.DecodeError("Unknown 'field_type': %d." % field_type)             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_errors); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3058, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_errors); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3043, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_DecodeError); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3058, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_DecodeError); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3043, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyInt_From_unsigned_int(__pyx_v_field_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3058, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyInt_From_unsigned_int(__pyx_v_field_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3043, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = PyUnicode_Format(__pyx_kp_u_Unknown_field_type_d, __pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3058, __pyx_L1_error)
+  __pyx_t_7 = PyUnicode_Format(__pyx_kp_u_Unknown_field_type_d, __pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3043, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -40703,15 +40703,15 @@ static PyObject *__pyx_f_8sqlcycli_9transcode_decode(PyObject *__pyx_v_value, un
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_1, 1+__pyx_t_1);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3058, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3043, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
   __Pyx_Raise(__pyx_t_4, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __PYX_ERR(1, 3058, __pyx_L1_error)
+  __PYX_ERR(1, 3043, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":2968
+  /* "sqlcycli/transcode.py":2952
  * 
  * # Decode Function -----------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
@@ -40741,7 +40741,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_9transcode_2decode, "Decode MySQL column value in Python `<'object'>`.\n\n    :param value `<'bytes'>`: The value of the column item to decode.\n    :param field_type `<'int'>`: The field type of the column. Please refer to 'constants.FIELD_TYPE'\n    :param encoding `<'bytes'>`: The encoding of the column.\n    :param is_binary `<'bool'>`: Whether the column is binary data.\n    :param use_decimal `<'bool'>`: Whether to use <'Decimal'> to represent DECIMAL column, `False` use <'float'>.\n    :param decode_bit `<'bool'>`: Whether to decode BIT column to integer, `False` keep as original <'bytes'>.\n    :param decode_json `<'bool'>`: Whether to deserialize JSON column, `False` keep as original JSON <'str'>.\n    :raises `<'DecodeError'>`: When encountering unknown 'field_type'.\n    ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_9transcode_2decode, "Decode a raw MySQL column value into the corresponding Python object `<'object'>`.\n\n    :param value `<'bytes'>`: The raw bytes received from the server for a single column value.\n    :param field_type `<'int'>`: The field type of the column. Please refer to 'constants.FIELD_TYPE'\n    :param encoding `<'bytes'>`: The encoding of the column.\n    :param is_binary `<'bool'>`: Whether the column is represents binary data.\n    :param use_decimal `<'bool'>`: DECIMAL columns are decoded as `decimal.Decimal` if `True`, else as `float`.\n    :param decode_bit `<'bool'>`: BIT columns are decoded as `int` if `True`, else kept as the original `bytes`.\n    :param decode_json `<'bool'>`: JSON columns are deserialized if `True`, else kept as the original JSON string.\n    :returns `<'object'>`: The decoded python object.\n    :raises `<'DecodeError'>`: If decode fails due to unsupported `field_type`.\n    ");
 static PyMethodDef __pyx_mdef_8sqlcycli_9transcode_3decode = {"decode", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_9transcode_3decode, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_8sqlcycli_9transcode_2decode};
 static PyObject *__pyx_pw_8sqlcycli_9transcode_3decode(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -40805,7 +40805,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -40813,9 +40813,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 1); __PYX_ERR(1, 2968, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 1); __PYX_ERR(1, 2952, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -40823,9 +40823,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 2); __PYX_ERR(1, 2968, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 2); __PYX_ERR(1, 2952, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -40833,9 +40833,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[3]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 3); __PYX_ERR(1, 2968, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 3); __PYX_ERR(1, 2952, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
@@ -40843,9 +40843,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[4]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 4); __PYX_ERR(1, 2968, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 4); __PYX_ERR(1, 2952, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  5:
@@ -40853,9 +40853,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[5]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 5); __PYX_ERR(1, 2968, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 5); __PYX_ERR(1, 2952, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  6:
@@ -40863,14 +40863,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[6]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2968, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 2952, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 6); __PYX_ERR(1, 2968, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, 6); __PYX_ERR(1, 2952, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "decode") < 0)) __PYX_ERR(1, 2968, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "decode") < 0)) __PYX_ERR(1, 2952, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 7)) {
       goto __pyx_L5_argtuple_error;
@@ -40884,16 +40884,16 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       values[6] = __Pyx_Arg_FASTCALL(__pyx_args, 6);
     }
     __pyx_v_value = ((PyObject*)values[0]);
-    __pyx_v_field_type = __Pyx_PyInt_As_unsigned_int(values[1]); if (unlikely((__pyx_v_field_type == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2971, __pyx_L3_error)
-    __pyx_v_encoding = __Pyx_PyObject_AsWritableString(values[2]); if (unlikely((!__pyx_v_encoding) && PyErr_Occurred())) __PYX_ERR(1, 2972, __pyx_L3_error)
-    __pyx_v_is_binary = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_is_binary == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2973, __pyx_L3_error)
-    __pyx_v_use_decimal = __Pyx_PyObject_IsTrue(values[4]); if (unlikely((__pyx_v_use_decimal == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2974, __pyx_L3_error)
-    __pyx_v_decode_bit = __Pyx_PyObject_IsTrue(values[5]); if (unlikely((__pyx_v_decode_bit == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2975, __pyx_L3_error)
-    __pyx_v_decode_json = __Pyx_PyObject_IsTrue(values[6]); if (unlikely((__pyx_v_decode_json == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2976, __pyx_L3_error)
+    __pyx_v_field_type = __Pyx_PyInt_As_unsigned_int(values[1]); if (unlikely((__pyx_v_field_type == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2955, __pyx_L3_error)
+    __pyx_v_encoding = __Pyx_PyObject_AsWritableString(values[2]); if (unlikely((!__pyx_v_encoding) && PyErr_Occurred())) __PYX_ERR(1, 2956, __pyx_L3_error)
+    __pyx_v_is_binary = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_is_binary == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2957, __pyx_L3_error)
+    __pyx_v_use_decimal = __Pyx_PyObject_IsTrue(values[4]); if (unlikely((__pyx_v_use_decimal == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2958, __pyx_L3_error)
+    __pyx_v_decode_bit = __Pyx_PyObject_IsTrue(values[5]); if (unlikely((__pyx_v_decode_bit == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2959, __pyx_L3_error)
+    __pyx_v_decode_json = __Pyx_PyObject_IsTrue(values[6]); if (unlikely((__pyx_v_decode_json == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 2960, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, __pyx_nargs); __PYX_ERR(1, 2968, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decode", 1, 7, 7, __pyx_nargs); __PYX_ERR(1, 2952, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -40907,7 +40907,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 0, "value", 1))) __PYX_ERR(1, 2970, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 0, "value", 1))) __PYX_ERR(1, 2954, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_9transcode_2decode(__pyx_self, __pyx_v_value, __pyx_v_field_type, __pyx_v_encoding, __pyx_v_is_binary, __pyx_v_use_decimal, __pyx_v_decode_bit, __pyx_v_decode_json);
 
   /* function exit code */
@@ -40934,7 +40934,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_2decode(CYTHON_UNUSED PyObject *_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode(__pyx_v_value, __pyx_v_field_type, __pyx_v_encoding, __pyx_v_is_binary, __pyx_v_use_decimal, __pyx_v_decode_bit, __pyx_v_decode_json, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2968, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_decode(__pyx_v_value, __pyx_v_field_type, __pyx_v_encoding, __pyx_v_is_binary, __pyx_v_use_decimal, __pyx_v_decode_bit, __pyx_v_decode_json, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 2952, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -40951,7 +40951,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_2decode(CYTHON_UNUSED PyObject *_
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3062
+/* "sqlcycli/transcode.py":3047
  * 
  * ########## The following functions are for testing purpose only ##########
  * def _test_transcode() -> None:             # <<<<<<<<<<<<<<
@@ -40987,14 +40987,14 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_transcode", 1);
 
-  /* "sqlcycli/transcode.py":3063
+  /* "sqlcycli/transcode.py":3048
  * ########## The following functions are for testing purpose only ##########
  * def _test_transcode() -> None:
  *     _test_encode_decode_utf8()             # <<<<<<<<<<<<<<
  *     _test_encode_decode_ascii()
  *     _test_translate_str()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_encode_decode_utf8); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3063, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_encode_decode_utf8); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3048, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41014,20 +41014,20 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3063, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3048, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3064
+  /* "sqlcycli/transcode.py":3049
  * def _test_transcode() -> None:
  *     _test_encode_decode_utf8()
  *     _test_encode_decode_ascii()             # <<<<<<<<<<<<<<
  *     _test_translate_str()
  *     _test_slice_chars()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_encode_decode_ascii); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3064, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_encode_decode_ascii); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3049, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41047,20 +41047,20 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3064, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3049, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3065
+  /* "sqlcycli/transcode.py":3050
  *     _test_encode_decode_utf8()
  *     _test_encode_decode_ascii()
  *     _test_translate_str()             # <<<<<<<<<<<<<<
  *     _test_slice_chars()
  *     _test_chars_conversion()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_translate_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3065, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_translate_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3050, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41080,20 +41080,20 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3065, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3050, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3066
+  /* "sqlcycli/transcode.py":3051
  *     _test_encode_decode_ascii()
  *     _test_translate_str()
  *     _test_slice_chars()             # <<<<<<<<<<<<<<
  *     _test_chars_conversion()
  *     _test_unpack_uint64_big_endian()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_slice_chars); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3066, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_slice_chars); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3051, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41113,20 +41113,20 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3066, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3051, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3067
+  /* "sqlcycli/transcode.py":3052
  *     _test_translate_str()
  *     _test_slice_chars()
  *     _test_chars_conversion()             # <<<<<<<<<<<<<<
  *     _test_unpack_uint64_big_endian()
  *     _test_date_n_time()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_chars_conversion); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3067, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_chars_conversion); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3052, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41146,20 +41146,20 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3067, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3052, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3068
+  /* "sqlcycli/transcode.py":3053
  *     _test_slice_chars()
  *     _test_chars_conversion()
  *     _test_unpack_uint64_big_endian()             # <<<<<<<<<<<<<<
  *     _test_date_n_time()
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_unpack_uint64_big_endian); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3068, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_unpack_uint64_big_endian); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3053, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41179,20 +41179,20 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3068, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3053, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3069
+  /* "sqlcycli/transcode.py":3054
  *     _test_chars_conversion()
  *     _test_unpack_uint64_big_endian()
  *     _test_date_n_time()             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_date_n_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3069, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_test_date_n_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3054, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -41212,13 +41212,13 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3069, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3054, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3062
+  /* "sqlcycli/transcode.py":3047
  * 
  * ########## The following functions are for testing purpose only ##########
  * def _test_transcode() -> None:             # <<<<<<<<<<<<<<
@@ -41241,7 +41241,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_4_test_transcode(CYTHON_UNUSED Py
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3072
+/* "sqlcycli/transcode.py":3057
  * 
  * 
  * def _test_encode_decode_utf8() -> None:             # <<<<<<<<<<<<<<
@@ -41286,7 +41286,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_encode_decode_utf8", 1);
 
-  /* "sqlcycli/transcode.py":3073
+  /* "sqlcycli/transcode.py":3058
  * 
  * def _test_encode_decode_utf8() -> None:
  *     val = "\n\n\nEspaol"             # <<<<<<<<<<<<<<
@@ -41296,31 +41296,31 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
   __Pyx_INCREF(__pyx_kp_u_Espaol);
   __pyx_v_val = __pyx_kp_u_Espaol;
 
-  /* "sqlcycli/transcode.py":3075
+  /* "sqlcycli/transcode.py":3060
  *     val = "\n\n\nEspaol"
  *     # encode
  *     n = val.encode("utf-8")             # <<<<<<<<<<<<<<
  *     x = encode_str(val, "utf-8")  # type: ignore
  *     assert n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3075, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3060, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_n = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3076
+  /* "sqlcycli/transcode.py":3061
  *     # encode
  *     n = val.encode("utf-8")
  *     x = encode_str(val, "utf-8")  # type: ignore             # <<<<<<<<<<<<<<
  *     assert n == x, f"{n} | {x}"
  *     # decode
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_encode_str(__pyx_v_val, ((char *)"utf-8")); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3076, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_encode_str(__pyx_v_val, ((char *)"utf-8")); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3061, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_x = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3077
+  /* "sqlcycli/transcode.py":3062
  *     n = val.encode("utf-8")
  *     x = encode_str(val, "utf-8")  # type: ignore
  *     assert n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -41329,13 +41329,13 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = (__Pyx_PyBytes_Equals(__pyx_v_n, __pyx_v_x, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3077, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyBytes_Equals(__pyx_v_n, __pyx_v_x, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3062, __pyx_L1_error)
     if (unlikely(!__pyx_t_2)) {
-      __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3077, __pyx_L1_error)
+      __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3062, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_3 = 0;
       __pyx_t_4 = 127;
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3077, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3062, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
@@ -41346,33 +41346,33 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
       __pyx_t_3 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__29);
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3077, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3062, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
       __Pyx_GIVEREF(__pyx_t_5);
       PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_t_5);
       __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3077, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3062, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_5, 0, 0);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __PYX_ERR(1, 3077, __pyx_L1_error)
+      __PYX_ERR(1, 3062, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3077, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3062, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3079
+  /* "sqlcycli/transcode.py":3064
  *     assert n == x, f"{n} | {x}"
  *     # decode
  *     i = n.decode("utf-8")             # <<<<<<<<<<<<<<
  *     j = decode_bytes(n, "utf-8")  # type: ignore
  *     k = decode_bytes_utf8(n)  # type: ignore
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_n, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3079, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_n, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3064, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -41392,38 +41392,38 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_kp_u_utf_8};
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3079, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3064, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_v_i = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3080
+  /* "sqlcycli/transcode.py":3065
  *     # decode
  *     i = n.decode("utf-8")
  *     j = decode_bytes(n, "utf-8")  # type: ignore             # <<<<<<<<<<<<<<
  *     k = decode_bytes_utf8(n)  # type: ignore
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"
  */
-  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_n, ((char *)"utf-8")); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3080, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_n, ((char *)"utf-8")); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3065, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_j = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3081
+  /* "sqlcycli/transcode.py":3066
  *     i = n.decode("utf-8")
  *     j = decode_bytes(n, "utf-8")  # type: ignore
  *     k = decode_bytes_utf8(n)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"
  *     print("Pass Encode/Decode UTF-8".ljust(80))
  */
-  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes_utf8(__pyx_v_n); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3081, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes_utf8(__pyx_v_n); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3066, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_k = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3082
+  /* "sqlcycli/transcode.py":3067
  *     j = decode_bytes(n, "utf-8")  # type: ignore
  *     k = decode_bytes_utf8(n)  # type: ignore
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"             # <<<<<<<<<<<<<<
@@ -41432,19 +41432,19 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_i, __pyx_v_j, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3082, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_i, __pyx_v_j, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3067, __pyx_L1_error)
     if (__pyx_t_2) {
-      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_j, __pyx_v_k, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3082, __pyx_L1_error)
+      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_j, __pyx_v_k, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3067, __pyx_L1_error)
       if (__pyx_t_2) {
-        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_k, __pyx_v_val, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3082, __pyx_L1_error)
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_k, __pyx_v_val, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3067, __pyx_L1_error)
       }
     }
     if (unlikely(!__pyx_t_2)) {
-      __pyx_t_5 = PyTuple_New(7); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3082, __pyx_L1_error)
+      __pyx_t_5 = PyTuple_New(7); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3067, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_3 = 0;
       __pyx_t_4 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_i, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3082, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_i, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3067, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -41455,7 +41455,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
       __pyx_t_3 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_j); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3082, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_j); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3067, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -41466,7 +41466,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
       __pyx_t_3 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_5, 3, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_k); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3082, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_k); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3067, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -41482,26 +41482,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_v_val);
       __Pyx_GIVEREF(__pyx_v_val);
       PyTuple_SET_ITEM(__pyx_t_5, 6, __pyx_v_val);
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3082, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3067, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3082, __pyx_L1_error)
+      __PYX_ERR(1, 3067, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3082, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3067, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3083
+  /* "sqlcycli/transcode.py":3068
  *     k = decode_bytes_utf8(n)  # type: ignore
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"
  *     print("Pass Encode/Decode UTF-8".ljust(80))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Encode_Decode_UTF_8, __pyx_n_s_ljust); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3083, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Encode_Decode_UTF_8, __pyx_n_s_ljust); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3068, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -41521,16 +41521,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_int_80};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3083, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3068, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3083, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3068, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3072
+  /* "sqlcycli/transcode.py":3057
  * 
  * 
  * def _test_encode_decode_utf8() -> None:             # <<<<<<<<<<<<<<
@@ -41559,7 +41559,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_6_test_encode_decode_utf8(CYTHON_
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3086
+/* "sqlcycli/transcode.py":3071
  * 
  * 
  * def _test_encode_decode_ascii() -> None:             # <<<<<<<<<<<<<<
@@ -41604,7 +41604,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_encode_decode_ascii", 1);
 
-  /* "sqlcycli/transcode.py":3087
+  /* "sqlcycli/transcode.py":3072
  * 
  * def _test_encode_decode_ascii() -> None:
  *     val = "hello\nworld"             # <<<<<<<<<<<<<<
@@ -41614,31 +41614,31 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
   __Pyx_INCREF(__pyx_kp_u_hello_world);
   __pyx_v_val = __pyx_kp_u_hello_world;
 
-  /* "sqlcycli/transcode.py":3089
+  /* "sqlcycli/transcode.py":3074
  *     val = "hello\nworld"
  *     # encode
  *     n = val.encode("ascii")             # <<<<<<<<<<<<<<
  *     x = encode_str(val, "ascii")  # type: ignore
  *     assert n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = PyUnicode_AsASCIIString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3089, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_AsASCIIString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3074, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_n = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3090
+  /* "sqlcycli/transcode.py":3075
  *     # encode
  *     n = val.encode("ascii")
  *     x = encode_str(val, "ascii")  # type: ignore             # <<<<<<<<<<<<<<
  *     assert n == x, f"{n} | {x}"
  *     # decode
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_encode_str(__pyx_v_val, ((char *)"ascii")); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3090, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_9transcode_encode_str(__pyx_v_val, ((char *)"ascii")); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3075, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_x = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3091
+  /* "sqlcycli/transcode.py":3076
  *     n = val.encode("ascii")
  *     x = encode_str(val, "ascii")  # type: ignore
  *     assert n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -41647,13 +41647,13 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = (__Pyx_PyBytes_Equals(__pyx_v_n, __pyx_v_x, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3091, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyBytes_Equals(__pyx_v_n, __pyx_v_x, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3076, __pyx_L1_error)
     if (unlikely(!__pyx_t_2)) {
-      __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3091, __pyx_L1_error)
+      __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3076, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_3 = 0;
       __pyx_t_4 = 127;
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3091, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3076, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
@@ -41664,33 +41664,33 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
       __pyx_t_3 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__29);
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3091, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3076, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
       __Pyx_GIVEREF(__pyx_t_5);
       PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_t_5);
       __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3091, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3076, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_5, 0, 0);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __PYX_ERR(1, 3091, __pyx_L1_error)
+      __PYX_ERR(1, 3076, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3091, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3076, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3093
+  /* "sqlcycli/transcode.py":3078
  *     assert n == x, f"{n} | {x}"
  *     # decode
  *     i = n.decode("ascii")             # <<<<<<<<<<<<<<
  *     j = decode_bytes(n, "ascii")  # type: ignore
  *     k = decode_bytes_ascii(n)  # type: ignore
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_n, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3093, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_n, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3078, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -41710,38 +41710,38 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_n_u_ascii};
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3093, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3078, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_v_i = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3094
+  /* "sqlcycli/transcode.py":3079
  *     # decode
  *     i = n.decode("ascii")
  *     j = decode_bytes(n, "ascii")  # type: ignore             # <<<<<<<<<<<<<<
  *     k = decode_bytes_ascii(n)  # type: ignore
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"
  */
-  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_n, ((char *)"ascii")); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3094, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes(__pyx_v_n, ((char *)"ascii")); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3079, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_j = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3095
+  /* "sqlcycli/transcode.py":3080
  *     i = n.decode("ascii")
  *     j = decode_bytes(n, "ascii")  # type: ignore
  *     k = decode_bytes_ascii(n)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"
  *     print("Pass Encode/Decode ASCII".ljust(80))
  */
-  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_n); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3095, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_decode_bytes_ascii(__pyx_v_n); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3080, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_k = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3096
+  /* "sqlcycli/transcode.py":3081
  *     j = decode_bytes(n, "ascii")  # type: ignore
  *     k = decode_bytes_ascii(n)  # type: ignore
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"             # <<<<<<<<<<<<<<
@@ -41750,19 +41750,19 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_i, __pyx_v_j, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3096, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_i, __pyx_v_j, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3081, __pyx_L1_error)
     if (__pyx_t_2) {
-      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_j, __pyx_v_k, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3096, __pyx_L1_error)
+      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_j, __pyx_v_k, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3081, __pyx_L1_error)
       if (__pyx_t_2) {
-        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_k, __pyx_v_val, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3096, __pyx_L1_error)
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_k, __pyx_v_val, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 3081, __pyx_L1_error)
       }
     }
     if (unlikely(!__pyx_t_2)) {
-      __pyx_t_5 = PyTuple_New(7); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3096, __pyx_L1_error)
+      __pyx_t_5 = PyTuple_New(7); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3081, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_3 = 0;
       __pyx_t_4 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_i, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3096, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_i, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3081, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -41773,7 +41773,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
       __pyx_t_3 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_j); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3096, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_j); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3081, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -41784,7 +41784,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
       __pyx_t_3 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_5, 3, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_k); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3096, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_k); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3081, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_4) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_4;
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -41800,26 +41800,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
       __pyx_t_3 += __Pyx_PyUnicode_GET_LENGTH(__pyx_v_val);
       __Pyx_GIVEREF(__pyx_v_val);
       PyTuple_SET_ITEM(__pyx_t_5, 6, __pyx_v_val);
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3096, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3081, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3096, __pyx_L1_error)
+      __PYX_ERR(1, 3081, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3096, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3081, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3097
+  /* "sqlcycli/transcode.py":3082
  *     k = decode_bytes_ascii(n)  # type: ignore
  *     assert i == j == k == val, f"{i} | {j} | {k} | {val}"
  *     print("Pass Encode/Decode ASCII".ljust(80))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Encode_Decode_ASCII, __pyx_n_s_ljust); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3097, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Encode_Decode_ASCII, __pyx_n_s_ljust); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3082, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -41839,16 +41839,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_int_80};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3097, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3082, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3097, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3082, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "sqlcycli/transcode.py":3086
+  /* "sqlcycli/transcode.py":3071
  * 
  * 
  * def _test_encode_decode_ascii() -> None:             # <<<<<<<<<<<<<<
@@ -41877,7 +41877,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_8_test_encode_decode_ascii(CYTHON
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3100
+/* "sqlcycli/transcode.py":3085
  * 
  * 
  * def _test_translate_str() -> None:             # <<<<<<<<<<<<<<
@@ -41919,45 +41919,45 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_translate_str", 1);
 
-  /* "sqlcycli/transcode.py":3101
+  /* "sqlcycli/transcode.py":3086
  * 
  * def _test_translate_str() -> None:
  *     o = str([[1], [1]])             # <<<<<<<<<<<<<<
  *     n = o.translate(BRACKET_TABLE)
  *     b = translate_str(o, BRACKET_TABLE)  # type: ignore
  */
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3101, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3086, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_int_1);
   __Pyx_GIVEREF(__pyx_int_1);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_int_1)) __PYX_ERR(1, 3101, __pyx_L1_error);
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3101, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_int_1)) __PYX_ERR(1, 3086, __pyx_L1_error);
+  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3086, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_int_1);
   __Pyx_GIVEREF(__pyx_int_1);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_int_1)) __PYX_ERR(1, 3101, __pyx_L1_error);
-  __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3101, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_int_1)) __PYX_ERR(1, 3086, __pyx_L1_error);
+  __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3086, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_t_1)) __PYX_ERR(1, 3101, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_t_1)) __PYX_ERR(1, 3086, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_t_2)) __PYX_ERR(1, 3101, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_t_2)) __PYX_ERR(1, 3086, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3101, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3086, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_o = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3102
+  /* "sqlcycli/transcode.py":3087
  * def _test_translate_str() -> None:
  *     o = str([[1], [1]])
  *     n = o.translate(BRACKET_TABLE)             # <<<<<<<<<<<<<<
  *     b = translate_str(o, BRACKET_TABLE)  # type: ignore
  *     assert n == b, f"{n} | {b}"
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_o, __pyx_n_s_translate); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3102, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_o, __pyx_n_s_translate); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3087, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_1 = NULL;
   __pyx_t_4 = 0;
@@ -41977,14 +41977,14 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_8sqlcycli_9transcode_BRACKET_TABLE};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3102, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3087, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_n = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3103
+  /* "sqlcycli/transcode.py":3088
  *     o = str([[1], [1]])
  *     n = o.translate(BRACKET_TABLE)
  *     b = translate_str(o, BRACKET_TABLE)  # type: ignore             # <<<<<<<<<<<<<<
@@ -41993,13 +41993,13 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
  */
   __pyx_t_2 = __pyx_v_8sqlcycli_9transcode_BRACKET_TABLE;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_f_8sqlcycli_9transcode_translate_str(__pyx_v_o, ((PyObject*)__pyx_t_2)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3103, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_9transcode_translate_str(__pyx_v_o, ((PyObject*)__pyx_t_2)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3088, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_b = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "sqlcycli/transcode.py":3104
+  /* "sqlcycli/transcode.py":3089
  *     n = o.translate(BRACKET_TABLE)
  *     b = translate_str(o, BRACKET_TABLE)  # type: ignore
  *     assert n == b, f"{n} | {b}"             # <<<<<<<<<<<<<<
@@ -42008,13 +42008,13 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_n, __pyx_v_b, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(1, 3104, __pyx_L1_error)
+    __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_n, __pyx_v_b, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(1, 3089, __pyx_L1_error)
     if (unlikely(!__pyx_t_5)) {
-      __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3104, __pyx_L1_error)
+      __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3089, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_6 = 0;
       __pyx_t_7 = 127;
-      __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3104, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3089, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_7;
       __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -42025,33 +42025,33 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
       __pyx_t_6 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_kp_u__29);
-      __pyx_t_2 = __Pyx_PyUnicode_Unicode(__pyx_v_b); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3104, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyUnicode_Unicode(__pyx_v_b); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3089, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_7;
       __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
       __Pyx_GIVEREF(__pyx_t_2);
       PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_t_2);
       __pyx_t_2 = 0;
-      __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_3, 3, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3104, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_3, 3, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3089, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_2, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(1, 3104, __pyx_L1_error)
+      __PYX_ERR(1, 3089, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3104, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3089, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3105
+  /* "sqlcycli/transcode.py":3090
  *     b = translate_str(o, BRACKET_TABLE)  # type: ignore
  *     assert n == b, f"{n} | {b}"
  *     print("Pass Translate Str".ljust(80))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Translate_Str, __pyx_n_s_ljust); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3105, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Translate_Str, __pyx_n_s_ljust); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3090, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_1 = NULL;
   __pyx_t_4 = 0;
@@ -42071,16 +42071,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_int_80};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3105, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3090, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3105, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3090, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/transcode.py":3100
+  /* "sqlcycli/transcode.py":3085
  * 
  * 
  * def _test_translate_str() -> None:             # <<<<<<<<<<<<<<
@@ -42106,7 +42106,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_10_test_translate_str(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3108
+/* "sqlcycli/transcode.py":3093
  * 
  * 
  * def _test_slice_chars() -> None:             # <<<<<<<<<<<<<<
@@ -42152,7 +42152,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_slice_chars", 1);
 
-  /* "sqlcycli/transcode.py":3109
+  /* "sqlcycli/transcode.py":3094
  * 
  * def _test_slice_chars() -> None:
  *     chs: cython.pchar = b"hello1234"             # <<<<<<<<<<<<<<
@@ -42161,32 +42161,32 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
  */
   __pyx_v_chs = ((char *)"hello1234");
 
-  /* "sqlcycli/transcode.py":3111
+  /* "sqlcycli/transcode.py":3096
  *     chs: cython.pchar = b"hello1234"
  *     # slice to chars
  *     n = chs[0:5]             # <<<<<<<<<<<<<<
  *     x: bytes = slice_to_chars(chs, 0, 5)  # type: ignore
  *     assert n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_chs + 0, 5 - 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3111, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_chs + 0, 5 - 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3096, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_n = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3112
+  /* "sqlcycli/transcode.py":3097
  *     # slice to chars
  *     n = chs[0:5]
  *     x: bytes = slice_to_chars(chs, 0, 5)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert n == x, f"{n} | {x}"
  *     # slice to int
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_slice_to_chars(__pyx_v_chs, 0, 5); if (unlikely(__pyx_t_2 == ((char *)NULL) && PyErr_Occurred())) __PYX_ERR(1, 3112, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3112, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_9transcode_slice_to_chars(__pyx_v_chs, 0, 5); if (unlikely(__pyx_t_2 == ((char *)NULL) && PyErr_Occurred())) __PYX_ERR(1, 3097, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3097, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_x = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3113
+  /* "sqlcycli/transcode.py":3098
  *     n = chs[0:5]
  *     x: bytes = slice_to_chars(chs, 0, 5)  # type: ignore
  *     assert n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -42195,13 +42195,13 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_3 = (__Pyx_PyBytes_Equals(__pyx_v_n, __pyx_v_x, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(1, 3113, __pyx_L1_error)
+    __pyx_t_3 = (__Pyx_PyBytes_Equals(__pyx_v_n, __pyx_v_x, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(1, 3098, __pyx_L1_error)
     if (unlikely(!__pyx_t_3)) {
-      __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3113, __pyx_L1_error)
+      __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3098, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = 0;
       __pyx_t_5 = 127;
-      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3113, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3098, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) : __pyx_t_5;
       __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6);
@@ -42212,51 +42212,51 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
       __pyx_t_4 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__29);
-      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3113, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3098, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) : __pyx_t_5;
       __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6);
       __Pyx_GIVEREF(__pyx_t_6);
       PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_t_6);
       __pyx_t_6 = 0;
-      __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3113, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3098, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_6, 0, 0);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __PYX_ERR(1, 3113, __pyx_L1_error)
+      __PYX_ERR(1, 3098, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3113, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3098, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3115
+  /* "sqlcycli/transcode.py":3100
  *     assert n == x, f"{n} | {x}"
  *     # slice to int
  *     i = int(chs[5:8])             # <<<<<<<<<<<<<<
  *     j = slice_to_int(chs, 5, 8)  # type: ignore
  *     assert i == j, f"{i} | {j}"
  */
-  __pyx_t_6 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_chs + 5, 8 - 5); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3115, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_chs + 5, 8 - 5); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3115, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_v_i = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3116
+  /* "sqlcycli/transcode.py":3101
  *     # slice to int
  *     i = int(chs[5:8])
  *     j = slice_to_int(chs, 5, 8)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert i == j, f"{i} | {j}"
  *     print("Pass Slice Chars".ljust(80))
  */
-  __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, 5, 8); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3116, __pyx_L1_error)
+  __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_slice_to_int(__pyx_v_chs, 5, 8); if (unlikely(__pyx_t_7 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3101, __pyx_L1_error)
   __pyx_v_j = __pyx_t_7;
 
-  /* "sqlcycli/transcode.py":3117
+  /* "sqlcycli/transcode.py":3102
  *     i = int(chs[5:8])
  *     j = slice_to_int(chs, 5, 8)  # type: ignore
  *     assert i == j, f"{i} | {j}"             # <<<<<<<<<<<<<<
@@ -42265,18 +42265,18 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_1 = __Pyx_PyInt_From_PY_LONG_LONG(__pyx_v_j); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3117, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyInt_From_PY_LONG_LONG(__pyx_v_j); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = PyObject_RichCompare(__pyx_v_i, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3117, __pyx_L1_error)
+    __pyx_t_6 = PyObject_RichCompare(__pyx_v_i, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3102, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(1, 3117, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(1, 3102, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     if (unlikely(!__pyx_t_3)) {
-      __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3117, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3102, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_4 = 0;
       __pyx_t_5 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_i, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3117, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_i, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3102, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_5 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_5) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_5;
       __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -42287,32 +42287,32 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
       __pyx_t_4 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyUnicode_From_PY_LONG_LONG(__pyx_v_j, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3117, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_From_PY_LONG_LONG(__pyx_v_j, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3102, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3117, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3102, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3117, __pyx_L1_error)
+      __PYX_ERR(1, 3102, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3117, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3102, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3118
+  /* "sqlcycli/transcode.py":3103
  *     j = slice_to_int(chs, 5, 8)  # type: ignore
  *     assert i == j, f"{i} | {j}"
  *     print("Pass Slice Chars".ljust(80))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Slice_Chars, __pyx_n_s_ljust); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3118, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Slice_Chars, __pyx_n_s_ljust); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_8 = NULL;
   __pyx_t_9 = 0;
@@ -42332,16 +42332,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
     PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_int_80};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3118, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3103, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
-  __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3118, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 3103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "sqlcycli/transcode.py":3108
+  /* "sqlcycli/transcode.py":3093
  * 
  * 
  * def _test_slice_chars() -> None:             # <<<<<<<<<<<<<<
@@ -42367,7 +42367,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_12_test_slice_chars(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3121
+/* "sqlcycli/transcode.py":3106
  * 
  * 
  * def _test_chars_conversion() -> None:             # <<<<<<<<<<<<<<
@@ -42412,7 +42412,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_chars_conversion", 1);
 
-  /* "sqlcycli/transcode.py":3122
+  /* "sqlcycli/transcode.py":3107
  * 
  * def _test_chars_conversion() -> None:
  *     val: cython.pchar = b"-1234567890"             # <<<<<<<<<<<<<<
@@ -42421,35 +42421,35 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
  */
   __pyx_v_val = ((char *)"-1234567890");
 
-  /* "sqlcycli/transcode.py":3123
+  /* "sqlcycli/transcode.py":3108
  * def _test_chars_conversion() -> None:
  *     val: cython.pchar = b"-1234567890"
  *     n = int(val)             # <<<<<<<<<<<<<<
  *     x = chars_to_ll(val)  # type: ignore
  *     assert n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3123, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3108, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyInt_Type)), __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3123, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyInt_Type)), __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3108, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_n = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3124
+  /* "sqlcycli/transcode.py":3109
  *     val: cython.pchar = b"-1234567890"
  *     n = int(val)
  *     x = chars_to_ll(val)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert n == x, f"{n} | {x}"
  * 
  */
-  __pyx_t_3 = __pyx_f_8sqlcycli_9transcode_chars_to_ll(__pyx_v_val); if (unlikely(__pyx_t_3 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3124, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyInt_From_PY_LONG_LONG(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3124, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8sqlcycli_9transcode_chars_to_ll(__pyx_v_val); if (unlikely(__pyx_t_3 == ((PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3109, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_PY_LONG_LONG(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_x = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3125
+  /* "sqlcycli/transcode.py":3110
  *     n = int(val)
  *     x = chars_to_ll(val)  # type: ignore
  *     assert n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -42458,15 +42458,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3125, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(1, 3125, __pyx_L1_error)
+    __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3110, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(1, 3110, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (unlikely(!__pyx_t_4)) {
-      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3125, __pyx_L1_error)
+      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3110, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_5 = 0;
       __pyx_t_6 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3125, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3110, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_6;
       __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -42477,26 +42477,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
       __pyx_t_5 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3125, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3110, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_6;
       __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3125, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3110, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3125, __pyx_L1_error)
+      __PYX_ERR(1, 3110, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3125, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3110, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3127
+  /* "sqlcycli/transcode.py":3112
  *     assert n == x, f"{n} | {x}"
  * 
  *     val: cython.pchar = b"1234567890"             # <<<<<<<<<<<<<<
@@ -42505,35 +42505,35 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
  */
   __pyx_v_val = ((char *)"1234567890");
 
-  /* "sqlcycli/transcode.py":3128
+  /* "sqlcycli/transcode.py":3113
  * 
  *     val: cython.pchar = b"1234567890"
  *     n = int(val)             # <<<<<<<<<<<<<<
  *     x = chars_to_ull(val)  # type: ignore
  *     assert n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3128, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyInt_Type)), __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3128, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyInt_Type)), __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF_SET(__pyx_v_n, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3129
+  /* "sqlcycli/transcode.py":3114
  *     val: cython.pchar = b"1234567890"
  *     n = int(val)
  *     x = chars_to_ull(val)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert n == x, f"{n} | {x}"
  * 
  */
-  __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_chars_to_ull(__pyx_v_val); if (unlikely(__pyx_t_7 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3129, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3129, __pyx_L1_error)
+  __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_chars_to_ull(__pyx_v_val); if (unlikely(__pyx_t_7 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3114, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v_x, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3130
+  /* "sqlcycli/transcode.py":3115
  *     n = int(val)
  *     x = chars_to_ull(val)  # type: ignore
  *     assert n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -42542,15 +42542,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3130, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(1, 3130, __pyx_L1_error)
+    __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3115, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(1, 3115, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (unlikely(!__pyx_t_4)) {
-      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3130, __pyx_L1_error)
+      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3115, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_5 = 0;
       __pyx_t_6 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3130, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3115, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_6;
       __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -42561,26 +42561,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
       __pyx_t_5 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3130, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3115, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_6;
       __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3130, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3115, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3130, __pyx_L1_error)
+      __PYX_ERR(1, 3115, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3130, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3115, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3132
+  /* "sqlcycli/transcode.py":3117
  *     assert n == x, f"{n} | {x}"
  * 
  *     val: cython.pchar = b"1234.567890"             # <<<<<<<<<<<<<<
@@ -42589,35 +42589,35 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
  */
   __pyx_v_val = ((char *)"1234.567890");
 
-  /* "sqlcycli/transcode.py":3133
+  /* "sqlcycli/transcode.py":3118
  * 
  *     val: cython.pchar = b"1234.567890"
  *     n = float(val)             # <<<<<<<<<<<<<<
  *     x = chars_to_ld(val)  # type: ignore
  *     assert n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3133, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3118, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyNumber_Float(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3133, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Float(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3118, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF_SET(__pyx_v_n, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3134
+  /* "sqlcycli/transcode.py":3119
  *     val: cython.pchar = b"1234.567890"
  *     n = float(val)
  *     x = chars_to_ld(val)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert n == x, f"{n} | {x}"
  * 
  */
-  __pyx_t_8 = __pyx_f_8sqlcycli_9transcode_chars_to_ld(__pyx_v_val); if (unlikely(__pyx_t_8 == ((long double)-1) && PyErr_Occurred())) __PYX_ERR(1, 3134, __pyx_L1_error)
-  __pyx_t_2 = PyFloat_FromDouble(__pyx_t_8); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3134, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_8sqlcycli_9transcode_chars_to_ld(__pyx_v_val); if (unlikely(__pyx_t_8 == ((long double)-1) && PyErr_Occurred())) __PYX_ERR(1, 3119, __pyx_L1_error)
+  __pyx_t_2 = PyFloat_FromDouble(__pyx_t_8); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v_x, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3135
+  /* "sqlcycli/transcode.py":3120
  *     n = float(val)
  *     x = chars_to_ld(val)  # type: ignore
  *     assert n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -42626,15 +42626,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3135, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(1, 3135, __pyx_L1_error)
+    __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3120, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(1, 3120, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (unlikely(!__pyx_t_4)) {
-      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3135, __pyx_L1_error)
+      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3120, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_5 = 0;
       __pyx_t_6 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3135, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3120, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_6;
       __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -42645,33 +42645,33 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
       __pyx_t_5 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3135, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3120, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_6;
       __pyx_t_5 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3135, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3120, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3135, __pyx_L1_error)
+      __PYX_ERR(1, 3120, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3135, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3120, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3137
+  /* "sqlcycli/transcode.py":3122
  *     assert n == x, f"{n} | {x}"
  * 
  *     print("Pass Chars Conversion".ljust(80))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Chars_Conversion, __pyx_n_s_ljust); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3137, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Chars_Conversion, __pyx_n_s_ljust); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = NULL;
   __pyx_t_10 = 0;
@@ -42691,16 +42691,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
     PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_int_80};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3137, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3122, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3137, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3121
+  /* "sqlcycli/transcode.py":3106
  * 
  * 
  * def _test_chars_conversion() -> None:             # <<<<<<<<<<<<<<
@@ -42725,7 +42725,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_14_test_chars_conversion(CYTHON_U
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3140
+/* "sqlcycli/transcode.py":3125
  * 
  * 
  * def _test_unpack_uint64_big_endian() -> None:             # <<<<<<<<<<<<<<
@@ -42771,19 +42771,19 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_unpack_uint64_big_endian", 1);
 
-  /* "sqlcycli/transcode.py":3141
+  /* "sqlcycli/transcode.py":3126
  * 
  * def _test_unpack_uint64_big_endian() -> None:
  *     import struct             # <<<<<<<<<<<<<<
  * 
  *     val = 1234567890
  */
-  __pyx_t_1 = __Pyx_ImportDottedModule(__pyx_n_s_struct, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3141, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_ImportDottedModule(__pyx_n_s_struct, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_struct = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3143
+  /* "sqlcycli/transcode.py":3128
  *     import struct
  * 
  *     val = 1234567890             # <<<<<<<<<<<<<<
@@ -42792,29 +42792,29 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
  */
   __pyx_v_val = 0x499602D2;
 
-  /* "sqlcycli/transcode.py":3144
+  /* "sqlcycli/transcode.py":3129
  * 
  *     val = 1234567890
  *     s = struct.pack(">Q", 1234567890)             # <<<<<<<<<<<<<<
  *     n = struct.unpack(">Q", s)[0]
  *     x = unpack_uint64_big_endian(s, 0)  # type: ignore
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_struct, __pyx_n_s_pack); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3144, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_struct, __pyx_n_s_pack); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__31, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3144, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__31, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_s = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3145
+  /* "sqlcycli/transcode.py":3130
  *     val = 1234567890
  *     s = struct.pack(">Q", 1234567890)
  *     n = struct.unpack(">Q", s)[0]             # <<<<<<<<<<<<<<
  *     x = unpack_uint64_big_endian(s, 0)  # type: ignore
  *     assert val == n == x, f"{n} | {x}"
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_struct, __pyx_n_s_unpack); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3145, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_struct, __pyx_n_s_unpack); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -42834,28 +42834,28 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
     PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_kp_u_Q, __pyx_v_s};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3145, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3130, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3145, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_n = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3146
+  /* "sqlcycli/transcode.py":3131
  *     s = struct.pack(">Q", 1234567890)
  *     n = struct.unpack(">Q", s)[0]
  *     x = unpack_uint64_big_endian(s, 0)  # type: ignore             # <<<<<<<<<<<<<<
  *     assert val == n == x, f"{n} | {x}"
  *     print("Pass Unpack Uint64 Big Endian".ljust(80))
  */
-  __pyx_t_5 = __Pyx_PyObject_AsWritableString(__pyx_v_s); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(1, 3146, __pyx_L1_error)
-  __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_unpack_uint64_big_endian(__pyx_t_5, 0); if (unlikely(__pyx_t_6 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3146, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_AsWritableString(__pyx_v_s); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(1, 3131, __pyx_L1_error)
+  __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_unpack_uint64_big_endian(__pyx_t_5, 0); if (unlikely(__pyx_t_6 == ((unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3131, __pyx_L1_error)
   __pyx_v_x = __pyx_t_6;
 
-  /* "sqlcycli/transcode.py":3147
+  /* "sqlcycli/transcode.py":3132
  *     n = struct.unpack(">Q", s)[0]
  *     x = unpack_uint64_big_endian(s, 0)  # type: ignore
  *     assert val == n == x, f"{n} | {x}"             # <<<<<<<<<<<<<<
@@ -42864,25 +42864,25 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3147, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_v_n, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3147, __pyx_L1_error)
+    __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_v_n, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3132, __pyx_L1_error)
     if (__Pyx_PyObject_IsTrue(__pyx_t_2)) {
       __Pyx_DECREF(__pyx_t_2);
-      __pyx_t_3 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3147, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG(__pyx_v_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3147, __pyx_L1_error)
+      __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3132, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3147, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3132, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (unlikely(!__pyx_t_7)) {
-      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3147, __pyx_L1_error)
+      __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_8 = 0;
       __pyx_t_9 = 127;
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3147, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
       __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -42893,32 +42893,32 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
       __pyx_t_8 += 3;
       __Pyx_GIVEREF(__pyx_kp_u__29);
       PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_kp_u__29);
-      __pyx_t_1 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_x, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3147, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_From_unsigned_PY_LONG_LONG(__pyx_v_x, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3147, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(1, 3147, __pyx_L1_error)
+      __PYX_ERR(1, 3132, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(1, 3147, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(1, 3132, __pyx_L1_error)
   #endif
 
-  /* "sqlcycli/transcode.py":3148
+  /* "sqlcycli/transcode.py":3133
  *     x = unpack_uint64_big_endian(s, 0)  # type: ignore
  *     assert val == n == x, f"{n} | {x}"
  *     print("Pass Unpack Uint64 Big Endian".ljust(80))             # <<<<<<<<<<<<<<
  * 
  *     del struct
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Unpack_Uint64_Big_Endian, __pyx_n_s_ljust); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3148, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Unpack_Uint64_Big_Endian, __pyx_n_s_ljust); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -42938,16 +42938,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_int_80};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3148, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3148, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3150
+  /* "sqlcycli/transcode.py":3135
  *     print("Pass Unpack Uint64 Big Endian".ljust(80))
  * 
  *     del struct             # <<<<<<<<<<<<<<
@@ -42956,7 +42956,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
  */
   __Pyx_DECREF(__pyx_v_struct); __pyx_v_struct = 0;
 
-  /* "sqlcycli/transcode.py":3140
+  /* "sqlcycli/transcode.py":3125
  * 
  * 
  * def _test_unpack_uint64_big_endian() -> None:             # <<<<<<<<<<<<<<
@@ -42982,7 +42982,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_16_test_unpack_uint64_big_endian(
   return __pyx_r;
 }
 
-/* "sqlcycli/transcode.py":3153
+/* "sqlcycli/transcode.py":3138
  * 
  * 
  * def _test_date_n_time() -> None:             # <<<<<<<<<<<<<<
@@ -43049,41 +43049,41 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_test_date_n_time", 1);
 
-  /* "sqlcycli/transcode.py":3154
+  /* "sqlcycli/transcode.py":3139
  * 
  * def _test_date_n_time() -> None:
  *     import calendar             # <<<<<<<<<<<<<<
  *     from _pydatetime import _ord2ymd
  * 
  */
-  __pyx_t_1 = __Pyx_ImportDottedModule(__pyx_n_s_calendar, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3154, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_ImportDottedModule(__pyx_n_s_calendar, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_calendar = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3155
+  /* "sqlcycli/transcode.py":3140
  * def _test_date_n_time() -> None:
  *     import calendar
  *     from _pydatetime import _ord2ymd             # <<<<<<<<<<<<<<
  * 
  *     for year in range(1, 10_000):
  */
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3155, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_n_s_ord2ymd);
   __Pyx_GIVEREF(__pyx_n_s_ord2ymd);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_ord2ymd)) __PYX_ERR(1, 3155, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_pydatetime, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3155, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_ord2ymd)) __PYX_ERR(1, 3140, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_n_s_pydatetime, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_ord2ymd); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3155, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_ord2ymd); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v__ord2ymd = __pyx_t_1;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3157
+  /* "sqlcycli/transcode.py":3142
  *     from _pydatetime import _ord2ymd
  * 
  *     for year in range(1, 10_000):             # <<<<<<<<<<<<<<
@@ -43091,19 +43091,19 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
  *         x = is_leap_year(year)  # type: ignore
  */
   for (__pyx_t_3 = 1; __pyx_t_3 < 0x2710; __pyx_t_3+=1) {
-    __pyx_t_2 = __Pyx_PyInt_From_long(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3157, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyInt_From_long(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3142, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_year, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "sqlcycli/transcode.py":3158
+    /* "sqlcycli/transcode.py":3143
  * 
  *     for year in range(1, 10_000):
  *         n = calendar.isleap(year)             # <<<<<<<<<<<<<<
  *         x = is_leap_year(year)  # type: ignore
  *         assert n == x, f"{n} | {x} - year: {year}"
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_calendar, __pyx_n_s_isleap); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3158, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_calendar, __pyx_n_s_isleap); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3143, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -43123,28 +43123,28 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_year};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3158, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3143, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __Pyx_XDECREF_SET(__pyx_v_n, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "sqlcycli/transcode.py":3159
+    /* "sqlcycli/transcode.py":3144
  *     for year in range(1, 10_000):
  *         n = calendar.isleap(year)
  *         x = is_leap_year(year)  # type: ignore             # <<<<<<<<<<<<<<
  *         assert n == x, f"{n} | {x} - year: {year}"
  * 
  */
-    __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_v_year); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 3159, __pyx_L1_error)
-    __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_is_leap_year(__pyx_t_6); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(1, 3159, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3159, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_v_year); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 3144, __pyx_L1_error)
+    __pyx_t_7 = __pyx_f_8sqlcycli_9transcode_is_leap_year(__pyx_t_6); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(1, 3144, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_x, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "sqlcycli/transcode.py":3160
+    /* "sqlcycli/transcode.py":3145
  *         n = calendar.isleap(year)
  *         x = is_leap_year(year)  # type: ignore
  *         assert n == x, f"{n} | {x} - year: {year}"             # <<<<<<<<<<<<<<
@@ -43153,15 +43153,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
  */
     #ifndef CYTHON_WITHOUT_ASSERTIONS
     if (unlikely(__pyx_assertions_enabled())) {
-      __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3160, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3160, __pyx_L1_error)
+      __pyx_t_2 = PyObject_RichCompare(__pyx_v_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3145, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3145, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       if (unlikely(!__pyx_t_7)) {
-        __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3160, __pyx_L1_error)
+        __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3145, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_8 = 0;
         __pyx_t_9 = 127;
-        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3160, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3145, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
         __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -43172,7 +43172,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_8 += 3;
         __Pyx_GIVEREF(__pyx_kp_u__29);
         PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_kp_u__29);
-        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3160, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3145, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
         __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -43183,27 +43183,27 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_8 += 9;
         __Pyx_GIVEREF(__pyx_kp_u_year_2);
         PyTuple_SET_ITEM(__pyx_t_2, 3, __pyx_kp_u_year_2);
-        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_year, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3160, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_year, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3145, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
         __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
         __Pyx_GIVEREF(__pyx_t_1);
         PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_t_1);
         __pyx_t_1 = 0;
-        __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3160, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_2, 5, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3145, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __PYX_ERR(1, 3160, __pyx_L1_error)
+        __PYX_ERR(1, 3145, __pyx_L1_error)
       }
     }
     #else
-    if ((1)); else __PYX_ERR(1, 3160, __pyx_L1_error)
+    if ((1)); else __PYX_ERR(1, 3145, __pyx_L1_error)
     #endif
   }
 
-  /* "sqlcycli/transcode.py":3162
+  /* "sqlcycli/transcode.py":3147
  *         assert n == x, f"{n} | {x} - year: {year}"
  * 
  *     for year in (2023, 2024):             # <<<<<<<<<<<<<<
@@ -43215,15 +43215,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   for (;;) {
     if (__pyx_t_8 >= 2) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(1, 3162, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(1, 3147, __pyx_L1_error)
     #else
-    __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3162, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3147, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_year, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "sqlcycli/transcode.py":3163
+    /* "sqlcycli/transcode.py":3148
  * 
  *     for year in (2023, 2024):
  *         c = 0             # <<<<<<<<<<<<<<
@@ -43233,7 +43233,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
     __Pyx_INCREF(__pyx_int_0);
     __Pyx_XDECREF_SET(__pyx_v_c, __pyx_int_0);
 
-    /* "sqlcycli/transcode.py":3164
+    /* "sqlcycli/transcode.py":3149
  *     for year in (2023, 2024):
  *         c = 0
  *         for month in range(1, 13):             # <<<<<<<<<<<<<<
@@ -43243,16 +43243,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
     for (__pyx_t_3 = 1; __pyx_t_3 < 13; __pyx_t_3+=1) {
       __pyx_v_month = __pyx_t_3;
 
-      /* "sqlcycli/transcode.py":3165
+      /* "sqlcycli/transcode.py":3150
  *         c = 0
  *         for month in range(1, 13):
  *             n = calendar.monthrange(year, month)[1]             # <<<<<<<<<<<<<<
  *             x = days_bf_month(year, month)  # type: ignore
  *             assert x == c, f"{x} | {c} - year: {year} month: {month}"
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_calendar, __pyx_n_s_monthrange); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3165, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_calendar, __pyx_n_s_monthrange); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_10 = __Pyx_PyInt_From_long(__pyx_v_month); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3165, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyInt_From_long(__pyx_v_month); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __pyx_t_11 = NULL;
       __pyx_t_5 = 0;
@@ -43273,31 +43273,31 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3165, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3150, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       }
-      __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_2, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3165, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_2, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_XDECREF_SET(__pyx_v_n, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "sqlcycli/transcode.py":3166
+      /* "sqlcycli/transcode.py":3151
  *         for month in range(1, 13):
  *             n = calendar.monthrange(year, month)[1]
  *             x = days_bf_month(year, month)  # type: ignore             # <<<<<<<<<<<<<<
  *             assert x == c, f"{x} | {c} - year: {year} month: {month}"
  *             c += n
  */
-      __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_v_year); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 3166, __pyx_L1_error)
-      __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_days_bf_month(__pyx_t_6, __pyx_v_month); if (unlikely(__pyx_t_5 == ((unsigned int)-1))) __PYX_ERR(1, 3166, __pyx_L1_error)
-      __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3166, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_v_year); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 3151, __pyx_L1_error)
+      __pyx_t_5 = __pyx_f_8sqlcycli_9transcode_days_bf_month(__pyx_t_6, __pyx_v_month); if (unlikely(__pyx_t_5 == ((unsigned int)-1))) __PYX_ERR(1, 3151, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_XDECREF_SET(__pyx_v_x, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "sqlcycli/transcode.py":3167
+      /* "sqlcycli/transcode.py":3152
  *             n = calendar.monthrange(year, month)[1]
  *             x = days_bf_month(year, month)  # type: ignore
  *             assert x == c, f"{x} | {c} - year: {year} month: {month}"             # <<<<<<<<<<<<<<
@@ -43306,15 +43306,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
  */
       #ifndef CYTHON_WITHOUT_ASSERTIONS
       if (unlikely(__pyx_assertions_enabled())) {
-        __pyx_t_4 = PyObject_RichCompare(__pyx_v_x, __pyx_v_c, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3167, __pyx_L1_error)
-        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3167, __pyx_L1_error)
+        __pyx_t_4 = PyObject_RichCompare(__pyx_v_x, __pyx_v_c, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3152, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3152, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         if (unlikely(!__pyx_t_7)) {
-          __pyx_t_4 = PyTuple_New(7); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3167, __pyx_L1_error)
+          __pyx_t_4 = PyTuple_New(7); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
           __pyx_t_12 = 0;
           __pyx_t_9 = 127;
-          __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3167, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_9;
           __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -43325,7 +43325,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
           __pyx_t_12 += 3;
           __Pyx_GIVEREF(__pyx_kp_u__29);
           PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_kp_u__29);
-          __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_c, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3167, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_c, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_9;
           __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -43336,7 +43336,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
           __pyx_t_12 += 9;
           __Pyx_GIVEREF(__pyx_kp_u_year_2);
           PyTuple_SET_ITEM(__pyx_t_4, 3, __pyx_kp_u_year_2);
-          __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_year, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3167, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_year, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_9;
           __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -43347,38 +43347,38 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
           __pyx_t_12 += 8;
           __Pyx_GIVEREF(__pyx_kp_u_month_2);
           PyTuple_SET_ITEM(__pyx_t_4, 5, __pyx_kp_u_month_2);
-          __pyx_t_2 = __Pyx_PyUnicode_From_long(__pyx_v_month, 0, ' ', 'd'); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3167, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PyUnicode_From_long(__pyx_v_month, 0, ' ', 'd'); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
           __Pyx_GIVEREF(__pyx_t_2);
           PyTuple_SET_ITEM(__pyx_t_4, 6, __pyx_t_2);
           __pyx_t_2 = 0;
-          __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_4, 7, __pyx_t_12, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3167, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_4, 7, __pyx_t_12, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_2, 0, 0);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          __PYX_ERR(1, 3167, __pyx_L1_error)
+          __PYX_ERR(1, 3152, __pyx_L1_error)
         }
       }
       #else
-      if ((1)); else __PYX_ERR(1, 3167, __pyx_L1_error)
+      if ((1)); else __PYX_ERR(1, 3152, __pyx_L1_error)
       #endif
 
-      /* "sqlcycli/transcode.py":3168
+      /* "sqlcycli/transcode.py":3153
  *             x = days_bf_month(year, month)  # type: ignore
  *             assert x == c, f"{x} | {c} - year: {year} month: {month}"
  *             c += n             # <<<<<<<<<<<<<<
  * 
  *     for ordinal in range(1, 3_652_059):
  */
-      __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_v_c, __pyx_v_n); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3168, __pyx_L1_error)
+      __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_v_c, __pyx_v_n); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3153, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_c, __pyx_t_2);
       __pyx_t_2 = 0;
     }
 
-    /* "sqlcycli/transcode.py":3162
+    /* "sqlcycli/transcode.py":3147
  *         assert n == x, f"{n} | {x} - year: {year}"
  * 
  *     for year in (2023, 2024):             # <<<<<<<<<<<<<<
@@ -43388,7 +43388,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/transcode.py":3170
+  /* "sqlcycli/transcode.py":3155
  *             c += n
  * 
  *     for ordinal in range(1, 3_652_059):             # <<<<<<<<<<<<<<
@@ -43398,14 +43398,14 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   for (__pyx_t_3 = 1; __pyx_t_3 < 0x37B9DB; __pyx_t_3+=1) {
     __pyx_v_ordinal = __pyx_t_3;
 
-    /* "sqlcycli/transcode.py":3171
+    /* "sqlcycli/transcode.py":3156
  * 
  *     for ordinal in range(1, 3_652_059):
  *         ymd_n = _ord2ymd(ordinal)             # <<<<<<<<<<<<<<
  *         ymd = ymd_fr_ordinal(ordinal)  # type: ignore
  *         ymd_x = (ymd.year, ymd.month, ymd.day)
  */
-    __pyx_t_2 = __Pyx_PyInt_From_long(__pyx_v_ordinal); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3171, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyInt_From_long(__pyx_v_ordinal); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_v__ord2ymd);
     __pyx_t_4 = __pyx_v__ord2ymd; __pyx_t_10 = NULL;
@@ -43427,51 +43427,51 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3171, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3156, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __Pyx_XDECREF_SET(__pyx_v_ymd_n, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "sqlcycli/transcode.py":3172
+    /* "sqlcycli/transcode.py":3157
  *     for ordinal in range(1, 3_652_059):
  *         ymd_n = _ord2ymd(ordinal)
  *         ymd = ymd_fr_ordinal(ordinal)  # type: ignore             # <<<<<<<<<<<<<<
  *         ymd_x = (ymd.year, ymd.month, ymd.day)
  *         assert ymd_n == ymd_x, f"{ymd_n} | {ymd_x} - ordinal: {ordinal}"
  */
-    __pyx_t_13 = __pyx_f_8sqlcycli_9transcode_ymd_fr_ordinal(__pyx_v_ordinal); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 3172, __pyx_L1_error)
+    __pyx_t_13 = __pyx_f_8sqlcycli_9transcode_ymd_fr_ordinal(__pyx_v_ordinal); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 3157, __pyx_L1_error)
     __pyx_v_ymd = __pyx_t_13;
 
-    /* "sqlcycli/transcode.py":3173
+    /* "sqlcycli/transcode.py":3158
  *         ymd_n = _ord2ymd(ordinal)
  *         ymd = ymd_fr_ordinal(ordinal)  # type: ignore
  *         ymd_x = (ymd.year, ymd.month, ymd.day)             # <<<<<<<<<<<<<<
  *         assert ymd_n == ymd_x, f"{ymd_n} | {ymd_x} - ordinal: {ordinal}"
  * 
  */
-    __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ymd.year); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3173, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ymd.year); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3158, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ymd.month); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3173, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ymd.month); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3158, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ymd.day); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3173, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ymd.day); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3158, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_10 = PyTuple_New(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3173, __pyx_L1_error)
+    __pyx_t_10 = PyTuple_New(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3158, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_1)) __PYX_ERR(1, 3173, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_1)) __PYX_ERR(1, 3158, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_4);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_4)) __PYX_ERR(1, 3173, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_4)) __PYX_ERR(1, 3158, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_t_2)) __PYX_ERR(1, 3173, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_t_2)) __PYX_ERR(1, 3158, __pyx_L1_error);
     __pyx_t_1 = 0;
     __pyx_t_4 = 0;
     __pyx_t_2 = 0;
     __Pyx_XDECREF_SET(__pyx_v_ymd_x, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "sqlcycli/transcode.py":3174
+    /* "sqlcycli/transcode.py":3159
  *         ymd = ymd_fr_ordinal(ordinal)  # type: ignore
  *         ymd_x = (ymd.year, ymd.month, ymd.day)
  *         assert ymd_n == ymd_x, f"{ymd_n} | {ymd_x} - ordinal: {ordinal}"             # <<<<<<<<<<<<<<
@@ -43480,15 +43480,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
  */
     #ifndef CYTHON_WITHOUT_ASSERTIONS
     if (unlikely(__pyx_assertions_enabled())) {
-      __pyx_t_10 = PyObject_RichCompare(__pyx_v_ymd_n, __pyx_v_ymd_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3174, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3174, __pyx_L1_error)
+      __pyx_t_10 = PyObject_RichCompare(__pyx_v_ymd_n, __pyx_v_ymd_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3159, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3159, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       if (unlikely(!__pyx_t_7)) {
-        __pyx_t_10 = PyTuple_New(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3174, __pyx_L1_error)
+        __pyx_t_10 = PyTuple_New(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_8 = 0;
         __pyx_t_9 = 127;
-        __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_ymd_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3174, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_ymd_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_9;
         __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -43499,7 +43499,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_8 += 3;
         __Pyx_GIVEREF(__pyx_kp_u__29);
         PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_kp_u__29);
-        __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_ymd_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3174, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_ymd_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_9;
         __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -43510,26 +43510,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_8 += 12;
         __Pyx_GIVEREF(__pyx_kp_u_ordinal);
         PyTuple_SET_ITEM(__pyx_t_10, 3, __pyx_kp_u_ordinal);
-        __pyx_t_2 = __Pyx_PyUnicode_From_long(__pyx_v_ordinal, 0, ' ', 'd'); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3174, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_From_long(__pyx_v_ordinal, 0, ' ', 'd'); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
         __Pyx_GIVEREF(__pyx_t_2);
         PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_t_2);
         __pyx_t_2 = 0;
-        __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_10, 5, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3174, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_10, 5, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_2, 0, 0);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __PYX_ERR(1, 3174, __pyx_L1_error)
+        __PYX_ERR(1, 3159, __pyx_L1_error)
       }
     }
     #else
-    if ((1)); else __PYX_ERR(1, 3174, __pyx_L1_error)
+    if ((1)); else __PYX_ERR(1, 3159, __pyx_L1_error)
     #endif
   }
 
-  /* "sqlcycli/transcode.py":3176
+  /* "sqlcycli/transcode.py":3161
  *         assert ymd_n == ymd_x, f"{ymd_n} | {ymd_x} - ordinal: {ordinal}"
  * 
  *     for us, hms_n in [             # <<<<<<<<<<<<<<
@@ -43541,9 +43541,9 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   for (;;) {
     if (__pyx_t_8 >= 8) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_10 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_10); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(1, 3176, __pyx_L1_error)
+    __pyx_t_10 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_10); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(1, 3161, __pyx_L1_error)
     #else
-    __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3176, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     #endif
     if (likely(__pyx_t_10 != Py_None)) {
@@ -43552,7 +43552,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(1, 3176, __pyx_L1_error)
+        __PYX_ERR(1, 3161, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       __pyx_t_4 = PyTuple_GET_ITEM(sequence, 0); 
@@ -43560,56 +43560,56 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_1);
       #else
-      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3176, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3161, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_1 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3176, __pyx_L1_error)
+      __pyx_t_1 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3161, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       #endif
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     } else {
-      __Pyx_RaiseNoneNotIterableError(); __PYX_ERR(1, 3176, __pyx_L1_error)
+      __Pyx_RaiseNoneNotIterableError(); __PYX_ERR(1, 3161, __pyx_L1_error)
     }
     __Pyx_XDECREF_SET(__pyx_v_us, __pyx_t_4);
     __pyx_t_4 = 0;
     __Pyx_XDECREF_SET(__pyx_v_hms_n, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "sqlcycli/transcode.py":3186
+    /* "sqlcycli/transcode.py":3171
  *         (86_400_000_001, (0, 0, 0, 1)),
  *     ]:
  *         _hmsf = hmsf_fr_us(us)  # type: ignore             # <<<<<<<<<<<<<<
  *         x = (_hmsf.hour, _hmsf.minute, _hmsf.second, _hmsf.microsecond)
  *         assert hms_n == x, f"{hms_n} | {x} - microseconds: {us}"
  */
-    __pyx_t_14 = __Pyx_PyInt_As_unsigned_PY_LONG_LONG(__pyx_v_us); if (unlikely((__pyx_t_14 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3186, __pyx_L1_error)
-    __pyx_t_15 = __pyx_f_8sqlcycli_9transcode_hmsf_fr_us(__pyx_t_14); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 3186, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyInt_As_unsigned_PY_LONG_LONG(__pyx_v_us); if (unlikely((__pyx_t_14 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(1, 3171, __pyx_L1_error)
+    __pyx_t_15 = __pyx_f_8sqlcycli_9transcode_hmsf_fr_us(__pyx_t_14); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 3171, __pyx_L1_error)
     __pyx_v__hmsf = __pyx_t_15;
 
-    /* "sqlcycli/transcode.py":3187
+    /* "sqlcycli/transcode.py":3172
  *     ]:
  *         _hmsf = hmsf_fr_us(us)  # type: ignore
  *         x = (_hmsf.hour, _hmsf.minute, _hmsf.second, _hmsf.microsecond)             # <<<<<<<<<<<<<<
  *         assert hms_n == x, f"{hms_n} | {x} - microseconds: {us}"
  * 
  */
-    __pyx_t_10 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.hour); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3187, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.hour); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.minute); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3187, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.minute); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.second); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3187, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.second); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_11 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3187, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyInt_From_unsigned_int(__pyx_v__hmsf.microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_16 = PyTuple_New(4); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3187, __pyx_L1_error)
+    __pyx_t_16 = PyTuple_New(4); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
     __Pyx_GIVEREF(__pyx_t_10);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 0, __pyx_t_10)) __PYX_ERR(1, 3187, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 0, __pyx_t_10)) __PYX_ERR(1, 3172, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 1, __pyx_t_1)) __PYX_ERR(1, 3187, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 1, __pyx_t_1)) __PYX_ERR(1, 3172, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_4);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 2, __pyx_t_4)) __PYX_ERR(1, 3187, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 2, __pyx_t_4)) __PYX_ERR(1, 3172, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_11);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 3, __pyx_t_11)) __PYX_ERR(1, 3187, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_16, 3, __pyx_t_11)) __PYX_ERR(1, 3172, __pyx_L1_error);
     __pyx_t_10 = 0;
     __pyx_t_1 = 0;
     __pyx_t_4 = 0;
@@ -43617,7 +43617,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
     __Pyx_XDECREF_SET(__pyx_v_x, __pyx_t_16);
     __pyx_t_16 = 0;
 
-    /* "sqlcycli/transcode.py":3188
+    /* "sqlcycli/transcode.py":3173
  *         _hmsf = hmsf_fr_us(us)  # type: ignore
  *         x = (_hmsf.hour, _hmsf.minute, _hmsf.second, _hmsf.microsecond)
  *         assert hms_n == x, f"{hms_n} | {x} - microseconds: {us}"             # <<<<<<<<<<<<<<
@@ -43626,15 +43626,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
  */
     #ifndef CYTHON_WITHOUT_ASSERTIONS
     if (unlikely(__pyx_assertions_enabled())) {
-      __pyx_t_16 = PyObject_RichCompare(__pyx_v_hms_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_16); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3188, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3188, __pyx_L1_error)
+      __pyx_t_16 = PyObject_RichCompare(__pyx_v_hms_n, __pyx_v_x, Py_EQ); __Pyx_XGOTREF(__pyx_t_16); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3173, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3173, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
       if (unlikely(!__pyx_t_7)) {
-        __pyx_t_16 = PyTuple_New(5); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3188, __pyx_L1_error)
+        __pyx_t_16 = PyTuple_New(5); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3173, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_16);
         __pyx_t_12 = 0;
         __pyx_t_9 = 127;
-        __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_hms_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3188, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_hms_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3173, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) : __pyx_t_9;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_11);
@@ -43645,7 +43645,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_12 += 3;
         __Pyx_GIVEREF(__pyx_kp_u__29);
         PyTuple_SET_ITEM(__pyx_t_16, 1, __pyx_kp_u__29);
-        __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3188, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_x, __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3173, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) : __pyx_t_9;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_11);
@@ -43656,26 +43656,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_12 += 17;
         __Pyx_GIVEREF(__pyx_kp_u_microseconds);
         PyTuple_SET_ITEM(__pyx_t_16, 3, __pyx_kp_u_microseconds);
-        __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_us, __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3188, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_us, __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3173, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) : __pyx_t_9;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_11);
         __Pyx_GIVEREF(__pyx_t_11);
         PyTuple_SET_ITEM(__pyx_t_16, 4, __pyx_t_11);
         __pyx_t_11 = 0;
-        __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_16, 5, __pyx_t_12, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3188, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_16, 5, __pyx_t_12, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3173, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
         __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_11, 0, 0);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        __PYX_ERR(1, 3188, __pyx_L1_error)
+        __PYX_ERR(1, 3173, __pyx_L1_error)
       }
     }
     #else
-    if ((1)); else __PYX_ERR(1, 3188, __pyx_L1_error)
+    if ((1)); else __PYX_ERR(1, 3173, __pyx_L1_error)
     #endif
 
-    /* "sqlcycli/transcode.py":3176
+    /* "sqlcycli/transcode.py":3161
  *         assert ymd_n == ymd_x, f"{ymd_n} | {ymd_x} - ordinal: {ordinal}"
  * 
  *     for us, hms_n in [             # <<<<<<<<<<<<<<
@@ -43685,7 +43685,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3190
+  /* "sqlcycli/transcode.py":3175
  *         assert hms_n == x, f"{hms_n} | {x} - microseconds: {us}"
  * 
  *     for idx, (frac, cmp) in enumerate(             # <<<<<<<<<<<<<<
@@ -43695,35 +43695,35 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   __Pyx_INCREF(__pyx_int_0);
   __pyx_t_2 = __pyx_int_0;
 
-  /* "sqlcycli/transcode.py":3191
+  /* "sqlcycli/transcode.py":3176
  * 
  *     for idx, (frac, cmp) in enumerate(
  *         [             # <<<<<<<<<<<<<<
  *             (b".1xxxxx", 100000),
  *             (b".01xxxx", 10000),
  */
-  __pyx_t_11 = PyList_New(6); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3191, __pyx_L1_error)
+  __pyx_t_11 = PyList_New(6); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3176, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_INCREF(__pyx_tuple__48);
   __Pyx_GIVEREF(__pyx_tuple__48);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 0, __pyx_tuple__48)) __PYX_ERR(1, 3191, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 0, __pyx_tuple__48)) __PYX_ERR(1, 3176, __pyx_L1_error);
   __Pyx_INCREF(__pyx_tuple__49);
   __Pyx_GIVEREF(__pyx_tuple__49);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 1, __pyx_tuple__49)) __PYX_ERR(1, 3191, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 1, __pyx_tuple__49)) __PYX_ERR(1, 3176, __pyx_L1_error);
   __Pyx_INCREF(__pyx_tuple__50);
   __Pyx_GIVEREF(__pyx_tuple__50);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 2, __pyx_tuple__50)) __PYX_ERR(1, 3191, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 2, __pyx_tuple__50)) __PYX_ERR(1, 3176, __pyx_L1_error);
   __Pyx_INCREF(__pyx_tuple__51);
   __Pyx_GIVEREF(__pyx_tuple__51);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 3, __pyx_tuple__51)) __PYX_ERR(1, 3191, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 3, __pyx_tuple__51)) __PYX_ERR(1, 3176, __pyx_L1_error);
   __Pyx_INCREF(__pyx_tuple__52);
   __Pyx_GIVEREF(__pyx_tuple__52);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 4, __pyx_tuple__52)) __PYX_ERR(1, 3191, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 4, __pyx_tuple__52)) __PYX_ERR(1, 3176, __pyx_L1_error);
   __Pyx_INCREF(__pyx_tuple__53);
   __Pyx_GIVEREF(__pyx_tuple__53);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 5, __pyx_tuple__53)) __PYX_ERR(1, 3191, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 5, __pyx_tuple__53)) __PYX_ERR(1, 3176, __pyx_L1_error);
 
-  /* "sqlcycli/transcode.py":3190
+  /* "sqlcycli/transcode.py":3175
  *         assert hms_n == x, f"{hms_n} | {x} - microseconds: {us}"
  * 
  *     for idx, (frac, cmp) in enumerate(             # <<<<<<<<<<<<<<
@@ -43736,9 +43736,9 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   for (;;) {
     if (__pyx_t_8 >= 6) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_11 = PyList_GET_ITEM(__pyx_t_16, __pyx_t_8); __Pyx_INCREF(__pyx_t_11); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(1, 3190, __pyx_L1_error)
+    __pyx_t_11 = PyList_GET_ITEM(__pyx_t_16, __pyx_t_8); __Pyx_INCREF(__pyx_t_11); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(1, 3175, __pyx_L1_error)
     #else
-    __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_16, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3190, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_16, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     #endif
     if ((likely(PyTuple_CheckExact(__pyx_t_11))) || (PyList_CheckExact(__pyx_t_11))) {
@@ -43747,7 +43747,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(1, 3190, __pyx_L1_error)
+        __PYX_ERR(1, 3175, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -43760,15 +43760,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_1);
       #else
-      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3190, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_1 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3190, __pyx_L1_error)
+      __pyx_t_1 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       #endif
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_10 = PyObject_GetIter(__pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3190, __pyx_L1_error)
+      __pyx_t_10 = PyObject_GetIter(__pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 3175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_17 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_10);
@@ -43776,7 +43776,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       __Pyx_GOTREF(__pyx_t_4);
       index = 1; __pyx_t_1 = __pyx_t_17(__pyx_t_10); if (unlikely(!__pyx_t_1)) goto __pyx_L17_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_1);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_17(__pyx_t_10), 2) < 0) __PYX_ERR(1, 3190, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_17(__pyx_t_10), 2) < 0) __PYX_ERR(1, 3175, __pyx_L1_error)
       __pyx_t_17 = NULL;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       goto __pyx_L18_unpacking_done;
@@ -43784,7 +43784,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_17 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(1, 3190, __pyx_L1_error)
+      __PYX_ERR(1, 3175, __pyx_L1_error)
       __pyx_L18_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_frac, __pyx_t_4);
@@ -43793,31 +43793,31 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
     __pyx_t_1 = 0;
     __Pyx_INCREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_idx, __pyx_t_2);
-    __pyx_t_11 = __Pyx_PyInt_AddObjC(__pyx_t_2, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3190, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyInt_AddObjC(__pyx_t_2, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_2);
     __pyx_t_2 = __pyx_t_11;
     __pyx_t_11 = 0;
 
-    /* "sqlcycli/transcode.py":3200
+    /* "sqlcycli/transcode.py":3185
  *         ]
  *     ):
  *         n = parse_us_fraction(frac, 1, idx + 2)  # type: ignore             # <<<<<<<<<<<<<<
  *         assert n == cmp, f"{n} | {cmp} - frac: {frac}"
  * 
  */
-    __pyx_t_18 = __Pyx_PyObject_AsWritableString(__pyx_v_frac); if (unlikely((!__pyx_t_18) && PyErr_Occurred())) __PYX_ERR(1, 3200, __pyx_L1_error)
-    __pyx_t_11 = __Pyx_PyInt_AddObjC(__pyx_v_idx, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3200, __pyx_L1_error)
+    __pyx_t_18 = __Pyx_PyObject_AsWritableString(__pyx_v_frac); if (unlikely((!__pyx_t_18) && PyErr_Occurred())) __PYX_ERR(1, 3185, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyInt_AddObjC(__pyx_v_idx, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_12 = __Pyx_PyIndex_AsSsize_t(__pyx_t_11); if (unlikely((__pyx_t_12 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 3200, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyIndex_AsSsize_t(__pyx_t_11); if (unlikely((__pyx_t_12 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 3185, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_parse_us_fraction(__pyx_t_18, 1, __pyx_t_12); if (unlikely(__pyx_t_6 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 3200, __pyx_L1_error)
-    __pyx_t_11 = __Pyx_PyInt_From_int(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3200, __pyx_L1_error)
+    __pyx_t_6 = __pyx_f_8sqlcycli_9transcode_parse_us_fraction(__pyx_t_18, 1, __pyx_t_12); if (unlikely(__pyx_t_6 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 3185, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyInt_From_int(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_XDECREF_SET(__pyx_v_n, __pyx_t_11);
     __pyx_t_11 = 0;
 
-    /* "sqlcycli/transcode.py":3201
+    /* "sqlcycli/transcode.py":3186
  *     ):
  *         n = parse_us_fraction(frac, 1, idx + 2)  # type: ignore
  *         assert n == cmp, f"{n} | {cmp} - frac: {frac}"             # <<<<<<<<<<<<<<
@@ -43826,15 +43826,15 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
  */
     #ifndef CYTHON_WITHOUT_ASSERTIONS
     if (unlikely(__pyx_assertions_enabled())) {
-      __pyx_t_11 = PyObject_RichCompare(__pyx_v_n, __pyx_v_cmp, Py_EQ); __Pyx_XGOTREF(__pyx_t_11); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3201, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3201, __pyx_L1_error)
+      __pyx_t_11 = PyObject_RichCompare(__pyx_v_n, __pyx_v_cmp, Py_EQ); __Pyx_XGOTREF(__pyx_t_11); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3186, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(1, 3186, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       if (unlikely(!__pyx_t_7)) {
-        __pyx_t_11 = PyTuple_New(5); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3201, __pyx_L1_error)
+        __pyx_t_11 = PyTuple_New(5); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3186, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_12 = 0;
         __pyx_t_9 = 127;
-        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3201, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_n, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3186, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -43845,7 +43845,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_12 += 3;
         __Pyx_GIVEREF(__pyx_kp_u__29);
         PyTuple_SET_ITEM(__pyx_t_11, 1, __pyx_kp_u__29);
-        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_cmp, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3201, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_cmp, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3186, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
@@ -43856,26 +43856,26 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
         __pyx_t_12 += 9;
         __Pyx_GIVEREF(__pyx_kp_u_frac);
         PyTuple_SET_ITEM(__pyx_t_11, 3, __pyx_kp_u_frac);
-        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_frac, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3201, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_frac, __pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3186, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) : __pyx_t_9;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1);
         __Pyx_GIVEREF(__pyx_t_1);
         PyTuple_SET_ITEM(__pyx_t_11, 4, __pyx_t_1);
         __pyx_t_1 = 0;
-        __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_11, 5, __pyx_t_12, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3201, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_11, 5, __pyx_t_12, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 3186, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_t_1, 0, 0);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __PYX_ERR(1, 3201, __pyx_L1_error)
+        __PYX_ERR(1, 3186, __pyx_L1_error)
       }
     }
     #else
-    if ((1)); else __PYX_ERR(1, 3201, __pyx_L1_error)
+    if ((1)); else __PYX_ERR(1, 3186, __pyx_L1_error)
     #endif
 
-    /* "sqlcycli/transcode.py":3190
+    /* "sqlcycli/transcode.py":3175
  *         assert hms_n == x, f"{hms_n} | {x} - microseconds: {us}"
  * 
  *     for idx, (frac, cmp) in enumerate(             # <<<<<<<<<<<<<<
@@ -43886,14 +43886,14 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/transcode.py":3203
+  /* "sqlcycli/transcode.py":3188
  *         assert n == cmp, f"{n} | {cmp} - frac: {frac}"
  * 
  *     print("Pass Date & Time".ljust(80))             # <<<<<<<<<<<<<<
  * 
  *     del calendar, _ord2ymd
  */
-  __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Date_Time, __pyx_n_s_ljust); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3203, __pyx_L1_error)
+  __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u_Pass_Date_Time, __pyx_n_s_ljust); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_16);
   __pyx_t_1 = NULL;
   __pyx_t_5 = 0;
@@ -43913,16 +43913,16 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_int_80};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_16, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3203, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
   }
-  __pyx_t_16 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_2); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3203, __pyx_L1_error)
+  __pyx_t_16 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_2); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 3188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_16);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
 
-  /* "sqlcycli/transcode.py":3205
+  /* "sqlcycli/transcode.py":3190
  *     print("Pass Date & Time".ljust(80))
  * 
  *     del calendar, _ord2ymd             # <<<<<<<<<<<<<<
@@ -43930,7 +43930,7 @@ static PyObject *__pyx_pf_8sqlcycli_9transcode_18_test_date_n_time(CYTHON_UNUSED
   __Pyx_DECREF(__pyx_v_calendar); __pyx_v_calendar = 0;
   __Pyx_DECREF(__pyx_v__ord2ymd); __pyx_v__ord2ymd = 0;
 
-  /* "sqlcycli/transcode.py":3153
+  /* "sqlcycli/transcode.py":3138
  * 
  * 
  * def _test_date_n_time() -> None:             # <<<<<<<<<<<<<<
@@ -46071,8 +46071,8 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 414, __pyx_L1_error)
   __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_n_s_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(0, 682, __pyx_L1_error)
   __pyx_builtin_chr = __Pyx_GetBuiltinName(__pyx_n_s_chr); if (!__pyx_builtin_chr) __PYX_ERR(1, 42, __pyx_L1_error)
-  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(1, 3083, __pyx_L1_error)
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(1, 3190, __pyx_L1_error)
+  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(1, 3068, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(1, 3175, __pyx_L1_error)
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_n_s_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(2, 1010, __pyx_L1_error)
   __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(4, 308, __pyx_L1_error)
   return 0;
@@ -46085,7 +46085,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1010
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1010
  *         __pyx_import_array()
  *     except Exception:
  *         raise ImportError("numpy._core.multiarray failed to import")             # <<<<<<<<<<<<<<
@@ -46096,7 +46096,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple_);
   __Pyx_GIVEREF(__pyx_tuple_);
 
-  /* "../../../../../tmp/build-env-1qj5p29p/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1016
+  /* "../../../../../tmp/build-env-pbnr_kl3/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1016
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -46206,208 +46206,208 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__26);
   __Pyx_GIVEREF(__pyx_tuple__26);
 
-  /* "sqlcycli/transcode.py":3144
+  /* "sqlcycli/transcode.py":3129
  * 
  *     val = 1234567890
  *     s = struct.pack(">Q", 1234567890)             # <<<<<<<<<<<<<<
  *     n = struct.unpack(">Q", s)[0]
  *     x = unpack_uint64_big_endian(s, 0)  # type: ignore
  */
-  __pyx_tuple__31 = PyTuple_Pack(2, __pyx_kp_u_Q, __pyx_int_1234567890); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(1, 3144, __pyx_L1_error)
+  __pyx_tuple__31 = PyTuple_Pack(2, __pyx_kp_u_Q, __pyx_int_1234567890); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(1, 3129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__31);
   __Pyx_GIVEREF(__pyx_tuple__31);
 
-  /* "sqlcycli/transcode.py":3162
+  /* "sqlcycli/transcode.py":3147
  *         assert n == x, f"{n} | {x} - year: {year}"
  * 
  *     for year in (2023, 2024):             # <<<<<<<<<<<<<<
  *         c = 0
  *         for month in range(1, 13):
  */
-  __pyx_tuple__32 = PyTuple_Pack(2, __pyx_int_2023, __pyx_int_2024); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(1, 3162, __pyx_L1_error)
+  __pyx_tuple__32 = PyTuple_Pack(2, __pyx_int_2023, __pyx_int_2024); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(1, 3147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__32);
   __Pyx_GIVEREF(__pyx_tuple__32);
 
-  /* "sqlcycli/transcode.py":3177
+  /* "sqlcycli/transcode.py":3162
  * 
  *     for us, hms_n in [
  *         (0, (0, 0, 0, 0)),             # <<<<<<<<<<<<<<
  *         (1, (0, 0, 0, 1)),
  *         (1_000_000, (0, 0, 1, 0)),
  */
-  __pyx_tuple__33 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_0, __pyx_int_0, __pyx_int_0); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(1, 3177, __pyx_L1_error)
+  __pyx_tuple__33 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_0, __pyx_int_0, __pyx_int_0); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(1, 3162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__33);
   __Pyx_GIVEREF(__pyx_tuple__33);
-  __pyx_tuple__34 = PyTuple_Pack(2, __pyx_int_0, __pyx_tuple__33); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(1, 3177, __pyx_L1_error)
+  __pyx_tuple__34 = PyTuple_Pack(2, __pyx_int_0, __pyx_tuple__33); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(1, 3162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__34);
   __Pyx_GIVEREF(__pyx_tuple__34);
 
-  /* "sqlcycli/transcode.py":3178
+  /* "sqlcycli/transcode.py":3163
  *     for us, hms_n in [
  *         (0, (0, 0, 0, 0)),
  *         (1, (0, 0, 0, 1)),             # <<<<<<<<<<<<<<
  *         (1_000_000, (0, 0, 1, 0)),
  *         (60_000_000, (0, 1, 0, 0)),
  */
-  __pyx_tuple__35 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_0, __pyx_int_0, __pyx_int_1); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(1, 3178, __pyx_L1_error)
+  __pyx_tuple__35 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_0, __pyx_int_0, __pyx_int_1); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(1, 3163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__35);
   __Pyx_GIVEREF(__pyx_tuple__35);
-  __pyx_tuple__36 = PyTuple_Pack(2, __pyx_int_1, __pyx_tuple__35); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(1, 3178, __pyx_L1_error)
+  __pyx_tuple__36 = PyTuple_Pack(2, __pyx_int_1, __pyx_tuple__35); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(1, 3163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__36);
   __Pyx_GIVEREF(__pyx_tuple__36);
 
-  /* "sqlcycli/transcode.py":3179
+  /* "sqlcycli/transcode.py":3164
  *         (0, (0, 0, 0, 0)),
  *         (1, (0, 0, 0, 1)),
  *         (1_000_000, (0, 0, 1, 0)),             # <<<<<<<<<<<<<<
  *         (60_000_000, (0, 1, 0, 0)),
  *         (3_600_000_000, (1, 0, 0, 0)),
  */
-  __pyx_tuple__37 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_0, __pyx_int_1, __pyx_int_0); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(1, 3179, __pyx_L1_error)
+  __pyx_tuple__37 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_0, __pyx_int_1, __pyx_int_0); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(1, 3164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__37);
   __Pyx_GIVEREF(__pyx_tuple__37);
-  __pyx_tuple__38 = PyTuple_Pack(2, __pyx_int_1000000, __pyx_tuple__37); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(1, 3179, __pyx_L1_error)
+  __pyx_tuple__38 = PyTuple_Pack(2, __pyx_int_1000000, __pyx_tuple__37); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(1, 3164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__38);
   __Pyx_GIVEREF(__pyx_tuple__38);
 
-  /* "sqlcycli/transcode.py":3180
+  /* "sqlcycli/transcode.py":3165
  *         (1, (0, 0, 0, 1)),
  *         (1_000_000, (0, 0, 1, 0)),
  *         (60_000_000, (0, 1, 0, 0)),             # <<<<<<<<<<<<<<
  *         (3_600_000_000, (1, 0, 0, 0)),
  *         (3_600_000_001, (1, 0, 0, 1)),
  */
-  __pyx_tuple__39 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_1, __pyx_int_0, __pyx_int_0); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(1, 3180, __pyx_L1_error)
+  __pyx_tuple__39 = PyTuple_Pack(4, __pyx_int_0, __pyx_int_1, __pyx_int_0, __pyx_int_0); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(1, 3165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__39);
   __Pyx_GIVEREF(__pyx_tuple__39);
-  __pyx_tuple__40 = PyTuple_Pack(2, __pyx_int_60000000, __pyx_tuple__39); if (unlikely(!__pyx_tuple__40)) __PYX_ERR(1, 3180, __pyx_L1_error)
+  __pyx_tuple__40 = PyTuple_Pack(2, __pyx_int_60000000, __pyx_tuple__39); if (unlikely(!__pyx_tuple__40)) __PYX_ERR(1, 3165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__40);
   __Pyx_GIVEREF(__pyx_tuple__40);
 
-  /* "sqlcycli/transcode.py":3181
+  /* "sqlcycli/transcode.py":3166
  *         (1_000_000, (0, 0, 1, 0)),
  *         (60_000_000, (0, 1, 0, 0)),
  *         (3_600_000_000, (1, 0, 0, 0)),             # <<<<<<<<<<<<<<
  *         (3_600_000_001, (1, 0, 0, 1)),
  *         (86_400_000_000, (0, 0, 0, 0)),
  */
-  __pyx_tuple__41 = PyTuple_Pack(4, __pyx_int_1, __pyx_int_0, __pyx_int_0, __pyx_int_0); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(1, 3181, __pyx_L1_error)
+  __pyx_tuple__41 = PyTuple_Pack(4, __pyx_int_1, __pyx_int_0, __pyx_int_0, __pyx_int_0); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(1, 3166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__41);
   __Pyx_GIVEREF(__pyx_tuple__41);
-  __pyx_tuple__42 = PyTuple_Pack(2, __pyx_int_3600000000, __pyx_tuple__41); if (unlikely(!__pyx_tuple__42)) __PYX_ERR(1, 3181, __pyx_L1_error)
+  __pyx_tuple__42 = PyTuple_Pack(2, __pyx_int_3600000000, __pyx_tuple__41); if (unlikely(!__pyx_tuple__42)) __PYX_ERR(1, 3166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__42);
   __Pyx_GIVEREF(__pyx_tuple__42);
 
-  /* "sqlcycli/transcode.py":3182
+  /* "sqlcycli/transcode.py":3167
  *         (60_000_000, (0, 1, 0, 0)),
  *         (3_600_000_000, (1, 0, 0, 0)),
  *         (3_600_000_001, (1, 0, 0, 1)),             # <<<<<<<<<<<<<<
  *         (86_400_000_000, (0, 0, 0, 0)),
  *         (86_400_000_001, (0, 0, 0, 1)),
  */
-  __pyx_tuple__43 = PyTuple_Pack(4, __pyx_int_1, __pyx_int_0, __pyx_int_0, __pyx_int_1); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(1, 3182, __pyx_L1_error)
+  __pyx_tuple__43 = PyTuple_Pack(4, __pyx_int_1, __pyx_int_0, __pyx_int_0, __pyx_int_1); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(1, 3167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__43);
   __Pyx_GIVEREF(__pyx_tuple__43);
-  __pyx_tuple__44 = PyTuple_Pack(2, __pyx_int_3600000001, __pyx_tuple__43); if (unlikely(!__pyx_tuple__44)) __PYX_ERR(1, 3182, __pyx_L1_error)
+  __pyx_tuple__44 = PyTuple_Pack(2, __pyx_int_3600000001, __pyx_tuple__43); if (unlikely(!__pyx_tuple__44)) __PYX_ERR(1, 3167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__44);
   __Pyx_GIVEREF(__pyx_tuple__44);
 
-  /* "sqlcycli/transcode.py":3183
+  /* "sqlcycli/transcode.py":3168
  *         (3_600_000_000, (1, 0, 0, 0)),
  *         (3_600_000_001, (1, 0, 0, 1)),
  *         (86_400_000_000, (0, 0, 0, 0)),             # <<<<<<<<<<<<<<
  *         (86_400_000_001, (0, 0, 0, 1)),
  *     ]:
  */
-  __pyx_tuple__45 = PyTuple_Pack(2, __pyx_int_86400000000, __pyx_tuple__33); if (unlikely(!__pyx_tuple__45)) __PYX_ERR(1, 3183, __pyx_L1_error)
+  __pyx_tuple__45 = PyTuple_Pack(2, __pyx_int_86400000000, __pyx_tuple__33); if (unlikely(!__pyx_tuple__45)) __PYX_ERR(1, 3168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__45);
   __Pyx_GIVEREF(__pyx_tuple__45);
 
-  /* "sqlcycli/transcode.py":3184
+  /* "sqlcycli/transcode.py":3169
  *         (3_600_000_001, (1, 0, 0, 1)),
  *         (86_400_000_000, (0, 0, 0, 0)),
  *         (86_400_000_001, (0, 0, 0, 1)),             # <<<<<<<<<<<<<<
  *     ]:
  *         _hmsf = hmsf_fr_us(us)  # type: ignore
  */
-  __pyx_tuple__46 = PyTuple_Pack(2, __pyx_int_86400000001, __pyx_tuple__35); if (unlikely(!__pyx_tuple__46)) __PYX_ERR(1, 3184, __pyx_L1_error)
+  __pyx_tuple__46 = PyTuple_Pack(2, __pyx_int_86400000001, __pyx_tuple__35); if (unlikely(!__pyx_tuple__46)) __PYX_ERR(1, 3169, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__46);
   __Pyx_GIVEREF(__pyx_tuple__46);
 
-  /* "sqlcycli/transcode.py":3176
+  /* "sqlcycli/transcode.py":3161
  *         assert ymd_n == ymd_x, f"{ymd_n} | {ymd_x} - ordinal: {ordinal}"
  * 
  *     for us, hms_n in [             # <<<<<<<<<<<<<<
  *         (0, (0, 0, 0, 0)),
  *         (1, (0, 0, 0, 1)),
  */
-  __pyx_tuple__47 = PyTuple_Pack(8, __pyx_tuple__34, __pyx_tuple__36, __pyx_tuple__38, __pyx_tuple__40, __pyx_tuple__42, __pyx_tuple__44, __pyx_tuple__45, __pyx_tuple__46); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(1, 3176, __pyx_L1_error)
+  __pyx_tuple__47 = PyTuple_Pack(8, __pyx_tuple__34, __pyx_tuple__36, __pyx_tuple__38, __pyx_tuple__40, __pyx_tuple__42, __pyx_tuple__44, __pyx_tuple__45, __pyx_tuple__46); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(1, 3161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__47);
   __Pyx_GIVEREF(__pyx_tuple__47);
 
-  /* "sqlcycli/transcode.py":3192
+  /* "sqlcycli/transcode.py":3177
  *     for idx, (frac, cmp) in enumerate(
  *         [
  *             (b".1xxxxx", 100000),             # <<<<<<<<<<<<<<
  *             (b".01xxxx", 10000),
  *             (b".001xxx", 1000),
  */
-  __pyx_tuple__48 = PyTuple_Pack(2, __pyx_kp_b_1xxxxx, __pyx_int_100000); if (unlikely(!__pyx_tuple__48)) __PYX_ERR(1, 3192, __pyx_L1_error)
+  __pyx_tuple__48 = PyTuple_Pack(2, __pyx_kp_b_1xxxxx, __pyx_int_100000); if (unlikely(!__pyx_tuple__48)) __PYX_ERR(1, 3177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__48);
   __Pyx_GIVEREF(__pyx_tuple__48);
 
-  /* "sqlcycli/transcode.py":3193
+  /* "sqlcycli/transcode.py":3178
  *         [
  *             (b".1xxxxx", 100000),
  *             (b".01xxxx", 10000),             # <<<<<<<<<<<<<<
  *             (b".001xxx", 1000),
  *             (b".0001xx", 100),
  */
-  __pyx_tuple__49 = PyTuple_Pack(2, __pyx_kp_b_01xxxx, __pyx_int_10000); if (unlikely(!__pyx_tuple__49)) __PYX_ERR(1, 3193, __pyx_L1_error)
+  __pyx_tuple__49 = PyTuple_Pack(2, __pyx_kp_b_01xxxx, __pyx_int_10000); if (unlikely(!__pyx_tuple__49)) __PYX_ERR(1, 3178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__49);
   __Pyx_GIVEREF(__pyx_tuple__49);
 
-  /* "sqlcycli/transcode.py":3194
+  /* "sqlcycli/transcode.py":3179
  *             (b".1xxxxx", 100000),
  *             (b".01xxxx", 10000),
  *             (b".001xxx", 1000),             # <<<<<<<<<<<<<<
  *             (b".0001xx", 100),
  *             (b".00001x", 10),
  */
-  __pyx_tuple__50 = PyTuple_Pack(2, __pyx_kp_b_001xxx, __pyx_int_1000); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(1, 3194, __pyx_L1_error)
+  __pyx_tuple__50 = PyTuple_Pack(2, __pyx_kp_b_001xxx, __pyx_int_1000); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(1, 3179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__50);
   __Pyx_GIVEREF(__pyx_tuple__50);
 
-  /* "sqlcycli/transcode.py":3195
+  /* "sqlcycli/transcode.py":3180
  *             (b".01xxxx", 10000),
  *             (b".001xxx", 1000),
  *             (b".0001xx", 100),             # <<<<<<<<<<<<<<
  *             (b".00001x", 10),
  *             (b".000001", 1),
  */
-  __pyx_tuple__51 = PyTuple_Pack(2, __pyx_kp_b_0001xx, __pyx_int_100); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(1, 3195, __pyx_L1_error)
+  __pyx_tuple__51 = PyTuple_Pack(2, __pyx_kp_b_0001xx, __pyx_int_100); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(1, 3180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__51);
   __Pyx_GIVEREF(__pyx_tuple__51);
 
-  /* "sqlcycli/transcode.py":3196
+  /* "sqlcycli/transcode.py":3181
  *             (b".001xxx", 1000),
  *             (b".0001xx", 100),
  *             (b".00001x", 10),             # <<<<<<<<<<<<<<
  *             (b".000001", 1),
  *         ]
  */
-  __pyx_tuple__52 = PyTuple_Pack(2, __pyx_kp_b_00001x, __pyx_int_10); if (unlikely(!__pyx_tuple__52)) __PYX_ERR(1, 3196, __pyx_L1_error)
+  __pyx_tuple__52 = PyTuple_Pack(2, __pyx_kp_b_00001x, __pyx_int_10); if (unlikely(!__pyx_tuple__52)) __PYX_ERR(1, 3181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__52);
   __Pyx_GIVEREF(__pyx_tuple__52);
 
-  /* "sqlcycli/transcode.py":3197
+  /* "sqlcycli/transcode.py":3182
  *             (b".0001xx", 100),
  *             (b".00001x", 10),
  *             (b".000001", 1),             # <<<<<<<<<<<<<<
  *         ]
  *     ):
  */
-  __pyx_tuple__53 = PyTuple_Pack(2, __pyx_kp_b_000001, __pyx_int_1); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(1, 3197, __pyx_L1_error)
+  __pyx_tuple__53 = PyTuple_Pack(2, __pyx_kp_b_000001, __pyx_int_1); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(1, 3182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__53);
   __Pyx_GIVEREF(__pyx_tuple__53);
 
@@ -46554,107 +46554,107 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__74);
   __Pyx_GIVEREF(__pyx_tuple__74);
 
-  /* "sqlcycli/transcode.py":2968
+  /* "sqlcycli/transcode.py":2952
  * 
  * # Decode Function -----------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def decode(
  *     value: bytes,
  */
-  __pyx_tuple__75 = PyTuple_Pack(7, __pyx_n_s_value, __pyx_n_s_field_type, __pyx_n_s_encoding, __pyx_n_s_is_binary, __pyx_n_s_use_decimal, __pyx_n_s_decode_bit, __pyx_n_s_decode_json); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(1, 2968, __pyx_L1_error)
+  __pyx_tuple__75 = PyTuple_Pack(7, __pyx_n_s_value, __pyx_n_s_field_type, __pyx_n_s_encoding, __pyx_n_s_is_binary, __pyx_n_s_use_decimal, __pyx_n_s_decode_bit, __pyx_n_s_decode_json); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(1, 2952, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__75);
   __Pyx_GIVEREF(__pyx_tuple__75);
-  __pyx_codeobj__76 = (PyObject*)__Pyx_PyCode_New(7, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__75, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_decode, 2968, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__76)) __PYX_ERR(1, 2968, __pyx_L1_error)
+  __pyx_codeobj__76 = (PyObject*)__Pyx_PyCode_New(7, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__75, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_decode, 2952, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__76)) __PYX_ERR(1, 2952, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3062
+  /* "sqlcycli/transcode.py":3047
  * 
  * ########## The following functions are for testing purpose only ##########
  * def _test_transcode() -> None:             # <<<<<<<<<<<<<<
  *     _test_encode_decode_utf8()
  *     _test_encode_decode_ascii()
  */
-  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_transcode, 3062, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(1, 3062, __pyx_L1_error)
+  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_transcode, 3047, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(1, 3047, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3072
+  /* "sqlcycli/transcode.py":3057
  * 
  * 
  * def _test_encode_decode_utf8() -> None:             # <<<<<<<<<<<<<<
  *     val = "\n\n\nEspaol"
  *     # encode
  */
-  __pyx_tuple__78 = PyTuple_Pack(6, __pyx_n_s_val, __pyx_n_s_n_2, __pyx_n_s_x, __pyx_n_s_i, __pyx_n_s_j, __pyx_n_s_k); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(1, 3072, __pyx_L1_error)
+  __pyx_tuple__78 = PyTuple_Pack(6, __pyx_n_s_val, __pyx_n_s_n_2, __pyx_n_s_x, __pyx_n_s_i, __pyx_n_s_j, __pyx_n_s_k); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(1, 3057, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__78);
   __Pyx_GIVEREF(__pyx_tuple__78);
-  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_encode_decode_utf8, 3072, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(1, 3072, __pyx_L1_error)
+  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_encode_decode_utf8, 3057, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(1, 3057, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3086
+  /* "sqlcycli/transcode.py":3071
  * 
  * 
  * def _test_encode_decode_ascii() -> None:             # <<<<<<<<<<<<<<
  *     val = "hello\nworld"
  *     # encode
  */
-  __pyx_codeobj__80 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_encode_decode_ascii, 3086, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__80)) __PYX_ERR(1, 3086, __pyx_L1_error)
+  __pyx_codeobj__80 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_encode_decode_ascii, 3071, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__80)) __PYX_ERR(1, 3071, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3100
+  /* "sqlcycli/transcode.py":3085
  * 
  * 
  * def _test_translate_str() -> None:             # <<<<<<<<<<<<<<
  *     o = str([[1], [1]])
  *     n = o.translate(BRACKET_TABLE)
  */
-  __pyx_tuple__81 = PyTuple_Pack(3, __pyx_n_s_o, __pyx_n_s_n_2, __pyx_n_s_b); if (unlikely(!__pyx_tuple__81)) __PYX_ERR(1, 3100, __pyx_L1_error)
+  __pyx_tuple__81 = PyTuple_Pack(3, __pyx_n_s_o, __pyx_n_s_n_2, __pyx_n_s_b); if (unlikely(!__pyx_tuple__81)) __PYX_ERR(1, 3085, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__81);
   __Pyx_GIVEREF(__pyx_tuple__81);
-  __pyx_codeobj__82 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__81, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_translate_str, 3100, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__82)) __PYX_ERR(1, 3100, __pyx_L1_error)
+  __pyx_codeobj__82 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__81, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_translate_str, 3085, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__82)) __PYX_ERR(1, 3085, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3108
+  /* "sqlcycli/transcode.py":3093
  * 
  * 
  * def _test_slice_chars() -> None:             # <<<<<<<<<<<<<<
  *     chs: cython.pchar = b"hello1234"
  *     # slice to chars
  */
-  __pyx_tuple__83 = PyTuple_Pack(5, __pyx_n_s_chs, __pyx_n_s_n_2, __pyx_n_s_x, __pyx_n_s_i, __pyx_n_s_j); if (unlikely(!__pyx_tuple__83)) __PYX_ERR(1, 3108, __pyx_L1_error)
+  __pyx_tuple__83 = PyTuple_Pack(5, __pyx_n_s_chs, __pyx_n_s_n_2, __pyx_n_s_x, __pyx_n_s_i, __pyx_n_s_j); if (unlikely(!__pyx_tuple__83)) __PYX_ERR(1, 3093, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__83);
   __Pyx_GIVEREF(__pyx_tuple__83);
-  __pyx_codeobj__84 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__83, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_slice_chars, 3108, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__84)) __PYX_ERR(1, 3108, __pyx_L1_error)
+  __pyx_codeobj__84 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__83, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_slice_chars, 3093, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__84)) __PYX_ERR(1, 3093, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3121
+  /* "sqlcycli/transcode.py":3106
  * 
  * 
  * def _test_chars_conversion() -> None:             # <<<<<<<<<<<<<<
  *     val: cython.pchar = b"-1234567890"
  *     n = int(val)
  */
-  __pyx_tuple__85 = PyTuple_Pack(3, __pyx_n_s_val, __pyx_n_s_n_2, __pyx_n_s_x); if (unlikely(!__pyx_tuple__85)) __PYX_ERR(1, 3121, __pyx_L1_error)
+  __pyx_tuple__85 = PyTuple_Pack(3, __pyx_n_s_val, __pyx_n_s_n_2, __pyx_n_s_x); if (unlikely(!__pyx_tuple__85)) __PYX_ERR(1, 3106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__85);
   __Pyx_GIVEREF(__pyx_tuple__85);
-  __pyx_codeobj__86 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__85, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_chars_conversion, 3121, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__86)) __PYX_ERR(1, 3121, __pyx_L1_error)
+  __pyx_codeobj__86 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__85, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_chars_conversion, 3106, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__86)) __PYX_ERR(1, 3106, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3140
+  /* "sqlcycli/transcode.py":3125
  * 
  * 
  * def _test_unpack_uint64_big_endian() -> None:             # <<<<<<<<<<<<<<
  *     import struct
  * 
  */
-  __pyx_tuple__87 = PyTuple_Pack(5, __pyx_n_s_struct, __pyx_n_s_val, __pyx_n_s_s, __pyx_n_s_n_2, __pyx_n_s_x); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(1, 3140, __pyx_L1_error)
+  __pyx_tuple__87 = PyTuple_Pack(5, __pyx_n_s_struct, __pyx_n_s_val, __pyx_n_s_s, __pyx_n_s_n_2, __pyx_n_s_x); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(1, 3125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__87);
   __Pyx_GIVEREF(__pyx_tuple__87);
-  __pyx_codeobj__88 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__87, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_unpack_uint64_big_endian, 3140, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__88)) __PYX_ERR(1, 3140, __pyx_L1_error)
+  __pyx_codeobj__88 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__87, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_unpack_uint64_big_endian, 3125, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__88)) __PYX_ERR(1, 3125, __pyx_L1_error)
 
-  /* "sqlcycli/transcode.py":3153
+  /* "sqlcycli/transcode.py":3138
  * 
  * 
  * def _test_date_n_time() -> None:             # <<<<<<<<<<<<<<
  *     import calendar
  *     from _pydatetime import _ord2ymd
  */
-  __pyx_tuple__89 = PyTuple_Pack(17, __pyx_n_s_calendar, __pyx_n_s_ord2ymd, __pyx_n_s_year, __pyx_n_s_n_2, __pyx_n_s_x, __pyx_n_s_c, __pyx_n_s_month, __pyx_n_s_ordinal_2, __pyx_n_s_ymd_n, __pyx_n_s_ymd, __pyx_n_s_ymd_x, __pyx_n_s_us, __pyx_n_s_hms_n, __pyx_n_s_hmsf, __pyx_n_s_idx, __pyx_n_s_frac_2, __pyx_n_s_cmp); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(1, 3153, __pyx_L1_error)
+  __pyx_tuple__89 = PyTuple_Pack(17, __pyx_n_s_calendar, __pyx_n_s_ord2ymd, __pyx_n_s_year, __pyx_n_s_n_2, __pyx_n_s_x, __pyx_n_s_c, __pyx_n_s_month, __pyx_n_s_ordinal_2, __pyx_n_s_ymd_n, __pyx_n_s_ymd, __pyx_n_s_ymd_x, __pyx_n_s_us, __pyx_n_s_hms_n, __pyx_n_s_hmsf, __pyx_n_s_idx, __pyx_n_s_frac_2, __pyx_n_s_cmp); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(1, 3138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__89);
   __Pyx_GIVEREF(__pyx_tuple__89);
-  __pyx_codeobj__90 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 17, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__89, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_date_n_time, 3153, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__90)) __PYX_ERR(1, 3153, __pyx_L1_error)
+  __pyx_codeobj__90 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 17, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__89, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli_transcode_py, __pyx_n_s_test_date_n_time, 3138, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__90)) __PYX_ERR(1, 3138, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __pyx_unpickle__CustomType(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
@@ -48671,163 +48671,163 @@ if (!__Pyx_RefNanny) {
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_escape, __pyx_t_7) < 0) __PYX_ERR(1, 2611, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/transcode.py":2968
+  /* "sqlcycli/transcode.py":2952
  * 
  * # Decode Function -----------------------------------------------------------------------------
  * @cython.ccall             # <<<<<<<<<<<<<<
  * def decode(
  *     value: bytes,
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 2968, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 2952, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_value, __pyx_n_s_bytes) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_field_type, __pyx_kp_s_cython_uint) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_encoding, __pyx_kp_s_cython_pchar) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_is_binary, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_use_decimal, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_decode_bit, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_decode_json, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_3decode, 0, __pyx_n_s_decode, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__76)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2968, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_value, __pyx_n_s_bytes) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_field_type, __pyx_kp_s_cython_uint) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_encoding, __pyx_kp_s_cython_pchar) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_is_binary, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_use_decimal, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_decode_bit, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_decode_json, __pyx_kp_s_cython_bint) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_3decode, 0, __pyx_n_s_decode, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__76)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 2952, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_decode, __pyx_t_3) < 0) __PYX_ERR(1, 2968, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_decode, __pyx_t_3) < 0) __PYX_ERR(1, 2952, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/transcode.py":3062
+  /* "sqlcycli/transcode.py":3047
  * 
  * ########## The following functions are for testing purpose only ##########
  * def _test_transcode() -> None:             # <<<<<<<<<<<<<<
  *     _test_encode_decode_utf8()
  *     _test_encode_decode_ascii()
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3062, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3047, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3062, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_5_test_transcode, 0, __pyx_n_s_test_transcode, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3062, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3047, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_5_test_transcode, 0, __pyx_n_s_test_transcode, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3047, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_transcode, __pyx_t_7) < 0) __PYX_ERR(1, 3062, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_transcode, __pyx_t_7) < 0) __PYX_ERR(1, 3047, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/transcode.py":3072
+  /* "sqlcycli/transcode.py":3057
  * 
  * 
  * def _test_encode_decode_utf8() -> None:             # <<<<<<<<<<<<<<
  *     val = "\n\n\nEspaol"
  *     # encode
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3072, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3057, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3072, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_7_test_encode_decode_utf8, 0, __pyx_n_s_test_encode_decode_utf8, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3072, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3057, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_7_test_encode_decode_utf8, 0, __pyx_n_s_test_encode_decode_utf8, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3057, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_encode_decode_utf8, __pyx_t_3) < 0) __PYX_ERR(1, 3072, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_encode_decode_utf8, __pyx_t_3) < 0) __PYX_ERR(1, 3057, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/transcode.py":3086
+  /* "sqlcycli/transcode.py":3071
  * 
  * 
  * def _test_encode_decode_ascii() -> None:             # <<<<<<<<<<<<<<
  *     val = "hello\nworld"
  *     # encode
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3086, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3071, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3086, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_9_test_encode_decode_ascii, 0, __pyx_n_s_test_encode_decode_ascii, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__80)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3086, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3071, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_9_test_encode_decode_ascii, 0, __pyx_n_s_test_encode_decode_ascii, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__80)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3071, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_encode_decode_ascii, __pyx_t_7) < 0) __PYX_ERR(1, 3086, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_encode_decode_ascii, __pyx_t_7) < 0) __PYX_ERR(1, 3071, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/transcode.py":3100
+  /* "sqlcycli/transcode.py":3085
  * 
  * 
  * def _test_translate_str() -> None:             # <<<<<<<<<<<<<<
  *     o = str([[1], [1]])
  *     n = o.translate(BRACKET_TABLE)
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3100, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3085, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3100, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_11_test_translate_str, 0, __pyx_n_s_test_translate_str, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3085, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_11_test_translate_str, 0, __pyx_n_s_test_translate_str, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3085, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_translate_str, __pyx_t_3) < 0) __PYX_ERR(1, 3100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_translate_str, __pyx_t_3) < 0) __PYX_ERR(1, 3085, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/transcode.py":3108
+  /* "sqlcycli/transcode.py":3093
  * 
  * 
  * def _test_slice_chars() -> None:             # <<<<<<<<<<<<<<
  *     chs: cython.pchar = b"hello1234"
  *     # slice to chars
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3108, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3093, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3108, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_13_test_slice_chars, 0, __pyx_n_s_test_slice_chars, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3108, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3093, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_13_test_slice_chars, 0, __pyx_n_s_test_slice_chars, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3093, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_slice_chars, __pyx_t_7) < 0) __PYX_ERR(1, 3108, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_slice_chars, __pyx_t_7) < 0) __PYX_ERR(1, 3093, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/transcode.py":3121
+  /* "sqlcycli/transcode.py":3106
  * 
  * 
  * def _test_chars_conversion() -> None:             # <<<<<<<<<<<<<<
  *     val: cython.pchar = b"-1234567890"
  *     n = int(val)
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3121, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3121, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_15_test_chars_conversion, 0, __pyx_n_s_test_chars_conversion, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__86)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3121, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3106, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_15_test_chars_conversion, 0, __pyx_n_s_test_chars_conversion, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__86)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_chars_conversion, __pyx_t_3) < 0) __PYX_ERR(1, 3121, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_chars_conversion, __pyx_t_3) < 0) __PYX_ERR(1, 3106, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/transcode.py":3140
+  /* "sqlcycli/transcode.py":3125
  * 
  * 
  * def _test_unpack_uint64_big_endian() -> None:             # <<<<<<<<<<<<<<
  *     import struct
  * 
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3140, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3140, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_17_test_unpack_uint64_big_endian, 0, __pyx_n_s_test_unpack_uint64_big_endian, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__88)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3140, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3125, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_17_test_unpack_uint64_big_endian, 0, __pyx_n_s_test_unpack_uint64_big_endian, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__88)); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_unpack_uint64_big_endian, __pyx_t_7) < 0) __PYX_ERR(1, 3140, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_unpack_uint64_big_endian, __pyx_t_7) < 0) __PYX_ERR(1, 3125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "sqlcycli/transcode.py":3153
+  /* "sqlcycli/transcode.py":3138
  * 
  * 
  * def _test_date_n_time() -> None:             # <<<<<<<<<<<<<<
  *     import calendar
  *     from _pydatetime import _ord2ymd
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3153, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 3138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3153, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_19_test_date_n_time, 0, __pyx_n_s_test_date_n_time, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__90)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3153, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(1, 3138, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_9transcode_19_test_date_n_time, 0, __pyx_n_s_test_date_n_time, NULL, __pyx_n_s_sqlcycli_transcode, __pyx_d, ((PyObject *)__pyx_codeobj__90)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_date_n_time, __pyx_t_3) < 0) __PYX_ERR(1, 3153, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_date_n_time, __pyx_t_3) < 0) __PYX_ERR(1, 3138, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":1

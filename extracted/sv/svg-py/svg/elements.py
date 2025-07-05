@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar
+from datetime import timedelta
 
 from . import _mixins as m
 from ._path import PathData
 from ._transforms import Transform
-from ._types import Length, Number, PreserveAspectRatio, ViewBoxSpec
+from ._types import Length, Number, PreserveAspectRatio, ViewBoxSpec, to_clock_value
 
 
 if TYPE_CHECKING:
@@ -50,6 +51,8 @@ class Element:
             return str(val).lower()
         if isinstance(val, (list, tuple)):
             return " ".join(cls._as_str(v) for v in val)
+        if isinstance(val, timedelta):
+            return to_clock_value(val)
         return str(val)
 
     def as_dict(self) -> dict[str, str]:
@@ -708,7 +711,6 @@ class Animate(Element, m.Animation, m.Color, m.AnimationTiming, m.GraphicsElemen
     """
     element_name = "animate"
     externalResourcesRequired: bool | None = None
-    keyPoints: str | None = None
     attributeName: str | None = None
 
 
@@ -720,8 +722,6 @@ class Set(Element, m.AnimationTiming, m.GraphicsElementEvents):
     element_name = "set"
     externalResourcesRequired: bool | None = None
     to: str | None = None
-    min: str | None = None
-    keyPoints: str | None = None
     attributeName: str | None = None
     href: str | None = None
 
@@ -733,10 +733,9 @@ class AnimateMotion(Element, m.Animation, m.AnimationTiming, m.GraphicsElementEv
     """
     element_name = "animateMotion"
     externalResourcesRequired: bool | None = None
-    path: str | None = None
-    keyPoints: str | None = None
-    rotate: str | None = None
-    origin: str | None = None
+    path: list[PathData] | None = None
+    rotate: Number | Literal["auto", "auto-reverse"] | None = None
+    origin: Literal["default"] | None = None
 
 
 @dataclass
@@ -757,7 +756,6 @@ class AnimateTransform(Element, m.Animation, m.AnimationTiming, m.GraphicsElemen
     element_name = "animateTransform"
     externalResourcesRequired: bool | None = None
     type: Literal["translate", "scale", "rotate", "skewX", "skewY"] | None = None
-    keyPoints: str | None = None
     attributeName: str | None = None
 
 

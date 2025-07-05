@@ -36,7 +36,7 @@ from django.conf import settings
 from .pinning import this_thread_is_pinned, db_write  # noqa
 
 
-VERSION = (0, 10, 0)
+VERSION = (0, 11, 0)
 __version__ = '.'.join(map(str, VERSION))
 
 DEFAULT_DB_ALIAS = 'default'
@@ -139,8 +139,8 @@ class PinningReplicaRouter(ReplicaRouter):
 
     """
     def db_for_read(self, model, **hints):
-        """Send reads to replicas in round-robin unless this thread is "stuck" to
-        the master."""
+        """Send reads to replicas in round-robin unless this thread is
+        "stuck" to the master."""
         return DEFAULT_DB_ALIAS if this_thread_is_pinned() else get_replica()
 
 

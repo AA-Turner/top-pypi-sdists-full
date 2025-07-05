@@ -149,11 +149,21 @@ class Cache(object):
         prefixed = [self.make_key(key) for key in keys]
         return self.database.delete(*prefixed)
 
-    def keys(self):
+    def keys(self, strip_prefix=False):
         """
-        Return all keys for cached values.
+        Return all keys for cached values. By default the keys returned are the
+        *full* Redis key, including any prefix. To strip the prefix, specify
+        ``strip_prefix=False``.
+
+        :param bool strip_prefix: remove cache key prefix
+        :returns: list of Redis keys corresponding to cached data
         """
-        return imap(decode, self.database.keys(self.make_key('') + '*'))
+        if strip_prefix:
+            def _clean_key(k):
+                return decode(k)[self.prefix_len:]
+        else:
+            _clean_key = decode
+        return imap(_clean_key, self.database.keys(self.make_key('') + '*'))
 
     def flush(self):
         """Remove all cached objects from the database."""
@@ -257,11 +267,15 @@ class Cache(object):
             clock = Clock()
             print clock.now
         """
+        def key_wrapper(a, k):
+            instance = a[0]
+            return key_fn((id(instance), a), k)
+
         this = self
 
         class _cached_property(object):
             def __init__(self, fn):
-                self._fn = this.cached(key_fn, timeout)(fn)
+                self._fn = this.cached(key_wrapper, timeout)(fn)
 
             def __get__(self, instance, instance_type=None):
                 if instance is None:

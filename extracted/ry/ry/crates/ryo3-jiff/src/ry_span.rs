@@ -3,21 +3,32 @@ use crate::errors::{map_py_overflow_err, map_py_value_err};
 use crate::into_span_arithmetic::IntoSpanArithmetic;
 use crate::ry_signed_duration::RySignedDuration;
 use crate::span_relative_to::RySpanRelativeTo;
-use crate::{timespan, JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyZoned};
+use crate::{JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyZoned, timespan};
 use jiff::{Span, SpanArithmetic, SpanRelativeTo, SpanRound};
 use pyo3::prelude::*;
 use pyo3::types::{PyDelta, PyDict, PyTuple, PyType};
-use pyo3::{intern, IntoPyObjectExt};
+use pyo3::{IntoPyObjectExt, intern};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::str::FromStr;
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone)]
 #[pyclass(name = "TimeSpan", module = "ry.ryo3", frozen)]
 pub struct RySpan(pub(crate) Span);
 
+impl RySpan {
+    pub(crate) fn assert_non_zero(&self) -> PyResult<()> {
+        if self.0.is_zero() {
+            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Span cannot be zero",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
 impl PartialEq for RySpan {
     fn eq(&self, other: &Self) -> bool {
         let self_fieldwise = self.0.fieldwise();
@@ -366,16 +377,7 @@ impl RySpan {
     }
     fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
-        self.0.get_years().hash(&mut hasher);
-        self.0.get_months().hash(&mut hasher);
-        self.0.get_weeks().hash(&mut hasher);
-        self.0.get_days().hash(&mut hasher);
-        self.0.get_hours().hash(&mut hasher);
-        self.0.get_minutes().hash(&mut hasher);
-        self.0.get_seconds().hash(&mut hasher);
-        self.0.get_milliseconds().hash(&mut hasher);
-        self.0.get_microseconds().hash(&mut hasher);
-        self.0.get_nanoseconds().hash(&mut hasher);
+        self.0.fieldwise().hash(&mut hasher);
         hasher.finish()
     }
 

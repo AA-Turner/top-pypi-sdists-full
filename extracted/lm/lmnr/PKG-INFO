@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lmnr
-Version: 0.6.16
+Version: 0.6.17
 Summary: Python SDK for Laminar
 License: Apache-2.0
 Author: lmnr.ai
@@ -40,7 +40,6 @@ Provides-Extra: transformers
 Provides-Extra: vertexai
 Provides-Extra: watsonx
 Provides-Extra: weaviate
-Requires-Dist: argparse (>=1.0)
 Requires-Dist: grpcio (>=1)
 Requires-Dist: httpx (>=0.25.0)
 Requires-Dist: opentelemetry-api (>=1.33.0)

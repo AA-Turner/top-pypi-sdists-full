@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyocd
-Version: 0.36.0
+Version: 0.37.0
 Summary: Cortex-M debugger for Python
 Home-page: https://github.com/pyocd/pyOCD
 Maintainer: Chris Reed
@@ -26,17 +26,18 @@ Classifier: Operating System :: POSIX :: BSD
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7.0
+Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: capstone<5.0,>=4.0
@@ -66,6 +67,7 @@ Requires-Dist: coverage; extra == "test"
 Requires-Dist: flake8; extra == "test"
 Requires-Dist: pylint; extra == "test"
 Requires-Dist: tox; extra == "test"
+Dynamic: license-file
 
 pyOCD
 =====
@@ -76,7 +78,7 @@ pyOCD
 
 ### News
 
-- The v0.35 release adds [Open-CMSIS-Pack debug sequence support](https://pyocd.io/docs/open_cmsis_pack_support.html).
+- The v0.37 release adds [CMSIS-Toolbox Run and Debug Management support](https://pyocd.io/docs/target_support.html).
 
 See the [wiki news page](https://github.com/pyocd/pyOCD/wiki/News) for all recent news.
 
@@ -127,7 +129,7 @@ Configuration and customization is supported through [config files](https://pyoc
 Requirements
 ------------
 
-- Python 3.7.0 or later.†
+- Python 3.8.0 or later.†
 - macOS, Linux, Windows 7 or newer, or FreeBSD
 - A recent version of [libusb](https://libusb.info/). See [libusb installation](#libusb-installation) for details.
 - Microcontroller with an Arm Cortex-M CPU
@@ -271,4 +273,4 @@ PyOCD is licensed with the permissive Apache 2.0 license. See the
 [LICENSE](https://github.com/pyocd/pyOCD/tree/main/LICENSE) file for the full text of the license. All
 documentation and the website are licensed with [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-Copyright © 2006-2022 PyOCD Authors
+Copyright © 2006-2025 PyOCD Authors

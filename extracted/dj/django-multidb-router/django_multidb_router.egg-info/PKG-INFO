@@ -1,36 +1,45 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-multidb-router
-Version: 0.10
+Version: 0.11
 Summary: Round-robin multidb router for Django.
 Home-page: https://github.com/jbalogh/django-multidb-router
 Author: Jeff Balogh
 Author-email: jbalogh@mozilla.com
 License: BSD
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: Environment :: Web Environment :: Mozilla
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.0
-Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
+Requires-Dist: Django>=4.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 django-multidb-router
 =====================
 
-.. image:: https://img.shields.io/github/workflow/status/jbalogh/django-multidb-router/CI?label=CI&logo=github&branch=master
+.. image:: https://img.shields.io/github/actions/workflow/status/jbalogh/django-multidb-router/ci.yml?branch=master
     :alt: Build Status
     :target: https://github.com/jbalogh/django-multidb-router/actions?query=workflow%3ACI
 
@@ -177,5 +186,3 @@ and Python using tox:
     $ pip install tox
 
     $ tox
-
-

@@ -300,6 +300,7 @@ def collect_filepaths(
 
         if os.path.isfile(p):
             basename = os.path.basename(p)
+            fname = os.path.splitext(basename)
             if not should_skip(exclude_item=fname,
                                exclude_types=True,
                                exclude_file_patterns=True):

@@ -1549,7 +1549,7 @@ struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile {
 };
 
 
-/* "sqlcycli/_optionfile.py":254
+/* "sqlcycli/_optionfile.py":270
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items())             # <<<<<<<<<<<<<<
@@ -1580,11 +1580,11 @@ struct __pyx_vtabstruct_8sqlcycli_4_ssl_SSL {
 static struct __pyx_vtabstruct_8sqlcycli_4_ssl_SSL *__pyx_vtabptr_8sqlcycli_4_ssl_SSL;
 
 
-/* "sqlcycli/_optionfile.py":46
+/* "sqlcycli/_optionfile.py":55
  * # MysqlOption ---------------------------------------------------------------------------------
  * @cython.cclass
  * class OptionFile:             # <<<<<<<<<<<<<<
- *     """Represents the configuration form MySQL option file (my.cnf or my.ini).
+ *     """Load MySQL client options from an option file (e.g., my.cnf or my.ini).
  * 
  */
 
@@ -2542,7 +2542,7 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
 /* #### Code section: module_declarations ### */
 static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_options(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self); /* proto*/
-static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self, PyObject *__pyx_v_cfg, PyObject *__pyx_v_value, PyObject *__pyx_v_default); /* proto*/
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self, PyObject *__pyx_v_cfg, PyObject *__pyx_v_key, PyObject *__pyx_v_default); /* proto*/
 static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__validate_path(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self, PyObject *__pyx_v_path, PyObject *__pyx_v_arg_name); /* proto*/
 
 /* Module declarations from "sqlcycli._ssl" */
@@ -2611,7 +2611,6 @@ static const char __pyx_k_state[] = "state";
 static const char __pyx_k_super[] = "super";
 static const char __pyx_k_throw[] = "throw";
 static const char __pyx_k_value[] = "value";
-static const char __pyx_k_Parser[] = "_Parser";
 static const char __pyx_k_client[] = "client";
 static const char __pyx_k_dict_2[] = "_dict";
 static const char __pyx_k_enable[] = "enable";
@@ -2652,7 +2651,6 @@ static const char __pyx_k_opt_group[] = "opt_group";
 static const char __pyx_k_pyx_state[] = "__pyx_state";
 static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
 static const char __pyx_k_OptionFile[] = "OptionFile";
-static const char __pyx_k_Parser_get[] = "_Parser.get";
 static const char __pyx_k_ValueError[] = "ValueError";
 static const char __pyx_k_expanduser[] = "expanduser";
 static const char __pyx_k_is_invalid[] = "' is invalid: '";
@@ -2665,6 +2663,7 @@ static const char __pyx_k_has_section[] = "has_section";
 static const char __pyx_k_mro_entries[] = "__mro_entries__";
 static const char __pyx_k_optionxform[] = "optionxform";
 static const char __pyx_k_unix_socket[] = "unix_socket";
+static const char __pyx_k_ConfigParser[] = "ConfigParser";
 static const char __pyx_k_bind_address[] = "bind-address";
 static const char __pyx_k_configparser[] = "configparser";
 static const char __pyx_k_initializing[] = "_initializing";
@@ -2673,7 +2672,6 @@ static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_ssl_password[] = "ssl-password";
 static const char __pyx_k_stringsource[] = "<stringsource>";
 static const char __pyx_k_use_setstate[] = "use_setstate";
-static const char __pyx_k_Parser___init[] = "_Parser.__init__";
 static const char __pyx_k_init_subclass[] = "__init_subclass__";
 static const char __pyx_k_reduce_cython[] = "__reduce_cython__";
 static const char __pyx_k_remove_quotes[] = "__remove_quotes";
@@ -2685,31 +2683,33 @@ static const char __pyx_k_RawConfigParser[] = "RawConfigParser";
 static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
 static const char __pyx_k_ssl_verify_cert[] = "ssl-verify-cert";
-static const char __pyx_k_Parser_optionxform[] = "_Parser.optionxform";
+static const char __pyx_k_ConfigParser_get[] = "ConfigParser.get";
 static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_max_allowed_packet[] = "max-allowed-packet";
+static const char __pyx_k_ConfigParser___init[] = "ConfigParser.__init__";
 static const char __pyx_k_max_allowed_packet_2[] = "max_allowed_packet";
 static const char __pyx_k_sqlcycli__optionfile[] = "sqlcycli._optionfile";
-static const char __pyx_k_Parser__remove_quotes[] = "_Parser__remove_quotes";
 static const char __pyx_k_default_character_set[] = "default-character-set";
 static const char __pyx_k_repr___locals_genexpr[] = "__repr__.<locals>.genexpr";
 static const char __pyx_k_InvalidOptionFileError[] = "InvalidOptionFileError";
-static const char __pyx_k_Parser___remove_quotes[] = "_Parser.__remove_quotes";
 static const char __pyx_k_OptionFileNotFoundError[] = "OptionFileNotFoundError";
 static const char __pyx_k_pyx_unpickle_OptionFile[] = "__pyx_unpickle_OptionFile";
+static const char __pyx_k_ConfigParser_optionxform[] = "ConfigParser.optionxform";
 static const char __pyx_k_OptionFile___reduce_cython[] = "OptionFile.__reduce_cython__";
+static const char __pyx_k_ConfigParser__remove_quotes[] = "_ConfigParser__remove_quotes";
 static const char __pyx_k_src_sqlcycli__optionfile_py[] = "src/sqlcycli/_optionfile.py";
+static const char __pyx_k_ConfigParser___remove_quotes[] = "ConfigParser.__remove_quotes";
 static const char __pyx_k_OptionFile___setstate_cython[] = "OptionFile.__setstate_cython__";
+static const char __pyx_k_Custom_configuration_parser_for[] = "Custom configuration parser for MySQL option files.\n\n    Extends `configparser.RawConfigParser` to handle MySQL-style option files by:\n      - Allowing options without an explicit value (`allow_no_value=True`).\n      - Stripping matching surrounding quotes from option values.\n      - Normalizing option names to lowercase with hyphens (e.g. `max_connections` \342\206\222 `max-connections`).\n\n    :param kwargs: Any keyword arguments supported by `RawConfigParser`.\n        Note that `allow_no_value` is always set to `True`.\n    ";
 static const char __pyx_k_Failed_to_load_MySQL_option_fil[] = "'>\nFailed to load MySQL option file '";
-static const char __pyx_k_Custom_parser_for_MySQL_option_f[] = "Custom parser for MySQL option file.";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x20c629e, 0xe04cd38, 0x6a4f51c) = (_bind_address, _charset, _database, _host, _max_allowed_packet, _opt_file, _opt_group, _password, _port, _ssl, _unix_socket, _user))";
 static const char __pyx_k_MySQL_option_file_does_not_conta[] = "MySQL option file does not contain '%s' group.";
 /* #### Code section: decls ### */
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_kwargs); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_key); /* proto */
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_section, PyObject *__pyx_v_option); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_kwargs); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_2__remove_quotes(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_4optionxform(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_key); /* proto */
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_6get(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_section, PyObject *__pyx_v_option); /* proto */
 static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self, PyObject *__pyx_v_opt_file, PyObject *__pyx_v_opt_group); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8opt_file___get__(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_9opt_group___get__(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self); /* proto */
@@ -2770,7 +2770,13 @@ typedef struct {
   PyTypeObject *__pyx_ptype_8sqlcycli_11_optionfile_OptionFile;
   PyTypeObject *__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr;
   PyObject *__pyx_kp_u_;
-  PyObject *__pyx_kp_s_Custom_parser_for_MySQL_option_f;
+  PyObject *__pyx_n_s_ConfigParser;
+  PyObject *__pyx_n_s_ConfigParser___init;
+  PyObject *__pyx_n_s_ConfigParser___remove_quotes;
+  PyObject *__pyx_n_s_ConfigParser__remove_quotes;
+  PyObject *__pyx_n_s_ConfigParser_get;
+  PyObject *__pyx_n_s_ConfigParser_optionxform;
+  PyObject *__pyx_kp_s_Custom_configuration_parser_for;
   PyObject *__pyx_kp_u_Error;
   PyObject *__pyx_kp_u_Failed_to_load_MySQL_option_fil;
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0;
@@ -2781,12 +2787,6 @@ typedef struct {
   PyObject *__pyx_n_s_OptionFileNotFoundError;
   PyObject *__pyx_n_s_OptionFile___reduce_cython;
   PyObject *__pyx_n_s_OptionFile___setstate_cython;
-  PyObject *__pyx_n_s_Parser;
-  PyObject *__pyx_n_s_Parser___init;
-  PyObject *__pyx_n_s_Parser___remove_quotes;
-  PyObject *__pyx_n_s_Parser__remove_quotes;
-  PyObject *__pyx_n_s_Parser_get;
-  PyObject *__pyx_n_s_Parser_optionxform;
   PyObject *__pyx_n_s_PathLike;
   PyObject *__pyx_kp_u_Path_for;
   PyObject *__pyx_n_s_PickleError;
@@ -2984,7 +2984,13 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr);
   Py_CLEAR(clear_module_state->__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr);
   Py_CLEAR(clear_module_state->__pyx_kp_u_);
-  Py_CLEAR(clear_module_state->__pyx_kp_s_Custom_parser_for_MySQL_option_f);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConfigParser);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConfigParser___init);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConfigParser___remove_quotes);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConfigParser__remove_quotes);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConfigParser_get);
+  Py_CLEAR(clear_module_state->__pyx_n_s_ConfigParser_optionxform);
+  Py_CLEAR(clear_module_state->__pyx_kp_s_Custom_configuration_parser_for);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Error);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Failed_to_load_MySQL_option_fil);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
@@ -2995,12 +3001,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_OptionFileNotFoundError);
   Py_CLEAR(clear_module_state->__pyx_n_s_OptionFile___reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_OptionFile___setstate_cython);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Parser);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Parser___init);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Parser___remove_quotes);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Parser__remove_quotes);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Parser_get);
-  Py_CLEAR(clear_module_state->__pyx_n_s_Parser_optionxform);
   Py_CLEAR(clear_module_state->__pyx_n_s_PathLike);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Path_for);
   Py_CLEAR(clear_module_state->__pyx_n_s_PickleError);
@@ -3176,7 +3176,13 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr);
   Py_VISIT(traverse_module_state->__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr);
   Py_VISIT(traverse_module_state->__pyx_kp_u_);
-  Py_VISIT(traverse_module_state->__pyx_kp_s_Custom_parser_for_MySQL_option_f);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConfigParser);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConfigParser___init);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConfigParser___remove_quotes);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConfigParser__remove_quotes);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConfigParser_get);
+  Py_VISIT(traverse_module_state->__pyx_n_s_ConfigParser_optionxform);
+  Py_VISIT(traverse_module_state->__pyx_kp_s_Custom_configuration_parser_for);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Error);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Failed_to_load_MySQL_option_fil);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
@@ -3187,12 +3193,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_OptionFileNotFoundError);
   Py_VISIT(traverse_module_state->__pyx_n_s_OptionFile___reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_OptionFile___setstate_cython);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Parser);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Parser___init);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Parser___remove_quotes);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Parser__remove_quotes);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Parser_get);
-  Py_VISIT(traverse_module_state->__pyx_n_s_Parser_optionxform);
   Py_VISIT(traverse_module_state->__pyx_n_s_PathLike);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Path_for);
   Py_VISIT(traverse_module_state->__pyx_n_s_PickleError);
@@ -3382,7 +3382,13 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_ptype_8sqlcycli_11_optionfile_OptionFile __pyx_mstate_global->__pyx_ptype_8sqlcycli_11_optionfile_OptionFile
 #define __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr __pyx_mstate_global->__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr
 #define __pyx_kp_u_ __pyx_mstate_global->__pyx_kp_u_
-#define __pyx_kp_s_Custom_parser_for_MySQL_option_f __pyx_mstate_global->__pyx_kp_s_Custom_parser_for_MySQL_option_f
+#define __pyx_n_s_ConfigParser __pyx_mstate_global->__pyx_n_s_ConfigParser
+#define __pyx_n_s_ConfigParser___init __pyx_mstate_global->__pyx_n_s_ConfigParser___init
+#define __pyx_n_s_ConfigParser___remove_quotes __pyx_mstate_global->__pyx_n_s_ConfigParser___remove_quotes
+#define __pyx_n_s_ConfigParser__remove_quotes __pyx_mstate_global->__pyx_n_s_ConfigParser__remove_quotes
+#define __pyx_n_s_ConfigParser_get __pyx_mstate_global->__pyx_n_s_ConfigParser_get
+#define __pyx_n_s_ConfigParser_optionxform __pyx_mstate_global->__pyx_n_s_ConfigParser_optionxform
+#define __pyx_kp_s_Custom_configuration_parser_for __pyx_mstate_global->__pyx_kp_s_Custom_configuration_parser_for
 #define __pyx_kp_u_Error __pyx_mstate_global->__pyx_kp_u_Error
 #define __pyx_kp_u_Failed_to_load_MySQL_option_fil __pyx_mstate_global->__pyx_kp_u_Failed_to_load_MySQL_option_fil
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0
@@ -3393,12 +3399,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_OptionFileNotFoundError __pyx_mstate_global->__pyx_n_s_OptionFileNotFoundError
 #define __pyx_n_s_OptionFile___reduce_cython __pyx_mstate_global->__pyx_n_s_OptionFile___reduce_cython
 #define __pyx_n_s_OptionFile___setstate_cython __pyx_mstate_global->__pyx_n_s_OptionFile___setstate_cython
-#define __pyx_n_s_Parser __pyx_mstate_global->__pyx_n_s_Parser
-#define __pyx_n_s_Parser___init __pyx_mstate_global->__pyx_n_s_Parser___init
-#define __pyx_n_s_Parser___remove_quotes __pyx_mstate_global->__pyx_n_s_Parser___remove_quotes
-#define __pyx_n_s_Parser__remove_quotes __pyx_mstate_global->__pyx_n_s_Parser__remove_quotes
-#define __pyx_n_s_Parser_get __pyx_mstate_global->__pyx_n_s_Parser_get
-#define __pyx_n_s_Parser_optionxform __pyx_mstate_global->__pyx_n_s_Parser_optionxform
 #define __pyx_n_s_PathLike __pyx_mstate_global->__pyx_n_s_PathLike
 #define __pyx_kp_u_Path_for __pyx_mstate_global->__pyx_kp_u_Path_for
 #define __pyx_n_s_PickleError __pyx_mstate_global->__pyx_n_s_PickleError
@@ -3550,8 +3550,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__30 __pyx_mstate_global->__pyx_codeobj__30
 /* #### Code section: module_code ### */
 
-/* "sqlcycli/_optionfile.py":24
- *     """Custom parser for MySQL option file."""
+/* "sqlcycli/_optionfile.py":33
+ *     """
  * 
  *     def __init__(self, **kwargs):             # <<<<<<<<<<<<<<
  *         kwargs["allow_no_value"] = True
@@ -3559,15 +3559,15 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_1__init__(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_1__init__(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_7_Parser_1__init__ = {"__init__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_7_Parser_1__init__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_1__init__(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_1__init__ = {"__init__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_1__init__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_1__init__(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -3614,12 +3614,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 24, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 33, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 24, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 33, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -3630,7 +3630,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 24, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 33, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3641,11 +3641,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     }
   }
   __Pyx_DECREF(__pyx_v_kwargs); __pyx_v_kwargs = 0;
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(__pyx_self, __pyx_v_self, __pyx_v_kwargs);
+  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_12ConfigParser___init__(__pyx_self, __pyx_v_self, __pyx_v_kwargs);
 
   /* function exit code */
   __Pyx_DECREF(__pyx_v_kwargs);
@@ -3659,7 +3659,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_kwargs) {
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_kwargs) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -3671,43 +3671,43 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(CYTHON_UNUSE
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/_optionfile.py":25
+  /* "sqlcycli/_optionfile.py":34
  * 
  *     def __init__(self, **kwargs):
  *         kwargs["allow_no_value"] = True             # <<<<<<<<<<<<<<
  *         RawConfigParser.__init__(self, **kwargs)
  * 
  */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_n_u_allow_no_value, Py_True) < 0))) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_n_u_allow_no_value, Py_True) < 0))) __PYX_ERR(0, 34, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":26
+  /* "sqlcycli/_optionfile.py":35
  *     def __init__(self, **kwargs):
  *         kwargs["allow_no_value"] = True
  *         RawConfigParser.__init__(self, **kwargs)             # <<<<<<<<<<<<<<
  * 
  *     @cython.wraparound(True)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_RawConfigParser); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_RawConfigParser); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_self);
   __Pyx_GIVEREF(__pyx_v_self);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_self)) __PYX_ERR(0, 26, __pyx_L1_error);
-  __pyx_t_3 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_self)) __PYX_ERR(0, 35, __pyx_L1_error);
+  __pyx_t_3 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "sqlcycli/_optionfile.py":24
- *     """Custom parser for MySQL option file."""
+  /* "sqlcycli/_optionfile.py":33
+ *     """
  * 
  *     def __init__(self, **kwargs):             # <<<<<<<<<<<<<<
  *         kwargs["allow_no_value"] = True
@@ -3722,7 +3722,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(CYTHON_UNUSE
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -3730,7 +3730,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":28
+/* "sqlcycli/_optionfile.py":37
  *         RawConfigParser.__init__(self, **kwargs)
  * 
  *     @cython.wraparound(True)             # <<<<<<<<<<<<<<
@@ -3739,15 +3739,15 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser___init__(CYTHON_UNUSE
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_3__remove_quotes(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_3__remove_quotes(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_7_Parser_3__remove_quotes = {"__remove_quotes", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_7_Parser_3__remove_quotes, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_3__remove_quotes(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_3__remove_quotes = {"__remove_quotes", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_3__remove_quotes, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_3__remove_quotes(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -3794,7 +3794,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 28, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 37, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -3802,14 +3802,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 28, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 37, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__remove_quotes", 1, 2, 2, 1); __PYX_ERR(0, 28, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__remove_quotes", 1, 2, 2, 1); __PYX_ERR(0, 37, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__remove_quotes") < 0)) __PYX_ERR(0, 28, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__remove_quotes") < 0)) __PYX_ERR(0, 37, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -3822,7 +3822,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__remove_quotes", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 28, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__remove_quotes", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 37, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3832,11 +3832,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
     }
   }
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.__remove_quotes", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.__remove_quotes", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(__pyx_self, __pyx_v_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_2__remove_quotes(__pyx_self, __pyx_v_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -3849,7 +3849,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_2__remove_quotes(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_v_quotes = NULL;
   PyObject *__pyx_v_quote = NULL;
   PyObject *__pyx_r = NULL;
@@ -3867,25 +3867,25 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__remove_quotes", 1);
 
-  /* "sqlcycli/_optionfile.py":30
+  /* "sqlcycli/_optionfile.py":39
  *     @cython.wraparound(True)
  *     def __remove_quotes(self, value):
  *         quotes = ["'", '"']             # <<<<<<<<<<<<<<
  *         for quote in quotes:
  *             if len(value) >= 2 and value[0] == value[-1] == quote:
  */
-  __pyx_t_1 = PyList_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 30, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_kp_u_);
   __Pyx_GIVEREF(__pyx_kp_u_);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_)) __PYX_ERR(0, 30, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_)) __PYX_ERR(0, 39, __pyx_L1_error);
   __Pyx_INCREF(__pyx_kp_u__2);
   __Pyx_GIVEREF(__pyx_kp_u__2);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__2)) __PYX_ERR(0, 30, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__2)) __PYX_ERR(0, 39, __pyx_L1_error);
   __pyx_v_quotes = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":31
+  /* "sqlcycli/_optionfile.py":40
  *     def __remove_quotes(self, value):
  *         quotes = ["'", '"']
  *         for quote in quotes:             # <<<<<<<<<<<<<<
@@ -3898,51 +3898,51 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 31, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 40, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(0, 31, __pyx_L1_error)
+    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(0, 40, __pyx_L1_error)
     #else
-    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 31, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_quote, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "sqlcycli/_optionfile.py":32
+    /* "sqlcycli/_optionfile.py":41
  *         quotes = ["'", '"']
  *         for quote in quotes:
  *             if len(value) >= 2 and value[0] == value[-1] == quote:             # <<<<<<<<<<<<<<
  *                 return value[1:-1]
  *         return value
  */
-    __pyx_t_5 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_5 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 41, __pyx_L1_error)
     __pyx_t_6 = (__pyx_t_5 >= 2);
     if (__pyx_t_6) {
     } else {
       __pyx_t_4 = __pyx_t_6;
       goto __pyx_L6_bool_binop_done;
     }
-    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = __Pyx_GetItemInt(__pyx_v_value, -1L, long, 1, __Pyx_PyInt_From_long, 0, 1, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_GetItemInt(__pyx_v_value, -1L, long, 1, __Pyx_PyInt_From_long, 0, 1, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 41, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = PyObject_RichCompare(__pyx_t_3, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_8 = PyObject_RichCompare(__pyx_t_3, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 41, __pyx_L1_error)
     if (__Pyx_PyObject_IsTrue(__pyx_t_8)) {
       __Pyx_DECREF(__pyx_t_8);
-      __pyx_t_8 = PyObject_RichCompare(__pyx_t_7, __pyx_v_quote, Py_EQ); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 32, __pyx_L1_error)
+      __pyx_t_8 = PyObject_RichCompare(__pyx_t_7, __pyx_v_quote, Py_EQ); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 41, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 41, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_4 = __pyx_t_6;
     __pyx_L6_bool_binop_done:;
     if (__pyx_t_4) {
 
-      /* "sqlcycli/_optionfile.py":33
+      /* "sqlcycli/_optionfile.py":42
  *         for quote in quotes:
  *             if len(value) >= 2 and value[0] == value[-1] == quote:
  *                 return value[1:-1]             # <<<<<<<<<<<<<<
@@ -3950,14 +3950,14 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
  * 
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_value, 1, -1L, NULL, NULL, &__pyx_slice__3, 1, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 33, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_value, 1, -1L, NULL, NULL, &__pyx_slice__3, 1, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 42, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_r = __pyx_t_8;
       __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "sqlcycli/_optionfile.py":32
+      /* "sqlcycli/_optionfile.py":41
  *         quotes = ["'", '"']
  *         for quote in quotes:
  *             if len(value) >= 2 and value[0] == value[-1] == quote:             # <<<<<<<<<<<<<<
@@ -3966,7 +3966,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
  */
     }
 
-    /* "sqlcycli/_optionfile.py":31
+    /* "sqlcycli/_optionfile.py":40
  *     def __remove_quotes(self, value):
  *         quotes = ["'", '"']
  *         for quote in quotes:             # <<<<<<<<<<<<<<
@@ -3976,7 +3976,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":34
+  /* "sqlcycli/_optionfile.py":43
  *             if len(value) >= 2 and value[0] == value[-1] == quote:
  *                 return value[1:-1]
  *         return value             # <<<<<<<<<<<<<<
@@ -3988,7 +3988,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
   __pyx_r = __pyx_v_value;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":28
+  /* "sqlcycli/_optionfile.py":37
  *         RawConfigParser.__init__(self, **kwargs)
  * 
  *     @cython.wraparound(True)             # <<<<<<<<<<<<<<
@@ -4002,7 +4002,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.__remove_quotes", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.__remove_quotes", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_quotes);
@@ -4012,7 +4012,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":36
+/* "sqlcycli/_optionfile.py":45
  *         return value
  * 
  *     def optionxform(self, key: str):             # <<<<<<<<<<<<<<
@@ -4021,15 +4021,15 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_2__remove_quotes(CYTH
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_5optionxform(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_5optionxform(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_7_Parser_5optionxform = {"optionxform", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_7_Parser_5optionxform, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_5optionxform(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_5optionxform = {"optionxform", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_5optionxform, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_5optionxform(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4076,7 +4076,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 36, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -4084,14 +4084,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 36, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("optionxform", 1, 2, 2, 1); __PYX_ERR(0, 36, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("optionxform", 1, 2, 2, 1); __PYX_ERR(0, 45, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "optionxform") < 0)) __PYX_ERR(0, 36, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "optionxform") < 0)) __PYX_ERR(0, 45, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -4104,7 +4104,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("optionxform", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 36, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("optionxform", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 45, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4114,12 +4114,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
     }
   }
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.optionxform", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.optionxform", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_key), (&PyUnicode_Type), 0, "key", 1))) __PYX_ERR(0, 36, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(__pyx_self, __pyx_v_self, __pyx_v_key);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_key), (&PyUnicode_Type), 0, "key", 1))) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_4optionxform(__pyx_self, __pyx_v_self, __pyx_v_key);
 
   /* function exit code */
   goto __pyx_L0;
@@ -4136,7 +4136,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_key) {
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_4optionxform(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_key) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4146,7 +4146,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("optionxform", 1);
 
-  /* "sqlcycli/_optionfile.py":37
+  /* "sqlcycli/_optionfile.py":46
  * 
  *     def optionxform(self, key: str):
  *         return key.lower().replace("_", "-")             # <<<<<<<<<<<<<<
@@ -4154,19 +4154,19 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_U
  *     def get(self, section, option):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_key); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_key); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_replace); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_replace); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":36
+  /* "sqlcycli/_optionfile.py":45
  *         return value
  * 
  *     def optionxform(self, key: str):             # <<<<<<<<<<<<<<
@@ -4178,7 +4178,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_U
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.optionxform", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.optionxform", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -4186,7 +4186,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_U
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":39
+/* "sqlcycli/_optionfile.py":48
  *         return key.lower().replace("_", "-")
  * 
  *     def get(self, section, option):             # <<<<<<<<<<<<<<
@@ -4195,15 +4195,15 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_4optionxform(CYTHON_U
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_7get(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_7get(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_7_Parser_7get = {"get", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_7_Parser_7get, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8sqlcycli_11_optionfile_7_Parser_7get(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_7get = {"get", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_7get, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8sqlcycli_11_optionfile_12ConfigParser_7get(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4253,7 +4253,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 48, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -4261,9 +4261,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 48, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("get", 1, 3, 3, 1); __PYX_ERR(0, 39, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("get", 1, 3, 3, 1); __PYX_ERR(0, 48, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -4271,14 +4271,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 48, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("get", 1, 3, 3, 2); __PYX_ERR(0, 39, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("get", 1, 3, 3, 2); __PYX_ERR(0, 48, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get") < 0)) __PYX_ERR(0, 39, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get") < 0)) __PYX_ERR(0, 48, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -4293,7 +4293,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 39, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 48, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4303,11 +4303,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
     }
   }
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(__pyx_self, __pyx_v_self, __pyx_v_section, __pyx_v_option);
+  __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_6get(__pyx_self, __pyx_v_self, __pyx_v_section, __pyx_v_option);
 
   /* function exit code */
   {
@@ -4320,7 +4320,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_section, PyObject *__pyx_v_option) {
+static PyObject *__pyx_pf_8sqlcycli_11_optionfile_12ConfigParser_6get(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_section, PyObject *__pyx_v_option) {
   PyObject *__pyx_v_value = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -4333,16 +4333,16 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get", 1);
 
-  /* "sqlcycli/_optionfile.py":40
+  /* "sqlcycli/_optionfile.py":49
  * 
  *     def get(self, section, option):
  *         value = RawConfigParser.get(self, section, option)             # <<<<<<<<<<<<<<
  *         return self.__remove_quotes(value)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_RawConfigParser); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_RawConfigParser); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -4363,14 +4363,14 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[4] = {__pyx_t_2, __pyx_v_self, __pyx_v_section, __pyx_v_option};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 3+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_value = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":41
+  /* "sqlcycli/_optionfile.py":50
  *     def get(self, section, option):
  *         value = RawConfigParser.get(self, section, option)
  *         return self.__remove_quotes(value)             # <<<<<<<<<<<<<<
@@ -4378,7 +4378,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Parser__remove_quotes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_ConfigParser__remove_quotes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = NULL;
   __pyx_t_4 = 0;
@@ -4398,7 +4398,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 41, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -4406,7 +4406,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":39
+  /* "sqlcycli/_optionfile.py":48
  *         return key.lower().replace("_", "-")
  * 
  *     def get(self, section, option):             # <<<<<<<<<<<<<<
@@ -4419,7 +4419,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_AddTraceback("sqlcycli._optionfile._Parser.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("sqlcycli._optionfile.ConfigParser.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_value);
@@ -4428,7 +4428,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":71
+/* "sqlcycli/_optionfile.py":80
  *     _ssl: SSL
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -4438,7 +4438,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_7_Parser_6get(CYTHON_UNUSED Py
 
 /* Python wrapper */
 static int __pyx_pw_8sqlcycli_11_optionfile_10OptionFile_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-PyDoc_STRVAR(__pyx_doc_8sqlcycli_11_optionfile_10OptionFile___init__, "the configuration form MySQL option file (my.cnf or my.ini).\n\n        It takes the responsibility of reading local MySQL option file\n        from the 'PyMySQL' package's <'Connection'> class.\n\n        :param opt_file `<'str/bytes/Path'>`: The path to the MySQL option file (my.cnf or my.ini).\n        :param opt_group `<'str'>`: The 'group' to read from the MySQL option file. Defaults to `'client'`.\n        ");
+PyDoc_STRVAR(__pyx_doc_8sqlcycli_11_optionfile_10OptionFile___init__, "Load MySQL client options from an option file (e.g., my.cnf or my.ini).\n\n        Reads the specified file and section to populate connection settings\n        such as host, port, credentials, charset, socket, packet size, and SSL.\n\n        :param opt_file `<'str/bytes/PathLike'>`: Path to the MySQL option file (my.cnf or my.ini).\n        :param opt_group `<'str'>`: Section name within the option file to read. Defaults to `\"client\"`.\n        ");
 #if CYTHON_UPDATE_DESCRIPTOR_DOC
 struct wrapperbase __pyx_wrapperbase_8sqlcycli_11_optionfile_10OptionFile___init__;
 #endif
@@ -4480,19 +4480,19 @@ static int __pyx_pw_8sqlcycli_11_optionfile_10OptionFile_1__init__(PyObject *__p
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 71, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 80, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_opt_group);
           if (value) { values[1] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 71, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 80, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 71, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 80, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -4508,7 +4508,7 @@ static int __pyx_pw_8sqlcycli_11_optionfile_10OptionFile_1__init__(PyObject *__p
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 71, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 80, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4522,7 +4522,7 @@ static int __pyx_pw_8sqlcycli_11_optionfile_10OptionFile_1__init__(PyObject *__p
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_opt_group), (&PyUnicode_Type), 0, "opt_group", 1))) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_opt_group), (&PyUnicode_Type), 0, "opt_group", 1))) __PYX_ERR(0, 83, __pyx_L1_error)
   __pyx_r = __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(((struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *)__pyx_v_self), __pyx_v_opt_file, __pyx_v_opt_group);
 
   /* function exit code */
@@ -4573,14 +4573,14 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "sqlcycli/_optionfile.py":84
- *         :param opt_group `<'str'>`: The 'group' to read from the MySQL option file. Defaults to `'client'`.
+  /* "sqlcycli/_optionfile.py":93
+ *         :param opt_group `<'str'>`: Section name within the option file to read. Defaults to `"client"`.
  *         """
  *         self._opt_file = self._validate_path(opt_file, "opt_file")             # <<<<<<<<<<<<<<
  *         self._opt_group = opt_group
  *         # Load options
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__validate_path(__pyx_v_self, __pyx_v_opt_file, __pyx_n_u_opt_file); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__validate_path(__pyx_v_self, __pyx_v_opt_file, __pyx_n_u_opt_file); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_opt_file);
@@ -4588,7 +4588,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
   __pyx_v_self->_opt_file = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":85
+  /* "sqlcycli/_optionfile.py":94
  *         """
  *         self._opt_file = self._validate_path(opt_file, "opt_file")
  *         self._opt_group = opt_group             # <<<<<<<<<<<<<<
@@ -4601,7 +4601,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
   __Pyx_DECREF(__pyx_v_self->_opt_group);
   __pyx_v_self->_opt_group = __pyx_v_opt_group;
 
-  /* "sqlcycli/_optionfile.py":87
+  /* "sqlcycli/_optionfile.py":96
  *         self._opt_group = opt_group
  *         # Load options
  *         try:             # <<<<<<<<<<<<<<
@@ -4617,16 +4617,16 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "sqlcycli/_optionfile.py":88
+      /* "sqlcycli/_optionfile.py":97
  *         # Load options
  *         try:
  *             self._load_options()             # <<<<<<<<<<<<<<
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(
  */
-      __pyx_t_5 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_options(__pyx_v_self); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 88, __pyx_L3_error)
+      __pyx_t_5 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_options(__pyx_v_self); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 97, __pyx_L3_error)
 
-      /* "sqlcycli/_optionfile.py":87
+      /* "sqlcycli/_optionfile.py":96
  *         self._opt_group = opt_group
  *         # Load options
  *         try:             # <<<<<<<<<<<<<<
@@ -4641,7 +4641,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "sqlcycli/_optionfile.py":89
+    /* "sqlcycli/_optionfile.py":98
  *         try:
  *             self._load_options()
  *         except Exception as err:             # <<<<<<<<<<<<<<
@@ -4651,7 +4651,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_6) {
       __Pyx_AddTraceback("sqlcycli._optionfile.OptionFile.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 89, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 98, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_8);
@@ -4659,27 +4659,27 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
       __pyx_v_err = __pyx_t_7;
       /*try:*/ {
 
-        /* "sqlcycli/_optionfile.py":90
+        /* "sqlcycli/_optionfile.py":99
  *             self._load_options()
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nFailed to load MySQL option file '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, self._opt_file, err)
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_n_s_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 90, __pyx_L14_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_n_s_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 99, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_InvalidOptionFileError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 90, __pyx_L14_error)
+        __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_InvalidOptionFileError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 99, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-        /* "sqlcycli/_optionfile.py":91
+        /* "sqlcycli/_optionfile.py":100
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(
  *                 "<'%s'>\nFailed to load MySQL option file '%s'.\n"             # <<<<<<<<<<<<<<
  *                 "Error: %s" % (self.__class__.__name__, self._opt_file, err)
  *             ) from err
  */
-        __pyx_t_10 = PyTuple_New(6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 91, __pyx_L14_error)
+        __pyx_t_10 = PyTuple_New(6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 100, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_12 = 0;
         __pyx_t_13 = 127;
@@ -4688,19 +4688,19 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
         __Pyx_GIVEREF(__pyx_kp_u__7);
         PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_kp_u__7);
 
-        /* "sqlcycli/_optionfile.py":92
+        /* "sqlcycli/_optionfile.py":101
  *             raise errors.InvalidOptionFileError(
  *                 "<'%s'>\nFailed to load MySQL option file '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, self._opt_file, err)             # <<<<<<<<<<<<<<
  *             ) from err
  * 
  */
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L14_error)
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 101, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_n_s_name); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 92, __pyx_L14_error)
+        __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_n_s_name); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 101, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_15), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L14_error)
+        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_15), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 101, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         __pyx_t_13 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_13) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_13;
@@ -4712,7 +4712,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
         __pyx_t_12 += 37;
         __Pyx_GIVEREF(__pyx_kp_u_Failed_to_load_MySQL_option_fil);
         PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_kp_u_Failed_to_load_MySQL_option_fil);
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_self->_opt_file), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L14_error)
+        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_self->_opt_file), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 101, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_14);
         __pyx_t_13 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_13) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_13;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
@@ -4723,7 +4723,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
         __pyx_t_12 += 10;
         __Pyx_GIVEREF(__pyx_kp_u_Error);
         PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_kp_u_Error);
-        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L14_error)
+        __pyx_t_14 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 101, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_14);
         __pyx_t_13 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) > __pyx_t_13) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14) : __pyx_t_13;
         __pyx_t_12 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14);
@@ -4731,14 +4731,14 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
         PyTuple_SET_ITEM(__pyx_t_10, 5, __pyx_t_14);
         __pyx_t_14 = 0;
 
-        /* "sqlcycli/_optionfile.py":91
+        /* "sqlcycli/_optionfile.py":100
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(
  *                 "<'%s'>\nFailed to load MySQL option file '%s'.\n"             # <<<<<<<<<<<<<<
  *                 "Error: %s" % (self.__class__.__name__, self._opt_file, err)
  *             ) from err
  */
-        __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_10, 6, __pyx_t_12, __pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 91, __pyx_L14_error)
+        __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_10, 6, __pyx_t_12, __pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 100, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_t_10 = NULL;
@@ -4760,12 +4760,12 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_16, 1+__pyx_t_16);
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 90, __pyx_L14_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 99, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         }
 
-        /* "sqlcycli/_optionfile.py":93
+        /* "sqlcycli/_optionfile.py":102
  *                 "<'%s'>\nFailed to load MySQL option file '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, self._opt_file, err)
  *             ) from err             # <<<<<<<<<<<<<<
@@ -4774,10 +4774,10 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
  */
         __Pyx_Raise(__pyx_t_9, 0, 0, __pyx_v_err);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 90, __pyx_L14_error)
+        __PYX_ERR(0, 99, __pyx_L14_error)
       }
 
-      /* "sqlcycli/_optionfile.py":89
+      /* "sqlcycli/_optionfile.py":98
  *         try:
  *             self._load_options()
  *         except Exception as err:             # <<<<<<<<<<<<<<
@@ -4825,7 +4825,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
     }
     goto __pyx_L5_except_error;
 
-    /* "sqlcycli/_optionfile.py":87
+    /* "sqlcycli/_optionfile.py":96
  *         self._opt_group = opt_group
  *         # Load options
  *         try:             # <<<<<<<<<<<<<<
@@ -4841,7 +4841,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
     __pyx_L8_try_end:;
   }
 
-  /* "sqlcycli/_optionfile.py":71
+  /* "sqlcycli/_optionfile.py":80
  *     _ssl: SSL
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -4869,7 +4869,7 @@ static int __pyx_pf_8sqlcycli_11_optionfile_10OptionFile___init__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":96
+/* "sqlcycli/_optionfile.py":105
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
@@ -4897,7 +4897,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8opt_file___get__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":99
+  /* "sqlcycli/_optionfile.py":108
  *     def opt_file(self) -> str | bytes | PathLike:
  *         """The path to the MySQL option file `<'str/bytes/Path'>`."""
  *         return self._opt_file             # <<<<<<<<<<<<<<
@@ -4909,7 +4909,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8opt_file___get__
   __pyx_r = __pyx_v_self->_opt_file;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":96
+  /* "sqlcycli/_optionfile.py":105
  * 
  *     # Property --------------------------------------------------------------------------------
  *     @property             # <<<<<<<<<<<<<<
@@ -4924,12 +4924,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8opt_file___get__
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":101
+/* "sqlcycli/_optionfile.py":110
  *         return self._opt_file
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def opt_group(self) -> str:
- *         """The 'group' to read from the MySQL option file `<'str'>`."""
+ *         """Section name used within the option file `<'str'>`."""
  */
 
 /* Python wrapper */
@@ -4952,9 +4952,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_9opt_group___get_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":104
+  /* "sqlcycli/_optionfile.py":113
  *     def opt_group(self) -> str:
- *         """The 'group' to read from the MySQL option file `<'str'>`."""
+ *         """Section name used within the option file `<'str'>`."""
  *         return self._opt_group             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -4964,12 +4964,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_9opt_group___get_
   __pyx_r = __pyx_v_self->_opt_group;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":101
+  /* "sqlcycli/_optionfile.py":110
  *         return self._opt_file
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def opt_group(self) -> str:
- *         """The 'group' to read from the MySQL option file `<'str'>`."""
+ *         """Section name used within the option file `<'str'>`."""
  */
 
   /* function exit code */
@@ -4979,12 +4979,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_9opt_group___get_
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":106
+/* "sqlcycli/_optionfile.py":115
  *         return self._opt_group
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def host(self) -> str:
- *         """The 'host' from the MySQL option `<'str'>`."""
+ *     def host(self) -> str | None:
+ *         """The 'host' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5007,9 +5007,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4host___get__(str
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":109
- *     def host(self) -> str:
- *         """The 'host' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":118
+ *     def host(self) -> str | None:
+ *         """The 'host' from the MySQL option `<'str/None'>`."""
  *         return self._host             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5019,12 +5019,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4host___get__(str
   __pyx_r = __pyx_v_self->_host;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":106
+  /* "sqlcycli/_optionfile.py":115
  *         return self._opt_group
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def host(self) -> str:
- *         """The 'host' from the MySQL option `<'str'>`."""
+ *     def host(self) -> str | None:
+ *         """The 'host' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5034,11 +5034,11 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4host___get__(str
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":111
+/* "sqlcycli/_optionfile.py":120
  *         return self._host
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def port(self) -> int:
+ *     def port(self) -> int | None:
  *         """The 'port' from the MySQL option `<'int'>`."""
  */
 
@@ -5068,8 +5068,8 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4port___get__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":114
- *     def port(self) -> int:
+  /* "sqlcycli/_optionfile.py":123
+ *     def port(self) -> int | None:
  *         """The 'port' from the MySQL option `<'int'>`."""
  *         return self._port if self._port != -1 else None             # <<<<<<<<<<<<<<
  * 
@@ -5078,7 +5078,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4port___get__(str
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_self->_port != -1L);
   if (__pyx_t_2) {
-    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->_port); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->_port); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -5090,11 +5090,11 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4port___get__(str
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":111
+  /* "sqlcycli/_optionfile.py":120
  *         return self._host
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def port(self) -> int:
+ *     def port(self) -> int | None:
  *         """The 'port' from the MySQL option `<'int'>`."""
  */
 
@@ -5110,12 +5110,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4port___get__(str
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":116
+/* "sqlcycli/_optionfile.py":125
  *         return self._port if self._port != -1 else None
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def user(self) -> str:
- *         """The 'user' from the MySQL option `<'str'>`."""
+ *     def user(self) -> str | None:
+ *         """The 'user' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5138,9 +5138,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4user___get__(str
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":119
- *     def user(self) -> str:
- *         """The 'user' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":128
+ *     def user(self) -> str | None:
+ *         """The 'user' from the MySQL option `<'str/None'>`."""
  *         return self._user             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5150,12 +5150,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4user___get__(str
   __pyx_r = __pyx_v_self->_user;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":116
+  /* "sqlcycli/_optionfile.py":125
  *         return self._port if self._port != -1 else None
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def user(self) -> str:
- *         """The 'user' from the MySQL option `<'str'>`."""
+ *     def user(self) -> str | None:
+ *         """The 'user' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5165,12 +5165,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_4user___get__(str
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":121
+/* "sqlcycli/_optionfile.py":130
  *         return self._user
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def password(self) -> str:
- *         """The 'password' from the MySQL option `<'str'>`."""
+ *     def password(self) -> str | None:
+ *         """The 'password' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5193,9 +5193,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8password___get__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":124
- *     def password(self) -> str:
- *         """The 'password' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":133
+ *     def password(self) -> str | None:
+ *         """The 'password' from the MySQL option `<'str/None'>`."""
  *         return self._password             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5205,12 +5205,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8password___get__
   __pyx_r = __pyx_v_self->_password;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":121
+  /* "sqlcycli/_optionfile.py":130
  *         return self._user
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def password(self) -> str:
- *         """The 'password' from the MySQL option `<'str'>`."""
+ *     def password(self) -> str | None:
+ *         """The 'password' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5220,12 +5220,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8password___get__
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":126
+/* "sqlcycli/_optionfile.py":135
  *         return self._password
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def database(self) -> str:
- *         """The 'database' from the MySQL option `<'str'>`."""
+ *     def database(self) -> str | None:
+ *         """The 'database' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5248,9 +5248,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8database___get__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":129
- *     def database(self) -> str:
- *         """The 'database' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":138
+ *     def database(self) -> str | None:
+ *         """The 'database' from the MySQL option `<'str/None'>`."""
  *         return self._database             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5260,12 +5260,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8database___get__
   __pyx_r = __pyx_v_self->_database;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":126
+  /* "sqlcycli/_optionfile.py":135
  *         return self._password
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def database(self) -> str:
- *         """The 'database' from the MySQL option `<'str'>`."""
+ *     def database(self) -> str | None:
+ *         """The 'database' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5275,12 +5275,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8database___get__
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":131
+/* "sqlcycli/_optionfile.py":140
  *         return self._database
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def charset(self) -> str:
- *         """The 'default-character-set' from the MySQL option `<'str'>`."""
+ *     def charset(self) -> str | None:
+ *         """The 'default-character-set' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5303,9 +5303,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_7charset___get__(
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":134
- *     def charset(self) -> str:
- *         """The 'default-character-set' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":143
+ *     def charset(self) -> str | None:
+ *         """The 'default-character-set' from the MySQL option `<'str/None'>`."""
  *         return self._charset             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5315,12 +5315,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_7charset___get__(
   __pyx_r = __pyx_v_self->_charset;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":131
+  /* "sqlcycli/_optionfile.py":140
  *         return self._database
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def charset(self) -> str:
- *         """The 'default-character-set' from the MySQL option `<'str'>`."""
+ *     def charset(self) -> str | None:
+ *         """The 'default-character-set' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5330,12 +5330,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_7charset___get__(
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":136
+/* "sqlcycli/_optionfile.py":145
  *         return self._charset
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def bind_address(self) -> str:
- *         """The 'bind-address' from the MySQL option `<'str'>`."""
+ *     def bind_address(self) -> str | None:
+ *         """The 'bind-address' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5358,9 +5358,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_12bind_address___
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":139
- *     def bind_address(self) -> str:
- *         """The 'bind-address' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":148
+ *     def bind_address(self) -> str | None:
+ *         """The 'bind-address' from the MySQL option `<'str/None'>`."""
  *         return self._bind_address             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5370,12 +5370,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_12bind_address___
   __pyx_r = __pyx_v_self->_bind_address;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":136
+  /* "sqlcycli/_optionfile.py":145
  *         return self._charset
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def bind_address(self) -> str:
- *         """The 'bind-address' from the MySQL option `<'str'>`."""
+ *     def bind_address(self) -> str | None:
+ *         """The 'bind-address' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5385,12 +5385,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_12bind_address___
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":141
+/* "sqlcycli/_optionfile.py":150
  *         return self._bind_address
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def unix_socket(self) -> str:
- *         """The 'socket' from the MySQL option `<'str'>`."""
+ *     def unix_socket(self) -> str | None:
+ *         """The 'socket' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5413,9 +5413,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_11unix_socket___g
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":144
- *     def unix_socket(self) -> str:
- *         """The 'socket' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":153
+ *     def unix_socket(self) -> str | None:
+ *         """The 'socket' from the MySQL option `<'str/None'>`."""
  *         return self._unix_socket             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5425,12 +5425,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_11unix_socket___g
   __pyx_r = __pyx_v_self->_unix_socket;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":141
+  /* "sqlcycli/_optionfile.py":150
  *         return self._bind_address
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def unix_socket(self) -> str:
- *         """The 'socket' from the MySQL option `<'str'>`."""
+ *     def unix_socket(self) -> str | None:
+ *         """The 'socket' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5440,12 +5440,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_11unix_socket___g
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":146
+/* "sqlcycli/_optionfile.py":155
  *         return self._unix_socket
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def max_allowed_packet(self) -> str:
- *         """The 'max-allowed-packet' from the MySQL option `<'str'>`."""
+ *     def max_allowed_packet(self) -> str | None:
+ *         """The 'max-allowed-packet' from the MySQL option `<'str/None'>`."""
  */
 
 /* Python wrapper */
@@ -5468,9 +5468,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_18max_allowed_pac
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":149
- *     def max_allowed_packet(self) -> str:
- *         """The 'max-allowed-packet' from the MySQL option `<'str'>`."""
+  /* "sqlcycli/_optionfile.py":158
+ *     def max_allowed_packet(self) -> str | None:
+ *         """The 'max-allowed-packet' from the MySQL option `<'str/None'>`."""
  *         return self._max_allowed_packet             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -5480,12 +5480,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_18max_allowed_pac
   __pyx_r = __pyx_v_self->_max_allowed_packet;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":146
+  /* "sqlcycli/_optionfile.py":155
  *         return self._unix_socket
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def max_allowed_packet(self) -> str:
- *         """The 'max-allowed-packet' from the MySQL option `<'str'>`."""
+ *     def max_allowed_packet(self) -> str | None:
+ *         """The 'max-allowed-packet' from the MySQL option `<'str/None'>`."""
  */
 
   /* function exit code */
@@ -5495,12 +5495,12 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_18max_allowed_pac
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":151
+/* "sqlcycli/_optionfile.py":160
  *         return self._max_allowed_packet
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def ssl(self) -> SSL:
- *         """The 'SSL' from the MySQL option `<'SSL'>`.
+ *     def ssl(self) -> SSL | None:
+ *         """The 'SSL' from the MySQL option `<'SSL/None'>`."""
  */
 
 /* Python wrapper */
@@ -5523,24 +5523,24 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_3ssl___get__(stru
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "sqlcycli/_optionfile.py":158
- *         If Python `ssl` module is not available, returns `None`.
- *         """
+  /* "sqlcycli/_optionfile.py":163
+ *     def ssl(self) -> SSL | None:
+ *         """The 'SSL' from the MySQL option `<'SSL/None'>`."""
  *         return self._ssl             # <<<<<<<<<<<<<<
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Options ---------------------------------------------------------------------------------
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_self->_ssl);
   __pyx_r = ((PyObject *)__pyx_v_self->_ssl);
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":151
+  /* "sqlcycli/_optionfile.py":160
  *         return self._max_allowed_packet
  * 
  *     @property             # <<<<<<<<<<<<<<
- *     def ssl(self) -> SSL:
- *         """The 'SSL' from the MySQL option `<'SSL'>`.
+ *     def ssl(self) -> SSL | None:
+ *         """The 'SSL' from the MySQL option `<'SSL/None'>`."""
  */
 
   /* function exit code */
@@ -5550,9 +5550,9 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_3ssl___get__(stru
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":161
+/* "sqlcycli/_optionfile.py":166
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Options ---------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     @cython.inline(True)
  *     @cython.exceptval(-1, check=False)
@@ -5581,14 +5581,14 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_load_options", 1);
 
-  /* "sqlcycli/_optionfile.py":167
- *         """(cfunc) Load settings from MySQL option file."""
+  /* "sqlcycli/_optionfile.py":172
+ *         """(Internal) Parse and load all options from the file/section into attributes."""
  *         # Parse options
- *         cfg = _Parser()             # <<<<<<<<<<<<<<
+ *         cfg = ConfigParser()             # <<<<<<<<<<<<<<
  *         cfg.read(self._opt_file)
  *         if not cfg.has_section(self._opt_group):
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Parser); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ConfigParser); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -5608,21 +5608,21 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __pyx_v_cfg = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":168
+  /* "sqlcycli/_optionfile.py":173
  *         # Parse options
- *         cfg = _Parser()
+ *         cfg = ConfigParser()
  *         cfg.read(self._opt_file)             # <<<<<<<<<<<<<<
  *         if not cfg.has_section(self._opt_group):
  *             raise ValueError(
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_cfg, __pyx_n_s_read); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_cfg, __pyx_n_s_read); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -5642,20 +5642,20 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_self->_opt_file};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":169
- *         cfg = _Parser()
+  /* "sqlcycli/_optionfile.py":174
+ *         cfg = ConfigParser()
  *         cfg.read(self._opt_file)
  *         if not cfg.has_section(self._opt_group):             # <<<<<<<<<<<<<<
  *             raise ValueError(
  *                 "MySQL option file does not contain '%s' group." % self._opt_group
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_cfg, __pyx_n_s_has_section); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_cfg, __pyx_n_s_has_section); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -5675,41 +5675,41 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_self->_opt_group};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = (!__pyx_t_5);
   if (unlikely(__pyx_t_6)) {
 
-    /* "sqlcycli/_optionfile.py":171
+    /* "sqlcycli/_optionfile.py":176
  *         if not cfg.has_section(self._opt_group):
  *             raise ValueError(
  *                 "MySQL option file does not contain '%s' group." % self._opt_group             # <<<<<<<<<<<<<<
  *             )
  *         # . basic
  */
-    __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_MySQL_option_file_does_not_conta, __pyx_v_self->_opt_group); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L1_error)
+    __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_MySQL_option_file_does_not_conta, __pyx_v_self->_opt_group); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 176, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "sqlcycli/_optionfile.py":170
+    /* "sqlcycli/_optionfile.py":175
  *         cfg.read(self._opt_file)
  *         if not cfg.has_section(self._opt_group):
  *             raise ValueError(             # <<<<<<<<<<<<<<
  *                 "MySQL option file does not contain '%s' group." % self._opt_group
  *             )
  */
-    __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_ValueError, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_ValueError, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 170, __pyx_L1_error)
+    __PYX_ERR(0, 175, __pyx_L1_error)
 
-    /* "sqlcycli/_optionfile.py":169
- *         cfg = _Parser()
+    /* "sqlcycli/_optionfile.py":174
+ *         cfg = ConfigParser()
  *         cfg.read(self._opt_file)
  *         if not cfg.has_section(self._opt_group):             # <<<<<<<<<<<<<<
  *             raise ValueError(
@@ -5717,39 +5717,39 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
  */
   }
 
-  /* "sqlcycli/_optionfile.py":174
+  /* "sqlcycli/_optionfile.py":179
  *             )
  *         # . basic
  *         self._host = self._access_option(cfg, "host", None)             # <<<<<<<<<<<<<<
  *         port: cython.int = int(self._access_option(cfg, "port", -1))
  *         self._port = port if port >= 0 else -1
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_host, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_host, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 174, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v_self->_host);
   __Pyx_DECREF(__pyx_v_self->_host);
   __pyx_v_self->_host = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "sqlcycli/_optionfile.py":175
+  /* "sqlcycli/_optionfile.py":180
  *         # . basic
  *         self._host = self._access_option(cfg, "host", None)
  *         port: cython.int = int(self._access_option(cfg, "port", -1))             # <<<<<<<<<<<<<<
  *         self._port = port if port >= 0 else -1
  *         self._user = self._access_option(cfg, "user", None)
  */
-  __pyx_t_2 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_port, __pyx_int_neg_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_port, __pyx_int_neg_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_7 = __Pyx_PyInt_As_int(__pyx_t_1); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyInt_As_int(__pyx_t_1); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_port = __pyx_t_7;
 
-  /* "sqlcycli/_optionfile.py":176
+  /* "sqlcycli/_optionfile.py":181
  *         self._host = self._access_option(cfg, "host", None)
  *         port: cython.int = int(self._access_option(cfg, "port", -1))
  *         self._port = port if port >= 0 else -1             # <<<<<<<<<<<<<<
@@ -5764,119 +5764,119 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
   }
   __pyx_v_self->_port = __pyx_t_7;
 
-  /* "sqlcycli/_optionfile.py":177
+  /* "sqlcycli/_optionfile.py":182
  *         port: cython.int = int(self._access_option(cfg, "port", -1))
  *         self._port = port if port >= 0 else -1
  *         self._user = self._access_option(cfg, "user", None)             # <<<<<<<<<<<<<<
  *         self._password = self._access_option(cfg, "password", None)
  *         self._database = self._access_option(cfg, "database", None)
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_user, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_user, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_user);
   __Pyx_DECREF(__pyx_v_self->_user);
   __pyx_v_self->_user = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":178
+  /* "sqlcycli/_optionfile.py":183
  *         self._port = port if port >= 0 else -1
  *         self._user = self._access_option(cfg, "user", None)
  *         self._password = self._access_option(cfg, "password", None)             # <<<<<<<<<<<<<<
  *         self._database = self._access_option(cfg, "database", None)
  *         # . charset
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_password, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_password, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_password);
   __Pyx_DECREF(__pyx_v_self->_password);
   __pyx_v_self->_password = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":179
+  /* "sqlcycli/_optionfile.py":184
  *         self._user = self._access_option(cfg, "user", None)
  *         self._password = self._access_option(cfg, "password", None)
  *         self._database = self._access_option(cfg, "database", None)             # <<<<<<<<<<<<<<
  *         # . charset
  *         self._charset = self._access_option(cfg, "default-character-set", None)
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_database, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_database, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 179, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 184, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_database);
   __Pyx_DECREF(__pyx_v_self->_database);
   __pyx_v_self->_database = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":181
+  /* "sqlcycli/_optionfile.py":186
  *         self._database = self._access_option(cfg, "database", None)
  *         # . charset
  *         self._charset = self._access_option(cfg, "default-character-set", None)             # <<<<<<<<<<<<<<
  *         # . client
  *         self._bind_address = self._access_option(cfg, "bind-address", None)
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_default_character_set, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_default_character_set, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 181, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_charset);
   __Pyx_DECREF(__pyx_v_self->_charset);
   __pyx_v_self->_charset = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":183
+  /* "sqlcycli/_optionfile.py":188
  *         self._charset = self._access_option(cfg, "default-character-set", None)
  *         # . client
  *         self._bind_address = self._access_option(cfg, "bind-address", None)             # <<<<<<<<<<<<<<
  *         self._unix_socket = self._access_option(cfg, "socket", None)
  *         self._max_allowed_packet = self._access_option(cfg, "max-allowed-packet", None)
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_bind_address, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_bind_address, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_bind_address);
   __Pyx_DECREF(__pyx_v_self->_bind_address);
   __pyx_v_self->_bind_address = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":184
+  /* "sqlcycli/_optionfile.py":189
  *         # . client
  *         self._bind_address = self._access_option(cfg, "bind-address", None)
  *         self._unix_socket = self._access_option(cfg, "socket", None)             # <<<<<<<<<<<<<<
  *         self._max_allowed_packet = self._access_option(cfg, "max-allowed-packet", None)
  *         # . ssl
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_socket, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_n_u_socket, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_unix_socket);
   __Pyx_DECREF(__pyx_v_self->_unix_socket);
   __pyx_v_self->_unix_socket = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":185
+  /* "sqlcycli/_optionfile.py":190
  *         self._bind_address = self._access_option(cfg, "bind-address", None)
  *         self._unix_socket = self._access_option(cfg, "socket", None)
  *         self._max_allowed_packet = self._access_option(cfg, "max-allowed-packet", None)             # <<<<<<<<<<<<<<
  *         # . ssl
  *         if SSL_ENABLED_C:
  */
-  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_max_allowed_packet, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_max_allowed_packet, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 185, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_max_allowed_packet);
   __Pyx_DECREF(__pyx_v_self->_max_allowed_packet);
   __pyx_v_self->_max_allowed_packet = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":187
+  /* "sqlcycli/_optionfile.py":192
  *         self._max_allowed_packet = self._access_option(cfg, "max-allowed-packet", None)
  *         # . ssl
  *         if SSL_ENABLED_C:             # <<<<<<<<<<<<<<
@@ -5885,102 +5885,102 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
  */
   if (__pyx_v_8sqlcycli_4_ssl_SSL_ENABLED_C) {
 
-    /* "sqlcycli/_optionfile.py":189
+    /* "sqlcycli/_optionfile.py":194
  *         if SSL_ENABLED_C:
  *             ssl = SSL(
  *                 self._access_option(cfg, "ssl-ca", None),             # <<<<<<<<<<<<<<
  *                 self._access_option(cfg, "ssl-capath", None),
  *                 self._access_option(cfg, "ssl-cert", None),
  */
-    __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_ca, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_ca, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "sqlcycli/_optionfile.py":190
+    /* "sqlcycli/_optionfile.py":195
  *             ssl = SSL(
  *                 self._access_option(cfg, "ssl-ca", None),
  *                 self._access_option(cfg, "ssl-capath", None),             # <<<<<<<<<<<<<<
  *                 self._access_option(cfg, "ssl-cert", None),
  *                 self._access_option(cfg, "ssl-key", None),
  */
-    __pyx_t_2 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_capath, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_capath, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
 
-    /* "sqlcycli/_optionfile.py":191
+    /* "sqlcycli/_optionfile.py":196
  *                 self._access_option(cfg, "ssl-ca", None),
  *                 self._access_option(cfg, "ssl-capath", None),
  *                 self._access_option(cfg, "ssl-cert", None),             # <<<<<<<<<<<<<<
  *                 self._access_option(cfg, "ssl-key", None),
  *                 self._access_option(cfg, "ssl-password", None),
  */
-    __pyx_t_3 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_cert, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_cert, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 196, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
 
-    /* "sqlcycli/_optionfile.py":192
+    /* "sqlcycli/_optionfile.py":197
  *                 self._access_option(cfg, "ssl-capath", None),
  *                 self._access_option(cfg, "ssl-cert", None),
  *                 self._access_option(cfg, "ssl-key", None),             # <<<<<<<<<<<<<<
  *                 self._access_option(cfg, "ssl-password", None),
  *                 True,
  */
-    __pyx_t_8 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_key, Py_None); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __pyx_t_8 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_key, Py_None); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
 
-    /* "sqlcycli/_optionfile.py":193
+    /* "sqlcycli/_optionfile.py":198
  *                 self._access_option(cfg, "ssl-cert", None),
  *                 self._access_option(cfg, "ssl-key", None),
  *                 self._access_option(cfg, "ssl-password", None),             # <<<<<<<<<<<<<<
  *                 True,
  *                 self._access_option(cfg, "ssl-verify-cert", None),
  */
-    __pyx_t_9 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_password, Py_None); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __pyx_t_9 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_password, Py_None); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 198, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
 
-    /* "sqlcycli/_optionfile.py":195
+    /* "sqlcycli/_optionfile.py":200
  *                 self._access_option(cfg, "ssl-password", None),
  *                 True,
  *                 self._access_option(cfg, "ssl-verify-cert", None),             # <<<<<<<<<<<<<<
  *                 self._access_option(cfg, "ssl-cipher", None),
  *             )
  */
-    __pyx_t_10 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_verify_cert, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __pyx_t_10 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_verify_cert, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 200, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
 
-    /* "sqlcycli/_optionfile.py":196
+    /* "sqlcycli/_optionfile.py":201
  *                 True,
  *                 self._access_option(cfg, "ssl-verify-cert", None),
  *                 self._access_option(cfg, "ssl-cipher", None),             # <<<<<<<<<<<<<<
  *             )
  *             self._ssl = ssl if ssl else None
  */
-    __pyx_t_11 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_cipher, Py_None); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 196, __pyx_L1_error)
+    __pyx_t_11 = __pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(__pyx_v_self, __pyx_v_cfg, __pyx_kp_u_ssl_cipher, Py_None); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
 
-    /* "sqlcycli/_optionfile.py":188
+    /* "sqlcycli/_optionfile.py":193
  *         # . ssl
  *         if SSL_ENABLED_C:
  *             ssl = SSL(             # <<<<<<<<<<<<<<
  *                 self._access_option(cfg, "ssl-ca", None),
  *                 self._access_option(cfg, "ssl-capath", None),
  */
-    __pyx_t_12 = PyTuple_New(8); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_12 = PyTuple_New(8); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 193, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 0, __pyx_t_1)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 0, __pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 1, __pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 1, __pyx_t_2)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 2, __pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 2, __pyx_t_3)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_8);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 3, __pyx_t_8)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 3, __pyx_t_8)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_9);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 4, __pyx_t_9)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 4, __pyx_t_9)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_INCREF(Py_True);
     __Pyx_GIVEREF(Py_True);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 5, Py_True)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 5, Py_True)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_10);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 6, __pyx_t_10)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 6, __pyx_t_10)) __PYX_ERR(0, 193, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_11);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 7, __pyx_t_11)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 7, __pyx_t_11)) __PYX_ERR(0, 193, __pyx_L1_error);
     __pyx_t_1 = 0;
     __pyx_t_2 = 0;
     __pyx_t_3 = 0;
@@ -5988,20 +5988,20 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
     __pyx_t_9 = 0;
     __pyx_t_10 = 0;
     __pyx_t_11 = 0;
-    __pyx_t_11 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_4_ssl_SSL), __pyx_t_12, NULL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_8sqlcycli_4_ssl_SSL), __pyx_t_12, NULL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 193, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __pyx_v_ssl = ((struct __pyx_obj_8sqlcycli_4_ssl_SSL *)__pyx_t_11);
     __pyx_t_11 = 0;
 
-    /* "sqlcycli/_optionfile.py":198
+    /* "sqlcycli/_optionfile.py":203
  *                 self._access_option(cfg, "ssl-cipher", None),
  *             )
  *             self._ssl = ssl if ssl else None             # <<<<<<<<<<<<<<
  *         else:
  *             self._ssl = None
  */
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_ssl)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 198, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_ssl)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 203, __pyx_L1_error)
     if (__pyx_t_6) {
       __Pyx_INCREF((PyObject *)__pyx_v_ssl);
       __pyx_t_11 = ((PyObject *)__pyx_v_ssl);
@@ -6009,14 +6009,14 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
       __Pyx_INCREF(Py_None);
       __pyx_t_11 = Py_None;
     }
-    if (!(likely(((__pyx_t_11) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_11, __pyx_ptype_8sqlcycli_4_ssl_SSL))))) __PYX_ERR(0, 198, __pyx_L1_error)
+    if (!(likely(((__pyx_t_11) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_11, __pyx_ptype_8sqlcycli_4_ssl_SSL))))) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_11);
     __Pyx_GOTREF((PyObject *)__pyx_v_self->_ssl);
     __Pyx_DECREF((PyObject *)__pyx_v_self->_ssl);
     __pyx_v_self->_ssl = ((struct __pyx_obj_8sqlcycli_4_ssl_SSL *)__pyx_t_11);
     __pyx_t_11 = 0;
 
-    /* "sqlcycli/_optionfile.py":187
+    /* "sqlcycli/_optionfile.py":192
  *         self._max_allowed_packet = self._access_option(cfg, "max-allowed-packet", None)
  *         # . ssl
  *         if SSL_ENABLED_C:             # <<<<<<<<<<<<<<
@@ -6026,7 +6026,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
     goto __pyx_L4;
   }
 
-  /* "sqlcycli/_optionfile.py":200
+  /* "sqlcycli/_optionfile.py":205
  *             self._ssl = ssl if ssl else None
  *         else:
  *             self._ssl = None             # <<<<<<<<<<<<<<
@@ -6042,7 +6042,7 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
   }
   __pyx_L4:;
 
-  /* "sqlcycli/_optionfile.py":202
+  /* "sqlcycli/_optionfile.py":207
  *             self._ssl = None
  *         # Success
  *         return True             # <<<<<<<<<<<<<<
@@ -6052,9 +6052,9 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":161
+  /* "sqlcycli/_optionfile.py":166
  * 
- *     # Methods ---------------------------------------------------------------------------------
+ *     # Options ---------------------------------------------------------------------------------
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     @cython.inline(True)
  *     @cython.exceptval(-1, check=False)
@@ -6079,15 +6079,15 @@ static CYTHON_INLINE int __pyx_f_8sqlcycli_11_optionfile_10OptionFile__load_opti
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":204
+/* "sqlcycli/_optionfile.py":209
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     @cython.inline(True)
- *     def _access_option(self, cfg: _Parser, value: str, default: object) -> object:
+ *     def _access_option(self, cfg: ConfigParser, key: str, default: object) -> object:
  */
 
-static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self, PyObject *__pyx_v_cfg, PyObject *__pyx_v_value, PyObject *__pyx_v_default) {
+static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *__pyx_v_self, PyObject *__pyx_v_cfg, PyObject *__pyx_v_key, PyObject *__pyx_v_default) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -6103,11 +6103,11 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_access_option", 1);
 
-  /* "sqlcycli/_optionfile.py":208
- *     def _access_option(self, cfg: _Parser, value: str, default: object) -> object:
- *         """(cfunc) Access the settings in the MySQL options `<'object'>`"""
+  /* "sqlcycli/_optionfile.py":220
+ *         :param default `<'object'>`: Value to return if the option is missing or invalid.
+ *         """
  *         try:             # <<<<<<<<<<<<<<
- *             return cfg.get(self._opt_group, value)
+ *             return cfg.get(self._opt_group, key)
  *         except Exception:
  */
   {
@@ -6119,15 +6119,15 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "sqlcycli/_optionfile.py":209
- *         """(cfunc) Access the settings in the MySQL options `<'object'>`"""
+      /* "sqlcycli/_optionfile.py":221
+ *         """
  *         try:
- *             return cfg.get(self._opt_group, value)             # <<<<<<<<<<<<<<
+ *             return cfg.get(self._opt_group, key)             # <<<<<<<<<<<<<<
  *         except Exception:
  *             return default
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_cfg, __pyx_n_s_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 209, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_cfg, __pyx_n_s_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 221, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_6 = NULL;
       __pyx_t_7 = 0;
@@ -6144,10 +6144,10 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
       }
       #endif
       {
-        PyObject *__pyx_callargs[3] = {__pyx_t_6, __pyx_v_self->_opt_group, __pyx_v_value};
+        PyObject *__pyx_callargs[3] = {__pyx_t_6, __pyx_v_self->_opt_group, __pyx_v_key};
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 2+__pyx_t_7);
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 221, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
@@ -6155,11 +6155,11 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "sqlcycli/_optionfile.py":208
- *     def _access_option(self, cfg: _Parser, value: str, default: object) -> object:
- *         """(cfunc) Access the settings in the MySQL options `<'object'>`"""
+      /* "sqlcycli/_optionfile.py":220
+ *         :param default `<'object'>`: Value to return if the option is missing or invalid.
+ *         """
  *         try:             # <<<<<<<<<<<<<<
- *             return cfg.get(self._opt_group, value)
+ *             return cfg.get(self._opt_group, key)
  *         except Exception:
  */
     }
@@ -6168,9 +6168,9 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "sqlcycli/_optionfile.py":210
+    /* "sqlcycli/_optionfile.py":222
  *         try:
- *             return cfg.get(self._opt_group, value)
+ *             return cfg.get(self._opt_group, key)
  *         except Exception:             # <<<<<<<<<<<<<<
  *             return default
  * 
@@ -6178,13 +6178,13 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_8) {
       __Pyx_AddTraceback("sqlcycli._optionfile.OptionFile._access_option", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 210, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 222, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "sqlcycli/_optionfile.py":211
- *             return cfg.get(self._opt_group, value)
+      /* "sqlcycli/_optionfile.py":223
+ *             return cfg.get(self._opt_group, key)
  *         except Exception:
  *             return default             # <<<<<<<<<<<<<<
  * 
@@ -6200,11 +6200,11 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
     }
     goto __pyx_L5_except_error;
 
-    /* "sqlcycli/_optionfile.py":208
- *     def _access_option(self, cfg: _Parser, value: str, default: object) -> object:
- *         """(cfunc) Access the settings in the MySQL options `<'object'>`"""
+    /* "sqlcycli/_optionfile.py":220
+ *         :param default `<'object'>`: Value to return if the option is missing or invalid.
+ *         """
  *         try:             # <<<<<<<<<<<<<<
- *             return cfg.get(self._opt_group, value)
+ *             return cfg.get(self._opt_group, key)
  *         except Exception:
  */
     __pyx_L5_except_error:;
@@ -6227,12 +6227,12 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
     goto __pyx_L0;
   }
 
-  /* "sqlcycli/_optionfile.py":204
+  /* "sqlcycli/_optionfile.py":209
  *         return True
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     @cython.inline(True)
- *     def _access_option(self, cfg: _Parser, value: str, default: object) -> object:
+ *     def _access_option(self, cfg: ConfigParser, key: str, default: object) -> object:
  */
 
   /* function exit code */
@@ -6248,7 +6248,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__acc
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":213
+/* "sqlcycli/_optionfile.py":225
  *             return default
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -6291,8 +6291,8 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
   __Pyx_RefNannySetupContext("_validate_path", 0);
   __Pyx_INCREF(__pyx_v_path);
 
-  /* "sqlcycli/_optionfile.py":220
- *         Only applies to <'str'> or <'Path'> objects.
+  /* "sqlcycli/_optionfile.py":235
+ *         :param arg_name `<'str'>`: Name of the argument for error messages.
  *         """
  *         if path is None:             # <<<<<<<<<<<<<<
  *             return None
@@ -6301,7 +6301,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
   __pyx_t_1 = (__pyx_v_path == Py_None);
   if (__pyx_t_1) {
 
-    /* "sqlcycli/_optionfile.py":221
+    /* "sqlcycli/_optionfile.py":236
  *         """
  *         if path is None:
  *             return None             # <<<<<<<<<<<<<<
@@ -6312,8 +6312,8 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "sqlcycli/_optionfile.py":220
- *         Only applies to <'str'> or <'Path'> objects.
+    /* "sqlcycli/_optionfile.py":235
+ *         :param arg_name `<'str'>`: Name of the argument for error messages.
  *         """
  *         if path is None:             # <<<<<<<<<<<<<<
  *             return None
@@ -6321,7 +6321,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
  */
   }
 
-  /* "sqlcycli/_optionfile.py":222
+  /* "sqlcycli/_optionfile.py":237
  *         if path is None:
  *             return None
  *         try:             # <<<<<<<<<<<<<<
@@ -6337,19 +6337,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "sqlcycli/_optionfile.py":223
+      /* "sqlcycli/_optionfile.py":238
  *             return None
  *         try:
  *             path = os.path.expanduser(path)             # <<<<<<<<<<<<<<
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 223, __pyx_L4_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 238, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 223, __pyx_L4_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 238, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_expanduser); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 223, __pyx_L4_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_expanduser); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 238, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_7 = NULL;
@@ -6370,14 +6370,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_path};
         __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 223, __pyx_L4_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 238, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_path, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "sqlcycli/_optionfile.py":222
+      /* "sqlcycli/_optionfile.py":237
  *         if path is None:
  *             return None
  *         try:             # <<<<<<<<<<<<<<
@@ -6394,7 +6394,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "sqlcycli/_optionfile.py":224
+    /* "sqlcycli/_optionfile.py":239
  *         try:
  *             path = os.path.expanduser(path)
  *         except Exception as err:             # <<<<<<<<<<<<<<
@@ -6404,7 +6404,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("sqlcycli._optionfile.OptionFile._validate_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 224, __pyx_L6_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 239, __pyx_L6_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
@@ -6412,27 +6412,27 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
       __pyx_v_err = __pyx_t_6;
       /*try:*/ {
 
-        /* "sqlcycli/_optionfile.py":225
+        /* "sqlcycli/_optionfile.py":240
  *             path = os.path.expanduser(path)
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_errors); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 225, __pyx_L15_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_errors); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 240, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_n_s_InvalidOptionFileError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 225, __pyx_L15_error)
+        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_n_s_InvalidOptionFileError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 240, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-        /* "sqlcycli/_optionfile.py":226
+        /* "sqlcycli/_optionfile.py":241
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"             # <<<<<<<<<<<<<<
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  */
-        __pyx_t_11 = PyTuple_New(8); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 226, __pyx_L15_error)
+        __pyx_t_11 = PyTuple_New(8); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 241, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_13 = 0;
         __pyx_t_14 = 127;
@@ -6441,19 +6441,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
         __Pyx_GIVEREF(__pyx_kp_u__7);
         PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_kp_u__7);
 
-        /* "sqlcycli/_optionfile.py":227
+        /* "sqlcycli/_optionfile.py":242
  *             raise errors.InvalidOptionFileError(
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)             # <<<<<<<<<<<<<<
  *             ) from err
  *         if not os.path.exists(path):
  */
-        __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 227, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 242, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
-        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_name); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 227, __pyx_L15_error)
+        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_name); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 242, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_16);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_16), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 227, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_16), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 242, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
@@ -6474,7 +6474,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
         __pyx_t_13 += 15;
         __Pyx_GIVEREF(__pyx_kp_u_is_invalid);
         PyTuple_SET_ITEM(__pyx_t_11, 4, __pyx_kp_u_is_invalid);
-        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 227, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 242, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -6485,7 +6485,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
         __pyx_t_13 += 10;
         __Pyx_GIVEREF(__pyx_kp_u_Error);
         PyTuple_SET_ITEM(__pyx_t_11, 6, __pyx_kp_u_Error);
-        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 227, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_err), __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 242, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -6493,14 +6493,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
         PyTuple_SET_ITEM(__pyx_t_11, 7, __pyx_t_15);
         __pyx_t_15 = 0;
 
-        /* "sqlcycli/_optionfile.py":226
+        /* "sqlcycli/_optionfile.py":241
  *         except Exception as err:
  *             raise errors.InvalidOptionFileError(
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"             # <<<<<<<<<<<<<<
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  */
-        __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_11, 8, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 226, __pyx_L15_error)
+        __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_11, 8, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 241, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __pyx_t_11 = NULL;
@@ -6522,12 +6522,12 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
           __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 225, __pyx_L15_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 240, __pyx_L15_error)
           __Pyx_GOTREF(__pyx_t_10);
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         }
 
-        /* "sqlcycli/_optionfile.py":228
+        /* "sqlcycli/_optionfile.py":243
  *                 "<'%s'>\nPath for '%s' is invalid: '%s'.\n"
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err             # <<<<<<<<<<<<<<
@@ -6536,10 +6536,10 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
  */
         __Pyx_Raise(__pyx_t_10, 0, 0, __pyx_v_err);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 225, __pyx_L15_error)
+        __PYX_ERR(0, 240, __pyx_L15_error)
       }
 
-      /* "sqlcycli/_optionfile.py":224
+      /* "sqlcycli/_optionfile.py":239
  *         try:
  *             path = os.path.expanduser(path)
  *         except Exception as err:             # <<<<<<<<<<<<<<
@@ -6587,7 +6587,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     }
     goto __pyx_L6_except_error;
 
-    /* "sqlcycli/_optionfile.py":222
+    /* "sqlcycli/_optionfile.py":237
  *         if path is None:
  *             return None
  *         try:             # <<<<<<<<<<<<<<
@@ -6603,19 +6603,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __pyx_L9_try_end:;
   }
 
-  /* "sqlcycli/_optionfile.py":229
+  /* "sqlcycli/_optionfile.py":244
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  *         if not os.path.exists(path):             # <<<<<<<<<<<<<<
  *             raise errors.OptionFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 229, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 229, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_exists); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 229, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_exists); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -6636,36 +6636,36 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_path};
     __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 229, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 244, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 229, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_25 = (!__pyx_t_1);
   if (unlikely(__pyx_t_25)) {
 
-    /* "sqlcycli/_optionfile.py":230
+    /* "sqlcycli/_optionfile.py":245
  *             ) from err
  *         if not os.path.exists(path):
  *             raise errors.OptionFileNotFoundError(             # <<<<<<<<<<<<<<
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."
  *                 % (self.__class__.__name__, arg_name, path)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_errors); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 230, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_errors); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_OptionFileNotFoundError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 230, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_OptionFileNotFoundError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "sqlcycli/_optionfile.py":231
+    /* "sqlcycli/_optionfile.py":246
  *         if not os.path.exists(path):
  *             raise errors.OptionFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, arg_name, path)
  *             )
  */
-    __pyx_t_6 = PyTuple_New(7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 246, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_13 = 0;
     __pyx_t_14 = 127;
@@ -6674,19 +6674,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __Pyx_GIVEREF(__pyx_kp_u__7);
     PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_kp_u__7);
 
-    /* "sqlcycli/_optionfile.py":232
+    /* "sqlcycli/_optionfile.py":247
  *             raise errors.OptionFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."
  *                 % (self.__class__.__name__, arg_name, path)             # <<<<<<<<<<<<<<
  *             )
  *         return path
  */
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 247, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 247, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_12), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_12), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 247, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) : __pyx_t_14;
@@ -6707,7 +6707,7 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __pyx_t_13 += 19;
     __Pyx_GIVEREF(__pyx_kp_u_does_not_exist);
     PyTuple_SET_ITEM(__pyx_t_6, 4, __pyx_kp_u_does_not_exist);
-    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_path), __pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 247, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) : __pyx_t_14;
     __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10);
@@ -6719,14 +6719,14 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
     __Pyx_GIVEREF(__pyx_kp_u__8);
     PyTuple_SET_ITEM(__pyx_t_6, 6, __pyx_kp_u__8);
 
-    /* "sqlcycli/_optionfile.py":231
+    /* "sqlcycli/_optionfile.py":246
  *         if not os.path.exists(path):
  *             raise errors.OptionFileNotFoundError(
  *                 "<'%s'>\nPath for '%s' does not exist: '%s'."             # <<<<<<<<<<<<<<
  *                 % (self.__class__.__name__, arg_name, path)
  *             )
  */
-    __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_6, 7, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_6, 7, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 246, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_6 = NULL;
@@ -6748,15 +6748,15 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
       __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 230, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 245, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
     __Pyx_Raise(__pyx_t_7, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __PYX_ERR(0, 230, __pyx_L1_error)
+    __PYX_ERR(0, 245, __pyx_L1_error)
 
-    /* "sqlcycli/_optionfile.py":229
+    /* "sqlcycli/_optionfile.py":244
  *                 "Error: %s" % (self.__class__.__name__, arg_name, path, err)
  *             ) from err
  *         if not os.path.exists(path):             # <<<<<<<<<<<<<<
@@ -6765,19 +6765,19 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
  */
   }
 
-  /* "sqlcycli/_optionfile.py":234
+  /* "sqlcycli/_optionfile.py":249
  *                 % (self.__class__.__name__, arg_name, path)
  *             )
  *         return path             # <<<<<<<<<<<<<<
  * 
- *     def __repr__(self) -> str:
+ *     # Special Methods -------------------------------------------------------------------------
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_path);
   __pyx_r = __pyx_v_path;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":213
+  /* "sqlcycli/_optionfile.py":225
  *             return default
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -6805,9 +6805,9 @@ static CYTHON_INLINE PyObject *__pyx_f_8sqlcycli_11_optionfile_10OptionFile__val
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":236
- *         return path
+/* "sqlcycli/_optionfile.py":252
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
  *         reprs = {
  *             "opt_file": self._opt_file,
@@ -6829,7 +6829,7 @@ static PyObject *__pyx_pw_8sqlcycli_11_optionfile_10OptionFile_3__repr__(PyObjec
 }
 static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "sqlcycli/_optionfile.py":254
+/* "sqlcycli/_optionfile.py":270
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items())             # <<<<<<<<<<<<<<
@@ -6849,7 +6849,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8__repr___genexpr
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 254, __pyx_L1_error)
+    __PYX_ERR(0, 270, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -6857,7 +6857,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8__repr___genexpr
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli__optionfile); if (unlikely(!gen)) __PYX_ERR(0, 254, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2generator, NULL, (PyObject *) __pyx_cur_scope, __pyx_n_s_genexpr, __pyx_n_s_repr___locals_genexpr, __pyx_n_s_sqlcycli__optionfile); if (unlikely(!gen)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -6900,12 +6900,12 @@ static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2genera
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 254, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 254, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 254, __pyx_L1_error) }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 254, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 270, __pyx_L1_error) }
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -6913,7 +6913,7 @@ static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2genera
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 254, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -6924,11 +6924,11 @@ static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2genera
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 254, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_8 = 0;
     __pyx_t_9 = 127;
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 254, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_cur_scope->__pyx_v_k), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_9;
     __pyx_t_8 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5);
@@ -6947,7 +6947,7 @@ static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2genera
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_v);
       __pyx_t_5 = __pyx_cur_scope->__pyx_v_v;
     }
-    __pyx_t_11 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_5), __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 254, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_5), __pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_9 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) > __pyx_t_9) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11) : __pyx_t_9;
@@ -6955,10 +6955,10 @@ static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2genera
     __Pyx_GIVEREF(__pyx_t_11);
     PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_11);
     __pyx_t_11 = 0;
-    __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 254, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_11))) __PYX_ERR(0, 254, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_11))) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -6985,9 +6985,9 @@ static PyObject *__pyx_gb_8sqlcycli_11_optionfile_10OptionFile_8__repr___2genera
   return __pyx_r;
 }
 
-/* "sqlcycli/_optionfile.py":236
- *         return path
+/* "sqlcycli/_optionfile.py":252
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
  *         reprs = {
  *             "opt_file": self._opt_file,
@@ -7009,36 +7009,36 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "sqlcycli/_optionfile.py":238
+  /* "sqlcycli/_optionfile.py":254
  *     def __repr__(self) -> str:
  *         reprs = {
  *             "opt_file": self._opt_file,             # <<<<<<<<<<<<<<
  *             "opt_group": self._opt_group,
  *             "host": self._host,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_opt_file, __pyx_v_self->_opt_file) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_opt_file, __pyx_v_self->_opt_file) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":239
+  /* "sqlcycli/_optionfile.py":255
  *         reprs = {
  *             "opt_file": self._opt_file,
  *             "opt_group": self._opt_group,             # <<<<<<<<<<<<<<
  *             "host": self._host,
  *             "port": self._port if self._port != -1 else None,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_opt_group, __pyx_v_self->_opt_group) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_opt_group, __pyx_v_self->_opt_group) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":240
+  /* "sqlcycli/_optionfile.py":256
  *             "opt_file": self._opt_file,
  *             "opt_group": self._opt_group,
  *             "host": self._host,             # <<<<<<<<<<<<<<
  *             "port": self._port if self._port != -1 else None,
  *             "user": self._user,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host, __pyx_v_self->_host) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host, __pyx_v_self->_host) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":241
+  /* "sqlcycli/_optionfile.py":257
  *             "opt_group": self._opt_group,
  *             "host": self._host,
  *             "port": self._port if self._port != -1 else None,             # <<<<<<<<<<<<<<
@@ -7047,7 +7047,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
  */
   __pyx_t_3 = (__pyx_v_self->_port != -1L);
   if (__pyx_t_3) {
-    __pyx_t_4 = __Pyx_PyInt_From_int(__pyx_v_self->_port); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_int(__pyx_v_self->_port); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_2 = __pyx_t_4;
     __pyx_t_4 = 0;
@@ -7055,84 +7055,84 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
     __Pyx_INCREF(Py_None);
     __pyx_t_2 = Py_None;
   }
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_port, __pyx_t_2) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_port, __pyx_t_2) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sqlcycli/_optionfile.py":242
+  /* "sqlcycli/_optionfile.py":258
  *             "host": self._host,
  *             "port": self._port if self._port != -1 else None,
  *             "user": self._user,             # <<<<<<<<<<<<<<
  *             "password": self._password,
  *             "database": self._database,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_user, __pyx_v_self->_user) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_user, __pyx_v_self->_user) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":243
+  /* "sqlcycli/_optionfile.py":259
  *             "port": self._port if self._port != -1 else None,
  *             "user": self._user,
  *             "password": self._password,             # <<<<<<<<<<<<<<
  *             "database": self._database,
  *             "charset": self._charset,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_password, __pyx_v_self->_password) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_password, __pyx_v_self->_password) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":244
+  /* "sqlcycli/_optionfile.py":260
  *             "user": self._user,
  *             "password": self._password,
  *             "database": self._database,             # <<<<<<<<<<<<<<
  *             "charset": self._charset,
  *             "bind_address": self._bind_address,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_database, __pyx_v_self->_database) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_database, __pyx_v_self->_database) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":245
+  /* "sqlcycli/_optionfile.py":261
  *             "password": self._password,
  *             "database": self._database,
  *             "charset": self._charset,             # <<<<<<<<<<<<<<
  *             "bind_address": self._bind_address,
  *             "unix_socket": self._unix_socket,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charset, __pyx_v_self->_charset) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_charset, __pyx_v_self->_charset) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":246
+  /* "sqlcycli/_optionfile.py":262
  *             "database": self._database,
  *             "charset": self._charset,
  *             "bind_address": self._bind_address,             # <<<<<<<<<<<<<<
  *             "unix_socket": self._unix_socket,
  *             "max_allowed_packet": self._max_allowed_packet,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_bind_address_2, __pyx_v_self->_bind_address) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_bind_address_2, __pyx_v_self->_bind_address) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":247
+  /* "sqlcycli/_optionfile.py":263
  *             "charset": self._charset,
  *             "bind_address": self._bind_address,
  *             "unix_socket": self._unix_socket,             # <<<<<<<<<<<<<<
  *             "max_allowed_packet": self._max_allowed_packet,
  *             "ssl": self._ssl,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unix_socket, __pyx_v_self->_unix_socket) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unix_socket, __pyx_v_self->_unix_socket) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":248
+  /* "sqlcycli/_optionfile.py":264
  *             "bind_address": self._bind_address,
  *             "unix_socket": self._unix_socket,
  *             "max_allowed_packet": self._max_allowed_packet,             # <<<<<<<<<<<<<<
  *             "ssl": self._ssl,
  *         }
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_allowed_packet_2, __pyx_v_self->_max_allowed_packet) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_max_allowed_packet_2, __pyx_v_self->_max_allowed_packet) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":249
+  /* "sqlcycli/_optionfile.py":265
  *             "unix_socket": self._unix_socket,
  *             "max_allowed_packet": self._max_allowed_packet,
  *             "ssl": self._ssl,             # <<<<<<<<<<<<<<
  *         }
  *         # fmt: off
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ssl, ((PyObject *)__pyx_v_self->_ssl)) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ssl, ((PyObject *)__pyx_v_self->_ssl)) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
   __pyx_v_reprs = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "sqlcycli/_optionfile.py":252
+  /* "sqlcycli/_optionfile.py":268
  *         }
  *         # fmt: off
  *         return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
@@ -7140,7 +7140,7 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items())
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 268, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_5 = 0;
   __pyx_t_6 = 127;
@@ -7149,19 +7149,19 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
   __Pyx_GIVEREF(__pyx_kp_u__10);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u__10);
 
-  /* "sqlcycli/_optionfile.py":253
+  /* "sqlcycli/_optionfile.py":269
  *         # fmt: off
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,             # <<<<<<<<<<<<<<
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items())
  *         )
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_4), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_4), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_6;
@@ -7174,19 +7174,19 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
   __Pyx_GIVEREF(__pyx_kp_u__11);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__11);
 
-  /* "sqlcycli/_optionfile.py":254
+  /* "sqlcycli/_optionfile.py":270
  *         return "<%s(\n  %s)>" % (
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items())             # <<<<<<<<<<<<<<
  *         )
  *         # fmt: on
  */
-  __pyx_t_2 = __pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8__repr___genexpr(NULL, __pyx_v_reprs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_8sqlcycli_11_optionfile_10OptionFile_8__repr___genexpr(NULL, __pyx_v_reprs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_Generator_Next(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Generator_Next(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyUnicode_Join(__pyx_kp_u__12, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Join(__pyx_kp_u__12, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_6;
@@ -7199,23 +7199,23 @@ static PyObject *__pyx_pf_8sqlcycli_11_optionfile_10OptionFile_2__repr__(struct 
   __Pyx_GIVEREF(__pyx_kp_u__13);
   PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u__13);
 
-  /* "sqlcycli/_optionfile.py":252
+  /* "sqlcycli/_optionfile.py":268
  *         }
  *         # fmt: off
  *         return "<%s(\n  %s)>" % (             # <<<<<<<<<<<<<<
  *             self.__class__.__name__,
  *             ",\n  ".join("%s=%r" % (k, None if v is None else v) for k, v in reprs.items())
  */
-  __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 268, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "sqlcycli/_optionfile.py":236
- *         return path
+  /* "sqlcycli/_optionfile.py":252
  * 
+ *     # Special Methods -------------------------------------------------------------------------
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
  *         reprs = {
  *             "opt_file": self._opt_file,
@@ -8447,24 +8447,24 @@ static PyMethodDef __pyx_methods_8sqlcycli_11_optionfile_OptionFile[] = {
 
 static struct PyGetSetDef __pyx_getsets_8sqlcycli_11_optionfile_OptionFile[] = {
   {(char *)"opt_file", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_opt_file, 0, (char *)PyDoc_STR("The path to the MySQL option file `<'str/bytes/Path'>`."), 0},
-  {(char *)"opt_group", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_opt_group, 0, (char *)PyDoc_STR("The 'group' to read from the MySQL option file `<'str'>`."), 0},
-  {(char *)"host", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_host, 0, (char *)PyDoc_STR("The 'host' from the MySQL option `<'str'>`."), 0},
+  {(char *)"opt_group", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_opt_group, 0, (char *)PyDoc_STR("Section name used within the option file `<'str'>`."), 0},
+  {(char *)"host", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_host, 0, (char *)PyDoc_STR("The 'host' from the MySQL option `<'str/None'>`."), 0},
   {(char *)"port", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_port, 0, (char *)PyDoc_STR("The 'port' from the MySQL option `<'int'>`."), 0},
-  {(char *)"user", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_user, 0, (char *)PyDoc_STR("The 'user' from the MySQL option `<'str'>`."), 0},
-  {(char *)"password", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_password, 0, (char *)PyDoc_STR("The 'password' from the MySQL option `<'str'>`."), 0},
-  {(char *)"database", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_database, 0, (char *)PyDoc_STR("The 'database' from the MySQL option `<'str'>`."), 0},
-  {(char *)"charset", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_charset, 0, (char *)PyDoc_STR("The 'default-character-set' from the MySQL option `<'str'>`."), 0},
-  {(char *)"bind_address", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_bind_address, 0, (char *)PyDoc_STR("The 'bind-address' from the MySQL option `<'str'>`."), 0},
-  {(char *)"unix_socket", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_unix_socket, 0, (char *)PyDoc_STR("The 'socket' from the MySQL option `<'str'>`."), 0},
-  {(char *)"max_allowed_packet", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_max_allowed_packet, 0, (char *)PyDoc_STR("The 'max-allowed-packet' from the MySQL option `<'str'>`."), 0},
-  {(char *)"ssl", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_ssl, 0, (char *)PyDoc_STR("The 'SSL' from the MySQL option `<'SSL'>`.\n\n        ## Notice\n        If Python `ssl` module is not available, returns `None`.\n        "), 0},
+  {(char *)"user", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_user, 0, (char *)PyDoc_STR("The 'user' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"password", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_password, 0, (char *)PyDoc_STR("The 'password' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"database", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_database, 0, (char *)PyDoc_STR("The 'database' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"charset", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_charset, 0, (char *)PyDoc_STR("The 'default-character-set' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"bind_address", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_bind_address, 0, (char *)PyDoc_STR("The 'bind-address' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"unix_socket", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_unix_socket, 0, (char *)PyDoc_STR("The 'socket' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"max_allowed_packet", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_max_allowed_packet, 0, (char *)PyDoc_STR("The 'max-allowed-packet' from the MySQL option `<'str/None'>`."), 0},
+  {(char *)"ssl", __pyx_getprop_8sqlcycli_11_optionfile_10OptionFile_ssl, 0, (char *)PyDoc_STR("The 'SSL' from the MySQL option `<'SSL/None'>`."), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_8sqlcycli_11_optionfile_OptionFile_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_8sqlcycli_11_optionfile_OptionFile},
   {Py_tp_repr, (void *)__pyx_pw_8sqlcycli_11_optionfile_10OptionFile_3__repr__},
-  {Py_tp_doc, (void *)PyDoc_STR("Represents the configuration form MySQL option file (my.cnf or my.ini).\n\n    It takes the responsibility of reading local MySQL option file\n    from the 'PyMySQL' package's <'Connection'> class.\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("Load MySQL client options from an option file (e.g., my.cnf or my.ini).\n\n    Reads the specified file and section to populate connection settings\n    such as host, port, credentials, charset, socket, packet size, and SSL.\n    ")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_8sqlcycli_11_optionfile_OptionFile},
   {Py_tp_clear, (void *)__pyx_tp_clear_8sqlcycli_11_optionfile_OptionFile},
   {Py_tp_methods, (void *)__pyx_methods_8sqlcycli_11_optionfile_OptionFile},
@@ -8513,7 +8513,7 @@ static PyTypeObject __pyx_type_8sqlcycli_11_optionfile_OptionFile = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("Represents the configuration form MySQL option file (my.cnf or my.ini).\n\n    It takes the responsibility of reading local MySQL option file\n    from the 'PyMySQL' package's <'Connection'> class.\n    "), /*tp_doc*/
+  PyDoc_STR("Load MySQL client options from an option file (e.g., my.cnf or my.ini).\n\n    Reads the specified file and section to populate connection settings\n    such as host, port, credentials, charset, socket, packet size, and SSL.\n    "), /*tp_doc*/
   __pyx_tp_traverse_8sqlcycli_11_optionfile_OptionFile, /*tp_traverse*/
   __pyx_tp_clear_8sqlcycli_11_optionfile_OptionFile, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -8756,7 +8756,13 @@ static PyMethodDef __pyx_methods[] = {
 static int __Pyx_CreateStringTabAndInitStrings(void) {
   __Pyx_StringTabEntry __pyx_string_tab[] = {
     {&__pyx_kp_u_, __pyx_k_, sizeof(__pyx_k_), 0, 1, 0, 0},
-    {&__pyx_kp_s_Custom_parser_for_MySQL_option_f, __pyx_k_Custom_parser_for_MySQL_option_f, sizeof(__pyx_k_Custom_parser_for_MySQL_option_f), 0, 0, 1, 0},
+    {&__pyx_n_s_ConfigParser, __pyx_k_ConfigParser, sizeof(__pyx_k_ConfigParser), 0, 0, 1, 1},
+    {&__pyx_n_s_ConfigParser___init, __pyx_k_ConfigParser___init, sizeof(__pyx_k_ConfigParser___init), 0, 0, 1, 1},
+    {&__pyx_n_s_ConfigParser___remove_quotes, __pyx_k_ConfigParser___remove_quotes, sizeof(__pyx_k_ConfigParser___remove_quotes), 0, 0, 1, 1},
+    {&__pyx_n_s_ConfigParser__remove_quotes, __pyx_k_ConfigParser__remove_quotes, sizeof(__pyx_k_ConfigParser__remove_quotes), 0, 0, 1, 1},
+    {&__pyx_n_s_ConfigParser_get, __pyx_k_ConfigParser_get, sizeof(__pyx_k_ConfigParser_get), 0, 0, 1, 1},
+    {&__pyx_n_s_ConfigParser_optionxform, __pyx_k_ConfigParser_optionxform, sizeof(__pyx_k_ConfigParser_optionxform), 0, 0, 1, 1},
+    {&__pyx_kp_s_Custom_configuration_parser_for, __pyx_k_Custom_configuration_parser_for, sizeof(__pyx_k_Custom_configuration_parser_for), 0, 0, 1, 0},
     {&__pyx_kp_u_Error, __pyx_k_Error, sizeof(__pyx_k_Error), 0, 1, 0, 0},
     {&__pyx_kp_u_Failed_to_load_MySQL_option_fil, __pyx_k_Failed_to_load_MySQL_option_fil, sizeof(__pyx_k_Failed_to_load_MySQL_option_fil), 0, 1, 0, 0},
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0, __pyx_k_Incompatible_checksums_0x_x_vs_0, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0), 0, 0, 1, 0},
@@ -8767,12 +8773,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_OptionFileNotFoundError, __pyx_k_OptionFileNotFoundError, sizeof(__pyx_k_OptionFileNotFoundError), 0, 0, 1, 1},
     {&__pyx_n_s_OptionFile___reduce_cython, __pyx_k_OptionFile___reduce_cython, sizeof(__pyx_k_OptionFile___reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_OptionFile___setstate_cython, __pyx_k_OptionFile___setstate_cython, sizeof(__pyx_k_OptionFile___setstate_cython), 0, 0, 1, 1},
-    {&__pyx_n_s_Parser, __pyx_k_Parser, sizeof(__pyx_k_Parser), 0, 0, 1, 1},
-    {&__pyx_n_s_Parser___init, __pyx_k_Parser___init, sizeof(__pyx_k_Parser___init), 0, 0, 1, 1},
-    {&__pyx_n_s_Parser___remove_quotes, __pyx_k_Parser___remove_quotes, sizeof(__pyx_k_Parser___remove_quotes), 0, 0, 1, 1},
-    {&__pyx_n_s_Parser__remove_quotes, __pyx_k_Parser__remove_quotes, sizeof(__pyx_k_Parser__remove_quotes), 0, 0, 1, 1},
-    {&__pyx_n_s_Parser_get, __pyx_k_Parser_get, sizeof(__pyx_k_Parser_get), 0, 0, 1, 1},
-    {&__pyx_n_s_Parser_optionxform, __pyx_k_Parser_optionxform, sizeof(__pyx_k_Parser_optionxform), 0, 0, 1, 1},
     {&__pyx_n_s_PathLike, __pyx_k_PathLike, sizeof(__pyx_k_PathLike), 0, 0, 1, 1},
     {&__pyx_kp_u_Path_for, __pyx_k_Path_for, sizeof(__pyx_k_Path_for), 0, 1, 0, 0},
     {&__pyx_n_s_PickleError, __pyx_k_PickleError, sizeof(__pyx_k_PickleError), 0, 0, 1, 1},
@@ -8906,7 +8906,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 }
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 175, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -8917,25 +8917,25 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "sqlcycli/_optionfile.py":33
+  /* "sqlcycli/_optionfile.py":42
  *         for quote in quotes:
  *             if len(value) >= 2 and value[0] == value[-1] == quote:
  *                 return value[1:-1]             # <<<<<<<<<<<<<<
  *         return value
  * 
  */
-  __pyx_slice__3 = PySlice_New(__pyx_int_1, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__3)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_slice__3 = PySlice_New(__pyx_int_1, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__3)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__3);
   __Pyx_GIVEREF(__pyx_slice__3);
 
-  /* "sqlcycli/_optionfile.py":37
+  /* "sqlcycli/_optionfile.py":46
  * 
  *     def optionxform(self, key: str):
  *         return key.lower().replace("_", "-")             # <<<<<<<<<<<<<<
  * 
  *     def get(self, section, option):
  */
-  __pyx_tuple__6 = PyTuple_Pack(2, __pyx_n_u__4, __pyx_kp_u__5); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_tuple__6 = PyTuple_Pack(2, __pyx_n_u__4, __pyx_kp_u__5); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__6);
   __Pyx_GIVEREF(__pyx_tuple__6);
 
@@ -8950,53 +8950,53 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__14);
   __Pyx_GIVEREF(__pyx_tuple__14);
 
-  /* "sqlcycli/_optionfile.py":24
- *     """Custom parser for MySQL option file."""
+  /* "sqlcycli/_optionfile.py":33
+ *     """
  * 
  *     def __init__(self, **kwargs):             # <<<<<<<<<<<<<<
  *         kwargs["allow_no_value"] = True
  *         RawConfigParser.__init__(self, **kwargs)
  */
-  __pyx_tuple__17 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_kwargs); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_tuple__17 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_kwargs); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__17);
   __Pyx_GIVEREF(__pyx_tuple__17);
-  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_init, 24, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_init, 33, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 33, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":28
+  /* "sqlcycli/_optionfile.py":37
  *         RawConfigParser.__init__(self, **kwargs)
  * 
  *     @cython.wraparound(True)             # <<<<<<<<<<<<<<
  *     def __remove_quotes(self, value):
  *         quotes = ["'", '"']
  */
-  __pyx_tuple__19 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_value, __pyx_n_s_quotes, __pyx_n_s_quote); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_tuple__19 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_value, __pyx_n_s_quotes, __pyx_n_s_quote); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__19);
   __Pyx_GIVEREF(__pyx_tuple__19);
-  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_remove_quotes, 28, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_remove_quotes, 37, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 37, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":36
+  /* "sqlcycli/_optionfile.py":45
  *         return value
  * 
  *     def optionxform(self, key: str):             # <<<<<<<<<<<<<<
  *         return key.lower().replace("_", "-")
  * 
  */
-  __pyx_tuple__21 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_key); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_tuple__21 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_key); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__21);
   __Pyx_GIVEREF(__pyx_tuple__21);
-  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_optionxform, 36, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_optionxform, 45, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 45, __pyx_L1_error)
 
-  /* "sqlcycli/_optionfile.py":39
+  /* "sqlcycli/_optionfile.py":48
  *         return key.lower().replace("_", "-")
  * 
  *     def get(self, section, option):             # <<<<<<<<<<<<<<
  *         value = RawConfigParser.get(self, section, option)
  *         return self.__remove_quotes(value)
  */
-  __pyx_tuple__23 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_section, __pyx_n_s_option, __pyx_n_s_value); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_tuple__23 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_section, __pyx_n_s_option, __pyx_n_s_value); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__23);
   __Pyx_GIVEREF(__pyx_tuple__23);
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_get, 39, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_sqlcycli__optionfile_py, __pyx_n_s_get, 48, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 48, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -9100,15 +9100,15 @@ static int __Pyx_modinit_type_init_code(void) {
   __pyx_vtable_8sqlcycli_11_optionfile_OptionFile._access_option = (PyObject *(*)(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *, PyObject *, PyObject *, PyObject *))__pyx_f_8sqlcycli_11_optionfile_10OptionFile__access_option;
   __pyx_vtable_8sqlcycli_11_optionfile_OptionFile._validate_path = (PyObject *(*)(struct __pyx_obj_8sqlcycli_11_optionfile_OptionFile *, PyObject *, PyObject *))__pyx_f_8sqlcycli_11_optionfile_10OptionFile__validate_path;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_11_optionfile_OptionFile = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_11_optionfile_OptionFile_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_11_optionfile_OptionFile)) __PYX_ERR(0, 46, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_11_optionfile_OptionFile_spec, __pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_11_optionfile_OptionFile = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_11_optionfile_OptionFile_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_11_optionfile_OptionFile)) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_11_optionfile_OptionFile_spec, __pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_11_optionfile_OptionFile = &__pyx_type_8sqlcycli_11_optionfile_OptionFile;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_11_optionfile_OptionFile->tp_print = 0;
@@ -9120,7 +9120,7 @@ static int __Pyx_modinit_type_init_code(void) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_11_optionfile_OptionFile, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 46, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_ptype_8sqlcycli_11_optionfile_OptionFile, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 55, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_8sqlcycli_11_optionfile_10OptionFile___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_8sqlcycli_11_optionfile_10OptionFile___init__.doc = __pyx_doc_8sqlcycli_11_optionfile_10OptionFile___init__;
@@ -9128,24 +9128,24 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_11_optionfile_OptionFile, __pyx_vtabptr_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_ptype_8sqlcycli_11_optionfile_OptionFile, __pyx_vtabptr_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_OptionFile, (PyObject *) __pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_OptionFile, (PyObject *) __pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_8sqlcycli_11_optionfile_OptionFile) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr)) __PYX_ERR(0, 254, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
+  __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr)) __PYX_ERR(0, 270, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr_spec, __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 270, __pyx_L1_error)
   #else
   __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr = &__pyx_type_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 254, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr) < 0) __PYX_ERR(0, 270, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_8sqlcycli_11_optionfile___pyx_scope_struct__genexpr->tp_print = 0;
@@ -9602,9 +9602,9 @@ if (!__Pyx_RefNanny) {
 
   /* "sqlcycli/_optionfile.py":21
  * 
- * # Parser --------------------------------------------------------------------------------------
- * class _Parser(RawConfigParser):             # <<<<<<<<<<<<<<
- *     """Custom parser for MySQL option file."""
+ * # Custom Parser -------------------------------------------------------------------------------
+ * class ConfigParser(RawConfigParser):             # <<<<<<<<<<<<<<
+ *     """Custom configuration parser for MySQL option files.
  * 
  */
   __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_RawConfigParser); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
@@ -9618,76 +9618,76 @@ if (!__Pyx_RefNanny) {
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_Py3MetaclassPrepare(__pyx_t_4, __pyx_t_2, __pyx_n_s_Parser, __pyx_n_s_Parser, (PyObject *) NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_kp_s_Custom_parser_for_MySQL_option_f); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Py3MetaclassPrepare(__pyx_t_4, __pyx_t_2, __pyx_n_s_ConfigParser, __pyx_n_s_ConfigParser, (PyObject *) NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_kp_s_Custom_configuration_parser_for); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (__pyx_t_2 != __pyx_t_3) {
     if (unlikely((PyDict_SetItemString(__pyx_t_5, "__orig_bases__", __pyx_t_3) < 0))) __PYX_ERR(0, 21, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_optionfile.py":24
- *     """Custom parser for MySQL option file."""
+  /* "sqlcycli/_optionfile.py":33
+ *     """
  * 
  *     def __init__(self, **kwargs):             # <<<<<<<<<<<<<<
  *         kwargs["allow_no_value"] = True
  *         RawConfigParser.__init__(self, **kwargs)
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_7_Parser_1__init__, 0, __pyx_n_s_Parser___init, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_1__init__, 0, __pyx_n_s_ConfigParser___init, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_init, __pyx_t_3) < 0) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_init, __pyx_t_3) < 0) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_optionfile.py":28
+  /* "sqlcycli/_optionfile.py":37
  *         RawConfigParser.__init__(self, **kwargs)
  * 
  *     @cython.wraparound(True)             # <<<<<<<<<<<<<<
  *     def __remove_quotes(self, value):
  *         quotes = ["'", '"']
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_7_Parser_3__remove_quotes, 0, __pyx_n_s_Parser___remove_quotes, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_3__remove_quotes, 0, __pyx_n_s_ConfigParser___remove_quotes, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_Parser__remove_quotes, __pyx_t_3) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_ConfigParser__remove_quotes, __pyx_t_3) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "sqlcycli/_optionfile.py":36
+  /* "sqlcycli/_optionfile.py":45
  *         return value
  * 
  *     def optionxform(self, key: str):             # <<<<<<<<<<<<<<
  *         return key.lower().replace("_", "-")
  * 
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_n_s_str) < 0) __PYX_ERR(0, 36, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_7_Parser_5optionxform, 0, __pyx_n_s_Parser_optionxform, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_n_s_str) < 0) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_5optionxform, 0, __pyx_n_s_ConfigParser_optionxform, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_optionxform, __pyx_t_6) < 0) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_optionxform, __pyx_t_6) < 0) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "sqlcycli/_optionfile.py":39
+  /* "sqlcycli/_optionfile.py":48
  *         return key.lower().replace("_", "-")
  * 
  *     def get(self, section, option):             # <<<<<<<<<<<<<<
  *         value = RawConfigParser.get(self, section, option)
  *         return self.__remove_quotes(value)
  */
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_7_Parser_7get, 0, __pyx_n_s_Parser_get, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_8sqlcycli_11_optionfile_12ConfigParser_7get, 0, __pyx_n_s_ConfigParser_get, NULL, __pyx_n_s_sqlcycli__optionfile, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_get, __pyx_t_6) < 0) __PYX_ERR(0, 39, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_get, __pyx_t_6) < 0) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
   /* "sqlcycli/_optionfile.py":21
  * 
- * # Parser --------------------------------------------------------------------------------------
- * class _Parser(RawConfigParser):             # <<<<<<<<<<<<<<
- *     """Custom parser for MySQL option file."""
+ * # Custom Parser -------------------------------------------------------------------------------
+ * class ConfigParser(RawConfigParser):             # <<<<<<<<<<<<<<
+ *     """Custom configuration parser for MySQL option files.
  * 
  */
-  __pyx_t_6 = __Pyx_Py3ClassCreate(__pyx_t_4, __pyx_n_s_Parser, __pyx_t_2, __pyx_t_5, NULL, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Py3ClassCreate(__pyx_t_4, __pyx_n_s_ConfigParser, __pyx_t_2, __pyx_t_5, NULL, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_Parser, __pyx_t_6) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_ConfigParser, __pyx_t_6) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
