@@ -48,7 +48,7 @@ class GlancesStdout:
     def end(self):
         pass
 
-    def update(self, stats, duration=3):
+    def update(self, stats, duration=3, cs_status=None, return_to_browser=False):
         """Display stats to stdout.
 
         Refresh every duration second.
@@ -59,6 +59,7 @@ class GlancesStdout:
                 stat = stats.get_plugin(plugin).get_export()
             else:
                 continue
+
             # Display stats
             if attribute is not None:
                 # With attribute

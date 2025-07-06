@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hibachi_xyz"
+version = "0.1.9"
+authors = [
+ { name = "Hibachi Engineer" }
+]
+description = "Hibachi SDK for accessing the API"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT" 
+dependencies = [
+  "eth_keys == 0.6.1",
+  "requests == 2.32.3",
+  "toml == 0.10.2",
+  "websockets >= 11.0.3",
+  "python-dotenv >= 1.0.0",
+  "prettyprinter >= 0.18.0",
+  "pip-system-certs"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "pytest-timeout"
+]
+
+[project.urls]
+Homepage = "https://github.com/hibachi-xyz/yule-os"
+Issues = "https://github.com/hibachi-xyz/yule-os/issues"

@@ -1,0 +1,55 @@
+[project]
+title = "Documenteer"
+copyright = "2015-2022 Association of Universities for Research in Astronomy, Inc. (AURA)"
+base_url = "https://documenteer.lsst.io"
+github_url = "https://github.com/lsst-sqre/documenteer"
+
+[project.python]
+package = "documenteer"
+
+[sphinx]
+extensions = [
+  "sphinx_click.ext",
+  "sphinxcontrib.autoprogram",
+]
+disable_primary_sidebars = ["index", "changelog"]
+rst_epilog_file = "_rst_epilog.rst"
+nitpicky = true
+nitpick_ignore = [
+  ["py:class", "pybtex.style.formatting.plain.Style"],
+  ["py:obj", "sphinx_automodapi.automodapi"],
+]
+nitpick_ignore_regex = [
+  ['py:.*', 'docutils.*'],
+  ['py:.*', 'pydantic.*'],
+]
+python_api_dir = "dev/api/contents"
+exclude = [
+  "technotes/_templates/*"
+]
+
+[sphinx.theme]
+header_links_before_dropdown = 5
+
+[sphinx.intersphinx.projects]
+python = "https://docs.python.org/3/"
+requests = "https://requests.readthedocs.io/en/latest/"
+developer = "https://developer.lsst.io/"
+pybtex = "https://docs.pybtex.org/"
+sphinx = "https://www.sphinx-doc.org/en/master/"
+sphinxcontrib-bibtex = "https://sphinxcontrib-bibtex.readthedocs.io/en/latest/"
+technote = "https://technote.lsst.io/"
+
+[sphinx.linkcheck]
+ignore = [
+    "https://mermaid-js.github.io"
+]
+
+[sphinx.redirects]
+"pipelines/build-overview.rst" = "guides/pipelines/build-overview.rst"
+"pipelines/configuration.rst" = "guides/pipelines/configuration.rst"
+"pipelines/cpp-api-linking.rst" = "guides/pipelines/cpp-api-linking.rst"
+"pipelines/index.rst" = "guides/pipelines/index.rst"
+"pipelines/install.rst" = "guides/pipelines/install.rst"
+"pipelines/package-docs-cli.rst" = "guides/pipelines/package-docs-cli.rst"
+"pipelines/stack-docs-cli.rst" = "guides/pipelines/stack-docs-cli.rst"

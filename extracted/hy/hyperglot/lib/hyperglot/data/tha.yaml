@@ -1,0 +1,26 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Thai
+note: There are approximately 44000000 L2 speakers.
+orthographies:
+- autonym: ภาษาไทย
+  auxiliary: ◌̍ ◌̎
+  base: ก ข ฃ ค ฅ ฆ ง จ ฉ ช ซ ฌ ญ ฎ ฏ ฐ ฑ ฒ ณ ด ต ถ ท ธ น บ ป ผ ฝ พ ฟ ภ ม ย ร ล ว ศ ษ ส ห ฬ อ ฮ ะ า เ แ โ ใ ไ ฤ ๅ ฦ ๆ
+  currency: <default Latin> ฿
+  design_requirements:
+  - Mark positioning and some character combinations (ligatures) have to be resolved to properly represent the language.
+  marks: ◌̍ ◌̎ ◌ั ◌ิ ◌ุ ◌ู ◌็ ◌ํ ◌ี ◌ึ ◌ื ◌ฺ ◌่ ◌้ ◌๊ ◌๋ ◌์ ◌๎
+  numerals: ๐ ๑ ๒ ๓ ๔ ๕ ๖ ๗ ๘ ๙ <default Latin>
+  punctuation: <default Latin> ๚ ๏ ๛ “ ” ‘ ’
+  script: Thai
+  status: primary
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Thai language. (2024, August 25). In *Wikipedia*. https://en.wikipedia.org/wiki/Thai_language?oldid=1242191371
+- '*The Unicode Common Locale Data Repository (CLDR)*. (2024, September 27). The Unicode Consortium. https://cldr.unicode.org'
+- Quotation mark. (2024, September 26). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Quotation_mark&oldid=1247790780
+- List of currency symbols. (2024, July 15). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Template:List_of_currency_symbols&oldid=1234688642
+speakers: 36000000
+speakers_date: 2000
+validity: preliminary

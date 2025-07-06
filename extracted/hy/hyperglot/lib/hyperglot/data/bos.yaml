@@ -1,0 +1,33 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Bosnian
+orthographies:
+- autonym: Босански
+  base: А Б В Г Д Е Ж З И К Л М Н О П Р С Т У Ф Х Ц Ч Ш Ђ Ј Љ Њ Ћ Џ а б в г д е ж з и к л м н о п р с т у ф х ц ч ш ђ ј љ њ ћ џ
+  currency: <default>
+  design_alternates: б
+  design_requirements:
+  - In italic, some characters (marked in the previews) use a form that differs from the defaults associated with the Unicode codepoints (typically the Russian form of Cyrillic).
+  numerals: <default>
+  punctuation: <default> “ ’ ” „ « »
+  script: Cyrillic
+  status: secondary
+- autonym: Bosanski
+  auxiliary: Ǆ ǅ ǆ Ǉ ǈ ǉ Ǌ ǋ ǌ
+  base: A B C D E F G H I J K L M N O P R S T U V Z Ć Č Đ Š Ž a b c d e f g h i j k l m n o p r s t u v z ć č đ š ž
+  design_requirements:
+  - Digraphs ‹dž›, ‹lj›, and ‹nj› in their uppercase, titlecase, and lowercase forms have dedicated Unicode codepoints in the auxiliary set. However, these were included chiefly for backwards compatibility with legacy encodings which kept a one-to-one correspondence with Cyrillic.
+  marks: ◌́ ◌̌
+  numerals: <default>
+  script: Latin
+  status: primary
+sources:
+- '*The Unicode Common Locale Data Repository (CLDR)*. (2024, September 27). The Unicode Consortium. https://cldr.unicode.org'
+- Everson, M. (2001). Bosnian. In *The Alphabets of Europe*. https://www.evertype.com/alphabets/bosnian.pdf
+- Quotation mark. (2024, September 26). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Quotation_mark&oldid=1247790780
+sources note: review
+speakers: 3000000
+speakers_date: 2008
+status: living
+validity: verified

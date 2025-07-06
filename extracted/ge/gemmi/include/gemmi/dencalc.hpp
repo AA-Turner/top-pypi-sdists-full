@@ -5,7 +5,6 @@
 #ifndef GEMMI_DENCALC_HPP_
 #define GEMMI_DENCALC_HPP_
 
-#include <cassert>
 #include "addends.hpp"  // for Addends
 #include "formfact.hpp" // for ExpSum
 #include "grid.hpp"     // for Grid
@@ -34,8 +33,8 @@ Real determine_cutoff_radius(Real x1, const ExpSum<N, Real>& precal, Real cutoff
       x1 -= 0.5f;
       std::tie(y1, dy) = precal.calculate_with_derivative(x1);
       // with addends it's possible to land on the left side of the maximum
-      if (dy > 0) { // unlikely
-        while (dy > 0 && x1 + 0.1f < x2) {
+      if (dy > 0 && y1 > 0) { // unlikely
+        while (dy > 0 && y1 > 0 && x1 + 0.1f < x2) {
           x1 += 0.1f;
           std::tie(y1, dy) = precal.calculate_with_derivative(x1);
         }
@@ -105,7 +104,8 @@ struct DensityCalculator {
   // pre: check if Table::has(atom.element)
   void add_atom_density_to_grid(const Atom& atom) {
     Element el = atom.element;
-    do_add_atom_density_to_grid(atom, Table::get(el, atom.charge), addends.get(el));
+    const auto& coef = Table::get(el, atom.charge, atom.serial);
+    do_add_atom_density_to_grid(atom, coef, addends.get(el));
   }
 
   // Parameter c is a constant factor and has the same meaning as either addend

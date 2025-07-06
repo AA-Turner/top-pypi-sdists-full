@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: pylint-strict-informational
+Version: 0.1
+Summary: A pylint plugin to make pylint fail on informational messages
+Home-page: https://github.com/Polyconseil/pylint-strict-informational
+Author: Polyconseil
+Author-email: opensource+pylint-strict-informational@polyconseil.fr
+License: UNKNOWN
+Description: ===========================
+        Pylint Strict Informational
+        ===========================
+        
+        Pylint plugin to make it fail when an informational message (the `I` category) is found.
+        
+        
+        Pylint >= 2.4.0 is required (in order for `pylint.constants` module to exist).
+        
+Keywords: tools pylint
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Software Development
+Provides-Extra: dev

@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "simple-mockforce"
+version = "0.8.1"
+description = "A companion package for simple-salesforce that enables the testing of code that interacts with Salesforce's API"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Kicksaw-Consulting/simple-mockforce"
+authors = ["Alex Drozd <drozdster@gmail.com>"]
+keywords = ["python", "simple-salesforce", "salesforce", "testing", "mocking"]
+packages = [
+    { include = "simple_mockforce" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+python-soql-parser = "^0.2.0"
+python-dateutil = "^2.8.2"
+responses = "^0.20.0"
+decorator = "^5.1.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.3"
+simple-salesforce = "1.12.1"
+freezegun = "^1.2.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

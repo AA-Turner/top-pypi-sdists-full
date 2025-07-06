@@ -1,1 +1,0 @@
-__all__=["product_price_model",]

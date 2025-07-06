@@ -18,7 +18,7 @@ email = "sj@chijioke-uche.com"
 
 [project]
 name = "qiskit-connector"
-version = "2.3.4"
+version = "2.3.9"
 description = "Quantum Computing Qiskit Connector For Quantum Backend Use In Realtime"
 readme = "README.md"
 requires-python = ">=3.9"

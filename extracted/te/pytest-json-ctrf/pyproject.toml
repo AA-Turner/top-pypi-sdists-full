@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=65.5.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = [
+    ".github", "tests", "build", "dist", ".venv",
+    "pytest_json_ctrf.egg-info", ".env", ".gitignore",
+    "CHANGELOG.md", "assets", "test-results"]
+
+[project]
+name = "pytest-json-ctrf"
+version = "0.3.5"
+
+dependencies = [
+    "pytest>6.0.0",
+]
+
+authors = [
+    { name = "Oleksii Ostapov" },
+]
+description = "Pytest plugin to generate json report in CTRF (Common Test Report Format)"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Framework :: Pytest",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Infopulse" = "https://infopulse.com/"
+"Homepage" = "https://github.com/infopulse/pytest-common-test-report-json"
+
+[tool.pytest.ini_options]
+markers = [
+    "smoke: marker for smoke tests",
+    "regression: marker for regression tests",
+]
+
+[project.entry-points.pytest11]
+ctrf = "ctrf.main"

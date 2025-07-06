@@ -1,1 +1,0 @@
-__all__=["erp_relation_model",]

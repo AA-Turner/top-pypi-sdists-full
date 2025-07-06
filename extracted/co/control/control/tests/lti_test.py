@@ -1,15 +1,17 @@
 """lti_test.py"""
 
+import re
+
 import numpy as np
 import pytest
-from .conftest import editsdefaults
 
 import control as ct
-from control import c2d, tf, ss, tf2ss, NonlinearIOSystem
-from control.lti import LTI, evalfr, damp, dcgain, zeros, poles, bandwidth
-from control import common_timebase, isctime, isdtime, issiso
-from control.tests.conftest import slycotonly
+from control import NonlinearIOSystem, c2d, common_timebase, isctime, \
+    isdtime, issiso, ss, tf, tf2ss
 from control.exception import slycot_check
+from control.lti import LTI, bandwidth, damp, dcgain, evalfr, poles, zeros
+from control.tests.conftest import slycotonly
+
 
 class TestLTI:
     @pytest.mark.parametrize("fun, args", [
@@ -22,10 +24,10 @@ class TestLTI:
         np.testing.assert_allclose(poles(sys), 42)
 
         with pytest.raises(AttributeError, match="no attribute 'pole'"):
-            pole_list = sys.pole()
+            sys.pole()
 
         with pytest.raises(AttributeError, match="no attribute 'pole'"):
-            pole_list = ct.pole(sys)
+            ct.pole(sys)
 
     @pytest.mark.parametrize("fun, args", [
         [tf, (126, [-1, 42])],
@@ -37,10 +39,10 @@ class TestLTI:
         np.testing.assert_allclose(zeros(sys), 42)
 
         with pytest.raises(AttributeError, match="no attribute 'zero'"):
-            zero_list = sys.zero()
+            sys.zero()
 
         with pytest.raises(AttributeError, match="no attribute 'zero'"):
-            zero_list = ct.zero(sys)
+            ct.zero(sys)
 
     def test_issiso(self):
         assert issiso(1)
@@ -71,7 +73,7 @@ class TestLTI:
         assert not issiso(sys, strict=True)
 
     def test_damp(self):
-        # Test the continuous time case.
+        # Test the continuous-time case.
         zeta = 0.1
         wn = 42
         p = -wn * zeta + 1j * wn * np.sqrt(1 - zeta**2)
@@ -80,7 +82,7 @@ class TestLTI:
         np.testing.assert_allclose(sys.damp(), expected)
         np.testing.assert_allclose(damp(sys), expected)
 
-        # Also test the discrete time case.
+        # Also test the discrete-time case.
         dt = 0.001
         sys_dt = c2d(sys, dt, method='matched')
         p_zplane = np.exp(p*dt)
@@ -291,7 +293,7 @@ class TestLTI:
             sys = fcn(ct.rss(2, 1, 1))
 
         with pytest.raises(ValueError, match="unknown squeeze value"):
-            resp = sys.frequency_response([1], squeeze='siso')
+            sys.frequency_response([1], squeeze='siso')
         with pytest.raises(ValueError, match="unknown squeeze value"):
             sys([1j], squeeze='siso')
         with pytest.raises(ValueError, match="unknown squeeze value"):
@@ -303,3 +305,104 @@ class TestLTI:
             sys([[0.1j, 1j], [1j, 10j]])
         with pytest.raises(ValueError, match="must be 1D"):
             evalfr(sys, [[0.1j, 1j], [1j, 10j]])
+
+
+@pytest.mark.parametrize(
+    "outdx, inpdx, key",
+    [('y[0]', 'u[1]', (0, 1)),
+     (['y[0]'], ['u[1]'], (0, 1)),
+     (slice(0, 1, 1), slice(1, 2, 1), (0, 1)),
+     (['y[0]', 'y[1]'], ['u[1]', 'u[2]'], ([0, 1], [1, 2])),
+     ([0, 'y[1]'], ['u[1]', 2], ([0, 1], [1, 2])),
+     (slice(0, 2, 1), slice(1, 3, 1), ([0, 1], [1, 2])),
+     (['y[2]', 'y[1]'], ['u[2]', 'u[0]'], ([2, 1], [2, 0])),
+    ])
+@pytest.mark.parametrize("fcn", [ct.ss, ct.tf, ct.frd])
+def test_subsys_indexing(fcn, outdx, inpdx, key):
+    # Construct the base system and subsystem
+    sys = ct.rss(4, 3, 3)
+    subsys = sys[key]
+
+    # Construct the system to be tested
+    match fcn:
+        case ct.frd:
+            omega = np.logspace(-1, 1)
+            sys = fcn(sys, omega)
+            subsys_chk = fcn(subsys, omega)
+        case _:
+            sys = fcn(sys)
+            subsys_chk = fcn(subsys)
+
+    # Construct the subsystem
+    subsys_fcn = sys[outdx, inpdx]
+
+    # Check to make sure everythng matches up
+    match fcn:
+        case ct.frd:
+            np.testing.assert_almost_equal(
+                subsys_fcn.complex, subsys_chk.complex)
+        case ct.ss:
+            np.testing.assert_almost_equal(subsys_fcn.A, subsys_chk.A)
+            np.testing.assert_almost_equal(subsys_fcn.B, subsys_chk.B)
+            np.testing.assert_almost_equal(subsys_fcn.C, subsys_chk.C)
+            np.testing.assert_almost_equal(subsys_fcn.D, subsys_chk.D)
+        case ct.tf:
+            omega = np.logspace(-1, 1)
+            np.testing.assert_almost_equal(
+                subsys_fcn.frequency_response(omega).complex,
+                subsys_chk.frequency_response(omega).complex)
+
+
+@pytest.mark.parametrize("op", [
+    '__mul__', '__rmul__', '__add__', '__radd__', '__sub__', '__rsub__'])
+@pytest.mark.parametrize("fcn", [ct.ss, ct.tf, ct.frd])
+def test_scalar_algebra(op, fcn):
+    sys_ss = ct.rss(4, 2, 2)
+    match fcn:
+        case ct.ss:
+            sys = sys_ss
+        case ct.tf:
+            sys = ct.tf(sys_ss)
+        case ct.frd:
+            sys = ct.frd(sys_ss, [0.1, 1, 10])
+
+    scaled = getattr(sys, op)(2)
+    np.testing.assert_almost_equal(getattr(sys(1j), op)(2), scaled(1j))
+
+
+@pytest.mark.parametrize(
+    "fcn, args, kwargs, suppress, " +
+    "repr_expected, str_expected, latex_expected", [
+    (ct.ss, (-1e-12, 1, 2, 3), {}, False,
+     r"StateSpace\([\s]*array\(\[\[-1.e-12\]\]\).*",
+     None,                      # standard Numpy formatting
+     r"10\^\{-12\}"),
+    (ct.ss, (-1e-12, 1, 3, 3), {}, True,
+     r"StateSpace\([\s]*array\(\[\[-0\.\]\]\).*",
+     None,                      # standard Numpy formatting
+     r"-0"),
+    (ct.tf, ([1, 1e-12, 1], [1, 2, 1]), {}, False,
+     r"\[1\.e\+00, 1\.e-12, 1.e\+00\]",
+     r"s\^2 \+ 1e-12 s \+ 1",
+     r"1 \\times 10\^\{-12\}"),
+    (ct.tf, ([1, 1e-12, 1], [1, 2, 1]), {}, True,
+     r"\[1\., 0., 1.\]",
+     r"s\^2 \+ 1",
+     r"\{s\^2 \+ 1\}"),
+])
+@pytest.mark.usefixtures("editsdefaults")
+def test_printoptions(
+        fcn, args, kwargs, suppress,
+        repr_expected, str_expected, latex_expected):
+    sys = fcn(*args, **kwargs)
+
+    with np.printoptions(suppress=suppress):
+        # Test loadable representation
+        assert re.search(repr_expected, ct.iosys_repr(sys, 'eval')) is not None
+
+        # Test string representation
+        if str_expected is not None:
+            assert re.search(str_expected, str(sys)) is not None
+
+        # Test LaTeX/HTML representation
+        assert re.search(latex_expected, sys._repr_html_()) is not None

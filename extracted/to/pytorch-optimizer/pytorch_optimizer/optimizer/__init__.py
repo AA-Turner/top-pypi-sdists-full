@@ -19,6 +19,7 @@ from pytorch_optimizer.optimizer.adai import Adai
 from pytorch_optimizer.optimizer.adalite import Adalite
 from pytorch_optimizer.optimizer.adam_mini import AdamMini
 from pytorch_optimizer.optimizer.adamax import AdaMax
+from pytorch_optimizer.optimizer.adamc import AdamC
 from pytorch_optimizer.optimizer.adamg import AdamG
 from pytorch_optimizer.optimizer.adamod import AdaMod
 from pytorch_optimizer.optimizer.adamp import SGDP, AdamP
@@ -93,6 +94,7 @@ from pytorch_optimizer.optimizer.scion import SCION, SCIONLight
 from pytorch_optimizer.optimizer.sgd import ASGD, SGDW, VSGD, AccSGD, SGDSaI, SignSGD
 from pytorch_optimizer.optimizer.shampoo import ScalableShampoo, Shampoo
 from pytorch_optimizer.optimizer.sm3 import SM3
+from pytorch_optimizer.optimizer.snsm import AdamWSN
 from pytorch_optimizer.optimizer.soap import SOAP
 from pytorch_optimizer.optimizer.sophia import SophiaH
 from pytorch_optimizer.optimizer.spam import SPAM, StableSPAM
@@ -110,7 +112,7 @@ HAS_TORCHAO: bool = find_spec('torchao') is not None
 
 def load_bnb_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover  # noqa: PLR0911
     r"""Load bnb optimizer instance."""
-    from bitsandbytes import optim
+    from bitsandbytes import optim  # noqa: PLC0415
 
     if 'sgd8bit' in optimizer:
         return optim.SGD8bit
@@ -166,7 +168,7 @@ def load_bnb_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover  # noqa
 
 def load_q_galore_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover
     r"""Load Q-GaLore optimizer instance."""
-    import q_galore_torch
+    import q_galore_torch  # noqa: PLC0415
 
     if 'adamw8bit' in optimizer:
         return q_galore_torch.QGaLoreAdamW8bit
@@ -176,7 +178,7 @@ def load_q_galore_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover
 
 def load_ao_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover
     r"""Load TorchAO optimizer instance."""
-    from torchao.prototype import low_bit_optim
+    from torchao.prototype import low_bit_optim  # noqa: PLC0415
 
     if 'adamw8bit' in optimizer:
         return low_bit_optim.AdamW8bit
@@ -219,6 +221,8 @@ OPTIMIZER_LIST: List[OPTIMIZER] = [
     SGD,
     AdaBelief,
     AdaBound,
+    AdamWSN,
+    AdamC,
     PID,
     AdamP,
     Adai,

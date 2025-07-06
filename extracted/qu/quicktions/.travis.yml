@@ -1,0 +1,48 @@
+#env:
+#  global:
+#    - TWINE_USERNAME=scoder
+#    # Note: TWINE_PASSWORD is set in Travis settings
+
+os: linux
+sudo: false
+
+language: python
+
+install:
+  - pip install -r requirements-appveyor.txt tox-travis
+  - python setup.py build_ext --inplace --with-cython
+
+script:
+  - tox
+  - python setup.py sdist bdist_wheel
+  # the following is stolen from https://github.com/joerick/pyinstrument_cext/blob/master/.travis.yml
+  # uncomment to push wheels automatically to pypi for tagged releases only (requires TWINE_PASSWORD to be set)
+  # - |
+  #   if [[ $TRAVIS_TAG ]]; then
+  #     python -m pip install twine
+  #     python -m twine upload wheelhouse/*.whl
+  #   fi
+
+matrix:
+  include:
+    - python: 2.7
+    - python: 3.9
+    - python: 3.8
+    - python: 3.7
+    - python: 3.5
+    - python: 3.6
+    #- python: 3.9-dev
+#    - os: osx
+#      osx_image: xcode6.4
+#      env: PY=2
+#      python: 2
+#      language: c
+#      compiler: clang
+#      cache: false
+#    - os: osx
+#      osx_image: xcode6.4
+#      env: PY=3
+#      python: 3
+#      language: c
+#      compiler: clang
+#      cache: false

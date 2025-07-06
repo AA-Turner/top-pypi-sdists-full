@@ -1,0 +1,136 @@
+Metadata-Version: 2.4
+Name: dolma
+Version: 1.2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Text Processing
+Classifier: Typing :: Typed
+Requires-Dist: anyascii>=0.3.2
+Requires-Dist: blingfire==0.1.8
+Requires-Dist: boto3
+Requires-Dist: fasttext-wheel==0.9.2
+Requires-Dist: fsspec>=2023.6.0
+Requires-Dist: jsonpath-ng
+Requires-Dist: jq
+Requires-Dist: msgspec>=0.14.2
+Requires-Dist: nltk>=3.9.1
+Requires-Dist: omegaconf>=2.3.0
+Requires-Dist: platformdirs>=4.2.0
+Requires-Dist: pyyaml
+Requires-Dist: python-dotenv>=0.19.0
+Requires-Dist: requests
+Requires-Dist: rich
+Requires-Dist: s3fs==2023.6.0
+Requires-Dist: smart-open>=7.0.4
+Requires-Dist: tokenizers>=0.15.0,<=0.19.1
+Requires-Dist: tqdm
+Requires-Dist: uniseg
+Requires-Dist: numpy<2
+Requires-Dist: necessary>=0.4.3
+Requires-Dist: charset-normalizer>=3.2.0
+Requires-Dist: zstandard>=0.23.0
+Requires-Dist: flake8-pyproject>=1.1.0 ; extra == 'dev'
+Requires-Dist: black>=22.6.0 ; extra == 'dev'
+Requires-Dist: flake8-pyi>=22.8.1 ; extra == 'dev'
+Requires-Dist: flake8>=5.0 ; extra == 'dev'
+Requires-Dist: ipdb>=0.13.0 ; extra == 'dev'
+Requires-Dist: ipython>=8.4.0 ; extra == 'dev'
+Requires-Dist: isort>=5.10.1 ; extra == 'dev'
+Requires-Dist: mypy==0.971 ; extra == 'dev'
+Requires-Dist: pytest>=5.2 ; extra == 'dev'
+Requires-Dist: types-pyyaml ; extra == 'dev'
+Requires-Dist: types-dateparser ; extra == 'dev'
+Requires-Dist: detect-secrets==1.4.0 ; extra == 'code'
+Requires-Dist: beautifulsoup4>=4 ; extra == 'code'
+Requires-Dist: pygments ; extra == 'code'
+Requires-Dist: regex ; extra == 'code'
+Requires-Dist: regex ; extra == 'pii'
+Requires-Dist: fasttext-wheel==0.9.2 ; extra == 'lang'
+Requires-Dist: pycld2 ; extra == 'lang'
+Requires-Dist: lingua-language-detector>=2.0.0 ; extra == 'lang'
+Requires-Dist: fastwarc ; extra == 'warc'
+Requires-Dist: w3lib ; extra == 'warc'
+Requires-Dist: url-normalize ; extra == 'warc'
+Requires-Dist: dolma[warc] ; extra == 'trafilatura'
+Requires-Dist: trafilatura>=1.6.1 ; extra == 'trafilatura'
+Requires-Dist: brotli ; extra == 'trafilatura'
+Requires-Dist: cchardet>=2.1.7 ; python_full_version < '3.11' and extra == 'trafilatura'
+Requires-Dist: faust-cchardet>=2.1.18 ; python_full_version >= '3.11' and extra == 'trafilatura'
+Requires-Dist: htmldate[speed]>=1.4.3 ; extra == 'trafilatura'
+Requires-Dist: py3langid>=0.2.2 ; extra == 'trafilatura'
+Requires-Dist: dolma[warc] ; extra == 'resiliparse'
+Requires-Dist: resiliparse ; extra == 'resiliparse'
+Requires-Dist: dolma[dev] ; extra == 'all'
+Requires-Dist: dolma[code] ; extra == 'all'
+Requires-Dist: dolma[pii] ; extra == 'all'
+Requires-Dist: dolma[trafilatura] ; extra == 'all'
+Requires-Dist: dolma[resiliparse] ; extra == 'all'
+Requires-Dist: dolma[lang] ; extra == 'all'
+Provides-Extra: dev
+Provides-Extra: code
+Provides-Extra: pii
+Provides-Extra: lang
+Provides-Extra: warc
+Provides-Extra: trafilatura
+Provides-Extra: resiliparse
+Provides-Extra: all
+License-File: LICENSE
+Summary: Toolkit for pre-processing LLM training data.
+Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Luca Soldaini <luca@soldaini.net>, Kyle Lo <kylel@allenai.org>, Rodney Kinney <rodneyk@allenai.org>, Aakanksha Naik <aakankshan@allenai.org>, Abhilasha Ravichander <abhilashar@allenai.org>, Akshita Bhagia <akshitab@allenai.org>, Dirk Groeneveld <dirkg@allenai.org>, Dustin Schwenk <dustins@allenai.org>, Ian Magnusson <ianm@allenai.org>, Khyathi Chandu <khyathic@allenai.org>
+Maintainer-email: Allen Institute for Artificial Intelligence <contact@allenai.org>
+License: Apache-2.0
+Requires-Python: >=3.10, <3.13
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/allenai/dolma
+
+<img alt="Dolma's official logo. It's dolma written in yellow, round lowercase letters over a blue background." src="https://raw.githubusercontent.com/allenai/dolma/main/docs/assets/AI2_Blog_1400x685_2x.webp" width="100%">
+
+Dolma is two things:
+
+1. **Dolma Dataset**: an open dataset of 3 trillion tokens from a diverse mix of web content, academic publications, code, books, and encyclopedic materials.
+2. **Dolma Toolkit**: a high-performance toolkit for curating datasets for language modeling -- this repo contains the source code for the Dolma Toolkit.
+
+## Dolma Dataset
+
+Dolma is an open dataset of 3 trillion tokens from a diverse mix of web content, academic publications, code, books, and encyclopedic materials.
+It was created as a training corpus for [OLMo](https://allenai.org/olmo), a language model from the [Allen Institute for AI](https://allenai.org) (AI2).
+
+Dolma is available for download on the HuggingFace 🤗 Hub: [`huggingface.co/datasets/allenai/dolma`](https://huggingface.co/datasets/allenai/dolma). Dolma is licensed under **[ODC-BY](https://opendatacommons.org/licenses/by/1-0/)**; see our [blog post](https://blog.allenai.org/making-a-switch-dolma-moves-to-odc-by-8f0e73852f44) for explanation.
+
+You can also read more about Dolma in [our announcement](https://blog.allenai.org/dolma-3-trillion-tokens-open-llm-corpus-9a0ff4b8da64), as well as by consulting its [data sheet](docs/assets/dolma-v0_1-20230819.pdf).
+
+
+## Dolma Toolkit
+
+This repository houses the Dolma Toolkit, which enables curation of large datasets for (pre)-training ML models. Its key features are:
+
+1. **High Performance** ⚡: Can process billions of documents concurrently thanks to built-in parallelism.
+2. **Portability** 🧳: Works on a single machine, a cluster, or cloud environment.
+3. **Built-In Taggers** 🏷: Includes ready-to-use taggers commonly used to curate datasets such as [Gopher](https://arxiv.org/abs/2112.11446), [C4](https://arxiv.org/abs/1910.10683), and [OpenWebText](https://openwebtext2.readthedocs.io/en/latest/).
+4. **Fast Deduplication** 🗑: Speedy document deduplication using a Rust Bloom filter.
+5. **Extensibility** 🧩 & **Cloud Support** ☁: Supports custom taggers and AWS S3-compatible locations.
+
+To install, simply type `pip install dolma` in your terminal.
+
+To learn more about how to use the Dolma Toolkit, please visit the [documentation](/docs).
+
+## Citation
+
+If you use the Dolma dataset or toolkit, please cite the following items:
+
+<!-- {% raw %} -->
+```bibtex
+@article{dolma,
+  title = {{Dolma: An Open Corpus of Three Trillion Tokens for Language Model Pretraining Research}},
+  author={Luca Soldaini and Rodney Kinney and Akshita Bhagia and Dustin Schwenk and David Atkinson and Russell Authur and Ben Bogin and Khyathi Chandu and Jennifer Dumas and Yanai Elazar and Valentin Hofmann and Ananya Harsh Jha and Sachin Kumar and Li Lucy and Xinxi Lyu and Nathan Lambert and Ian Magnusson and Jacob Morrison and Niklas Muennighoff and Aakanksha Naik and Crystal Nam and Matthew E. Peters and Abhilasha Ravichander and Kyle Richardson and Zejiang Shen and Emma Strubell and Nishant Subramani and Oyvind Tafjord and Pete Walsh and Luke Zettlemoyer and Noah A. Smith and Hannaneh Hajishirzi and Iz Beltagy and Dirk Groeneveld and Jesse Dodge and Kyle Lo},
+  year={2024},
+  journal={arXiv preprint},
+  url={https://arxiv.org/abs/2402.00159}
+}
+```
+<!-- {% endraw %} -->
+

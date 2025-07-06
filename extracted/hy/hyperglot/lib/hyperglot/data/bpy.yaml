@@ -1,0 +1,19 @@
+contributors:
+- David Březina
+name: Bishnupriya
+orthographies:
+- autonym: বিষ্ণুপ্রিয়া মণিপুরী
+  base: অ আ ই ঈ উ ঊ ঋ এ ঐ ও ঔ ক খ গ ঘ ঙ চ ছ জ ঝ ঞ ট ঠ ড ঢ ণ ত থ দ ধ ন প ফ ব ভ ম য র ল ৱ শ ষ স হ
+  currency: <ben>
+  design_requirements:
+  - Mark positioning and numerous precomposed forms (namely conjunct ligatures) are required for proper representation of the language.
+  marks: ◌ঁ ◌ং ◌ঃ ◌় ◌া ◌ি ◌ী ◌ু ◌ূ ◌ৃ ◌ে ◌ৈ ◌্ ◌ৗ
+  numerals: <ben>
+  punctuation: <ben>
+  script: Bengali
+  status: primary
+sources:
+- Bishnupriya Manipuri. (2024, June 17). In *Wikipedia*. https://en.wikipedia.org/wiki/Bishnupriya_Manipuri?oldid=1229501592
+speakers: 1760000
+speakers_date: 2020
+validity: preliminary

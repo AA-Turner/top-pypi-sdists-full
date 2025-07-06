@@ -1,0 +1,41 @@
+pages:
+  artifacts:
+    paths:
+    - public
+  image: sphinxdoc/sphinx
+  only:
+  - main
+  script:
+  - pip install -r doc/requirements.txt
+  - sphinx-build -b html doc/source public
+  stage: deploy
+  tags: &id001
+  - ci.inria.fr
+  - linux
+  - small
+register_pip_pkg:
+  image: python:latest
+  only:
+  - main
+  script:
+  - pip install build twine
+  - python -m build
+  - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine
+    upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
+    dist/*
+  stage: deploy
+  tags: *id001
+release_job:
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  release:
+    description: Release $CI_COMMIT_TAG
+    tag_name: $CI_COMMIT_TAG
+  rules:
+  - if: $CI_COMMIT_TAG =~ /^v./
+  script:
+  - echo "running release_job"
+  stage: release
+  tags: *id001
+stages:
+- release
+- deploy

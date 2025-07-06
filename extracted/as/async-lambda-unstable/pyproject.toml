@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools<68.0.0", "wheel"]
+
+[project]
+name = "async-lambda-unstable"
+dynamic = ["version"]
+readme = "README.md"
+authors = [{ name = "Nuclei, Inc", email = "engineering@nuclei.ai" }]
+description = "A framework for creating AWS Lambda Async Workflows. - Unstable Branch"
+dependencies = ["click>=8.0.0", "typing-extensions>=4.0.0"]
+
+[project.optional-dependencies]
+local = ["boto3", "flask>=2.3.0,<3.0.0"]
+
+[project.scripts]
+async-lambda = "async_lambda.cli:cli"
+
+[tool.setuptools.dynamic]
+version = { attr = "async_lambda.__version__" }
+
+[tool.setuptools.package-data]
+"async_lambda" = ["py.typed"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-n auto"
+testpaths = ["test"]
+log_cli_level = "info"
+log_cli = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: not covered", "@overload"]
+show_missing = true

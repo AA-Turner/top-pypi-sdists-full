@@ -1,0 +1,33 @@
+# *******************************************************
+# Copyright (c) Broadcom, Inc. 2020-2025. All Rights Reserved. Carbon Black.
+# SPDX-License-Identifier: MIT
+# *******************************************************
+# *
+# * DISCLAIMER. THIS PROGRAM IS PROVIDED TO YOU "AS IS" WITHOUT
+# * WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER ORAL OR WRITTEN,
+# * EXPRESS OR IMPLIED. THE AUTHOR SPECIFICALLY DISCLAIMS ANY IMPLIED
+# * WARRANTIES OR CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY,
+# * NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE.
+type: object
+properties:
+  id:
+    type: string
+    description: The ID of this rule config
+  name:
+    type: string
+    description: The name of this rule config
+  description:
+    type: string
+    description: The description of this rule config
+  inherited_from:
+    type: string
+    description: Indicates where the rule config was inherited from
+  category:
+    type: string
+    description: The category for this rule config
+  parameters:
+    type: object
+    description: The parameters associated with this rule config
+  exclusions:
+    type: object
+    description: The exclusions associated with this rule config

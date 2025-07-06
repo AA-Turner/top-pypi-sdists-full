@@ -1,0 +1,50 @@
+from matrice.deploy.client.client import MatriceDeployClient
+from matrice.deploy.client.camera_manager import CameraManager, CameraConfig
+from matrice.deploy.client.streaming_gateway import (
+    StreamingGateway,
+    InputConfig,
+    InputType,
+    ModelInputType,
+    OutputConfig,
+    OutputType,
+    FileOutputConfig,
+    KafkaOutputConfig,
+    create_camera_input,
+    create_video_input,
+    create_rtsp_input,
+    create_file_output,
+    create_kafka_output,
+    create_dual_output,
+    create_camera_frame_input,
+    create_camera_video_input,
+    create_camera_video_input_by_frames,
+    create_video_frame_input,
+    create_video_video_input,
+    create_video_video_input_by_frames
+)
+
+__all__ = [
+    "MatriceDeployClient",
+    "CameraManager",
+    "CameraConfig",
+    "StreamingGateway",
+    "InputConfig",
+    "InputType",
+    "ModelInputType",
+    "OutputConfig", 
+    "OutputType",
+    "FileOutputConfig",
+    "KafkaOutputConfig",
+    "create_camera_input",
+    "create_video_input", 
+    "create_rtsp_input",
+    "create_file_output",
+    "create_kafka_output",
+    "create_dual_output",
+    "create_camera_frame_input",
+    "create_camera_video_input",
+    "create_camera_video_input_by_frames",
+    "create_video_frame_input",
+    "create_video_video_input",
+    "create_video_video_input_by_frames"
+]

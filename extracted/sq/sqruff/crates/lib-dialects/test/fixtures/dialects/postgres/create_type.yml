@@ -1,0 +1,118 @@
+file:
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: foo
+- statement_terminator: ;
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: bar
+    - keyword: AS
+    - keyword: ENUM
+    - bracketed:
+      - start_bracket: (
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: bar
+    - keyword: AS
+    - keyword: ENUM
+    - bracketed:
+      - start_bracket: (
+      - single_quote: '''foo'''
+      - comma: ','
+      - single_quote: '''bar'''
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: foobar
+    - keyword: AS
+    - keyword: RANGE
+    - bracketed:
+      - start_bracket: (
+      - word: SUBTYPE
+      - raw_comparison_operator: =
+      - word: FLOAT
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: barbar
+    - keyword: AS
+    - bracketed:
+      - start_bracket: (
+      - word: INPUT
+      - raw_comparison_operator: =
+      - word: foo
+      - comma: ','
+      - word: OUTPUT
+      - raw_comparison_operator: =
+      - word: bar
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: foofoo
+    - keyword: AS
+    - bracketed:
+      - start_bracket: (
+      - column_reference:
+        - naked_identifier: foo
+      - data_type:
+        - keyword: varchar
+      - keyword: collate
+      - collation_reference:
+        - naked_identifier: utf8
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_type_statement:
+    - keyword: CREATE
+    - keyword: TYPE
+    - object_reference:
+      - naked_identifier: person
+    - keyword: AS
+    - bracketed:
+      - start_bracket: (
+      - column_reference:
+        - naked_identifier: first_name
+      - data_type:
+        - keyword: text
+      - keyword: COLLATE
+      - collation_reference:
+        - quoted_identifier: '"en_US"'
+      - comma: ','
+      - column_reference:
+        - naked_identifier: last_name
+      - data_type:
+        - keyword: text
+      - keyword: COLLATE
+      - collation_reference:
+        - quoted_identifier: '"en_US"'
+      - comma: ','
+      - column_reference:
+        - naked_identifier: birth_date
+      - data_type:
+        - datetime_type_identifier:
+          - keyword: date
+      - end_bracket: )
+- statement_terminator: ;

@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: sqruff
+Version: 0.28.0
+Requires-Dist: regex ; extra == 'jinja'
+Requires-Dist: jinja2>=3.0.0 ; extra == 'jinja'
+Requires-Dist: jinja2-simple-tags>=0.3.1 ; extra == 'jinja'
+Requires-Dist: regex ; extra == 'dbt'
+Requires-Dist: jinja2>=3.0.0 ; extra == 'dbt'
+Requires-Dist: jinja2-simple-tags>=0.3.1 ; extra == 'dbt'
+Requires-Dist: dbt-core>=1.4.1 ; extra == 'dbt'
+Provides-Extra: jinja
+Provides-Extra: dbt
+Summary: A SQL linter written in rust.
+License: Apache-2.0
+Requires-Python: >=3.9
+Project-URL: Source Code, https://github.com/quarylabs/sqruff

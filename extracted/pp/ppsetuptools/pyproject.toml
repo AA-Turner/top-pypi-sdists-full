@@ -1,0 +1,89 @@
+[project]
+name = 'ppsetuptools'
+project_name = 'ppsetuptools'
+version = '2.0.2'
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development :: Libraries',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8'
+]
+description = 'Drop in replacement for setuptools that uses pyproject.toml files'
+include_package_data = true
+keywords = [
+    'setuptools',
+    'pyproject',
+    'setup.py',
+    'pyproject.toml',
+    'replacement',
+    'pep621',
+    'pep-621',
+]
+license = { file = 'LICENSE' }
+readme = 'README.md'
+requires-python = '>=3.6'
+urls = { repository = 'https://github.com/TheCleric/ppsetuptools' }
+
+dependencies = [
+    'setuptools>=38.6.0',
+    'toml',
+]
+
+[[project.authors]]
+name = 'Adam Weeden'
+email = 'adamweeden@gmail.com'
+
+[project.optional-dependencies]
+dev = [
+    'autopep8',
+    'isort',
+    'pre-commit',
+    'setuptools',
+    'twine',
+    'upgrade-ensurepip',
+    'wheel',
+]
+test = [
+    'mypy',
+    'pydantic',
+    'pylint',
+    'pytest',
+    'pytest-cov',
+]
+
+[build-system]
+requires = [
+    'setuptools>=38.6.0',
+    'wheel',
+    'toml',
+    'twine',
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.autopep8]
+max_line_length = 120
+
+[tool.isort]
+line_length = 120
+
+[tool.pylint.pep8]
+'max-line-length' = 120
+
+[tool.pylint.MASTER]
+ignore = 'venv'
+
+[tool.pylint.'MESSAGES CONTROL']
+enable = [
+    'errors',
+    'warnings',
+]
+disable = [
+    'missing-class-docstring',
+    'missing-function-docstring',
+    'missing-module-docstring',
+    'too-few-public-methods',
+]

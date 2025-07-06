@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: reuters-style
+Version: 0.0.5
+Summary: Format dates, numbers and text to conform with the Reuters Style Guide, the standards that guide the world's largest independent newsroom
+Home-page: https://palewi.re/docs/reuters-style/
+Author: Ben Welsh
+Author-email: b@palewi.re
+License: MIT
+Project-URL: Maintainer, https://github.com/palewire
+Project-URL: Source, https://www.github.com/palewire/reuters-style
+Project-URL: Tracker, https://www.github.com/palewire/reuters-style
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+A Python library that format dates, numbers and text to conform with the Reuters Style Guide, the standards that guide the world's largest independent newsroom
+
+## Links
+
+- Documentation: [palewi.re/docs/reuters-style/](https://palewi.re/docs/reuters-style/)
+- Code: [github.com/palewire/reuters-style](https://github.com/palewire/reuters-style)
+- Issues: [github.com/palewire/reuters-style/issues](https://github.com/palewire/reuters-style/issues)
+- Packaging: [pypi.org/project/reuters-style](https://pypi.org/project/reuters-style)

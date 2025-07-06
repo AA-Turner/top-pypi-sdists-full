@@ -1,0 +1,86 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - function:
+          - function_name:
+            - function_name_identifier: NTH_VALUE
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - column_reference:
+                - naked_identifier: bar
+            - comma: ','
+            - expression:
+              - numeric_literal: '1'
+            - end_bracket: )
+          - over_clause:
+            - keyword: OVER
+            - bracketed:
+              - start_bracket: (
+              - window_specification:
+                - naked_identifier: w1
+              - end_bracket: )
+        - alias_expression:
+          - keyword: AS
+          - naked_identifier: baz
+      - comma: ','
+      - select_clause_element:
+        - function:
+          - function_name:
+            - function_name_identifier: NTH_VALUE
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - column_reference:
+                - naked_identifier: bar
+            - comma: ','
+            - expression:
+              - numeric_literal: '1'
+            - end_bracket: )
+          - over_clause:
+            - keyword: OVER
+            - bracketed:
+              - start_bracket: (
+              - end_bracket: )
+        - alias_expression:
+          - keyword: AS
+          - naked_identifier: foo
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: t
+    - named_window:
+      - keyword: WINDOW
+      - named_window_expression:
+        - naked_identifier: w1
+        - keyword: AS
+        - bracketed:
+          - start_bracket: (
+          - window_specification:
+            - partitionby_clause:
+              - keyword: PARTITION
+              - keyword: BY
+              - expression:
+                - column_reference:
+                  - naked_identifier: x
+              - comma: ','
+              - expression:
+                - column_reference:
+                  - naked_identifier: y
+              - comma: ','
+              - expression:
+                - column_reference:
+                  - naked_identifier: z
+            - orderby_clause:
+              - keyword: ORDER
+              - keyword: BY
+              - column_reference:
+                - naked_identifier: abc
+              - keyword: DESC
+          - end_bracket: )

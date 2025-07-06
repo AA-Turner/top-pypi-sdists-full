@@ -1,0 +1,25 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Macedonian
+orthographies:
+- autonym: Македонски
+  base: А Б В Г Д Е Ж З И К Л М Н О П Р С Т У Ф Х Ц Ч Ш Ѓ Ѕ Ј Љ Њ Ќ Џ а б в г д е ж з и к л м н о п р с т у ф х ц ч ш ѓ ѕ ј љ њ ќ џ Ѐ Ѝ ѐ ѝ
+  design_alternates: б
+  design_requirements:
+  - Correct positioning of acute and grave marks above some characters may be required.
+  - In italic, some characters (marked in the previews) use a form that differs from the defaults associated with the Unicode codepoints (typically the Russian form of Cyrillic).
+  marks: ◌́ ◌̀
+  numerals: <default>
+  punctuation: <default> „ “ ’ ‘
+  script: Cyrillic
+  status: primary
+sources:
+- Macedonian language. (2024, July 22). In *Wikipedia*. https://en.wikipedia.org/wiki/Macedonian_language?oldid=1235932356
+- '*The Unicode Common Locale Data Repository (CLDR)*. (2024, September 27). The Unicode Consortium. https://cldr.unicode.org'
+- Everson, M. (1995). Macedonian. In *The Alphabets of Europe*. https://www.evertype.com/alphabets/macedonian.pdf
+- Quotation mark. (2024, September 26). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Quotation_mark&oldid=1247790780
+sources note: review
+speakers: 1400000
+status: living
+validity: verified

@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "confluent-kafka-stubs"
+version = "0.0.3"
+description = "Stub files for confluent-kafka."
+authors = ["The Epic <theepic.dev.83@gmail.com>"]
+readme = "README.md"
+packages = [{include = "confluent_kafka-stubs"}]
+license = "Apache-2.0"
+repository = "https://gitlab.com/theepic-dev/confluent-kafka-stubs"
+keywords = ["kafka", "stubs", "types"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -15,7 +15,7 @@ import os
 from glances.globals import WINDOWS, key_exist_value_not_none_not_v, replace_special_chars
 from glances.logger import logger
 from glances.outputs.glances_unicode import unicode_message
-from glances.plugins.core import PluginModel as CorePluginModel
+from glances.plugins.core import CorePlugin
 from glances.plugins.plugin.model import GlancesPluginModel
 from glances.processes import glances_processes, sort_stats
 
@@ -111,7 +111,7 @@ def split_cmdline(bare_process_name, cmdline):
     return path, cmd, arguments
 
 
-class PluginModel(GlancesPluginModel):
+class ProcesslistPlugin(GlancesPluginModel):
     """Glances' processes plugin.
 
     stats is a list
@@ -179,9 +179,9 @@ class PluginModel(GlancesPluginModel):
         # Trying to display proc time
         self.tag_proc_time = True
 
-        # Call CorePluginModel to get the core number (needed when not in IRIX mode / Solaris mode)
+        # Call CorePlugin to get the core number (needed when not in IRIX mode / Solaris mode)
         try:
-            self.nb_log_core = CorePluginModel(args=self.args).update()["log"]
+            self.nb_log_core = CorePlugin(args=self.args).update()["log"]
         except Exception:
             self.nb_log_core = 0
 
@@ -262,8 +262,24 @@ class PluginModel(GlancesPluginModel):
             return 'WARNING'
         if self.get_limit('nice_careful') and value in self.get_limit('nice_careful'):
             return 'CAREFUL'
+        if self.get_limit('nice_ok') and value in self.get_limit('nice_ok'):
+            return 'OK'
 
         return 'DEFAULT'
+
+    def get_status_alert(self, value):
+        """Return the alert relative to the Status configuration list"""
+        value = str(value)
+        if self.get_limit('status_critical') and value in self.get_limit('status_critical'):
+            return 'CRITICAL'
+        if self.get_limit('status_warning') and value in self.get_limit('status_warning'):
+            return 'WARNING'
+        if self.get_limit('status_careful') and value in self.get_limit('status_careful'):
+            return 'CAREFUL'
+        if self.get_limit('status_ok') and value in self.get_limit('status_ok'):
+            return 'OK'
+
+        return 'OK' if value == 'R' else 'DEFAULT'
 
     def _get_process_curses_cpu_percent(self, p, selected, args):
         """Return process CPU curses"""
@@ -403,10 +419,11 @@ class PluginModel(GlancesPluginModel):
         if 'status' in p:
             status = p['status']
             msg = self.layout_stat['status'].format(status)
-            if status == 'R':
-                ret = self.curse_add_line(msg, decoration='STATUS')
-            else:
-                ret = self.curse_add_line(msg)
+            ret = self.curse_add_line(msg, decoration=self.get_status_alert(status))
+            # if status == 'R':
+            #     ret = self.curse_add_line(msg, decoration='STATUS')
+            # else:
+            #     ret = self.curse_add_line(msg)
         else:
             msg = self.layout_header['status'].format('?')
             ret = self.curse_add_line(msg)
@@ -709,7 +726,7 @@ class PluginModel(GlancesPluginModel):
             if args.disable_irix and 0 < self.nb_log_core < 10:
                 msg = self.layout_header['cpu'].format('CPU%/' + str(self.nb_log_core))
             elif args.disable_irix and self.nb_log_core != 0:
-                msg = self.layout_header['cpu'].format('CPU%/C')
+                msg = self.layout_header['cpu'].format('CPUi')
             else:
                 msg = self.layout_header['cpu'].format('CPU%')
             ret.append(self.curse_add_line(msg, sort_style if process_sort_key == 'cpu_percent' else 'DEFAULT'))

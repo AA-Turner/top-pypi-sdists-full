@@ -8,11 +8,12 @@
 
 """Curses interface class."""
 
+import functools
 import getpass
 import sys
 
 from glances.events_list import glances_events
-from glances.globals import MACOS, WINDOWS, disable, enable, itervalues, nativestr, u
+from glances.globals import MACOS, WINDOWS, disable, enable, nativestr, u
 from glances.logger import logger
 from glances.outputs.glances_colors import GlancesColors
 from glances.outputs.glances_unicode import unicode_message
@@ -160,8 +161,8 @@ class _GlancesCurses:
         # Load configuration file
         self.load_config(config)
 
-        # Init cursor
-        self._init_cursor()
+        # Init Curses cursor
+        self._init_curses_cursor()
 
         # Init the colors
         self.colors_list = GlancesColors(args).get()
@@ -182,8 +183,10 @@ class _GlancesCurses:
         # Init the process min/max reset
         self.args.reset_minmax_tag = False
 
-        # Init cursor
+        # Init Glances cursor
         self.args.cursor_position = 0
+        # For the moment cursor only available in standalone mode
+        self.args.disable_cursor = not self.args.is_standalone
 
         # Catch key pressed with non blocking mode
         self.term_window.keypad(1)
@@ -221,7 +224,7 @@ class _GlancesCurses:
 
         self.reset_history_tag = False
 
-    def _init_cursor(self):
+    def _init_curses_cursor(self):
         """Init cursors."""
 
         if hasattr(curses, 'noecho'):
@@ -257,22 +260,16 @@ class _GlancesCurses:
             action()
 
     def catch_other_actions_maybe_return_to_browser(self, return_to_browser):
-        if self.pressedkey == ord('e') and not self.args.programs:
-            self._handle_process_extended()
-        elif self.pressedkey == ord('k') and not self.args.disable_cursor:
-            self._handle_kill_process()
-        elif self.pressedkey == curses.KEY_LEFT:
-            self._handle_sort_left()
-        elif self.pressedkey == curses.KEY_RIGHT:
-            self._handle_sort_right()
-        elif self.pressedkey == curses.KEY_UP or self.pressedkey == 65 and not self.args.disable_cursor:
-            self._handle_cursor_up()
-        elif self.pressedkey == curses.KEY_DOWN or self.pressedkey == 66 and not self.args.disable_cursor:
-            self._handle_cursor_down()
-        elif self.pressedkey == ord('\x1b') or self.pressedkey == ord('q'):
-            self._handle_quit(return_to_browser)
-        elif self.pressedkey == curses.KEY_F5 or self.pressedkey == 18:
-            self._handle_refresh()
+        {
+            self.pressedkey in {ord('e')} and not self.args.programs: self._handle_process_extended,
+            self.pressedkey in {ord('k')} and not self.args.disable_cursor: self._handle_kill_process,
+            self.pressedkey in {curses.KEY_LEFT}: self._handle_sort_left,
+            self.pressedkey in {curses.KEY_RIGHT}: self._handle_sort_right,
+            self.pressedkey in {curses.KEY_UP, 65} and not self.args.disable_cursor: self._handle_cursor_up,
+            self.pressedkey in {curses.KEY_DOWN, 66} and not self.args.disable_cursor: self._handle_cursor_down,
+            self.pressedkey in {curses.KEY_F5, 18}: self._handle_refresh,
+            self.pressedkey in {ord('\x1b'), ord('q')}: functools.partial(self._handle_quit, return_to_browser),
+        }.get(True, lambda: None)()
 
     def __catch_key(self, return_to_browser=False):
         # Catch the pressed key
@@ -699,7 +696,7 @@ class _GlancesCurses:
             )
 
         # Width of all plugins
-        stats_width = sum(itervalues(plugin_widths))
+        stats_width = sum(plugin_widths.values())
 
         # Number of plugin but quicklook
         stats_number = sum(
@@ -725,7 +722,7 @@ class _GlancesCurses:
                 logger.debug(f"Quicklook plugin not available ({e})")
             else:
                 plugin_widths['quicklook'] = self.get_stats_display_width(stat_display["quicklook"])
-                stats_width = sum(itervalues(plugin_widths)) + 1
+                stats_width = sum(plugin_widths.values()) + 1
             self.space_between_column = 1
             self.display_plugin(stat_display["quicklook"])
             self.new_column()
@@ -746,7 +743,7 @@ class _GlancesCurses:
                         if hasattr(self.args, 'disable_' + p)
                         else 0
                     )
-                    stats_width = sum(itervalues(plugin_widths)) + 1
+                    stats_width = sum(plugin_widths.values()) + 1
                     self.space_between_column = max(
                         1, int((self.term_window.getmaxyx()[1] - stats_width) / (stats_number - 1))
                     )
@@ -1209,9 +1206,16 @@ class _GlancesCurses:
 class GlancesCursesStandalone(_GlancesCurses):
     """Class for the Glances curse standalone."""
 
+    # Default number of processes to displayed is set to 50
+    glances_processes.max_processes = 50
+
 
 class GlancesCursesClient(_GlancesCurses):
     """Class for the Glances curse client."""
+
+    # Default number of processes to displayed is set to 50
+    # For the moment, cursor in client/server mode is not supported see #3221
+    glances_processes.max_processes = 50
 
 
 class GlancesTextbox(Textbox):

@@ -1,0 +1,20 @@
+contributors:
+- David Březina
+name: Chadian Arabic
+orthographies:
+- autonym: تشادية
+  auxiliary: ة <apd>
+  base: <apd>
+  currency: <default>
+  design_requirements: <apd>
+  marks: <apd>
+  numerals: <default>
+  punctuation: <arb>
+  script: Arabic
+  status: primary
+sources:
+- Chadian Arabic. (2024, July 20). In *Wikipedia*. https://en.wikipedia.org/wiki/Chadian_Arabic?oldid=1235675560
+speakers: 1600000
+speakers_date: 2015
+status: living
+validity: draft

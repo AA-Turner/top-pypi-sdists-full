@@ -1,0 +1,114 @@
+[build-system]
+requires = [
+  "setuptools >=74.1.0",
+  "setuptools_scm >=8",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "igwn-ligolw"
+dynamic = ["version"]
+description = "Python LIGO Light-Weight XML I/O Library"
+readme = "README.md"
+authors = [
+  {name = "Kipp Cannon", email = "kipp@g.ecc.u-tokyo.ac.jp"},
+  {name = "Tito Dal Canton", email = "tito.canton@ligo.org"},
+  {name = "Duncan Macleod", email = "duncan.macleod@ligo.org"},
+  {name = "Leo Singer", email = "leo.singer@ligo.org"},
+]
+license = {text = "GPL-3.0-or-later"}
+classifiers = [
+  "Development Status :: 6 - Mature",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Natural Language :: English",
+  "Operating System :: POSIX",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Text Processing :: Markup :: XML",
+]
+
+requires-python = ">=3.9"
+dependencies = [
+  "igwn-segments",
+  "numpy",
+  "python-dateutil",
+  "pyyaml",
+  "tqdm",
+]
+
+[project.optional-dependencies]
+docs = [
+  "furo",
+  "lalsuite",
+  "Sphinx",
+  "sphinx-automodapi",
+  "sphinx-design",
+]
+tests = [
+  "pytest >= 3.9.0",  # for tmp_path fixture
+  "pytest-benchmark",
+  "pytest-doctestplus",
+]
+
+[tool.setuptools]
+script-files = [
+  "bin/igwn_ligolw_add",
+  "bin/igwn_ligolw_cut",
+  "bin/igwn_ligolw_no_ilwdchar",
+  "bin/igwn_ligolw_print",
+  "bin/igwn_ligolw_run_sqlite",
+  "bin/igwn_ligolw_segments",
+  "bin/igwn_ligolw_sqlite",
+]
+
+[[tool.setuptools.ext-modules]]
+name = "igwn_ligolw.tokenizer"
+sources = [
+  "src/igwn_ligolw/tokenizer.c",
+  "src/igwn_ligolw/tokenizer.Tokenizer.c",
+  "src/igwn_ligolw/tokenizer.RowBuilder.c",
+  "src/igwn_ligolw/tokenizer.RowDumper.c"
+]
+include-dirs = ["src/igwn_ligolw"]
+
+[tool.setuptools_scm]
+version_file = "src/igwn_ligolw/_version.py"
+
+[tool.coverage.paths]
+source = [
+  "src/igwn_ligolw/",
+  "*/igwn_ligolw/",
+]
+
+[tool.coverage.report]
+omit = [
+  "*/_version.py",
+]
+precision = 1
+
+[tool.pytest.ini_options]
+doctest_plus = true
+
+# -- ruff
+
+[tool.ruff.lint]
+extend-select = [
+  # isort
+  "I",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "F401",  # unused-import
+]

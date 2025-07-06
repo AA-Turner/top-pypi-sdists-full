@@ -1,0 +1,88 @@
+Metadata-Version: 2.1
+Name: inators
+Version: 2.1.0
+Summary: inators: utilities for inators
+Home-page: https://github.com/renatahodovan/inators
+Author: Renata Hodovan, Akos Kiss
+Author-email: hodovan@inf.u-szeged.hu, akiss@inf.u-szeged.hu
+License: BSD
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Utilities
+Requires-Python: >=3.5
+Description-Content-Type: text/x-rst
+License-File: LICENSE.rst
+
+=======
+inators
+=======
+
+.. image:: https://img.shields.io/pypi/v/inators?logo=python&logoColor=white
+   :target: https://pypi.org/project/inators/
+.. image:: https://img.shields.io/pypi/l/inators?logo=open-source-initiative&logoColor=white
+   :target: https://pypi.org/project/inators/
+.. image:: https://img.shields.io/github/workflow/status/renatahodovan/inators/main/master?logo=github&logoColor=white
+   :target: https://github.com/renatahodovan/inators/actions
+.. image:: https://img.shields.io/coveralls/github/renatahodovan/inators/master?logo=coveralls&logoColor=white
+   :target: https://coveralls.io/github/renatahodovan/inators
+
+.. start included documentation
+
+``inators`` is a collection of useful utilities mostly used by the *...inator*
+project family, whence its name.
+
+
+Requirements
+============
+
+* Python_ >= 3.5
+
+.. _Python: https://www.python.org
+
+
+Install
+=======
+
+To use *inators* in another project, it can be added to ``setup.cfg`` as an
+install requirement (if using setuptools_ with declarative config):
+
+.. code-block:: ini
+
+    [options]
+    install_requires =
+        inators
+
+To install *inators* manually, e.g., into a virtual environment, use pip_::
+
+    pip install inators
+
+The above approaches install the latest release of *inators* from PyPI_.
+Alternatively, for the development version, clone the project and perform a
+local install::
+
+    pip install .
+
+.. _setuptools: https://github.com/pypa/setuptools
+.. _pip: https://pip.pypa.io
+.. _PyPI: https://pypi.org/
+
+.. end included documentation
+
+
+Copyright and Licensing
+=======================
+
+Licensed under the BSD 3-Clause License_.
+
+.. _License: LICENSE.rst
+
+

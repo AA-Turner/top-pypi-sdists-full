@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "pysnmplib"
+version = "5.0.24"
+description = ""
+authors = ["omrozowicz <omrozowicz@splunk.com>", "rfaircloth-splunk <rfaircloth@splunk.com>"]
+license = "BSD-2-Clause"
+repository = "https://github.com/pysnmp/pysnmp"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Communications",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+readme = "README.md"
+
+packages = [
+    { include = "pysnmp" },
+]
+include = ["docs", "tests", "examples"]
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pysnmp-pysmi = "^1.0.4"
+pycryptodomex = "^3.11.0"
+pysnmp-pyasn1 = "^1.1.3"
+
+[tool.poetry.dev-dependencies]
+Sphinx = "^4.3.0"
+pytest = "^6.2.5"
+codecov = "^2.1.12"
+pytest-codecov = "^0.4.0"
+
+[tool.poetry.group.dev.dependencies]
+codecov = "^2.1.13"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

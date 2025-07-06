@@ -1,0 +1,161 @@
+[build-system]
+requires = ['flit_core>=3.4,<4']
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'disk_objectstore'
+dynamic = ['description', 'version']
+authors = [
+    {name = 'Giovanni Pizzi'},
+    {name = 'Chris Sewell'},
+    {name = 'Sebastiaan P. Huber'}
+]
+readme = 'README.md'
+license = {file = 'LICENSE.txt'}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: POSIX :: Linux',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+]
+keywords = ['object store', 'repository', 'file store', 'key-value store']
+requires-python = '>=3.9'
+dependencies = [
+    'click',
+    'sqlalchemy>=1.4.22',
+]
+
+[project.urls]
+Source = 'https://github.com/aiidateam/disk-objectstore'
+
+[project.optional-dependencies]
+dev = [
+    'coverage',
+    'pre-commit',
+    'pytest',
+    'pytest-benchmark',
+    'pytest-cov',
+]
+docs = [
+    'jinja2<3.1',
+    'myst-parser~=1.0',
+    'sphinx~=5.0.2',
+    'sphinx-book-theme~=1.1.3',
+    'sphinx-panels~=0.4.1',
+    'sphinxext-rediraffe~=0.2.7',
+]
+examples = [
+    'memory-profiler',
+    'profilehooks',
+    'psutil',
+    'pywin32;platform_system == "Windows"',
+]
+progressbar = [
+    'tqdm',
+]
+optionaltests = [
+    'h5py',
+    'numpy',
+]
+
+[project.scripts]
+dostore = 'disk_objectstore.cli:main'
+
+[tool.flit.module]
+name = 'disk_objectstore'
+
+[tool.flit.sdist]
+exclude = [
+    '.github/',
+    '.gitignore',
+    '.pre-commit-config.yaml',
+    'docs/',
+    'tests/',
+]
+
+[tool.flynt]
+line-length = 120
+fail-on-change = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.ruff.lint]
+ignore = [
+  'F403',  # Star imports unable to detect undefined names
+  'F405',  # Import may be undefined or defined from star imports
+  'PLR0911',  # Too many return statements
+  'PLR0912',  # Too many branches
+  'PLR0913',  # Too many arguments in function definition
+  'PLR0915',  # Too many statements
+  'PLR2004',  # Magic value used in comparison
+  'RUF005',  # Consider iterable unpacking instead of concatenation
+  'RUF012',  # Mutable class attributes should be annotated with `typing.ClassVar`
+  'N802', # Function name should be lowercase
+  'N806', # Variable in functions should be always loweercase
+  'N818', # Exception should be named with an Error suffix
+  'E731', # Do not assign a lambda expression, use a def
+  'RUF015', # Use next(iter(...))) for iteration over single element
+  'PLC0206', # Extracting value from dictionary without calling `.items()`
+  'PLW0602', # Using global without assignment
+]
+select = [
+  'E',  # pydocstyle
+  'W',  # pydocstyle
+  'F',  # pyflakes
+  'I',  # isort
+  'N',  # pep8-naming
+  'PLC',  # pylint-convention
+  'PLE',  # pylint-error
+  'PLR',  # pylint-refactor
+  'PLW',  # pylint-warning
+  'RUF'  # ruff
+]
+
+[tool.mypy]
+show_error_codes = true
+check_untyped_defs = true
+scripts_are_modules = true
+warn_redundant_casts = true
+plugins = ['sqlalchemy.ext.mypy.plugin']
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py38
+
+[testenv]
+usedevelop = true
+
+[testenv:py{38,39,310}]
+description = Run unit tests with this Python version
+extras =
+    examples
+    dev
+    optionaltests
+deps =
+    black
+setenv =
+    SQLALCHEMY_WARN_20 = 1
+commands = pytest {posargs}
+
+
+[testenv:cli]
+description = Run CLI
+commands = dostore {posargs}
+"""
+
+[tool.uv]
+required-version = ">=0.5.21"

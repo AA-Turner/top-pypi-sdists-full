@@ -1,0 +1,36 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Panjabi
+orthographies:
+- autonym: ਪੰਜਾਬੀ,
+  base: ਅ ਬ ਭ ਗ ਧ ਢ ੲ ਵ ਦ ਡ ਹ ਘ ਥ ਠ ਯ ਕ ਚ ਲ ਮ ਨ ਣ ਸ ੳ ਪ ਫ ਖ ਛ ਰ ਤ ਟ ਜ
+  currency: <default Devanagari>
+  design_requirements:
+  - Mark positioning and numerous precomposed forms (namely conjunct ligatures) are required for proper representation of the language.
+  marks: ◌਼ ◌ਾ ◌ਿ ◌ੀ ◌ੁ ◌ੂ ◌ੇ ◌ੈ ◌ੋ ◌ੌ
+  note: Used in India.
+  numerals: ੦ ੧ ੨ ੩ ੪ ੫ ੬ ੭ ੮ ੯ <default Latin>
+  punctuation: <default Devanagari> ੶
+  script: Gurmukhi
+  status: primary
+- autonym: پن٘جابی
+  auxiliary: ـ
+  base: ا ب پ ت ٹ ث ج چ ح خ د ڈ ذ ر ڑ ز ژ س ش ص ض ط ظ ع غ ف ق ک گ ل م ن ݨ ں و ه ھ ء ی ے
+  currency: <urd>
+  design_requirements:
+  - Nastaliq style of the Arabic script is preferred.
+  - Positional forms of the characters (initial, medial, and final forms) and some ligatures are required for proper representation of the language.
+  marks: ◌ؕ
+  note: Version of the Arabic script called Shahmukhi. Used in Pakistan.
+  numerals: <pes>
+  punctuation: <pes>
+  script: Arabic
+  status: primary
+sources:
+- Punjabi language. (2024, August 27). In *Wikipedia*. https://en.wikipedia.org/wiki/Punjabi_language?oldid=1242561572
+- Shahmukhi. (2024, August 21). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Shahmukhi&oldid=1241416416
+- Gurmukhi. (2024). In *The Unicode Standard, Version 16.0.0* (pp. 580–584). The Unicode Consortium. https://www.unicode.org/versions/Unicode16.0.0/UnicodeStandard-16.0.pdf
+speakers: 125000000
+speakers_date: 2011-2015
+validity: preliminary

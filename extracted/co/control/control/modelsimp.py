@@ -1,52 +1,24 @@
-#! TODO: add module docstring
 # modelsimp.py - tools for model simplification
 #
-# Author: Steve Brunton, Kevin Chen, Lauren Padilla
-# Date: 30 Nov 2010
-#
-# This file contains routines for obtaining reduced order models
-#
-# Copyright (c) 2010 by California Institute of Technology
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the California Institute of Technology nor
-#    the names of its contributors may be used to endorse or promote
-#    products derived from this software without specific prior
-#    written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL CALTECH
-# OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
-#
-# $Id$
+# Initial authors: Steve Brunton, Kevin Chen, Lauren Padilla
+# Creation date: 30 Nov 2010
+
+"""Tools for model simplification.
+
+This module contains routines for obtaining reduced order models for state
+space systems.
+
+"""
+
+import warnings
 
 # External packages and modules
 import numpy as np
-import warnings
-from .exception import ControlSlycot, ControlArgument, ControlDimension
-from .iosys import isdtime, isctime
-from .statesp import StateSpace
+
+from .exception import ControlArgument, ControlDimension, ControlSlycot
+from .iosys import isctime, isdtime
 from .statefbk import gram
+from .statesp import StateSpace
 from .timeresp import TimeResponseData
 
 __all__ = ['hankel_singular_values', 'balanced_reduction', 'model_reduction',
@@ -64,13 +36,13 @@ def hankel_singular_values(sys):
 
     Parameters
     ----------
-    sys : StateSpace
-        A state space system
+    sys : `StateSpace`
+        State space system.
 
     Returns
     -------
     H : array
-        A list of Hankel singular values
+        List of Hankel singular values.
 
     See Also
     --------
@@ -81,7 +53,7 @@ def hankel_singular_values(sys):
     The Hankel singular values are the singular values of the Hankel operator.
     In practice, we compute the square root of the eigenvalues of the matrix
     formed by taking the product of the observability and controllability
-    gramians.  There are other (more efficient) methods based on solving the
+    Gramians.  There are other (more efficient) methods based on solving the
     Lyapunov equation in a particular way (more details soon).
 
     Examples
@@ -92,7 +64,7 @@ def hankel_singular_values(sys):
     np.float64(0.25)
 
     """
-    # TODO: implement for discrete time systems
+    # TODO: implement for discrete-time systems
     if (isdtime(sys, strict=True)):
         raise NotImplementedError("Function not implemented in discrete time")
 
@@ -108,89 +80,145 @@ def hankel_singular_values(sys):
     return hsv[::-1]
 
 
-def model_reduction(sys, ELIM, method='matchdc'):
-    """Model reduction by state elimination.
-    
-    Model reduction of `sys` by eliminating the states in `ELIM` using a given
-    method.
+def model_reduction(
+        sys, elim_states=None, method='matchdc', elim_inputs=None,
+        elim_outputs=None, keep_states=None, keep_inputs=None,
+        keep_outputs=None, warn_unstable=True):
+    """Model reduction by input, output, or state elimination.
+
+    This function produces a reduced-order model of a system by eliminating
+    specified inputs, outputs, and/or states from the original system.  The
+    specific states, inputs, or outputs that are eliminated can be
+    specified by either listing the states, inputs, or outputs to be
+    eliminated or those to be kept.
+
+    Two methods of state reduction are possible: 'truncate' removes the
+    states marked for elimination, while 'matchdc' replaces the eliminated
+    states with their equilibrium values (thereby keeping the input/output
+    gain unchanged at zero frequency ["DC"]).
 
     Parameters
     ----------
-    sys : StateSpace
+    sys : `StateSpace`
         Original system to reduce.
-    ELIM : array
-        Vector of states to eliminate.
+    elim_inputs, elim_outputs, elim_states : array of int or str, optional
+        Vector of inputs, outputs, or states to eliminate.  Can be specified
+        either as an offset into the appropriate vector or as a signal name.
+    keep_inputs, keep_outputs, keep_states : array, optional
+        Vector of inputs, outputs, or states to keep.  Can be specified
+        either as an offset into the appropriate vector or as a signal name.
     method : string
-        Method of removing states in `ELIM`: either 'truncate' or
-        'matchdc'.
+        Method of removing states: either 'truncate' or 'matchdc' (default).
+    warn_unstable : bool, option
+        If False, don't warn if system is unstable.
 
     Returns
     -------
-    rsys : StateSpace
-        A reduced order model.
+    rsys : `StateSpace`
+        Reduced order model.
 
     Raises
     ------
     ValueError
-        Raised under the following conditions:
+        If `method` is not either 'matchdc' or 'truncate'.
+    NotImplementedError
+        If the 'matchdc' method is used for a discrete-time system.
 
-            * if `method` is not either ``'matchdc'`` or ``'truncate'``
-
-            * if eigenvalues of `sys.A` are not all in left half plane
-              (`sys` must be stable)
+    Warns
+    -----
+    UserWarning
+        If eigenvalues of `sys.A` are not all stable.
 
     Examples
     --------
     >>> G = ct.rss(4)
-    >>> Gr = ct.modred(G, [0, 2], method='matchdc')
+    >>> Gr = ct.model_reduction(G, [0, 2], method='matchdc')
     >>> Gr.nstates
     2
 
+    See Also
+    --------
+    balanced_reduction, minimal_realization
+
+    Notes
+    -----
+    The model_reduction function issues a warning if the system has
+    unstable eigenvalues, since in those situations the stability of the
+    reduced order model may be different than the stability of the full
+    model.  No other checking is done, so users must to be careful not to
+    render a system unobservable or unreachable.
+
+    States, inputs, and outputs can be specified using integer offsets or
+    using signal names.  Slices can also be specified, but must use the
+    Python `slice` function.
+
     """
-
-    # Check for ss system object, need a utility for this?
-
-    # TODO: Check for continous or discrete, only continuous supported for now
-    #   if isCont():
-    #       dico = 'C'
-    #   elif isDisc():
-    #       dico = 'D'
-    #   else:
-    if (isctime(sys)):
-        dico = 'C'
-    else:
-        raise NotImplementedError("Function not implemented in discrete time")
+    if not isinstance(sys, StateSpace):
+        raise TypeError("system must be a StateSpace system")
 
     # Check system is stable
-    if np.any(np.linalg.eigvals(sys.A).real >= 0.0):
-        raise ValueError("Oops, the system is unstable!")
+    if warn_unstable:
+        if isctime(sys) and np.any(np.linalg.eigvals(sys.A).real >= 0.0) or \
+           isdtime(sys) and np.any(np.abs(np.linalg.eigvals(sys.A)) >= 1):
+            warnings.warn("System is unstable; reduction may be meaningless")
 
-    ELIM = np.sort(ELIM)
-    # Create list of elements not to eliminate (NELIM)
-    NELIM = [i for i in range(len(sys.A)) if i not in ELIM]
-    # A1 is a matrix of all columns of sys.A not to eliminate
-    A1 = sys.A[:, NELIM[0]].reshape(-1, 1)
-    for i in NELIM[1:]:
-        A1 = np.hstack((A1, sys.A[:, i].reshape(-1, 1)))
-    A11 = A1[NELIM, :]
-    A21 = A1[ELIM, :]
-    # A2 is a matrix of all columns of sys.A to eliminate
-    A2 = sys.A[:, ELIM[0]].reshape(-1, 1)
-    for i in ELIM[1:]:
-        A2 = np.hstack((A2, sys.A[:, i].reshape(-1, 1)))
-    A12 = A2[NELIM, :]
-    A22 = A2[ELIM, :]
+    # Utility function to process keep/elim keywords
+    def _process_elim_or_keep(elim, keep, labels):
+        def _expand_key(key):
+            if key is None:
+                return []
+            elif isinstance(key, str):
+                return labels.index(key)
+            elif isinstance(key, list):
+                return [_expand_key(k) for k in key]
+            elif isinstance(key, slice):
+                return range(len(labels))[key]
+            else:
+                return key
 
-    C1 = sys.C[:, NELIM]
-    C2 = sys.C[:, ELIM]
-    B1 = sys.B[NELIM, :]
-    B2 = sys.B[ELIM, :]
+        elim = np.atleast_1d(_expand_key(elim))
+        keep = np.atleast_1d(_expand_key(keep))
 
-    if method == 'matchdc':
+        if len(elim) > 0 and len(keep) > 0:
+            raise ValueError(
+                "can't provide both 'keep' and 'elim' for same variables")
+        elif len(keep) > 0:
+            keep = np.sort(keep).tolist()
+            elim = [i for i in range(len(labels)) if i not in keep]
+        else:
+            elim = [] if elim is None else np.sort(elim).tolist()
+            keep = [i for i in range(len(labels)) if i not in elim]
+        return elim, keep
+
+    # Determine which states to keep
+    elim_states, keep_states = _process_elim_or_keep(
+        elim_states, keep_states, sys.state_labels)
+    elim_inputs, keep_inputs = _process_elim_or_keep(
+        elim_inputs, keep_inputs, sys.input_labels)
+    elim_outputs, keep_outputs = _process_elim_or_keep(
+        elim_outputs, keep_outputs, sys.output_labels)
+
+    # Create submatrix of states we are keeping
+    A11 = sys.A[:, keep_states][keep_states, :]     # states we are keeping
+    A12 = sys.A[:, elim_states][keep_states, :]     # needed for 'matchdc'
+    A21 = sys.A[:, keep_states][elim_states, :]
+    A22 = sys.A[:, elim_states][elim_states, :]
+
+    B1 = sys.B[keep_states, :]
+    B2 = sys.B[elim_states, :]
+
+    C1 = sys.C[:, keep_states]
+    C2 = sys.C[:, elim_states]
+
+    # Figure out the new state space system
+    if method == 'matchdc' and A22.size > 0:
+        if sys.isdtime(strict=True):
+            raise NotImplementedError(
+                "'matchdc' not (yet) supported for discrete-time systems")
+
         # if matchdc, residualize
-
         # Check if the matrix A22 is invertible
-        if np.linalg.matrix_rank(A22) != len(ELIM):
+        if np.linalg.matrix_rank(A22) != len(elim_states):
             raise ValueError("Matrix A22 is singular to working precision.")
 
         # Now precompute A22\A21 and A22\B2 (A22I = inv(A22))
@@ -206,40 +234,48 @@ def model_reduction(sys, ELIM, method='matchdc'):
         Br = B1 - A12 @ A22I_B2
         Cr = C1 - C2 @ A22I_A21
         Dr = sys.D - C2 @ A22I_B2
-    elif method == 'truncate':
-        # if truncate, simply discard state x2
+
+    elif method == 'truncate' or A22.size == 0:
+        # Get rid of unwanted states
         Ar = A11
         Br = B1
         Cr = C1
         Dr = sys.D
+
     else:
         raise ValueError("Oops, method is not supported!")
+
+    # Get rid of additional inputs and outputs
+    Br = Br[:, keep_inputs]
+    Cr = Cr[keep_outputs, :]
+    Dr = Dr[keep_outputs, :][:, keep_inputs]
 
     rsys = StateSpace(Ar, Br, Cr, Dr)
     return rsys
 
 
 def balanced_reduction(sys, orders, method='truncate', alpha=None):
-    """Balanced reduced order model of sys of a given order.
-    
-    States are eliminated based on Hankel singular value.
-    If sys has unstable modes, they are removed, the
-    balanced realization is done on the stable part, then
-    reinserted in accordance with the reference below.
+    """Balanced reduced order model of system of a given order.
 
-    Reference: Hsu,C.S., and Hou,D., 1991,
-    Reducing unstable linear control systems via real Schur transformation.
-    Electronics Letters, 27, 984-986.
+    States are eliminated based on Hankel singular value.  If `sys` has
+    unstable modes, they are removed, the balanced realization is done on
+    the stable part, then reinserted in accordance with [1]_.
+
+    References
+    ----------
+    .. [1] C. S. Hsu and D. Hou, "Reducing unstable linear control
+       systems via real Schur transformation".  Electronics Letters,
+       27, 984-986, 1991.
 
     Parameters
     ----------
-    sys : StateSpace
+    sys : `StateSpace`
         Original system to reduce.
     orders : integer or array of integer
         Desired order of reduced order model (if a vector, returns a vector
         of systems).
     method : string
-        Method of removing states, either ``'truncate'`` or ``'matchdc'``..
+        Method of removing states, either 'truncate' or 'matchdc'.
     alpha : float
         Redefines the stability boundary for eigenvalues of the system
         matrix A.  By default for continuous-time systems, alpha <= 0
@@ -250,19 +286,18 @@ def balanced_reduction(sys, orders, method='truncate', alpha=None):
 
     Returns
     -------
-    rsys : StateSpace
+    rsys : `StateSpace`
         A reduced order model or a list of reduced order models if orders is
         a list.
 
     Raises
     ------
     ValueError
-        If `method` is not ``'truncate'`` or ``'matchdc'``
+        If `method` is not 'truncate' or 'matchdc'.
     ImportError
-        if slycot routine ab09ad, ab09md, or ab09nd is not found
-
+        If slycot routine ab09ad, ab09md, or ab09nd is not found.
     ValueError
-        if there are more unstable modes than any value in orders
+        If there are more unstable modes than any value in orders.
 
     Examples
     --------
@@ -276,7 +311,7 @@ def balanced_reduction(sys, orders, method='truncate', alpha=None):
         raise ValueError("supported methods are 'truncate' or 'matchdc'")
     elif method == 'truncate':
         try:
-            from slycot import ab09md, ab09ad
+            from slycot import ab09ad, ab09md
         except ImportError:
             raise ControlSlycot(
                 "can't find slycot subroutine ab09md or ab09ad")
@@ -288,7 +323,7 @@ def balanced_reduction(sys, orders, method='truncate', alpha=None):
 
     # Check for ss system object, need a utility for this?
 
-    # TODO: Check for continous or discrete, only continuous supported for now
+    # TODO: Check for continuous or discrete, only continuous supported for now
     #   if isCont():
     #       dico = 'C'
     #   elif isDisc():
@@ -308,7 +343,7 @@ def balanced_reduction(sys, orders, method='truncate', alpha=None):
 
     # check if orders is a list or a scalar
     try:
-        order = iter(orders)
+        iter(orders)
     except TypeError:           # if orders is a scalar
         orders = [orders]
 
@@ -345,16 +380,16 @@ def balanced_reduction(sys, orders, method='truncate', alpha=None):
 
 
 def minimal_realization(sys, tol=None, verbose=True):
-    """ Eliminate uncontrollable or unobservable states.
-    
+    """Eliminate uncontrollable or unobservable states.
+
     Eliminates uncontrollable or unobservable states in state-space
-    models or cancelling pole-zero pairs in transfer functions. The
-    output sysr has minimal order and the same response
-    characteristics as the original model sys.
+    models or canceling pole-zero pairs in transfer functions. The
+    output `sysr` has minimal order and the same response
+    characteristics as the original model `sys`.
 
     Parameters
     ----------
-    sys : StateSpace or TransferFunction
+    sys : `StateSpace` or `TransferFunction`
         Original system.
     tol : real
         Tolerance.
@@ -363,7 +398,7 @@ def minimal_realization(sys, tol=None, verbose=True):
 
     Returns
     -------
-    rsys : StateSpace or TransferFunction
+    rsys : `StateSpace` or `TransferFunction`
         Cleaned model.
 
     """
@@ -377,31 +412,31 @@ def minimal_realization(sys, tol=None, verbose=True):
 def _block_hankel(Y, m, n):
     """Create a block Hankel matrix from impulse response."""
     q, p, _ = Y.shape
-    YY = Y.transpose(0,2,1) # transpose for reshape
-    
-    H = np.zeros((q*m,p*n))
-    
+    YY = Y.transpose(0, 2, 1) # transpose for reshape
+
+    H = np.zeros((q*m, p*n))
+
     for r in range(m):
         # shift and add row to Hankel matrix
-        new_row = YY[:,r:r+n,:]
-        H[q*r:q*(r+1),:] = new_row.reshape((q,p*n))
-            
+        new_row = YY[:, r:r+n, :]
+        H[q*r:q*(r+1), :] = new_row.reshape((q, p*n))
+
     return H
 
 
 def eigensys_realization(arg, r, m=None, n=None, dt=True, transpose=False):
     r"""eigensys_realization(YY, r)
 
-    Calculate ERA model of order `r` based on impulse-response data `YY`.
+    Calculate ERA model based on impulse-response data.
 
-    This function computes a discrete time system
+    This function computes a discrete-time system
 
     .. math::
 
         x[k+1] &= A x[k] + B u[k] \\\\
         y[k] &= C x[k] + D u[k]
 
-    for a given impulse-response data (see [1]_).
+    of order :math:`r` for a given impulse-response data (see [1]_).
 
     The function can be called with 2 arguments:
 
@@ -414,10 +449,10 @@ def eigensys_realization(arg, r, m=None, n=None, dt=True, transpose=False):
     Parameters
     ----------
     YY : array_like
-        Impulse response from which the StateSpace model is estimated, 1D
+        Impulse response from which the `StateSpace` model is estimated, 1D
         or 3D array.
-    data : TimeResponseData
-        Impulse response from which the StateSpace model is estimated.
+    data : `TimeResponseData`
+        Impulse response from which the `StateSpace` model is estimated.
     r : integer
         Order of model.
     m : integer, optional
@@ -427,26 +462,25 @@ def eigensys_realization(arg, r, m=None, n=None, dt=True, transpose=False):
     dt : True or float, optional
         True indicates discrete time with unspecified sampling time and a
         positive float is discrete time with the specified sampling time.
-        It can be used to scale the StateSpace model in order to match the
+        It can be used to scale the `StateSpace` model in order to match the
         unit-area impulse response of python-control. Default is True.
     transpose : bool, optional
         Assume that input data is transposed relative to the standard
-        :ref:`time-series-convention`. For TimeResponseData this parameter 
+        :ref:`time-series-convention`. For `TimeResponseData` this parameter
         is ignored. Default is False.
 
     Returns
     -------
-    sys : StateSpace
-        A reduced order model sys=StateSpace(Ar,Br,Cr,Dr,dt).
+    sys : `StateSpace`
+        State space model of the specified order.
     S : array
-        Singular values of Hankel matrix. Can be used to choose a good r
+        Singular values of Hankel matrix. Can be used to choose a good `r`
         value.
 
     References
     ----------
     .. [1] Samet Oymak and Necmiye Ozay, Non-asymptotic Identification of
-       LTI Systems from a Single Trajectory.
-       https://arxiv.org/abs/1806.05722
+       LTI Systems from a Single Trajectory. https://arxiv.org/abs/1806.05722
 
     Examples
     --------
@@ -466,7 +500,7 @@ def eigensys_realization(arg, r, m=None, n=None, dt=True, transpose=False):
         YY = np.array(arg, ndmin=3)
         if transpose:
             YY = np.transpose(YY)
-    
+
     q, p, l = YY.shape
 
     if m is None:
@@ -476,35 +510,35 @@ def eigensys_realization(arg, r, m=None, n=None, dt=True, transpose=False):
 
     if m*q < r or n*p < r:
         raise ValueError("Hankel parameters are to small")
-    
+
     if (l-1) < m+n:
         raise ValueError("not enough data for requested number of parameters")
-    
-    H = _block_hankel(YY[:,:,1:], m, n+1) # Hankel matrix (q*m, p*(n+1))
-    Hf = H[:,:-p] # first p*n columns of H
-    Hl = H[:,p:] # last p*n columns of H
-    
+
+    H = _block_hankel(YY[:, :, 1:], m, n+1) # Hankel matrix (q*m, p*(n+1))
+    Hf = H[:, :-p] # first p*n columns of H
+    Hl = H[:, p:] # last p*n columns of H
+
     U,S,Vh = np.linalg.svd(Hf, True)
-    Ur =U[:,0:r]
-    Vhr =Vh[0:r,:]
+    Ur =U[:, 0:r]
+    Vhr =Vh[0:r, :]
 
     # balanced realizations
     Sigma_inv = np.diag(1./np.sqrt(S[0:r]))
     Ar = Sigma_inv @ Ur.T @ Hl @ Vhr.T @ Sigma_inv
-    Br = Sigma_inv @ Ur.T @ Hf[:,0:p]*dt # dt scaling for unit-area impulse
-    Cr = Hf[0:q,:] @ Vhr.T @ Sigma_inv
-    Dr = YY[:,:,0]
+    Br = Sigma_inv @ Ur.T @ Hf[:, 0:p]*dt # dt scaling for unit-area impulse
+    Cr = Hf[0:q, :] @ Vhr.T @ Sigma_inv
+    Dr = YY[:, :, 0]
 
-    return StateSpace(Ar,Br,Cr,Dr,dt), S
+    return StateSpace(Ar, Br, Cr, Dr, dt), S
 
 
 def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     """markov(Y, U, [, m])
-    
-    Calculate the first `m` Markov parameters [D CB CAB ...] from data.
 
-    This function computes the Markov parameters for a discrete time
-    system
+    Calculate Markov parameters [D CB CAB ...] from data.
+
+    This function computes the the first `m` Markov parameters [D CB CAB
+    ...] for a discrete-time system.
 
     .. math::
 
@@ -530,12 +564,12 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     ----------
     Y : array_like
         Output data. If the array is 1D, the system is assumed to be
-        single input. If the array is 2D and transpose=False, the columns
+        single input. If the array is 2D and `transpose` = False, the columns
         of `Y` are taken as time points, otherwise the rows of `Y` are
         taken as time points.
     U : array_like
         Input data, arranged in the same way as `Y`.
-    data : TimeResponseData
+    data : `TimeResponseData`
         Response data from which the Markov parameters where estimated.
         Input and output data must be 1D or 2D array.
     m : int, optional
@@ -546,12 +580,12 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
         It can be used to scale the Markov parameters in order to match
         the unit-area impulse response of python-control. Default is True
         for array_like and dt=data.time[1]-data.time[0] for
-        TimeResponseData as input.
+        `TimeResponseData` as input.
     truncate : bool, optional
         Do not use first m equation for least squares. Default is False.
     transpose : bool, optional
         Assume that input data is transposed relative to the standard
-        :ref:`time-series-convention`. For TimeResponseData this parameter
+        :ref:`time-series-convention`. For `TimeResponseData` this parameter
         is ignored. Default is False.
 
     Returns
@@ -564,7 +598,7 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     .. [1] J.-N. Juang, M. Phan, L. G.  Horta, and R. W. Longman,
        Identification of observer/Kalman filter Markov parameters - Theory
        and experiments. Journal of Guidance Control and Dynamics, 16(2),
-       320-329, 2012. http://doi.org/10.2514/3.21006
+       320-329, 2012. https://doi.org/10.2514/3.21006
 
     Examples
     --------
@@ -579,7 +613,7 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     # Get the system description
     if len(args) < 1:
         raise ControlArgument("not enough input arguments")
-    
+
     if isinstance(args[0], TimeResponseData):
         data = args[0]
         Umat = np.array(data.inputs, ndmin=2)
@@ -613,7 +647,7 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     # Make sure the number of time points match
     if Umat.shape[1] != Ymat.shape[1]:
         raise ControlDimension(
-            "Input and output data are of differnent lengths")
+            "Input and output data are of different lengths")
     l = Umat.shape[1]
 
     # If number of desired parameters was not given, set to size of input data
@@ -639,7 +673,7 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     # This algorithm sets up the following problem and solves it for
     # the Markov parameters
     #
-    # (l,q)   = (l,p*m) @ (p*m,q) 
+    # (l,q)   = (l,p*m) @ (p*m,q)
     # YY      = UU @ H.T
     #
     # [ y(0)   ]   [ u(0)    0       0                 ] [ D           ]
@@ -662,26 +696,26 @@ def markov(*args, m=None, transpose=False, dt=None, truncate=False):
     #   J.-N. Juang, M. Phan, L. G. Horta, and R. W. Longman, Identification
     #   of observer/Kalman filter Markov parameters - Theory and
     #   experiments. Journal of Guidance Control and Dynamics, 16(2),
-    #   320-329, 2012. http://doi.org/10.2514/3.21006
+    #   320-329, 2012. https://doi.org/10.2514/3.21006
     #
 
     # Set up the full problem
     # Create matrix of (shifted) inputs
-    UUT = np.zeros((p*m,(l)))
+    UUT = np.zeros((p*m, l))
     for i in range(m):
         # Shift previous column down and keep zeros at the top
-        UUT[i*p:(i+1)*p,i:] = Umat[:,:l-i]
+        UUT[i*p:(i+1)*p, i:] = Umat[:, :l-i]
 
     # Truncate first t=0 or t=m time steps, transpose the problem for lsq
-    YY = Ymat[:,t:].T
-    UU = UUT[:,t:].T
-    
+    YY = Ymat[:, t:].T
+    UU = UUT[:, t:].T
+
     # Solve for the Markov parameters from  YY = UU @ H.T
     HT, _, _, _ = np.linalg.lstsq(UU, YY, rcond=None)
     H = HT.T/dt # scaling
 
-    H = H.reshape(q,m,p) # output, time*input -> output, time, input
-    H = H.transpose(0,2,1) # output, input, time
+    H = H.reshape(q, m, p) # output, time*input -> output, time, input
+    H = H.transpose(0, 2, 1) # output, input, time
 
     # for siso return a 1D array instead of a 3D array
     if q == 1 and p == 1:

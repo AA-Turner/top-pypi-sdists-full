@@ -1,0 +1,107 @@
+Metadata-Version: 2.4
+Name: awslabs.core-mcp-server
+Version: 1.0.2
+Summary: An AWS Labs Model Context Protocol (MCP) server for aswlabs Core MCP Server
+Project-URL: Homepage, https://awslabs.github.io/mcp/
+Project-URL: Documentation, https://awslabs.github.io/mcp/servers/core-mcp-server/
+Project-URL: Source, https://github.com/awslabs/mcp.git
+Project-URL: Bug Tracker, https://github.com/awslabs/mcp/issues
+Project-URL: Changelog, https://github.com/awslabs/mcp/blob/main/src/core-mcp-server/CHANGELOG.md
+Author: Amazon Web Services
+Author-email: AWSLabs MCP <203918161+awslabs-mcp@users.noreply.github.com>, Paul Vincent <44383239+PaulVincent707@users.noreply.github.com>
+License: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Requires-Dist: boto3>=1.37.0
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: mcp[cli]>=1.3.0
+Requires-Dist: pydantic>=2.10.6
+Requires-Dist: python-dotenv>=1.0.1
+Description-Content-Type: text/markdown
+
+# Core MCP Server
+
+MCP server that provides a starting point for using the following awslabs MCP servers
+- awslabs.cdk-mcp-server
+- awslabs.bedrock-kb-retrieval-mcp-server
+- awslabs.nova-canvas-mcp-server
+- awslabs.cost-analysis-mcp-server
+- awslabs.aws-documentation-mcp-server
+- awslabs.aws-diagram-mcp-server
+
+## Features
+
+
+### Planning and orchestration
+
+- Provides tool for prompt understanding and translation to AWS services
+
+## Prerequisites
+
+- Python 3.12 or higher
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
+- AWS credentials configured with Bedrock access
+- Node.js (for UVX installation support)
+
+
+## Installation
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/install-mcp?name=awslabs.core-mcp-server&config=eyJjb21tYW5kIjoidXZ4IGF3c2xhYnMuY29yZS1tY3Atc2VydmVyQGxhdGVzdCIsImVudiI6eyJGQVNUTUNQX0xPR19MRVZFTCI6IkVSUk9SIn0sImF1dG9BcHByb3ZlIjpbXSwiZGlzYWJsZWQiOmZhbHNlfQ%3D%3D)
+
+Configure the MCP server in your MCP client configuration (e.g., for Amazon Q Developer CLI, edit `~/.aws/amazonq/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "awslabs.core-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "awslabs.core-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "autoApprove": [],
+      "disabled": false
+    }
+  }
+}
+```
+
+or docker after a successful `docker build -t awslabs/core-mcp-server .`:
+
+```json
+  {
+    "mcpServers": {
+      "awslabs.core-mcp-server": {
+        "command": "docker",
+        "args": [
+          "run",
+          "--rm",
+          "--interactive",
+          "--env",
+          "FASTMCP_LOG_LEVEL=ERROR",
+          "awslabs/core-mcp-server:latest"
+        ],
+        "env": {},
+        "disabled": false,
+        "autoApprove": []
+      }
+    }
+  }
+```
+
+## Tools and Resources
+
+The server exposes the following tools through the MCP interface:
+
+- `prompt_understanding` - Helps to provide guidance and planning support when building AWS Solutions for the given prompt

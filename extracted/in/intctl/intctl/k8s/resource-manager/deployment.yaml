@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-manager-deployment
+  namespace: intellithing
+  labels:
+    app: resource-manager
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: resource-manager
+  template:
+    metadata:
+      labels:
+        app: resource-manager
+    spec:
+      containers:
+        - name: resource-manager-deployment
+          image: __IMAGE_TAG__
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              cpu: '2'
+              memory: 1Gi
+            requests:
+              cpu: '1'
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              port: 80
+              path: /health
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              port: 80
+              path: /health
+              scheme: HTTP
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              port: 80
+              path: /health
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                secretKeyRef:
+                  name: gcp-creds
+                  key: ENVIRONMENT
+            - name: GCP_SERVICE_ACCOUNT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gcp-creds
+                  key: GCP_SERVICE_ACCOUNT_KEY
+            - name: STATUS_MANAGER_GRAPHQL_URL   
+              value: http://status-manager.intellithing.svc.cluster.local/graphql
+

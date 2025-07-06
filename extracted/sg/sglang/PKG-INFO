@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.4.8.post1
+Version: 0.4.9
 Summary: SGLang is yet another fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -219,6 +219,7 @@ Requires-Dist: IPython
 Requires-Dist: setproctitle
 Provides-Extra: runtime-common
 Requires-Dist: blobfile==3.0.0; extra == "runtime-common"
+Requires-Dist: build; extra == "runtime-common"
 Requires-Dist: compressed-tensors; extra == "runtime-common"
 Requires-Dist: datasets; extra == "runtime-common"
 Requires-Dist: fastapi; extra == "runtime-common"
@@ -243,19 +244,20 @@ Requires-Dist: pyzmq>=25.1.2; extra == "runtime-common"
 Requires-Dist: soundfile==0.13.1; extra == "runtime-common"
 Requires-Dist: scipy; extra == "runtime-common"
 Requires-Dist: torchao==0.9.0; extra == "runtime-common"
-Requires-Dist: transformers==4.52.3; extra == "runtime-common"
+Requires-Dist: transformers==4.53.0; extra == "runtime-common"
+Requires-Dist: timm==1.0.16; extra == "runtime-common"
 Requires-Dist: uvicorn; extra == "runtime-common"
 Requires-Dist: uvloop; extra == "runtime-common"
 Requires-Dist: xgrammar==0.1.19; extra == "runtime-common"
 Provides-Extra: srt
 Requires-Dist: sglang[runtime_common]; extra == "srt"
-Requires-Dist: sgl-kernel==0.1.9; extra == "srt"
+Requires-Dist: sgl-kernel==0.2.4; extra == "srt"
 Requires-Dist: torch==2.7.1; extra == "srt"
 Requires-Dist: torchaudio==2.7.1; extra == "srt"
 Requires-Dist: torchvision==0.22.1; extra == "srt"
 Requires-Dist: cuda-python; extra == "srt"
 Requires-Dist: einops; extra == "srt"
-Requires-Dist: flashinfer_python==0.2.6.post1; extra == "srt"
+Requires-Dist: flashinfer_python==0.2.7.post1; extra == "srt"
 Provides-Extra: blackwell
 Requires-Dist: sglang[runtime_common]; extra == "blackwell"
 Requires-Dist: sgl-kernel; extra == "blackwell"
@@ -264,7 +266,7 @@ Requires-Dist: torchaudio==2.7.1; extra == "blackwell"
 Requires-Dist: torchvision==0.22.1; extra == "blackwell"
 Requires-Dist: cuda-python; extra == "blackwell"
 Requires-Dist: einops; extra == "blackwell"
-Requires-Dist: flashinfer_python==0.2.6.post1; extra == "blackwell"
+Requires-Dist: flashinfer_python==0.2.7.post1; extra == "blackwell"
 Provides-Extra: srt-hip
 Requires-Dist: sglang[runtime_common]; extra == "srt-hip"
 Requires-Dist: torch; extra == "srt-hip"
@@ -295,7 +297,6 @@ Requires-Dist: jsonlines; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: pandas; extra == "test"
 Requires-Dist: peft; extra == "test"
-Requires-Dist: timm; extra == "test"
 Requires-Dist: sentence_transformers; extra == "test"
 Provides-Extra: all
 Requires-Dist: sglang[srt]; extra == "all"
@@ -373,6 +374,8 @@ Dynamic: license-file
 | [**Slides**](https://github.com/sgl-project/sgl-learning-materials?tab=readme-ov-file#slides) |
 
 ## News
+- [2025/06] 🔥 SGLang, the high-performance serving infrastructure powering trillions of tokens daily, has been awarded the third batch of the Open Source AI Grant by a16z ([a16z blog](https://a16z.com/advancing-open-source-ai-through-benchmarks-and-bold-experimentation/)).
+- [2025/06] 🔥 Deploying DeepSeek on GB200 NVL72 with PD and Large Scale EP (Part I): 2.7x Higher Decoding Throughput ([blog](https://lmsys.org/blog/2025-06-16-gb200-part-1/)).
 - [2025/05] 🔥 Deploying DeepSeek with PD Disaggregation and Large-scale Expert Parallelism on 96 H100 GPUs ([blog](https://lmsys.org/blog/2025-05-05-large-scale-ep/)).
 - [2025/03] Supercharge DeepSeek-R1 Inference on AMD Instinct MI300X ([AMD blog](https://rocm.blogs.amd.com/artificial-intelligence/DeepSeekR1-Part2/README.html))
 - [2025/03] SGLang Joins PyTorch Ecosystem: Efficient LLM Serving Engine ([PyTorch blog](https://pytorch.org/blog/sglang-joins-pytorch/))

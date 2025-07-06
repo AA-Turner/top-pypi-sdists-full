@@ -1,0 +1,39 @@
+Metadata-Version: 2.3
+Name: guarddog
+Version: 2.6.0
+Summary: GuardDog is a CLI tool to Identify malicious PyPI packages
+License: Apache-2.0
+Author: Ellen Wang
+Requires-Python: >=3.10,<4
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: click (>=8.1.3,<9.0.0)
+Requires-Dist: click-option-group (>=0.5.5,<0.6.0)
+Requires-Dist: colorama (>=0.4.6,<0.5.0)
+Requires-Dist: configparser (>=5.3,<8.0)
+Requires-Dist: disposable-email-domains (>=0.0.103,<0.0.121)
+Requires-Dist: prettytable (>=3.6.0,<4.0.0)
+Requires-Dist: pygit2 (>=1.11,<1.18)
+Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
+Requires-Dist: python-whois (>=0.8,<0.10)
+Requires-Dist: pyyaml (>=6.0,<7.0)
+Requires-Dist: requests (>=2.29.0,<3.0.0)
+Requires-Dist: semantic-version (>=2.10.0,<3.0.0)
+Requires-Dist: semgrep (>=1.102.0,<2.0.0)
+Requires-Dist: setuptools (>=70.3,<77.0)
+Requires-Dist: tarsafe (>=0.0.5,<0.0.6)
+Requires-Dist: termcolor (>=2.1.0,<3.0.0)
+Requires-Dist: urllib3 (==2.3.0)
+Requires-Dist: yara-python (>=4.5.1,<5.0.0)
+Project-URL: Repository, https://github.com/DataDog/guarddog
+Description-Content-Type: text/x-rst
+
+GuardDog
+========
+
+See https://github.com/datadog/guarddog
+

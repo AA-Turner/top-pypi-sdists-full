@@ -10,13 +10,14 @@ created for that purpose.
 
 import re
 import warnings
-import pytest
-
-import numpy as np
 from math import sqrt
 
-import control as ct
+import numpy as np
+import pytest
+import scipy
 
+import control as ct
+import control.flatsys as fs
 
 class TestIOSys:
 
@@ -740,7 +741,7 @@ class TestIOSys:
             ct.series(*args)
 
     def test_discrete(self, tsys):
-        """Test discrete time functionality"""
+        """Test discrete-time functionality"""
         # Create some linear and nonlinear systems to play with
         linsys = ct.StateSpace(
             [[-1, 1], [0, -2]], [[0], [1]], [[1, 0]], [[0]], True)
@@ -772,7 +773,7 @@ class TestIOSys:
         np.testing.assert_allclose(ios_y, lin_y,atol=0.002,rtol=0.)
 
     def test_discrete_iosys(self, tsys):
-        """Create a discrete time system from scratch"""
+        """Create a discrete-time system from scratch"""
         linsys = ct.StateSpace(
             [[-1, 1], [0, -2]], [[0], [1]], [[1, 0]], [[0]], True)
 
@@ -929,6 +930,8 @@ class TestIOSys:
         ios_secord_update = ct.NonlinearIOSystem(
             secord_update, secord_output, inputs=1, outputs=1, states=2,
             params={'omega0':2, 'zeta':0})
+        lin_secord_update = ct.linearize(ios_secord_update, [0, 0], [0])
+        w_update, v_update = np.linalg.eig(lin_secord_update.A)
 
         # Make sure the default parameters haven't changed
         lin_secord_check = ct.linearize(ios_secord_default, [0, 0], [0])
@@ -958,7 +961,7 @@ class TestIOSys:
             ios_series_default_local, [0, 0, 0, 0], [0])
         w, v = np.linalg.eig(lin_series_default_local.A)
         np.testing.assert_array_almost_equal(
-            np.sort(w), np.sort(np.concatenate((w_default, [2j, -2j]))))
+             w, np.concatenate([w_update, w_update]))
 
         # Show that we can change the parameters at linearization
         lin_series_override = ct.linearize(
@@ -1408,7 +1411,7 @@ class TestIOSys:
             C = ct.rss(2, 2, 3)
 
         with pytest.raises(ValueError, match="incompatible"):
-            PC = op(P, C)
+            op(P, C)
 
     @pytest.mark.parametrize(
         "C, op", [
@@ -1578,7 +1581,7 @@ def test_linear_interconnection():
     # Make sure call works properly
     response = io_connect.frequency_response(1)
     np.testing.assert_allclose(
-        response.fresp[:, :, 0], io_connect.C @ np.linalg.inv(
+        response.frdata[:, :, 0], io_connect.C @ np.linalg.inv(
             1j * np.eye(io_connect.nstates) - io_connect.A) @ io_connect.B + \
             io_connect.D)
 
@@ -1705,9 +1708,9 @@ def test_interconnect_unused_input():
 
     with pytest.warns(
             UserWarning, match=r"Unused input\(s\) in InterconnectedSystem"):
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'])
 
     with warnings.catch_warnings():
         # no warning if output explicitly ignored, various argument forms
@@ -1715,45 +1718,43 @@ def test_interconnect_unused_input():
         # strip out matrix warnings
         warnings.filterwarnings("ignore", "the matrix subclass",
                                 category=PendingDeprecationWarning)
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_inputs=['n'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_inputs=['n'])
 
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_inputs=['s.n'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_inputs=['s.n'])
 
         # no warning if auto-connect disabled
-        h = ct.interconnect([g,s,k],
-                            connections=False)
+        ct.interconnect([g,s,k],
+                        connections=False)
 
     # warn if explicity ignored input in fact used
     with pytest.warns(
             UserWarning,
-            match=r"Input\(s\) specified as ignored is \(are\) used:") \
-            as record:
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_inputs=['u','n'])
+            match=r"Input\(s\) specified as ignored is \(are\) used:"):
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_inputs=['u','n'])
 
     with pytest.warns(
             UserWarning,
-            match=r"Input\(s\) specified as ignored is \(are\) used:") \
-            as record:
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_inputs=['k.e','n'])
+            match=r"Input\(s\) specified as ignored is \(are\) used:"):
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_inputs=['k.e','n'])
 
     # error if ignored signal doesn't exist
     with pytest.raises(ValueError):
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_inputs=['v'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_inputs=['v'])
 
 
 def test_interconnect_unused_output():
@@ -1775,10 +1776,10 @@ def test_interconnect_unused_output():
 
     with pytest.warns(
             UserWarning,
-            match=r"Unused output\(s\) in InterconnectedSystem:") as record:
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'])
+            match=r"Unused output\(s\) in InterconnectedSystem:"):
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'])
 
 
     # no warning if output explicitly ignored
@@ -1787,43 +1788,43 @@ def test_interconnect_unused_output():
         # strip out matrix warnings
         warnings.filterwarnings("ignore", "the matrix subclass",
                                 category=PendingDeprecationWarning)
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_outputs=['dy'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_outputs=['dy'])
 
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_outputs=['g.dy'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_outputs=['g.dy'])
 
         # no warning if auto-connect disabled
-        h = ct.interconnect([g,s,k],
-                            connections=False)
+        ct.interconnect([g,s,k],
+                        connections=False)
 
     # warn if explicity ignored output in fact used
     with pytest.warns(
             UserWarning,
             match=r"Output\(s\) specified as ignored is \(are\) used:"):
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_outputs=['dy','u'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_outputs=['dy','u'])
 
     with pytest.warns(
             UserWarning,
             match=r"Output\(s\) specified as ignored is \(are\) used:"):
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_outputs=['dy', ('k.u')])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_outputs=['dy', ('k.u')])
 
     # error if ignored signal doesn't exist
     with pytest.raises(ValueError):
-        h = ct.interconnect([g,s,k],
-                            inputs=['r'],
-                            outputs=['y'],
-                            ignore_outputs=['v'])
+        ct.interconnect([g,s,k],
+                        inputs=['r'],
+                        outputs=['y'],
+                        ignore_outputs=['v'])
 
 
 def test_interconnect_add_unused():
@@ -1896,11 +1897,11 @@ def test_input_output_broadcasting():
 
     # Specify only some of the initial conditions
     with pytest.warns(UserWarning, match="X0 too short; padding"):
-        resp_short = ct.input_output_response(sys, T, [U[0], [0, 1]], [X0, 1])
+        ct.input_output_response(sys, T, [U[0], [0, 1]], [X0, 1])
 
     # Make sure that inconsistent settings don't work
     with pytest.raises(ValueError, match="inconsistent"):
-        resp_bad = ct.input_output_response(
+        ct.input_output_response(
             sys, T, (U[0, :], U[:2, :-1]), [X0, P0])
 
 @pytest.mark.parametrize("nstates, ninputs, noutputs", [
@@ -2087,6 +2088,101 @@ def test_find_eqpt(x0, ix, u0, iu, y0, iy, dx0, idx, dt, x_expect, u_expect):
     np.testing.assert_allclose(np.array(ueq), u_expect, atol=1e-6)
 
 
+# Test out new operating point version of find_eqpt
+def test_find_operating_point():
+    dt = 1
+    sys = ct.NonlinearIOSystem(
+        eqpt_rhs, eqpt_out, dt=dt, states=3, inputs=2, outputs=2)
+
+    # Conditions that lead to no exact solution (from previous unit test)
+    x0 = 0;       ix = None
+    u0 = [-1, 0]; iu = None
+    y0 = None;    iy = None
+    dx0 = None;  idx = None
+
+    # Default version: no equilibrium solution => returns None
+    op_point = ct.find_operating_point(
+        sys, x0, u0, y0, ix=ix, iu=iu, iy=iy, dx0=dx0, idx=idx)
+    assert op_point.states is None
+    assert op_point.inputs is None
+    assert op_point.result.success is False
+
+    # Change the method to Levenberg-Marquardt (gives nearest point)
+    op_point = ct.find_operating_point(
+        sys, x0, u0, y0, ix=ix, iu=iu, iy=iy, dx0=dx0, idx=idx,
+        root_method='lm')
+    assert op_point.states is not None
+    assert op_point.inputs is not None
+    assert op_point.result.success is True
+
+    # Make sure we get a solution if we ask for the result explicitly
+    op_point = ct.find_operating_point(
+        sys, x0, u0, y0, ix=ix, iu=iu, iy=iy, dx0=dx0, idx=idx,
+        return_result=True)
+    assert op_point.states is not None
+    assert op_point.inputs is not None
+    assert op_point.result.success is False
+
+    # Check to make sure unknown keywords are caught
+    with pytest.raises(TypeError, match="unrecognized keyword"):
+        ct.find_operating_point(sys, x0, u0, unknown=None)
+
+
+def test_operating_point():
+    dt = 1
+    sys = ct.NonlinearIOSystem(
+        eqpt_rhs, eqpt_out, dt=dt, states=3, inputs=2, outputs=2)
+
+    # Find the operating point near the origin
+    op_point = ct.find_operating_point(sys, 0, 0)
+
+    # Linearize the old fashioned way
+    linsys_orig = ct.linearize(sys, op_point.states, op_point.inputs)
+
+    # Linearize around the operating point
+    linsys_oppt = ct.linearize(sys, op_point)
+
+    np.testing.assert_allclose(linsys_orig.A, linsys_oppt.A)
+    np.testing.assert_allclose(linsys_orig.B, linsys_oppt.B)
+    np.testing.assert_allclose(linsys_orig.C, linsys_oppt.C)
+    np.testing.assert_allclose(linsys_orig.D, linsys_oppt.D)
+
+    # Call find_operating_point with method and keyword arguments
+    op_point = ct.find_operating_point(
+        sys, 0, 0, root_method='lm', root_kwargs={'tol': 1e-6})
+
+    # Make sure we can get back the right arguments in a tuple
+    op_point = ct.find_operating_point(sys, 0, 0, return_outputs=True)
+    assert len(op_point) == 3
+    assert isinstance(op_point[0], np.ndarray)
+    assert isinstance(op_point[1], np.ndarray)
+    assert isinstance(op_point[2], np.ndarray)
+
+    with pytest.warns(
+            (FutureWarning, PendingDeprecationWarning), match="return_outputs"):
+        op_point = ct.find_operating_point(sys, 0, 0, return_y=True)
+        assert len(op_point) == 3
+        assert isinstance(op_point[0], np.ndarray)
+        assert isinstance(op_point[1], np.ndarray)
+        assert isinstance(op_point[2], np.ndarray)
+
+    # Make sure we can get back the right arguments in a tuple
+    op_point = ct.find_operating_point(sys, 0, 0, return_result=True)
+    assert len(op_point) == 3
+    assert isinstance(op_point[0], np.ndarray)
+    assert isinstance(op_point[1], np.ndarray)
+    assert isinstance(op_point[2], scipy.optimize.OptimizeResult)
+
+    # Make sure we can get back the right arguments in a tuple
+    op_point = ct.find_operating_point(
+        sys, 0, 0, return_result=True, return_outputs=True)
+    assert len(op_point) == 4
+    assert isinstance(op_point[0], np.ndarray)
+    assert isinstance(op_point[1], np.ndarray)
+    assert isinstance(op_point[2], np.ndarray)
+    assert isinstance(op_point[3], scipy.optimize.OptimizeResult)
+
+
 def test_iosys_sample():
     csys = ct.rss(2, 1, 1)
     dsys = csys.sample(0.1)
@@ -2168,3 +2264,158 @@ def test_update_names():
 
     with pytest.raises(TypeError, match=".* takes 1 positional argument"):
         sys.update_names(5)
+
+
+def test_signal_indexing():
+    # Response with two outputs, no traces
+    resp = ct.initial_response(ct.rss(4, 2, 1, strictly_proper=True))
+    assert resp.outputs['y[0]'].shape == resp.outputs.shape[1:]
+    assert resp.outputs[0, 0].item() == 0
+
+    # Implicitly squeezed response
+    resp = ct.step_response(ct.rss(4, 1, 1, strictly_proper=True))
+    for key in [ ['y[0]', 'y[0]'], ('y[0]', 'u[0]') ]:
+        with pytest.raises(IndexError, match=r"signal name\(s\) not valid"):
+            resp.outputs.__getitem__(key)
+
+    # Explicitly squeezed response
+    resp = ct.step_response(
+        ct.rss(4, 2, 1, strictly_proper=True), squeeze=True)
+    assert resp.outputs['y[0]'].shape == resp.outputs.shape[1:]
+    with pytest.raises(IndexError, match=r"signal name\(s\) not valid"):
+        resp.outputs['y[0]', 'u[0]']
+
+
+@pytest.mark.parametrize("fcn, spec, expected, missing", [
+    (ct.ss, {}, "states=4, outputs=3, inputs=2", r"dt|name"),
+    (ct.tf, {}, "outputs=3, inputs=2", r"dt|states|name"),
+    (ct.frd, {}, "outputs=3, inputs=2", r"dt|states|name"),
+    (ct.ss, {'dt': 0.1}, ".*\ndt=0.1,\nstates=4, outputs=3, inputs=2", r"name"),
+    (ct.tf, {'dt': 0.1}, ".*\ndt=0.1,\noutputs=3, inputs=2", r"states|name"),
+    (ct.frd, {'dt': 0.1}, ".*\ndt=0.1,\noutputs=3, inputs=2", r"states|name"),
+    (ct.ss, {'dt': True}, "\ndt=True,\nstates=4, outputs=3, inputs=2", r"name"),
+    (ct.ss, {'dt': None}, "\ndt=None,\nstates=4, outputs=3, inputs=2", r"name"),
+    (ct.ss, {'dt': 0}, "states=4, outputs=3, inputs=2", r"dt|name"),
+    (ct.ss, {'name': 'mysys'}, "\nname='mysys'", r"dt"),
+    (ct.tf, {'name': 'mysys'}, "\nname='mysys'", r"dt|states"),
+    (ct.frd, {'name': 'mysys'}, "\nname='mysys'", r"dt|states"),
+    (ct.ss, {'inputs': ['u1']},
+     r"[\n]states=4, outputs=3, inputs=\['u1'\]", r"dt|name"),
+    (ct.tf, {'inputs': ['u1']},
+     r"[\n]outputs=3, inputs=\['u1'\]", r"dt|name"),
+    (ct.frd, {'inputs': ['u1'], 'name': 'sampled'},
+     r"[\n]name='sampled', outputs=3, inputs=\['u1'\]", r"dt"),
+    (ct.ss, {'outputs': ['y1']},
+     r"[\n]states=4, outputs=\['y1'\], inputs=2", r"dt|name"),
+    (ct.ss, {'name': 'mysys', 'inputs': ['u1']},
+     r"[\n]name='mysys', states=4, outputs=3, inputs=\['u1'\]", r"dt"),
+    (ct.ss, {'name': 'mysys', 'states': [
+        'long_state_1', 'long_state_2', 'long_state_3']},
+     r"[\n]name='.*', states=\[.*\],\noutputs=3, inputs=2\)", r"dt"),
+])
+@pytest.mark.parametrize("format", ['info', 'eval'])
+def test_iosys_repr(fcn, spec, expected, missing, format):
+    spec['outputs'] = spec.get('outputs', 3)
+    spec['inputs'] = spec.get('inputs', 2)
+    if fcn is ct.ss:
+        spec['states'] = spec.get('states', 4)
+
+    sys = ct.rss(**spec)
+    match fcn:
+        case ct.frd:
+            omega = np.logspace(-1, 1)
+            sys = fcn(sys, omega, name=spec.get('name'))
+        case ct.tf:
+            sys = fcn(sys, name=spec.get('name'))
+    assert sys.shape == (sys.noutputs, sys.ninputs)
+
+    # Construct the 'info' format
+    info_expected = f"<{sys.__class__.__name__} {sys.name}: " \
+        f"{sys.input_labels} -> {sys.output_labels}"
+    if sys.dt != 0:
+        info_expected += f", dt={sys.dt}>"
+    else:
+        info_expected += ">"
+
+    # Make sure the default format is OK
+    out = repr(sys)
+    if ct.config.defaults['iosys.repr_format'] == 'info':
+        assert out == info_expected
+    else:
+        assert re.search(expected, out) != None
+
+    # Now set the format to the given type and make sure things look right
+    sys.repr_format = format
+    out = repr(sys)
+    if format == 'eval':
+        assert re.search(expected, out) is not None
+
+        if missing is not None:
+            assert re.search(missing, out) is None
+
+    elif format == 'info':
+        assert out == info_expected
+
+    # Make sure we can change back to the default format
+    sys.repr_format = None
+
+    # Make sure the default format is OK
+    out = repr(sys)
+    if ct.config.defaults['iosys.repr_format'] == 'info':
+        assert out == info_expected
+    elif ct.config.defaults['iosys.repr_format'] == 'eval':
+        assert re.search(expected, out) != None
+
+
+@pytest.mark.parametrize("fcn", [ct.ss, ct.tf, ct.frd, ct.nlsys, fs.flatsys])
+def test_relabeling(fcn):
+    sys = ct.rss(1, 1, 1, name="sys")
+
+    # Rename the inputs, outputs, (states,) system
+    match fcn:
+        case ct.tf:
+            sys = fcn(sys, inputs='u', outputs='y', name='new')
+        case ct.frd:
+            sys = fcn(sys, [0.1, 1, 10], inputs='u', outputs='y', name='new')
+        case _:
+            sys = fcn(sys, inputs='u', outputs='y', states='x', name='new')
+
+    assert sys.input_labels == ['u']
+    assert sys.output_labels == ['y']
+    if sys.nstates:
+        assert sys.state_labels == ['x']
+    assert sys.name == 'new'
+
+
+@pytest.mark.parametrize("fcn", [ct.ss, ct.tf, ct.frd, ct.nlsys, fs.flatsys])
+def test_signal_prefixing(fcn):
+    sys = ct.rss(2, 1, 1)
+
+    # Recreate the system in different forms, with non-standard prefixes
+    match fcn:
+        case ct.ss:
+            sys = ct.ss(
+                sys.A, sys.B, sys.C, sys.D, state_prefix='xx',
+                input_prefix='uu', output_prefix='yy')
+        case ct.tf:
+            sys = ct.tf(sys)
+            sys = fcn(sys.num, sys.den, input_prefix='uu', output_prefix='yy')
+        case ct.frd:
+            freq = [0.1, 1, 10]
+            data = [sys(w * 1j) for w in freq]
+            sys = fcn(data, freq, input_prefix='uu', output_prefix='yy')
+        case ct.nlsys:
+            sys = ct.nlsys(sys)
+            sys = fcn(
+                sys.updfcn, sys.outfcn, inputs=1, outputs=1, states=2,
+                state_prefix='xx', input_prefix='uu', output_prefix='yy')
+        case fs.flatsys:
+            sys = fs.flatsys(sys)
+            sys = fcn(
+                sys.forward, sys.reverse, inputs=1, outputs=1, states=2,
+                state_prefix='xx', input_prefix='uu', output_prefix='yy')
+
+    assert sys.input_labels == ['uu[0]']
+    assert sys.output_labels == ['yy[0]']
+    if sys.nstates:
+        assert sys.state_labels == ['xx[0]', 'xx[1]']

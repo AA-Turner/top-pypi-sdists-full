@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: pytest-select
+Version: 0.1.2
+Summary: A pytest plugin which allows to (de-)select tests from a file.
+Home-page: https://github.com/ulope/pytest-select
+Author: Ulrich Petri
+Author-email: ulo@ulo.pe
+Keywords: pytest,test,plugin
+Requires-Python: >=3.6
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Plugins
+Classifier: Framework :: Pytest
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Requires-Dist: pytest (>=3.0)
+Project-URL: Repository, https://github.com/ulope/pytest-select

@@ -1,0 +1,169 @@
+name: CI
+
+'on':
+  push:
+    branches-ignore:
+      # These should always correspond to pull requests, so ignore them for
+      # the push trigger and let them be triggered by the pull_request
+      # trigger, avoiding running the workflow twice.  This is a minor
+      # optimization so there's no need to ensure this is comprehensive.
+      - 'dependabot/**'
+      - 'renovate/**'
+      - 'tickets/**'
+      - 'u/**'
+  pull_request: {}
+  release:
+    types: [published]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Run tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: '3.12'
+          tox-envs: 'lint'
+
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version:
+          - '3.11'
+          - '3.12'
+          - '3.13'
+        sphinx-version:
+          - '7'
+          - '8'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Install graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install graphviz
+
+      - name: Run tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          tox-envs: 'lint,py-test-sphinx${{ matrix.sphinx-version }},typing-sphinx${{ matrix.sphinx-version }},demo'
+
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - name: Install Graphviz
+        run: sudo apt-get install graphviz
+
+      - name: Run tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: '3.12'
+          tox-envs: 'docs,docs-lint'
+
+      # Only attempt documentation uploads for tagged releases and pull
+      # requests from ticket branches in the same repository.  This avoids
+      # version clutter in the docs and failures when a PR doesn't have access
+      # to secrets.
+      - name: Upload to LSST the Docs
+        uses: lsst-sqre/ltd-upload@v1
+        with:
+          project: 'documenteer'
+          dir: 'docs/_build/html'
+          username: ${{ secrets.LTD_USERNAME }}
+          password: ${{ secrets.LTD_PASSWORD }}
+        if: >
+          github.event_name != 'pull_request' || startsWith(github.head_ref, 'tickets/')
+
+
+  test-package:
+    name: Test PyPI package build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - name: Build and publish
+        uses: lsst-sqre/build-and-publish-to-pypi@v3
+        with:
+          upload: 'false'
+
+  pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    needs: [lint, test, docs, test-package]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/documenteer
+    permissions:
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Build and publish
+        uses: lsst-sqre/build-and-publish-to-pypi@v3

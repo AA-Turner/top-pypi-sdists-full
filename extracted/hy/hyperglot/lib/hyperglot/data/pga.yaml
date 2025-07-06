@@ -1,0 +1,20 @@
+contributors:
+- David Březina
+name: Sudanese Creole Arabic
+note: Also called Juba Arabic.
+orthographies:
+- autonym: جوبا
+  auxiliary: <apd>
+  base: <apd>
+  design_requirements: <apd>
+  marks: <apd>
+  numerals: <default>
+  punctuation: <default>
+  script: Arabic
+  status: primary
+sources:
+- Juba Arabic. (2024, August 22). In *Wikipedia*. https://en.wikipedia.org/wiki/Juba_Arabic?oldid=1241603510
+speakers: 20000
+speakers_date: 1987
+status: living
+validity: draft

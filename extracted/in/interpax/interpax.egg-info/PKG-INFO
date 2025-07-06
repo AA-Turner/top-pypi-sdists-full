@@ -1,0 +1,126 @@
+Metadata-Version: 2.4
+Name: interpax
+Version: 0.3.9
+Summary: Interpolation and function approximation with JAX
+Home-page: https://github.com/f0uriest/interpax
+Author: Rory Conlin
+Author-email: wconlin@princeton.edu
+License: MIT
+Project-URL: Issues Tracker, https://github.com/f0uriest/interpax/issues
+Project-URL: Contributing, https://github.com/f0uriest/interpax/blob/master/CONTRIBUTING.rst
+Project-URL: Source Code, https://github.com/f0uriest/interpax/
+Project-URL: Documentation, https://interpax.readthedocs.io/
+Keywords: interpolation spline cubic fourier approximation
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: equinox<0.13,>=0.11.0
+Requires-Dist: jax<0.7,>=0.4.30
+Requires-Dist: jaxtyping<0.4.0,>=0.2.24
+Requires-Dist: lineax<=0.0.8,>=0.0.5
+Requires-Dist: numpy<2.4,>=1.20.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+
+########
+interpax
+########
+|License| |DOI| |Issues| |Pypi|
+
+|Docs| |UnitTests| |Codecov|
+
+interpax is a library for interpolation and function approximation using JAX.
+
+Includes methods for nearest neighbor, linear, and several cubic interpolation schemes
+in 1d, 2d, and 3d, as well as Fourier interpolation for periodic functions in
+1d and 2d.
+
+Coming soon:
+- Spline interpolation for rectilinear grids in N-dimensions
+- RBF interpolation for unstructured data in N-dimensions
+- Smoothing splines for noisy data
+
+
+Installation
+============
+
+interpax is installable with `pip`:
+
+.. code-block:: console
+
+    pip install interpax
+
+
+
+Usage
+=====
+
+.. code-block:: python
+
+    import jax.numpy as jnp
+    import numpy as np
+    from interpax import interp1d
+
+    xp = jnp.linspace(0, 2 * np.pi, 100)
+    xq = jnp.linspace(0, 2 * np.pi, 10000)
+    f = lambda x: jnp.sin(x)
+    fp = f(xp)
+
+    fq = interp1d(xq, xp, fp, method="cubic")
+    np.testing.assert_allclose(fq, f(xq), rtol=1e-6, atol=1e-5)
+
+
+For full details of various options see the `API documentation <https://interpax.readthedocs.io/en/latest/api.html>`__
+
+
+.. |License| image:: https://img.shields.io/github/license/f0uriest/interpax?color=blue&logo=open-source-initiative&logoColor=white
+    :target: https://github.com/f0uriest/interpax/blob/master/LICENSE
+    :alt: License
+
+.. |DOI| image:: https://zenodo.org/badge/706703896.svg
+    :target: https://zenodo.org/doi/10.5281/zenodo.10028967
+    :alt: DOI
+
+.. |Docs| image:: https://img.shields.io/readthedocs/interpax?logo=Read-the-Docs
+    :target: https://interpax.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation
+
+.. |UnitTests| image:: https://github.com/f0uriest/interpax/actions/workflows/unittest.yml/badge.svg
+    :target: https://github.com/f0uriest/interpax/actions/workflows/unittest.yml
+    :alt: UnitTests
+
+.. |Codecov| image:: https://codecov.io/github/f0uriest/interpax/graph/badge.svg?token=MB11I7WE3I
+    :target: https://codecov.io/github/f0uriest/interpax
+    :alt: Coverage
+
+.. |Issues| image:: https://img.shields.io/github/issues/f0uriest/interpax
+    :target: https://github.com/f0uriest/interpax/issues
+    :alt: GitHub issues
+
+.. |Pypi| image:: https://img.shields.io/pypi/v/interpax
+    :target: https://pypi.org/project/interpax/
+    :alt: Pypi

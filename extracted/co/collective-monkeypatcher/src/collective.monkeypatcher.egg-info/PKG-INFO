@@ -1,0 +1,394 @@
+Metadata-Version: 2.2
+Name: collective.monkeypatcher
+Version: 2.0.0
+Summary: Support for applying monkey patches late in the startup cycle by using ZCML configuration actions
+Home-page: https://github.com/plone/collective.monkeypatcher
+Author: Martin Aspeli
+Author-email: optilude@gmail.com
+License: BSD
+Keywords: zope monkey patch
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Requires-Dist: setuptools
+Requires-Dist: zope.configuration
+Requires-Dist: zope.event
+Requires-Dist: zope.interface
+Requires-Dist: zope.schema
+Provides-Extra: test
+Requires-Dist: zope.component; extra == "test"
+Requires-Dist: zope.configuration; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+========================
+collective.monkeypatcher
+========================
+
+.. image:: https://travis-ci.com/plone/collective.monkeypatcher.svg?branch=master
+    :target: https://travis-ci.com/plone/collective.monkeypatcher
+
+.. image:: https://coveralls.io/repos/github/zopefoundation/collective.monkeypatcher/badge.svg?branch=master
+        :target: https://coveralls.io/github/zopefoundation/collective.monkeypatcher?branch=master
+
+.. image:: https://img.shields.io/pypi/v/collective.monkeypatcher.svg
+        :target: https://pypi.org/project/collective.monkeypatcher/
+        :alt: Current version on PyPI
+
+.. image:: https://img.shields.io/pypi/pyversions/collective.monkeypatcher.svg
+        :target: https://pypi.org/project/collective.monkeypatcher/
+        :alt: Supported Python versions
+
+
+Introduction
+============
+
+Sometimes, a monkey patch is a necessary evil.
+
+This package makes it easier to apply a monkey patch during Zope startup.
+It uses the ZCML configuration machinery to ensure that patches are loaded
+"late" in the startup cycle, so that the original code has had time to be
+fully initialised and configured. This is similar to using the `initialize()`
+method in a product's __init__.py, except it does not require that the package
+be a full-blown Zope product with a persistent Control_Panel entry.
+
+
+Installation
+============
+
+To install `collective.monkeypatcher` into the global Python environment
+(or a working environment), using a traditional Zope instance, you can do this:
+
+* When you're reading this you have probably already run
+  ``pip install collective.monkeypatcher``.
+
+* Create a file called ``collective.monkeypatcher-configure.zcml`` in the
+  ``/path/to/instance/etc/package-includes`` directory.  The file
+  should only contain this::
+
+    <include package="collective.monkeypatcher" />
+
+
+Alternatively, if you are using `zc.buildout` and the
+`plone.recipe.zope2instance`  recipe to manage your project, you can do this:
+
+* Add ``collective.monkeypatcher`` to the list of eggs to install, e.g.::
+
+    [buildout]
+    ...
+    eggs =
+        ...
+        collective.monkeypatcher
+
+* Tell the plone.recipe.zope2instance recipe to install a ZCML slug::
+
+    [instance]
+    recipe = plone.recipe.zope2instance
+    ...
+    zcml =
+        collective.monkeypatcher
+
+* Re-run buildout, e.g. with::
+
+    $ ./bin/buildout
+
+You can skip the ZCML slug if you are going to explicitly include the package
+from another package's configure.zcml file.
+
+
+Applying a monkey patch
+=======================
+
+Here's an example::
+
+    <configure
+        xmlns="http://namespaces.zope.org/zope"
+        xmlns:monkey="http://namespaces.plone.org/monkey"
+        i18n_domain="collective.monkeypatcher">
+
+        <include package="collective.monkeypatcher" />
+
+        <monkey:patch
+            description="This works around issue http://some.tracker.tld/ticket/123"
+            class="Products.CMFPlone.CatalogTool.CatalogTool"
+            original="searchResults"
+            replacement=".catalog.patchedSearchResults"
+            />
+
+    </configure>
+
+In this example, we patch Plone's CatalogTool's searchResults() function,
+replacing it with our own version in catalog.py. To patch a module level
+function, you can use `module` instead of `class`. The original class and
+function/method name and the replacement symbol will be checked to ensure
+that they actually exist.
+
+If patching happens too soon (or too late), use the `order` attribute to
+specify a higher (later) or lower (earlier) number. The default is 1000.
+
+By default, `DocFinderTab <http://pypi.python.org/pypi/Products.DocFinderTab>`_
+and other TTW API browsers will emphasize the monkey patched methods/functions,
+appending the docstring with "Monkey patched with 'my.monkeypatched.function'".
+If you don't want this, you could set the `docstringWarning` attribute to
+`false`.
+
+If you want to do more than just replace one function with another, you can
+provide your own patcher function via the `handler` attribute. This should
+be a callable like::
+
+  def apply_patch(scope, original, replacement):
+      ...
+
+Here, `scope` is the class/module that was specified. `original` is the string
+name of the function to replace, and `replacement` is the replacement function.
+
+Full list of options:
+
+- ``class``  The class being patched
+- ``module`` The module being patched (see `Patching module level functions`_)
+- ``handler`` A function to perform the patching. Must take three parameters: class/module, original (string), and replacement
+- ``original`` Method or function to replace
+- ``replacement`` Method or function to replace with
+- ``preservedoc`` Preserve docstrings?
+- ``preserveOriginal`` Preserve the original function so that it is reachable view prefix _old_. Only works for default handler
+- ``preconditions`` Preconditions (multiple, separated by space) to be satisfied before applying this patch. Example: Products.LinguaPlone-=1.4.3 or Products.TextIndexNG3+=3.3.0
+- ``ignoreOriginal`` Ignore if the original function isn't present on the class/module being patched
+- ``docstringWarning``  Add monkey patch warning in docstring
+- ``description``  Some comments about your monkey patch
+- ``order`` Execution order
+
+Handling monkey patches events
+==============================
+
+Applying a monkey patch fires an event. See the `interfaces.py` module. If you
+to handle such event add this ZCML bunch::
+
+  ...
+  <subscriber
+    for="collective.monkeypatcher.interfaces.IMonkeyPatchEvent"
+    handler="my.component.events.myHandler"
+    />
+  ...
+
+And add such Python::
+
+  def myHandler(event):
+      """see collective.monkeypatcher.interfaces.IMonkeyPatchEvent"""
+      ...
+
+
+Patching module level functions
+===============================
+
+
+.. ATTENTION:: Be aware that patching module level functions will likely not work.
+
+
+If you want to patch the method `do_something` located in `patched.package.utils` which is imported in a package like this
+
+::
+
+    from patched.package.utils import do_something
+
+the reference to this function is loaded *before* `collective.monkeypatcher` will patch the original method.
+
+See also `this related thread on the plone mailing list <http://plone.293351.n2.nabble.com/Monkey-Patch-Module-Level-td7557725.html>`_.
+
+Workaround
+----------
+
+
+Do the patching in `__init__.py` of your package::
+
+    from patched.package import utils
+
+    def do_it_different():
+        return 'foo'
+
+    utils.do_something = do_it_different
+
+Changelog
+=========
+
+.. You should *NOT* be adding new change log entries to this file.
+   You should create a file in the news directory instead.
+   For helpful instructions, please see:
+   https://github.com/plone/plone.releaser/blob/master/ADD-A-NEWS-ITEM.rst
+
+.. towncrier release notes start
+
+2.0.0 (2025-03-21)
+------------------
+
+Breaking changes:
+
+
+- Drop support for Plone 5.2 and for Python 3.8 and lower. @gforcada (#4126)
+
+
+Bug fixes:
+
+
+- Replace `pkg_resources` with `importlib.metadata` @gforcada @mauritsvanrees (#4126)
+
+
+Internal:
+
+
+- Update configuration files.
+  [plone devs]
+
+
+1.2.2 (2024-11-30)
+------------------
+
+Bug fixes:
+
+
+- Fix removed `unittest.makeSuite` in python 3.13.
+  [petschki] (#14)
+
+
+1.2.1 (2020-03-21)
+------------------
+
+Bug fixes:
+
+
+- Minor packaging updates. [various] (#1)
+
+
+1.2 (2018-12-10)
+----------------
+
+New features:
+
+- Include installation instructions in the README.
+
+- Update test infrastructure.
+
+
+1.1.6 (2018-10-31)
+------------------
+
+Bug fixes:
+
+- Prepare for Python 2 / 3 compatibility
+  [frapell]
+
+
+1.1.5 (2018-06-18)
+------------------
+
+Bug fixes:
+
+- Fix import for Python 3 in the tests module
+  [ale-rt]
+
+
+1.1.4 (2018-04-08)
+------------------
+
+Bug fixes:
+
+- Fix import for Python 3
+  [pbauer]
+
+
+1.1.3 (2017-11-26)
+------------------
+
+New features:
+
+- Document possible problems when patching module level functions
+  [frisi]
+
+
+1.1.2 (2016-08-10)
+------------------
+
+Fixes:
+
+- Use zope.interface decorator.
+  [gforcada]
+
+
+1.1.1 (2015-03-27)
+------------------
+
+- Fix typo.
+  [gforcada]
+
+
+1.1 - 2014-12-10
+----------------
+
+* Fix the case where the replacement object does not have a __module__
+  attribute (see https://github.com/plone/collective.monkeypatcher/pull/3).
+  [mitchellrj, fRiSi]
+
+1.0.1 - 2011-01-25
+------------------
+
+* Downgrade standard log message to debug level.
+  [hannosch]
+
+1.0 - 2010-07-01
+----------------
+
+* Avoid a zope.app dependency.
+  [hannosch]
+
+* Added new parameter preconditions that only patches if preconditions are met
+  like version of a specific package.
+  [spamsch]
+
+* Added new parameter preserveOriginal. Setting this to true makes it possible
+  to access the patched method via _old_``name of patched method``
+  [spamsch]
+
+1.0b2 - 2009-06-18
+------------------
+
+* Add the possibility to ignore the error if the original function isn't
+  present on the class/module being patched
+  [jfroche]
+
+* Check if the docstring exists before changing it
+  [jfroche]
+
+* Add buildout.cfg for test & test coverage
+  [jfroche]
+
+1.0b1 - 2009-04-17
+------------------
+
+* Fires an event when a monkey patch is applied. See interfaces.py.
+  [glenfant]
+
+* Added ZCML attributes "docstringWarning" and "description".
+  [glenfant]
+
+* Added unit tests.
+  [glenfant]
+
+1.0a1 - 2009-03-29
+------------------
+
+* Initial release
+  [optilude]

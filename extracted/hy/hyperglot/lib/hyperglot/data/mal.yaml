@@ -1,0 +1,22 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Malayalam
+orthographies:
+- autonym: മലയാളം
+  auxiliary: ൹ ഽ
+  base: അ ആ ഇ ഈ ഉ ഊ ഋ ഌ എ ഏ ഐ ഒ ഓ ഔ ക ഖ ഗ ഘ ങ ച ഛ ജ ഝ ഞ ട ഠ ഡ ഢ ണ ത ഥ ദ ധ ന പ ഫ ബ ഭ മ യ ര റ ല ള ഴ വ ശ ഷ സ ഹ ൠ ൡ ൺ ൻ ർ ൽ ൾ ൿ
+  currency: <default Devanagari>
+  design_requirements:
+  - Mark positioning and numerous precomposed forms (namely conjunct ligatures) are required for proper representation of the language.
+  marks: ◌ം ◌ഃ ◌ാ ◌ി ◌ീ ◌ു ◌ൂ ◌ൃ ◌െ ◌േ ◌ൈ ◌് ◌ൗ
+  numerals: ൦ ൧ ൨ ൩ ൪ ൫ ൬ ൭ ൮ ൯ <default Latin>
+  punctuation: <default Devanagari>
+  script: Malayalam
+  status: primary
+sources:
+- Malayalam. (2024, August 27). In *Wikipedia*. https://en.wikipedia.org/wiki/Malayalam?oldid=1242497899
+- Malayalam. (2024). In *The Unicode Standard, Version 16.0.0* (pp. 608–616). The Unicode Consortium. https://www.unicode.org/versions/Unicode16.0.0/UnicodeStandard-16.0.pdf
+speakers: 45000000
+speakers_date: 2011-2019
+validity: preliminary

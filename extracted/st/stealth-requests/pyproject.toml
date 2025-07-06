@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stealth-requests"
+version = "1.2.3"
+description = "Undetected web-scraping & seamless HTML parsing in Python!"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Jacob Padilla", email = "jp@jacobpadilla.com" }
+]
+keywords = ["HTTP", "requests", "scraping", "browser"]
+urls = { "Homepage" = "https://github.com/jpjacobpadilla/Stealth-Requests" }
+
+dependencies = ["curl_cffi"]
+
+[project.optional-dependencies]
+parsers = [
+    "lxml",
+    "html2text",
+    "beautifulsoup4"
+]
+
+[tool.setuptools.packages.find]
+include = ["stealth_requests"]
+
+[tool.setuptools.package-data]
+stealth_requests = ["profiles.json"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["I", "TID"]
+
+[tool.ruff.format]
+quote-style = "single"

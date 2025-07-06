@@ -1,0 +1,19 @@
+Metadata-Version: 1.0
+Name: firewall
+Version: 0.2.0
+Summary: Punch a hole into an AWS EC2 security group temporarily
+Home-page: https://github.com/mattrobenolt/firewall
+Author: Matt Robenolt
+Author-email: matt@ydekproductions.com
+License: UNKNOWN
+Description: 
+        firewall
+        ======
+        Punch a hole into an AWS EC2 security group temporarily
+        ...
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development

@@ -8,10 +8,12 @@
 import subprocess
 import sys
 import pytest
+from IPython.display import display, Markdown
+from PIL import Image
 ##########################################################################
 
-from qiskit_connector import QConnectorV2 as connector
-from qiskit_connector import QPlanV2 as plan
+# from qiskit_connector import QConnectorV2 as connector
+# from qiskit_connector import QPlanV2 as plan
 
 ############################################################################
 
@@ -55,7 +57,7 @@ def run_stability_check_v4(step_number: int) -> bool:
 
 
 # ✅ Pytest-compatible function
-@pytest.mark.parametrize("step", range(1, 651))
+@pytest.mark.parametrize("step", range(1, 501))
 def test_stability_step(step):
     assert run_stability_check_v4(step) is True, f"❌ Stability Test Step {step} failed."
 

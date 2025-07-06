@@ -1,0 +1,23 @@
+[tool.poetry]
+name = 'businessready'
+version = "0.9.152"
+description = "Transform Cisco CLIs and APIs into Business Ready Documents"
+authors = ["John Capobianco <ptcapo@gmail.com>"]
+packages = [{ include = "businessready", from = "src"}]
+readme = "README.md"
+repository = "https://github.com/automateyournetwork/business_ready"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+MarkupSafe = "2.0.1"
+Jinja2 = "2.11.2"
+requests = "^2.27.1"
+xmltodict = "^0.12.0"
+urllib3 = "^1.26.8"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

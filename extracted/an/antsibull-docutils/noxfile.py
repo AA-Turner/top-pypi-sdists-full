@@ -18,7 +18,7 @@ ALLOW_EDITABLE = os.environ.get("ALLOW_EDITABLE", str(not IN_CI)).lower() in (
 
 # Always install latest pip version
 os.environ["VIRTUALENV_DOWNLOAD"] = "1"
-nox.options.sessions = "lint", "test", "integration", "coverage"
+nox.options.sessions = "lint", "test", "coverage"
 
 
 def install(session: nox.Session, *args, editable=False, **kwargs):

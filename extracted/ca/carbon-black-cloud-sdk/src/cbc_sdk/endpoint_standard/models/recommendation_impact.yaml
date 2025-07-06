@@ -1,0 +1,31 @@
+# *******************************************************
+# Copyright (c) Broadcom, Inc. 2020-2025. All Rights Reserved. Carbon Black.
+# SPDX-License-Identifier: MIT
+# *******************************************************
+# *
+# * DISCLAIMER. THIS PROGRAM IS PROVIDED TO YOU "AS IS" WITHOUT
+# * WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER ORAL OR WRITTEN,
+# * EXPRESS OR IMPLIED. THE AUTHOR SPECIFICALLY DISCLAIMS ANY IMPLIED
+# * WARRANTIES OR CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY,
+# * NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE.
+type: object
+properties:
+  event_count:
+    type: integer
+    description: Number of alerts encountered for recommendation
+  impact_score:
+    type: number
+    description: Impact score
+  impacted_devices:
+    type: integer
+    description: Number of devices impacted by the recommendation
+  org_adoption:
+    type: string
+    description: Priority for adoption of this recommendation
+    enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+  update_time:
+    type: string
+    description: The last time this impact was updated

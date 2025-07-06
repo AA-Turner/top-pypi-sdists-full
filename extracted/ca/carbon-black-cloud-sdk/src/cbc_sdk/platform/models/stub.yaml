@@ -1,0 +1,31 @@
+# *******************************************************
+# Copyright (c) Broadcom, Inc. 2020-2025. All Rights Reserved. Carbon Black.
+# SPDX-License-Identifier: MIT
+# *******************************************************
+# *
+# * DISCLAIMER. THIS PROGRAM IS PROVIDED TO YOU "AS IS" WITHOUT
+# * WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER ORAL OR WRITTEN,
+# * EXPRESS OR IMPLIED. THE AUTHOR SPECIFICALLY DISCLAIMS ANY IMPLIED
+# * WARRANTIES OR CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY,
+# * NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE.
+type: object
+required:
+  - name
+  - device
+  - function
+properties:
+  id:
+    type: integer
+    description: The identifier
+  name:
+    type: string
+    description: Defined name
+  device:
+    type: integer
+    description: Device identifier
+  function:
+    type: string
+    description: Function identifier
+  parameter:
+    type: string
+    description: Function parameter

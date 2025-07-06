@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: sphinx_tippy
+Version: 0.4.3
+Summary: Get rich tool tips in your sphinx documentation!
+Keywords: sphinx,tooltip,tippy
+Author-email: Chris Sewell <chrisj_sewell@hotmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Dist: sphinx>4
+Requires-Dist: beautifulsoup4
+Requires-Dist: jinja2
+Requires-Dist: requests
+Requires-Dist: myst-parser ; extra == "docs"
+Requires-Dist: furo ; extra == "docs"
+Requires-Dist: pytest ; extra == "testing"
+Requires-Dist: sphinx-pytest ; extra == "testing"
+Requires-Dist: pytest-regressions ; extra == "testing"
+Project-URL: Documentation, https://sphinx-tippy.readthedocs.io
+Project-URL: Home, https://github.com/chrisjsewell/sphinx-tippy
+Provides-Extra: docs
+Provides-Extra: testing
+
+# sphinx-tippy
+
+![GitHub Repo stars](https://img.shields.io/github/stars/chrisjsewell/sphinx-tippy?label=Like%20and%20Share%21&style=social)
+
+Get rich tool tips in your sphinx documentation!
+
+See the documentation for details.
+

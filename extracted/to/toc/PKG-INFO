@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: toc
+Version: 0.0.14
+Summary: Table of contents generator for html
+Author-email: Pak Youngrok <pak.youngrok@gmail.com>
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Dist: html5lib
+Project-URL: Home, https://github.com/youngrok/toc

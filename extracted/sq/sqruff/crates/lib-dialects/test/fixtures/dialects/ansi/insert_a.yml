@@ -1,0 +1,43 @@
+file:
+- statement:
+  - insert_statement:
+    - keyword: INSERT
+    - keyword: into
+    - table_reference:
+      - naked_identifier: tbl_b
+    - bracketed:
+      - start_bracket: (
+      - column_reference:
+        - naked_identifier: col1
+      - end_bracket: )
+    - values_clause:
+      - keyword: values
+      - bracketed:
+        - start_bracket: (
+        - numeric_literal: '123'
+        - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - insert_statement:
+    - keyword: INSERT
+    - keyword: INTO
+    - table_reference:
+      - naked_identifier: tbl_c
+    - bracketed:
+      - start_bracket: (
+      - select_statement:
+        - select_clause:
+          - keyword: SELECT
+          - select_clause_element:
+            - wildcard_expression:
+              - wildcard_identifier:
+                - star: '*'
+        - from_clause:
+          - keyword: FROM
+          - from_expression:
+            - from_expression_element:
+              - table_expression:
+                - table_reference:
+                  - naked_identifier: table1
+      - end_bracket: )
+- statement_terminator: ;

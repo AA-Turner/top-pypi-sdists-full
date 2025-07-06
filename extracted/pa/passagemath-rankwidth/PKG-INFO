@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-rankwidth
-Version: 10.5.44
+Version: 10.5.45
 Summary: passagemath: Rankwidth and rank decompositions of graphs with rw
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

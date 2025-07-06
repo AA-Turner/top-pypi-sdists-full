@@ -172,13 +172,16 @@ void Mtz::read_first_bytes(AnyStream& stream) {
   } else {
     header_offset = (int64_t) tmp_header_offset;
   }
+  stream.skip(60);
 }
 
 void Mtz::read_main_headers(AnyStream& stream, std::vector<std::string>* save_headers) {
   char line[81] = {0};
   std::ptrdiff_t header_pos = 4 * std::ptrdiff_t(header_offset - 1);
-  if (!stream.seek(header_pos))
-    fail("Cannot rewind to the MTZ header at byte " + std::to_string(header_pos));
+  // temporary check
+  long cur_pos = stream.tell();
+  if (cur_pos != header_pos && cur_pos != -1)
+    fail(cat("wrong pos ", int(header_pos), "  ", int(stream.tell())));
   int ncol = 0;
   bool has_batch = false;
   while (stream.read(line, 80)) {
@@ -312,6 +315,14 @@ void Mtz::read_main_headers(AnyStream& stream, std::vector<std::string>* save_he
     fail("Number of COLU records inconsistent with NCOL record.");
   if (has_batch != !batches.empty())
     fail("BATCH header inconsistent with NCOL record.");
+  // adjust data size, if necessary
+  if (!data.empty()) {
+    size_t expected_size = columns.size() * nreflections;
+    if (data.size() > expected_size)
+      data.resize(expected_size);
+    else if (data.size() < expected_size)
+      fail("internal error, wrong data size");
+  }
 }
 
 void Mtz::read_history_and_batch_headers(AnyStream& stream) {
@@ -372,11 +383,15 @@ void Mtz::setup_spacegroup() {
     d.cell.set_cell_images_from_spacegroup(spacegroup);
 }
 
-void Mtz::read_raw_data(AnyStream& stream) {
-  size_t n = columns.size() * nreflections;
+// we should be at byte 80
+void Mtz::read_raw_data(AnyStream& stream, bool do_read) {
+  size_t n = size_t(header_offset - 1 - 20);
+  if (!do_read) {
+    if (!stream.skip(4 * n))
+      fail("ignoring mtz data segment failed");
+    return;
+  }
   data.resize(n);
-  if (!stream.seek(80))
-    fail("Cannot rewind to the MTZ data.");
   if (!stream.read(data.data(), 4 * n))
     fail("Error when reading MTZ data");
   if (!same_byte_order)
@@ -384,8 +399,14 @@ void Mtz::read_raw_data(AnyStream& stream) {
       swap_four_bytes(&f);
 }
 
-void Mtz::read_all_headers(AnyStream& stream) {
+void Mtz::read_stream(AnyStream& stream, bool with_data) {
   read_first_bytes(stream);
+  // The older implementation of MTZ reading first read the headers,
+  // then the data. This required jumping to the headers at the end,
+  // then back to the beginning of the data (byte 80).
+  // The current implementation avoids calling seek(), allowing
+  // incremental reading of streams (stdin, gzipped files, etc).
+  read_raw_data(stream, with_data);
   read_main_headers(stream, nullptr);
   read_history_and_batch_headers(stream);
   setup_spacegroup();
@@ -458,13 +479,12 @@ void Mtz::reindex(const Op& op) {
   if (op.det_rot() < 0)
     gemmi::fail("reindexing operator must preserve the hand of the axes");
   switch_to_original_hkl();  // changes hkl for unmerged data only
-  Op transposed_op{op.transposed_rot(), {0, 0, 0}};
-  Op real_space_op = transposed_op.inverse();
-  logger.mesg("Real space transformation: ", real_space_op.triplet());
+  Op xyz_op = op.as_xyz();
+  logger.mesg("Real space transformation: ", op.as_xyz().triplet());
   bool row_removal = false;
   // change Miller indices
   for (size_t n = 0; n < data.size(); n += columns.size()) {
-    Miller hkl_den = transposed_op.apply_to_hkl_without_division(get_hkl(n));
+    Miller hkl_den = op.apply_to_hkl_without_division(get_hkl(n));
     Miller hkl = Op::divide_hkl_by_DEN(hkl_den);
     if (hkl[0] * Op::DEN == hkl_den[0] &&
         hkl[1] * Op::DEN == hkl_den[1] &&
@@ -488,7 +508,7 @@ void Mtz::reindex(const Op& op) {
   // change space group
   if (spacegroup) {
     GroupOps gops = spacegroup->operations();
-    gops.change_basis_impl(real_space_op, transposed_op);
+    gops.change_basis_backward(xyz_op);
     const SpaceGroup* new_sg = find_spacegroup_by_ops(gops);
     if (!new_sg)
       fail("reindexing: failed to determine new space group name");
@@ -501,11 +521,11 @@ void Mtz::reindex(const Op& op) {
   }
 
   // change unit cell parameters
-  cell = cell.changed_basis_backward(transposed_op, false);
+  cell = cell.changed_basis_backward(xyz_op, false);
   for (Mtz::Dataset& ds : datasets)
-    ds.cell = ds.cell.changed_basis_backward(transposed_op, false);
+    ds.cell = ds.cell.changed_basis_backward(xyz_op, false);
   for (Mtz::Batch& batch : batches)
-    batch.set_cell(batch.get_cell().changed_basis_backward(transposed_op, false));
+    batch.set_cell(batch.get_cell().changed_basis_backward(xyz_op, false));
 }
 
 void Mtz::expand_to_p1() {
@@ -929,10 +949,12 @@ void Mtz::write_to_cstream(std::FILE* stream) const {
 }
 
 void Mtz::write_to_string(std::string& str) const {
-  write_to_stream([&](const void *ptr, size_t size, size_t nmemb) {
-      str.append(static_cast<const char*>(ptr), size * nmemb);
-      return nmemb;
-  });
+  // Calculate the size beforehand to avoid memory re-allocations
+  // and minimize memory usage. It hasn't been benchmarked against
+  // a single-pass writing.
+  size_t nbytes = size_to_write();
+  str.resize(nbytes);
+  write_to_buffer(&str[0], nbytes);
 }
 
 void Mtz::write_to_file(const std::string& path) const {
@@ -942,6 +964,28 @@ void Mtz::write_to_file(const std::string& path) const {
   } catch (std::runtime_error& e) {
     fail(std::string(e.what()) + ": " + path);
   }
+}
+
+size_t Mtz::size_to_write() const {
+  size_t nbytes = 0;
+  write_to_stream([&](const void *, size_t size, size_t nmemb) {
+      nbytes += size * nmemb;
+      return nmemb;
+  });
+  return nbytes;
+}
+
+size_t Mtz::write_to_buffer(char* buf, size_t maxlen) const {
+  size_t len = 0;
+  write_to_stream([&](const void *ptr, size_t size, size_t nmemb) {
+      len += size * nmemb;
+      if (len > maxlen)
+        fail("Mtz::write_to_buffer: size too small");
+      memcpy(buf, ptr, size * nmemb);
+      buf += size * nmemb;
+      return nmemb;
+  });
+  return len;
 }
 
 } // namespace gemmi

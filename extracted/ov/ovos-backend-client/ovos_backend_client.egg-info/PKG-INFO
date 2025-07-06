@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: ovos-backend-client
+Version: 1.0.1
+Summary: api client for supported ovos-core backends
+Home-page: https://github.com/OpenVoiceOS/ovos-backend-client
+Author: jarbasai
+Author-email: jarbasai@mailfence.com
+License: Apache2
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: offline

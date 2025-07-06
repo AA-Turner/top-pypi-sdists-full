@@ -26,6 +26,7 @@ fields_description = {
     'device_name': {'description': 'Device name.'},
     'fs_type': {'description': 'File system type.'},
     'mnt_point': {'description': 'Mount point.'},
+    'options': {'description': 'Mount options.'},
     'size': {
         'description': 'Total size.',
         'unit': 'byte',
@@ -87,7 +88,7 @@ snmp_oid['esxi'] = snmp_oid['windows']
 items_history_list = [{'name': 'percent', 'description': 'File system usage in percent', 'y_unit': '%'}]
 
 
-class PluginModel(GlancesPluginModel):
+class FsPlugin(GlancesPluginModel):
     """Glances file system plugin.
 
     stats is a list
@@ -162,8 +163,8 @@ class PluginModel(GlancesPluginModel):
         # Loop over fs
         for fs in fs_stat:
             # Hide the stats if the mount point is in the exclude list
-            # It avoids unnecessary call to PsUtil disk_usage
-            if not self.is_display(fs.mountpoint):
+            # # It avoids unnecessary call to PsUtil disk_usage
+            if not self.is_display_any(fs.mountpoint, fs.device):
                 continue
 
             # Grab the disk usage
@@ -178,17 +179,13 @@ class PluginModel(GlancesPluginModel):
                 'fs_type': fs.fstype,
                 # Manage non breaking space (see issue #1065)
                 'mnt_point': u(fs.mountpoint).replace('\u00a0', ' '),
+                'options': fs.opts,
                 'size': fs_usage.total,
                 'used': fs_usage.used,
                 'free': fs_usage.free,
                 'percent': fs_usage.percent,
                 'key': self.get_key(),
             }
-
-            # Hide the stats if the device name is in the exclude list
-            # Correct issue: glances.conf FS hide not applying #1666
-            if not self.is_display(fs_current['device_name']):
-                continue
 
             # Add alias if exist (define in the configuration file)
             if self.has_alias(fs_current['mnt_point']) is not None:
@@ -214,39 +211,43 @@ class PluginModel(GlancesPluginModel):
         # Loop over fs
         if self.short_system_name in ('windows', 'esxi'):
             # Windows or ESXi tips
-            for fs in fs_stat:
+            for fs, fs_value in fs_stat.item():
+                # Do not take hidden file system into account
+                if not self.is_display(fs):
+                    continue
+
                 # Memory stats are grabbed in the same OID table (ignore it)
                 if fs == 'Virtual Memory' or fs == 'Physical Memory' or fs == 'Real Memory':
                     continue
-                size = int(fs_stat[fs]['size']) * int(fs_stat[fs]['alloc_unit'])
-                used = int(fs_stat[fs]['used']) * int(fs_stat[fs]['alloc_unit'])
+                size = int(fs_value['size']) * int(fs_value['alloc_unit'])
+                used = int(fs_value['used']) * int(fs_value['alloc_unit'])
                 percent = float(used * 100 / size)
                 fs_current = {
                     'device_name': '',
                     'mnt_point': fs.partition(' ')[0],
+                    'options': '',
                     'size': size,
                     'used': used,
                     'percent': percent,
                     'key': self.get_key(),
                 }
-                # Do not take hidden file system into account
-                if self.is_hide(fs_current['mnt_point']):
-                    continue
                 stats.append(fs_current)
         else:
             # Default behavior
-            for fs in fs_stat:
+            for fs, fs_value in fs_stat.item():
+                # Do not take hidden file system into account
+                if not self.is_display_any(fs, fs_value['device_name']):
+                    continue
+
                 fs_current = {
-                    'device_name': fs_stat[fs]['device_name'],
+                    'device_name': fs_value['device_name'],
                     'mnt_point': fs,
-                    'size': int(fs_stat[fs]['size']) * 1024,
-                    'used': int(fs_stat[fs]['used']) * 1024,
-                    'percent': float(fs_stat[fs]['percent']),
+                    'options': '',
+                    'size': int(fs_value['size']) * 1024,
+                    'used': int(fs_value['used']) * 1024,
+                    'percent': float(fs_value['percent']),
                     'key': self.get_key(),
                 }
-                # Do not take hidden file system into account
-                if self.is_hide(fs_current['mnt_point']) or self.is_hide(fs_current['device_name']):
-                    continue
                 stats.append(fs_current)
 
         return stats
@@ -258,7 +259,8 @@ class PluginModel(GlancesPluginModel):
 
         # Add specifics information
         # Alert
-        for i in self.stats:
+        # Do not display threshold for volume mounted in 'ro' (read-only) #3143
+        for i in [d for d in self.stats if 'ro' not in d.get('options', '').split(',')]:
             self.views[i[self.get_key()]]['used']['decoration'] = self.get_alert(
                 current=i['size'] - i['free'], maximum=i['size'], header=i['mnt_point']
             )

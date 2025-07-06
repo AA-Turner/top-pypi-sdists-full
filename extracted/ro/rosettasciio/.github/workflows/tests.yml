@@ -1,0 +1,207 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
+      - 'pre-commit-ci-update-config'
+  workflow_dispatch:
+
+jobs:
+  run_test_site:
+    name: ${{ matrix.os }}-${{ matrix.os_version }}-py${{ matrix.PYTHON_VERSION }}${{ matrix.LABEL }}
+    runs-on: ${{ matrix.os }}-${{ matrix.os_version }}
+    timeout-minutes: 30
+    env:
+      MPLBACKEND: agg
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, windows, macos]
+        os_version: [latest]
+        PYTHON_VERSION: ['3.9', '3.10', '3.13']
+        HYPERSPY_VERSION: ['release']
+        LABEL: ['']
+        PIP_ARGS: ['']
+        include:
+          # test oldest supported version of main dependencies on python 3.8
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.9'
+            # Set pillow and scikit-image version to be compatible with imageio and scipy
+            # align matplotlib and dask dependency with hyperspy
+            DEPENDENCIES: matplotlib==3.6 numpy==1.20.0 tifffile==2022.7.28 dask[array]==2022.9.2 distributed==2022.9.2 numba==0.53 imageio==2.16 pillow==8.3.2 scikit-image==0.18.0 python-box==6.0.0
+            LABEL: '-oldest'
+            HYPERSPY_VERSION: 'release'
+          # test minimum requirement
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.10'
+            LABEL: '-hyperspy-minimum'
+            HYPERSPY_VERSION: 'release'
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.12'
+            LABEL: '-hyperspy_dev'
+            HYPERSPY_VERSION: 'dev'
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.10'
+            LABEL: ''
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.9'
+            LABEL: '-hyperspy'
+            HYPERSPY_VERSION: 'release'
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.12'
+            LABEL: '-hyperspy'
+            HYPERSPY_VERSION: 'release'
+          - os: macos
+            os_version: '13'
+            PYTHON_VERSION: '3.12'
+            LABEL: '-hyperspy'
+            HYPERSPY_VERSION: 'release'
+          - os: ubuntu
+            os_version: latest
+            PYTHON_VERSION: '3.13t'
+            # use build isolation until cython 3.1 is released
+            PIP_ARGS: '--no-build-isolation'
+            LABEL: '-hyperspy_dev-minimum'
+            HYPERSPY_VERSION: 'dev'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: get repository name
+        shell: bash
+        run: echo "REPOSITORY_NAME=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
+
+      - name: Fetch tags upstream
+        if: ${{ github.repository_owner != 'hyperspy' }}
+        # Needs to fetch the tags from upstream to get the
+        # correct version with setuptools_scm
+        run: |
+          git remote add upstream https://github.com/hyperspy/${{ env.REPOSITORY_NAME }}.git
+          git fetch upstream --tags
+
+      - uses: actions/setup-python@v5
+        name: Install Python
+        with:
+          python-version: ${{ matrix.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Get the number of CPUs
+        id: cpus
+        run: |
+          import os, platform
+          num_cpus = os.cpu_count()
+          print(f"Number of CPU: {num_cpus}")
+          print(f"Architecture: {platform.machine()}")
+          output_file = os.environ["GITHUB_OUTPUT"]
+          with open(output_file, "a", encoding="utf-8") as output_stream:
+              output_stream.write(f"count={num_cpus}\n")
+        shell: python
+
+      - name: Set Environment Variable
+        shell: bash
+        # Set PIP_SELECTOR environment variable according to matrix.LABEL
+        run: |
+          if [[ -n "${{ matrix.LABEL }}" && "${{ matrix.LABEL }}" == *"minimum"* ]]; then
+            PIP_SELECTOR="[tests]"
+          else
+            PIP_SELECTOR="[all, tests]"
+          fi
+          echo "PIP_SELECTOR=${PIP_SELECTOR}" >> $GITHUB_ENV
+
+      - name: Display version
+        run: |
+          python --version
+          pip --version
+
+      - name: Set PYTHON_GIL
+        # make sure the GIL doesn't get enabled
+        # https://py-free-threading.github.io/running-gil-disabled/
+        if: endsWith(matrix.PYTHON_VERSION, 't')
+        run: |
+          echo "PYTHON_GIL=0" >> "$GITHUB_ENV"
+
+      - name: Display GIL information
+        if: ${{ contains(matrix.PYTHON_VERSION, '3.13') }}
+        run: |
+          # show if free-threaded build
+          python -VV
+          # show if GIL is enable
+          python -c "import sys; print('GIL enabled:', sys._is_gil_enabled())"
+
+      - name: Install build dependency (3.13t)
+        if: ${{ matrix.PYTHON_VERSION == '3.13t'}}
+        run: |
+          pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
+          # install build dependencies manually to be able to use `--no-build-isolation`
+          pip install setuptools-scm wheel hatchling numpy pkgconfig
+
+      - name: Install hyperspy dependencies (3.13t)
+        if: ${{ matrix.PYTHON_VERSION == '3.13t'}}
+        run: |
+          # no freethreaded build available for h5py
+          # install other dependencies manually 
+          pip install cloudpickle dask[array] importlib-metadata jinja2 matplotlib natsort numpy packaging pint prettytable pyyaml scikit-image scipy sympy tqdm pooch requests
+          pip install traits ${{ matrix.PIP_ARGS }}
+
+      - name: Install hyperspy and exspy (release)
+        if: ${{ matrix.HYPERSPY_VERSION == 'release'}}
+        run: |
+          pip install hyperspy exspy ${{ matrix.PIP_ARGS }}
+
+      - name: Install hyperspy and exspy (dev)
+        if: ${{ matrix.HYPERSPY_VERSION == 'dev' && matrix.PYTHON_VERSION != '3.13t'}}
+        run: |
+          pip install git+https://github.com/hyperspy/hyperspy.git
+          pip install git+https://github.com/hyperspy/exspy.git
+
+      - name: Install hyperspy (dev & 3.13t)
+        if: ${{ matrix.HYPERSPY_VERSION == 'dev' && matrix.PYTHON_VERSION == '3.13t'}}
+        run: |
+          pip install git+https://github.com/hyperspy/hyperspy.git --no-deps
+
+      - name: Install python-mrcz dev
+        # for numpy 2.0 support for python >= 3.9
+        # https://github.com/em-MRCZ/python-mrcz/pull/15
+        if: ${{ ! contains(matrix.LABEL, 'oldest') && ! contains(matrix.LABEL, 'minimum') }}
+        run: |
+          pip install git+https://github.com/ericpre/python-mrcz.git@numpy2.0_and_deprecation_fixes
+
+      - name: Install
+        shell: bash
+        run: |
+          pip install --upgrade -e .'${{ env.PIP_SELECTOR }}' ${{ matrix.PIP_ARGS }}
+
+      - name: Uninstall pyUSID
+        # remove when pyUSID supports numpy 2 
+        if: ${{ ! contains(matrix.LABEL, 'oldest') }}
+        run: |
+          pip uninstall -y pyUSID
+
+      - name: Install oldest supported version
+        if: contains(matrix.LABEL, 'oldest')
+        run: |
+          pip install ${{ matrix.DEPENDENCIES }}
+
+      - name: Pip list
+        run: |
+          pip list
+
+      - name: Run test suite
+        run: |
+          pytest --pyargs rsciio --reruns 3 -n ${{ steps.cpus.outputs.count }} --cov=. --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        if: ${{ always() }}
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

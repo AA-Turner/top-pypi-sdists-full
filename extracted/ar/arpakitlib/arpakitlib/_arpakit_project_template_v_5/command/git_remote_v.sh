@@ -1,2 +1,0 @@
-cd ..
-git remote -v

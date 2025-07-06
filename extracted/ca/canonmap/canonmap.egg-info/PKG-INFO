@@ -1,0 +1,442 @@
+Metadata-Version: 2.4
+Name: canonmap
+Version: 0.2.43
+Summary: CanonMap - A Python library for entity canonicalization and mapping with enhanced configuration and response models
+Home-page: https://github.com/vinceberry/canonmap
+Author: Vince Berry
+Author-email: vince.berry@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE.txt
+Requires-Dist: python-dotenv
+Requires-Dist: google-cloud-storage
+Requires-Dist: pandas
+Requires-Dist: chardet
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: rapidfuzz
+Requires-Dist: metaphone
+Requires-Dist: tqdm
+Requires-Dist: requests
+Requires-Dist: codename
+Provides-Extra: embedding
+Requires-Dist: sentence-transformers; extra == "embedding"
+Requires-Dist: transformers; extra == "embedding"
+Requires-Dist: torch; extra == "embedding"
+Requires-Dist: tokenizers; extra == "embedding"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# CanonMap
+
+CanonMap is a Python library for generating and managing canonical entity artifacts from various data sources. It provides a streamlined interface for processing data files and generating standardized artifacts that can be used for entity matching and data integration.
+
+## Features
+
+- **Flexible Input Support**: Process data from:
+  - CSV/JSON files
+  - Directories of data files
+  - Pandas DataFrames
+  - Python dictionaries
+
+- **Artifact Generation**:
+  - Generate canonical entity lists
+  - Create database schemas (supports multiple database types)
+  - Generate semantic embeddings for entities
+  - Clean and standardize field names
+  - Process metadata fields
+
+- **Database Support**:
+  - DuckDB (default)
+  - SQLite
+  - BigQuery
+  - MariaDB
+  - MySQL
+  - PostgreSQL
+
+- **Enhanced Configuration**:
+  - Separate configuration for artifacts and embeddings
+  - **Optional GCP integration** with bucket management
+  - Flexible sync strategies for cloud storage
+  - Comprehensive error handling and logging
+  - **Local-only mode** for development and testing
+
+## Installation
+
+### Lightweight Installation (Core Features Only)
+```bash
+pip install canonmap
+```
+
+### Full Installation (Including Embedding Support)
+```bash
+pip install canonmap[embedding]
+```
+
+**Note**: The lightweight installation includes all core features (GCP integration, file processing, schema generation) but excludes embedding functionality. If you need semantic embeddings, use the full installation with `[embedding]` extras.
+
+## Quick Start
+
+### Local-Only Mode (Recommended for Development)
+
+```python
+from canonmap import (
+    CanonMap,
+    CanonMapArtifactsConfig,
+    CanonMapEmbeddingConfig,
+    ArtifactGenerationRequest,
+    EntityField,
+    SemanticField
+)
+
+# Simple local-only configuration
+artifacts_config = CanonMapArtifactsConfig(
+    artifacts_local_path="./artifacts",
+    gcs_config=None  # No GCS integration
+)
+
+embedding_config = CanonMapEmbeddingConfig(
+    embedding_model_hf_name="sentence-transformers/all-MiniLM-L12-v2",
+    embedding_model_local_path="./models/sentence-transformers/all-MiniLM-L12-v2",
+    gcs_config=None  # No GCS integration
+)
+
+# Initialize CanonMap
+canonmap = CanonMap(
+    artifacts_config=artifacts_config,
+    embedding_config=embedding_config,
+    verbose=True
+)
+
+# Configure artifact generation
+request = ArtifactGenerationRequest(
+    input_path="path/to/your/data.csv",
+    source_name="my_source",
+    table_name="my_table",
+    entity_fields=[
+        EntityField(table_name="my_table", field_name="name"),
+        EntityField(table_name="my_table", field_name="id")
+    ],
+    semantic_fields=[
+        SemanticField(table_name="my_table", field_name="description"),
+        SemanticField(table_name="my_table", field_name="notes")
+    ],
+    generate_schemas=True,
+    generate_embeddings=True,
+    generate_semantic_texts=True
+)
+
+# Generate artifacts
+response = canonmap.generate_artifacts(request)
+print(f"Generated {len(response.generated_artifacts)} artifacts")
+```
+
+### With GCP Integration
+
+```python
+from canonmap import (
+    CanonMap,
+    CanonMapGCPConfig,
+    CanonMapCustomGCSConfig,
+    CanonMapArtifactsConfig,
+    CanonMapEmbeddingConfig,
+    ArtifactGenerationRequest,
+    EntityField,
+    SemanticField
+)
+
+# 1. Set up base GCP configuration
+base_gcp = CanonMapGCPConfig(
+    gcp_service_account_json_path="path/to/service_account.json",
+    troubleshooting=False
+)
+
+# 2. Configure GCS for artifacts and embeddings
+artifacts_gcs = CanonMapCustomGCSConfig(
+    gcp_config=base_gcp,
+    bucket_name="your-artifacts-bucket",
+    bucket_prefix="artifacts/",
+    auto_create_bucket=True,
+    sync_strategy="refresh"
+)
+
+embedding_gcs = CanonMapCustomGCSConfig(
+    gcp_config=base_gcp,
+    bucket_name="your-models-bucket",
+    bucket_prefix="models/",
+    auto_create_bucket=True,
+    sync_strategy="refresh"
+)
+
+# 3. Create application-specific configs
+artifacts_config = CanonMapArtifactsConfig(
+    artifacts_local_path="./artifacts",
+    gcs_config=artifacts_gcs
+)
+
+embedding_config = CanonMapEmbeddingConfig(
+    embedding_model_hf_name="sentence-transformers/all-MiniLM-L12-v2",
+    embedding_model_local_path="./models/sentence-transformers/all-MiniLM-L12-v2",
+    gcs_config=embedding_gcs
+)
+
+# 4. Initialize CanonMap
+canonmap = CanonMap(
+    artifacts_config=artifacts_config,
+    embedding_config=embedding_config,
+    verbose=True,
+    api_mode=False
+)
+
+# 5. Configure artifact generation
+request = ArtifactGenerationRequest(
+    input_path="path/to/your/data.csv",
+    source_name="my_source",
+    table_name="my_table",
+    entity_fields=[
+        EntityField(table_name="my_table", field_name="name"),
+        EntityField(table_name="my_table", field_name="id")
+    ],
+    semantic_fields=[
+        SemanticField(table_name="my_table", field_name="description"),
+        SemanticField(table_name="my_table", field_name="notes")
+    ],
+    generate_schemas=True,
+    generate_embeddings=True,
+    generate_semantic_texts=True
+)
+
+# 6. Generate artifacts
+response = canonmap.generate_artifacts(request)
+print(f"Generated {len(response.generated_artifacts)} artifacts")
+```
+
+## Artifact Generation Example
+
+```python
+from canonmap import (
+    CanonMap,
+    CanonMapArtifactsConfig,
+    CanonMapEmbeddingConfig,
+    ArtifactGenerationRequest,
+    EntityField,
+    SemanticField,
+    ArtifactGenerationResponse
+)
+
+# Set up configurations (local-only for this example)
+artifacts_config = CanonMapArtifactsConfig(
+    artifacts_local_path="./artifacts",
+    gcs_config=None  # Local-only mode
+)
+
+embedding_config = CanonMapEmbeddingConfig(
+    embedding_model_hf_name="sentence-transformers/all-MiniLM-L12-v2",
+    embedding_model_local_path="./models",
+    gcs_config=None  # Local-only mode
+)
+
+# Initialize CanonMap
+cm = CanonMap(
+    artifacts_config=artifacts_config,
+    embedding_config=embedding_config,
+    verbose=True
+)
+
+# Create generation request
+gen_req = ArtifactGenerationRequest(
+    input_path="input",
+    source_name="football_data",
+    entity_fields=[
+        EntityField(table_name="passing", field_name="player"),
+        EntityField(table_name="rushing", field_name="rusher_name"),
+    ],
+    semantic_fields=[
+        SemanticField(table_name="passing", field_name="description"),
+        SemanticField(table_name="rushing", field_name="notes"),
+    ],
+    generate_schemas=True,
+    save_processed_data=True,
+    generate_semantic_texts=True
+)
+
+# Generate artifacts
+resp: ArtifactGenerationResponse = cm.generate_artifacts(gen_req)
+
+# Access response details
+print(f"Status: {resp.status}")
+print(f"Generated {len(resp.generated_artifacts)} artifacts")
+print(f"Processing time: {resp.processing_stats.processing_time_seconds:.2f} seconds")
+```
+
+## Entity Mapping Example
+
+```python
+from canonmap import (
+    CanonMap,
+    EntityMappingRequest,
+    TableFieldFilter,
+    EntityMappingResponse
+)
+
+# Initialize CanonMap (reusing configs from above)
+cm = CanonMap(
+    artifacts_config=artifacts_config,
+    embedding_config=embedding_config
+)
+
+# Create mapping request
+mapping_request = EntityMappingRequest(
+    entities=["tim brady", "jake alan"],
+    filters=[
+        TableFieldFilter(table_name="passing", table_fields=["player"])
+    ],
+    num_results=3,
+)
+
+# Map entities
+resp: EntityMappingResponse = cm.map_entities(mapping_request)
+
+# Access mapping results
+print(f"Processed {resp.total_entities_processed} entities")
+print(f"Found {resp.total_matches_found} matches")
+
+for mapping in resp.mappings:
+    print(f"\nEntity: {mapping.entity}")
+    for match in mapping.matches:
+        print(f"  Match: {match.matched_entity} (Score: {match.score:.3f})")
+```
+
+## Configuration Options
+
+### CanonMapGCPConfig
+Base GCP configuration with service account and troubleshooting settings:
+- `gcp_service_account_json_path`: Path to GCP service account JSON file
+- `troubleshooting`: Enable detailed logging and validation
+
+### CanonMapCustomGCSConfig
+Bucket-specific configuration extending the base GCP config:
+- `gcp_config`: Base GCP configuration
+- `bucket_name`: GCS bucket name
+- `bucket_prefix`: Optional prefix for bucket operations
+- `auto_create_bucket`: Automatically create bucket if it doesn't exist
+- `auto_create_bucket_prefix`: Automatically create prefix directory
+- `sync_strategy`: Sync strategy ("none", "missing", "overwrite", "refresh")
+
+### CanonMapArtifactsConfig
+Configuration for artifact storage and management:
+- `artifacts_local_path`: Local directory for artifacts
+- `gcs_config`: **Optional** GCS configuration for artifact storage
+- `troubleshooting`: Enable troubleshooting mode
+
+### CanonMapEmbeddingConfig
+Configuration for embedding model management:
+- `embedding_model_hf_name`: HuggingFace model name
+- `embedding_model_local_path`: Local path for model storage
+- `gcs_config`: **Optional** GCS configuration for model storage
+- `troubleshooting`: Enable troubleshooting mode
+
+### ArtifactGenerationRequest
+Comprehensive configuration for artifact generation:
+- **Input/Output**:
+  - `input_path`: Path to data file/directory or DataFrame/dict
+  - `source_name`: Logical source name
+  - `table_name`: Logical table name
+
+- **Directory Processing**:
+  - `recursive`: Process subdirectories
+  - `file_pattern`: File matching pattern (e.g., "*.csv")
+  - `table_name_from_file`: Use filename as table name
+
+- **Entity Processing**:
+  - `entity_fields`: List of fields to treat as entities
+  - `semantic_fields`: List of fields to extract as individual semantic text files
+  - `use_other_fields_as_metadata`: Include non-entity fields as metadata
+
+- **Generation Options**:
+  - `generate_canonical_entities`: Generate entity list
+  - `generate_schemas`: Generate database schema
+  - `generate_embeddings`: Generate semantic embeddings
+  - `generate_semantic_texts`: Generate semantic text files from semantic_fields
+  - `save_processed_data`: Save cleaned data
+  - `database_type`: Target database type
+  - `normalize_field_names`: Standardize field names
+
+## Response Models
+
+### ArtifactGenerationResponse
+Comprehensive response containing:
+- `status`: Success/failure status
+- `message`: Human-readable message
+- `generated_artifacts`: List of generated artifacts with metadata
+- `processing_stats`: Detailed processing statistics
+- `errors`: List of errors encountered
+- `warnings`: List of warnings
+- `gcp_upload_info`: GCP upload details
+- Convenience paths for common artifacts
+
+### EntityMappingResponse
+Detailed mapping results including:
+- `status`: Success/failure status
+- `mappings`: List of entity mappings with matches
+- `total_entities_processed`: Number of entities processed
+- `total_matches_found`: Total number of matches found
+- `processing_stats`: Performance metrics
+- `configuration_summary`: Request configuration summary
+- `errors`: List of errors encountered
+- `warnings`: List of warnings
+
+## API Mode
+
+For API deployments, initialize CanonMap with `api_mode=True`:
+
+```python
+canonmap = CanonMap(
+    artifacts_config=artifacts_config,
+    embedding_config=embedding_config,
+    verbose=True,
+    api_mode=True  # Enables API-specific optimizations
+)
+```
+
+## Output
+
+The `generate_artifacts()` method returns an `ArtifactGenerationResponse` containing:
+- Generated artifacts with metadata
+- Processing statistics and timing information
+- Error and warning information
+- GCP upload details (if applicable)
+- Convenience paths to common artifacts
+
+### Semantic Text Files
+
+When `semantic_fields` is specified, CanonMap creates zip files containing individual text files for each non-null semantic field value:
+
+- **Single table**: `{source}_{table}_semantic_texts.zip`
+- **Multiple tables**: `{source}_semantic_texts.zip` (combined)
+- **File naming**: `{table_name}_row_{row_index}_{field_name}.txt`
+- **Content**: Raw text content from the specified semantic fields
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

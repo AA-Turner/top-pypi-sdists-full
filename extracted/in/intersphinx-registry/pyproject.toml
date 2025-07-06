@@ -1,0 +1,31 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "intersphinx_registry"
+authors = [{name = "Matthias Bussonnier", email = "bussonniermatthias@gmail.com"}]
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+readme = "README.md"
+
+[project.optional-dependencies]
+tests = ["pytest>=7.0", "pytest-xdist", "requests", "mypy", "types-requests"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+# -n auto:
+#    run @parametrize tests in parallel as some use requests.
+#    requires ptest x-dist
+addopts = ["-n", "auto", "--strict-config", "--strict-markers", "-ra", "--durations=10"]
+filterwarnings = ["error"]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+xfail_strict = true
+
+[tool.mypy]
+files = ["intersphinx_registry", "tests"]
+
+[project.urls]
+Home = "https://github.com/Quansight-labs/intersphinx_registry"

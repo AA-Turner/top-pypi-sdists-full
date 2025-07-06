@@ -1,0 +1,37 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "polars-hash"
+requires-python = ">=3.8"
+dependencies = [
+  'polars >= 1.5.0'
+]
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+authors = [
+  { name="Ion Koutsours", email="15728914+ion-elgreco@users.noreply.github.com"},
+]
+description = "Stable non-cryptographic and cryptographic hashing functions for Polars"
+readme = "README.md"
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/ion-elgreco/polars-hash"
+"Bug Tracker" = "https://github.com/ion-elgreco/polars-hash/issues"
+
+[tool.maturin]
+module-name = "polars_hash._internal"
+
+[tool.ruff]
+src = ["polars_hash", "tests"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["polars_hash"]

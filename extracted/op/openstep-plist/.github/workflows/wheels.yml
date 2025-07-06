@@ -1,0 +1,114 @@
+name: Wheels
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [master]
+
+
+jobs:
+  build_wheels:
+    name: Build wheel ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-13 runners are still x86_64, macos-14 (latest) are arm64; we want to build
+        # the x86_64 wheel on/for x86_64 macs
+        os: [ "ubuntu-latest", "windows-latest", "macos-13" ]
+        arch: [auto64]
+        include:
+          - os: macos-latest
+            arch: universal2
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+    env:
+      CIBW_ARCHS: ${{ matrix.arch }}
+      # Skip
+      #
+      # * Python 3.6 and 3.7 on all platforms,
+      # * PyPy on Windows.
+      CIBW_SKIP: cp36-* cp37-* pp*-win_amd64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*.whl
+
+  deploy:
+    # only run if the commit is tagged...
+    if: startsWith(github.ref, 'refs/tags/v')
+    # ... and all build jobs completed successfully
+    needs: [build_wheels]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade setuptools wheel twine cython
+    - name: Download artifacts from build jobs
+      uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
+        path: dist
+    - name: Extract release notes from annotated tag message
+      id: release_notes
+      env:
+        # e.g. v0.1.0a1, v1.2.0b2 or v2.3.0rc3, but not v1.0.0
+        PRERELEASE_TAG_PATTERN: "v[[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+([ab]|rc)[[:digit:]]+"
+      run: |
+        # GH checkout action doesn't preserve tag annotations, we must fetch them
+        # https://github.com/actions/checkout/issues/290
+        git fetch --tags --force
+        # strip leading 'refs/tags/' to get the tag name
+        TAG_NAME="${GITHUB_REF##*/}"
+        # Dump tag message to temporary .md file (excluding the PGP signature at the bottom)
+        TAG_MESSAGE=$(git tag -l --format='%(contents)' $TAG_NAME | sed -n '/-----BEGIN PGP SIGNATURE-----/q;p')
+        echo "$TAG_MESSAGE" > "${{ runner.temp }}/release_notes.md"
+        # if the tag has a pre-release suffix mark the Github Release accordingly
+        if egrep -q "$PRERELEASE_TAG_PATTERN" <<< "$TAG_NAME"; then
+          echo "Tag contains a pre-release suffix"
+          echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+        else
+          echo "Tag does not contain pre-release suffix"
+          echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+        fi
+    - name: Create GitHub release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        body_path: "${{ runner.temp }}/release_notes.md"
+        draft: false
+        prerelease: ${{ env.IS_PRERELEASE }}
+    - name: Build and publish
+      env:
+        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      run: |
+        if [ "$IS_PRERELEASE" == true ]; then
+          echo "DEBUG: This is a pre-release"
+        else
+          echo "DEBUG: This is a final release"
+        fi
+        python setup.py sdist
+        twine upload dist/*.whl dist/*.tar.gz

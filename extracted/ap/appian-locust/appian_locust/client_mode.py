@@ -1,0 +1,14 @@
+from enum import Enum
+
+
+class ClientMode(Enum):
+    TEMPO = "TEMPO"
+    EMBEDDED = "EMBEDDED"
+    SITES = "SITES"
+    ADMIN = "ADMIN"
+    DESIGN = "DESIGN"
+    INTERFACE_DESIGN = "INTERFACE_DESIGN"
+    PORTALS = "PORTALS"
+    SAIL_LIBRARY = "SAIL_LIBRARY"
+    DOCS_REPL = "DOCS_REPL"
+    PROCESS_HQ = "PROCESS_HQ"

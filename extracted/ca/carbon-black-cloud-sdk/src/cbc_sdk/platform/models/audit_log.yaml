@@ -1,0 +1,37 @@
+# *******************************************************
+# Copyright (c) Broadcom, Inc. 2020-2025. All Rights Reserved. Carbon Black.
+# SPDX-License-Identifier: MIT
+# *******************************************************
+# *
+# * DISCLAIMER. THIS PROGRAM IS PROVIDED TO YOU "AS IS" WITHOUT
+# * WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER ORAL OR WRITTEN,
+# * EXPRESS OR IMPLIED. THE AUTHOR SPECIFICALLY DISCLAIMS ANY IMPLIED
+# * WARRANTIES OR CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY,
+# * NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE.
+type: object
+properties:
+  actor_ip:
+    type: string
+    description: IP address of the entity that caused the creation of this audit log
+  actor:
+    type: string
+    description: Name of the entity that caused the creation of this audit log
+  create_time:
+    type: string
+    format: date-time
+    description: Timestamp when this audit log was created in ISO-8601 string format
+  description:
+    type: string
+    description: Text description of this audit log
+  flagged:
+    type: boolean
+    description: Whether the audit has been flagged
+  org_key:
+    type: string
+    description: Organization key
+  request_url:
+    type: string
+    description: URL of the request that caused the creation of this audit log
+  verbose:
+    type: boolean
+    description: Whether the audit has been marked verbose

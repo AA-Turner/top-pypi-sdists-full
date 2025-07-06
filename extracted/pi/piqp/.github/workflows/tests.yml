@@ -1,0 +1,88 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  CMAKE_BUILD_TYPE: Release
+  ENABLE_SANITIZERS: ON
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-13, macos-14, windows-latest ]
+        eigen: [ 3.3.7, 3.4.0 ]
+        exclude:
+          - os: macos-14
+            eigen: 3.3.7
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channels: conda-forge
+          activate-environment: piqp
+
+      - name: Install dependencies
+        shell: bash -l {0}
+        run: |
+          # Compiler infrastructure
+          conda install cmake compilers make pkg-config
+          # Dependencies
+          conda install eigen=${{ matrix.eigen }} libmatio libblasfeo
+
+      - name: Setup working directories
+        shell: bash -l {0}
+        run: mkdir -p build
+
+      - name: Configure piqp
+        shell: bash -l {0}
+        working-directory: build
+        run: cmake .. -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DBUILD_WITH_BLASFEO=ON -DENABLE_SANITIZERS=$ENABLE_SANITIZERS
+
+      - name: Build piqp
+        shell: bash -l {0}
+        if: runner.os == 'Windows'
+        working-directory: build
+        run: cmake --build . --config $CMAKE_BUILD_TYPE
+
+      - name: Build piqp
+        shell: bash -l {0}
+        if: runner.os != 'Windows'
+        working-directory: build
+        run: cmake --build . --config $CMAKE_BUILD_TYPE -- -j2
+
+      - name: Install piqp
+        shell: bash -l {0}
+        if: runner.os == 'Windows'
+        working-directory: build
+        run: cmake --install . --config $CMAKE_BUILD_TYPE
+
+      - name: Install piqp
+        shell: bash -l {0}
+        if: runner.os != 'Windows'
+        working-directory: build
+        run: sudo cmake --install . --config $CMAKE_BUILD_TYPE
+
+      - name: Test piqp
+        shell: bash -l {0}
+        working-directory: build
+        run: ctest -C $CMAKE_BUILD_TYPE --test-dir tests --verbose
+
+      - name: Test piqp c interface
+        shell: bash -l {0}
+        working-directory: build
+        run: ctest -C $CMAKE_BUILD_TYPE --test-dir interfaces/c/tests --verbose

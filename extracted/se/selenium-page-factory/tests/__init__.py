@@ -1,1 +1,0 @@
-from seleniumpagefactory.Pagefactory import PageFactory

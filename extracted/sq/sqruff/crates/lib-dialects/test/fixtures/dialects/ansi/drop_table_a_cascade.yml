@@ -1,0 +1,8 @@
+file:
+- statement:
+  - drop_table_statement:
+    - keyword: drop
+    - keyword: table
+    - table_reference:
+      - naked_identifier: a
+    - keyword: cascade

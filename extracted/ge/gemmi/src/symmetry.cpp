@@ -1,8 +1,421 @@
 // Copyright Global Phasing Ltd.
 
 #include <gemmi/symmetry.hpp>
+#include <cmath>      // for fabs
+#include <cstring>    // for memchr, strchr
+
+static const char* skip_space(const char* p) {
+  if (p)
+    while (*p == ' ' || *p == '\t' || *p == '_') // '_' can be used as space
+      ++p;
+  return p;
+}
 
 namespace gemmi {
+
+// TRIPLET -> OP
+
+// param only can be set to 'h', 'x', 'a' or ' ' (any), to limit accepted characters.
+// decimal_fract is useful only for non-crystallographic ops (such as x+0.12)
+std::array<int, 4> parse_triplet_part(const std::string& s, char& notation, double* decimal_fract) {
+  constexpr char a_ = 'a' & ~3;
+  constexpr char h_ = 'h' & ~3;
+  constexpr char x_ = 'x' & ~3;
+  static const signed char letter2index[] =
+    // a     b     c    d  e  f  g   h    i  j   k     l
+    { a_+0, a_+1, a_+2, 0, 0, 0, 0, h_+0, 0, 0, h_+1, h_+2,
+    // m  n  o  p  q  r  s  t  u  v  w   x     y     z
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x_+0, x_+1, x_+2 };
+  auto interpret_letter = [&](char c) {
+    size_t idx = size_t((c | 0x20) - 'a');  // "|0x20" = to lower
+    if (idx >= sizeof(letter2index) || letter2index[idx] == 0)
+      fail("unexpected character '", c, "' in: ", s);
+    auto value = letter2index[idx];
+    int detected_notation = value & ~3;
+    if ((notation | 0x20) == ' ')
+      notation = detected_notation;
+    else if (((notation | 0x20) & ~3) != detected_notation)
+      fail("Unexpected notation (letter set) in: ", s);
+    return value & 3;
+  };
+
+  std::array<int, 4> r = { 0, 0, 0, 0 };
+  int num = Op::DEN;
+  const char* c = s.c_str();
+  while (*(c = skip_space(c))) {
+    if (*c == '+' || *c == '-') {
+      num = (*c == '+' ? Op::DEN : -Op::DEN);
+      c = skip_space(++c);
+    }
+    if (num == 0)
+      fail("wrong or unsupported triplet format: " + s);
+    int r_idx;
+    int den = 1;
+    double fract = 0;
+    if ((*c >= '0' && *c <= '9') || *c == '.') {
+      // syntax examples in this branch: "1", "-1/2", "+2*x", "1/2 * b"
+      char* endptr;
+      int n = std::strtol(c, &endptr, 10);
+      // some COD CIFs have decimal fractions ("-x+0.25", ".5+Y", "1.25000-y")
+      if (*endptr == '.') {
+        // avoiding strtod() etc which is locale-dependent
+        fract = n;
+        for (double denom = 0.1; *++endptr >= '0' && *endptr <= '9'; denom *= 0.1)
+          fract += int(*endptr - '0') * denom;
+        double rounded = std::round(fract * num);
+        if (!decimal_fract) {
+          if (std::fabs(rounded - fract * num) > 0.05)
+            fail("unexpected number in a symmetry triplet part: " + s);
+          num = int(rounded);
+        }
+      } else {
+        num *= n;
+      }
+      if (*endptr == '/')
+        den = std::strtol(endptr + 1, &endptr, 10);
+      if (*endptr == '*') {
+        c = skip_space(endptr + 1);
+        r_idx = interpret_letter(*c);
+        ++c;
+      } else {
+        c = endptr;
+        r_idx = 3;
+      }
+    } else {
+      // syntax examples in this branch: "x", "+a", "-k/3"
+      r_idx = interpret_letter(*c);
+      c = skip_space(++c);
+      if (*c == '/') {
+        char* endptr;
+        den = std::strtol(c + 1, &endptr, 10);
+        c = endptr;
+      }
+    }
+    if (den != 1) {
+      if (den <= 0 || Op::DEN % den != 0 || fract != 0)
+        fail("Wrong denominator " + std::to_string(den) + " in: " + s);
+      num /= den;
+    }
+    r[r_idx] += num;
+    if (decimal_fract)
+      decimal_fract[r_idx] = num > 0 ? fract : -fract;
+    num = 0;
+  }
+  if (num != 0)
+    fail("trailing sign in: " + s);
+  return r;
+}
+
+Op parse_triplet(const std::string& s, char notation) {
+  if (std::count(s.begin(), s.end(), ',') != 2)
+    fail("expected exactly two commas in triplet");
+  size_t comma1 = s.find(',');
+  size_t comma2 = s.find(',', comma1 + 1);
+  char save_notation = notation;
+  notation = (notation | 0x20) & ~3;
+  if (notation != 'x' && notation != 'h' && notation != '`' && notation != ' ')  // '`' == a' & ~3
+    fail("parse_triplet(): unexpected notation='", save_notation, "'");
+  auto a = parse_triplet_part(s.substr(0, comma1), notation);
+  auto b = parse_triplet_part(s.substr(comma1 + 1, comma2 - (comma1 + 1)), notation);
+  auto c = parse_triplet_part(s.substr(comma2 + 1), notation);
+  Op::Rot rot = {{{a[0], a[1], a[2]}, {b[0], b[1], b[2]}, {c[0], c[1], c[2]}}};
+  Op::Tran tran = {a[3], b[3], c[3]};
+  if (notation == 'h') {
+    if (tran != Op::Tran{0, 0, 0})
+      fail("parse_triplet(): reciprocal-space Op cannot have translation: ", s);
+    rot = Op::transpose(rot);
+  }
+  return { rot, tran, notation };
+}
+
+
+// OP -> TRIPLET
+
+namespace {
+
+// much faster than s += std::to_string(n) for n in 0 ... 99
+void append_small_number(std::string& s, int n) {
+  if (n < 0 || n >= 100) {
+    s += std::to_string(n);
+  } else if (n < 10) {
+    s += char('0' + n);
+  } else { // 10 ... 99
+    int tens = n / 10;
+    s += char('0' + tens);
+    s += char('0' + n - 10 * tens);
+  }
+}
+
+void append_sign_of(std::string& s, int n) {
+  if (n < 0)
+    s += '-';
+  else if (!s.empty())
+    s += '+';
+}
+
+// append w/DEN fraction reduced to the lowest terms
+std::pair<int,int> get_op_fraction(int w) {
+  // Op::DEN == 24 == 2 * 2 * 2 * 3
+  int denom = 1;
+  for (int i = 0; i != 3; ++i)
+    if (w % 2 == 0)  // 2, 2, 2
+      w /= 2;
+    else
+      denom *= 2;
+  if (w % 3 == 0)    // 3
+    w /= 3;
+  else
+    denom *= 3;
+  return {w, denom};
+}
+
+void append_fraction(std::string& s, std::pair<int,int> frac) {
+  append_small_number(s, frac.first);
+  if (frac.second != 1) {
+    s += '/';
+    append_small_number(s, frac.second);
+  }
+}
+
+std::string make_triplet_part(const std::array<int, 3>& xyz, int w, char style) {
+  std::string s;
+  const char* letters = "xyz hkl abc XYZ HKL ABC";
+  switch((style | 0x20) & ~3) {  // |0x20 converts to lower case
+    case 'h': letters += 4; break;
+    case '`': letters += 8; break;  // 'a', because 'a'&~3 == 0x60 == '`'
+  }
+  if (!(style & 0x20))  // not lower
+    letters += 12;
+  for (int i = 0; i != 3; ++i)
+    if (xyz[i] != 0) {
+      append_sign_of(s, xyz[i]);
+      int a = std::abs(xyz[i]);
+      if (a != Op::DEN) {
+        std::pair<int,int> frac = get_op_fraction(a);
+        if (frac.first == 1) {  // e.g. "x/3"
+          s += letters[i];
+          s += '/';
+          append_small_number(s, frac.second);
+        } else {  // e.g. "2/3*x"
+          append_fraction(s, frac);
+          s += '*';
+          s += letters[i];
+        }
+      } else {
+        s += letters[i];
+      }
+    }
+  if (w != 0) {
+    append_sign_of(s, w);
+    std::pair<int,int> frac = get_op_fraction(std::abs(w));
+    append_fraction(s, frac);
+  }
+  return s;
+}
+
+}  // anonymous namespace
+
+Op seitz_to_op(const std::array<std::array<double,4>, 4>& t) {
+  static_assert(Op::DEN == 24, "");
+  auto check_round = [](double d) {
+    double r = std::round(d * Op::DEN);
+    if (std::fabs(r - d * Op::DEN) > 0.05)
+      fail("all numbers in Seitz matrix must be equal Z/24");
+    return static_cast<int>(r);
+  };
+  Op op;
+  if (std::fabs(t[3][0]) + std::fabs(t[3][1]) + std::fabs(t[3][2]) +
+      std::fabs(t[3][3] - 1) > 1e-3)
+    fail("the last row in Seitz matrix must be [0 0 0 1]");
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j)
+      op.rot[i][j] = check_round(t[i][j]);
+    op.tran[i] = check_round(t[i][3]);
+  }
+  op.notation = 'x';
+  return op;
+}
+
+void append_op_fraction(std::string& s, int w) {
+  append_fraction(s, get_op_fraction(w));
+}
+
+std::string Op::triplet(char style) const {
+  if (style == ' ')
+    style = (notation & ~0x20) ? notation : 'x';
+  char lower_style = (style | 0x20) & ~3;
+  if (lower_style == 'h' && !is_hkl())
+    fail("triplet(): can't write real-space triplet as hkl");
+  if (lower_style != 'h' && is_hkl())
+    fail("triplet(): can't write reciprocal-space triplet as xyz");
+  // 'x'==0x78, 'h'==0x68, 'a'==0x61, so 'a'&~3 == 0x60 == '`'
+  if (lower_style != 'x' && lower_style != 'h' && lower_style != '`')
+    fail("unexpected triplet style: '", style, "'");
+  // parse_triplet() transposes hkl ops such as l,h,k
+  auto r = !is_hkl()? rot : transposed_rot();
+  return make_triplet_part(r[0], tran[0], style) +
+   "," + make_triplet_part(r[1], tran[1], style) +
+   "," + make_triplet_part(r[2], tran[2], style);
+}
+
+
+// INTERPRETING HALL SYMBOLS
+// based on both ITfC vol.B ch.1.4 (2010)
+// and http://cci.lbl.gov/sginfo/hall_symbols.html
+
+// matrices for Nz from Table 3 and 4 from hall_symbols.html
+namespace {
+Op::Rot hall_rotation_z(int N) {
+  constexpr int d = Op::DEN;
+  switch (N) {
+    case 1: return {{{d,0,0},  {0,d,0},  {0,0,d}}};
+    case 2: return {{{-d,0,0}, {0,-d,0}, {0,0,d}}};
+    case 3: return {{{0,-d,0}, {d,-d,0}, {0,0,d}}};
+    case 4: return {{{0,-d,0}, {d,0,0},  {0,0,d}}};
+    case 6: return {{{d,-d,0}, {d,0,0},  {0,0,d}}};
+    case '\'': return {{{0,-d,0},{-d,0,0}, {0,0,-d}}};
+    case '"':  return {{{0,d,0}, { d,0,0}, {0,0,-d}}};
+    case '*':  return {{{0,0,d}, { d,0,0}, {0,d,0}}};
+    default: fail("incorrect axis definition");
+  }
+}
+Op::Tran hall_translation_from_symbol(char symbol) {
+  constexpr int h = Op::DEN / 2;
+  constexpr int q = Op::DEN / 4;
+  switch (symbol) {
+    case 'a': return {h, 0, 0};
+    case 'b': return {0, h, 0};
+    case 'c': return {0, 0, h};
+    case 'n': return {h, h, h};
+    case 'u': return {q, 0, 0};
+    case 'v': return {0, q, 0};
+    case 'w': return {0, 0, q};
+    case 'd': return {q, q, q};
+    default: fail(std::string("unknown symbol: ") + symbol);
+  }
+}
+
+Op hall_matrix_symbol(const char* start, const char* end, int pos, int& prev) {
+  Op op = Op::identity();
+  bool neg = (*start == '-');
+  const char* p = (neg ? start + 1 : start);
+  if (*p < '1' || *p == '5' || *p > '6')
+    fail("wrong n-fold order notation: " + std::string(start, end));
+  int N = *p++ - '0';
+  int fractional_tran = 0;
+  char principal_axis = '\0';
+  char diagonal_axis = '\0';
+  for (; p < end; ++p) {
+    if (*p >= '1' && *p <= '5') {
+      if (fractional_tran != '\0')
+        fail("two numeric subscripts");
+      fractional_tran = *p - '0';
+    } else if (*p == '\'' || *p == '"' || *p == '*') {
+      if (N != (*p == '*' ? 3 : 2))
+        fail("wrong symbol: " + std::string(start, end));
+      diagonal_axis = *p;
+    } else if (*p == 'x' || *p == 'y' || *p == 'z') {
+      principal_axis = *p;
+    } else {
+      op.translate(hall_translation_from_symbol(*p));
+    }
+  }
+  // fill in implicit values
+  if (!principal_axis && !diagonal_axis) {
+    if (pos == 1) {
+      principal_axis = 'z';
+    } else if (pos == 2 && N == 2) {
+      if (prev == 2 || prev == 4)
+        principal_axis = 'x';
+      else if (prev == 3 || prev == 6)
+        diagonal_axis = '\'';
+    } else if (pos == 3 && N == 3) {
+      diagonal_axis = '*';
+    } else if (N != 1) {
+      fail("missing axis");
+    }
+  }
+  // get the operation
+  op.rot = hall_rotation_z(diagonal_axis ? diagonal_axis : N);
+  if (neg)
+    op.rot = op.negated_rot();
+  auto alter_order = [](const Op::Rot& r, int i, int j, int k) {
+    return Op::Rot{{ {r[i][i], r[i][j], r[i][k]},
+                     {r[j][i], r[j][j], r[j][k]},
+                     {r[k][i], r[k][j], r[k][k]} }};
+  };
+  if (principal_axis == 'x')
+    op.rot = alter_order(op.rot, 2, 0, 1);
+  else if (principal_axis == 'y')
+    op.rot = alter_order(op.rot, 1, 2, 0);
+  if (fractional_tran)
+    op.tran[principal_axis - 'x'] += Op::DEN / N * fractional_tran;
+  prev = N;
+  return op;
+}
+
+// Parses either short (0 0 1) or long notation (x,y,z+1/12)
+// but without multipliers (such as 1/2x) to keep things simple for now.
+Op parse_hall_change_of_basis(const char* start, const char* end) {
+  if (std::memchr(start, ',', end - start) != nullptr) // long symbol
+    return parse_triplet(std::string(start, end));
+  // short symbol (0 0 1)
+  Op cob = Op::identity();
+  char* endptr;
+  for (int i = 0; i != 3; ++i) {
+    cob.tran[i] = std::strtol(start, &endptr, 10) % 12 * (Op::DEN / 12);
+    start = endptr;
+  }
+  if (endptr != end)
+    fail("unexpected change-of-basis format: " + std::string(start, end));
+  return cob;
+}
+}  // anonymous namespace
+
+GroupOps generators_from_hall(const char* hall) {
+  auto find_blank = [](const char* p) {
+    while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '_') // '_' == ' '
+      ++p;
+    return p;
+  };
+  if (hall == nullptr)
+    fail("null");
+  hall = skip_space(hall);
+  GroupOps ops;
+  ops.sym_ops.emplace_back(Op::identity());
+  bool centrosym = (hall[0] == '-');
+  const char* lat = skip_space(centrosym ? hall + 1 : hall);
+  if (!lat)
+    fail("not a hall symbol: " + std::string(hall));
+  ops.cen_ops = centring_vectors(*lat);
+  int counter = 0;
+  int prev = 0;
+  const char* part = skip_space(lat + 1);
+  while (*part != '\0' && *part != '(') {
+    const char* space = find_blank(part);
+    ++counter;
+    if (part[0] != '1' || (part[1] != ' ' && part[1] != '\0')) {
+      Op op = hall_matrix_symbol(part, space, counter, prev);
+      ops.sym_ops.emplace_back(op);
+    }
+    part = skip_space(space);
+  }
+  if (centrosym)
+    ops.sym_ops.push_back({Op::identity().negated_rot(), {0,0,0}, 'x'});
+  if (*part == '(') {
+    const char* rb = std::strchr(part, ')');
+    if (!rb)
+      fail("missing ')': " + std::string(hall));
+    if (ops.sym_ops.empty())
+      fail("misplaced translation: " + std::string(hall));
+    ops.change_basis_forward(parse_hall_change_of_basis(part + 1, rb));
+
+    if (*skip_space(find_blank(rb + 1)) != '\0')
+      fail("unexpected characters after ')': " + std::string(hall));
+  }
+  return ops;
+}
+
 
 const SpaceGroup spacegroup_tables::main[564] = {
   // This table was generated by tools/gen_sg_table.py.
@@ -688,6 +1101,114 @@ const char* get_basisop(int basisop_idx) {
     "x/2+y/2,-x/2+y/2,z",  // 50
   };
   return basisops[basisop_idx];
+}
+
+const SpaceGroup* find_spacegroup_by_name(std::string name, double alpha, double gamma,
+                                          const char* prefer) {
+  bool prefer_2 = false;
+  bool prefer_R = false;
+  if (prefer)
+    for (const char* p = prefer; *p != '\0'; ++p) {
+      if (*p == '2')
+        prefer_2 = true;
+      else if (*p == 'R')
+        prefer_R = true;
+      else if (*p != '1' && *p != 'H')
+        throw std::invalid_argument("find_spacegroup_by_name(): invalid arg 'prefer'");
+    }
+  const char* p = skip_space(name.c_str());
+  if (*p >= '0' && *p <= '9') { // handle numbers
+    char *endptr;
+    long n = std::strtol(p, &endptr, 10);
+    return *endptr == '\0' ? find_spacegroup_by_number(n) : nullptr;
+  }
+  char first = *p & ~0x20; // to uppercase
+  if (first == '\0')
+    return nullptr;
+  if (first == 'H')
+    first = 'R';
+  p = skip_space(p+1);
+  size_t start = p - name.c_str();
+  // change letters to lower case, except the letter after :
+  for (size_t i = start; i < name.size(); ++i) {
+    if (name[i] >= 'A' && name[i] <= 'Z')
+      name[i] |= 0x20;  // to lowercase
+    else if (name[i] == ':')
+      while (++i < name.size())
+        if (name[i] >= 'a' && name[i] <= 'z')
+          name[i] &= ~0x20;  // to uppercase
+  }
+  // allow names ending with R or H, such as R3R instead of R3:R
+  if (name.back() == 'h' || name.back() == 'r') {
+    name.back() &= ~0x20;  // to uppercase
+    name.insert(name.end() - 1, ':');
+  }
+  // The string that const char* p points to was just modified.
+  // This confuses some compilers (GCC 4.8), so let's re-assign p.
+  p = name.c_str() + start;
+
+  for (const SpaceGroup& sg : spacegroup_tables::main)
+    if (sg.hm[0] == first) {
+      if (sg.hm[2] == *p) {
+        const char* a = skip_space(p + 1);
+        const char* b = skip_space(sg.hm + 3);
+        // In IT 1935 and 1952, symbols of centrosymmetric, cubic space groups
+        // 200-206 and 221-230 had symbol 3 (not -3), e.g. Pm3 instead of Pm-3,
+        // as listed in Table 3.3.3.1 in ITfC (2016) vol. A, p.788.
+        while ((*a == *b && *b != '\0') ||
+               (*a == '3' && *b == '-' && b == sg.hm + 4 && *++b == '3')) {
+          a = skip_space(a+1);
+          b = skip_space(b+1);
+        }
+        if (*b == '\0') {
+          if (*a == '\0') {
+            // Change hexagonal settings to rhombohedral if the unit cell
+            // angles are more consistent with the latter.
+            // We have possible ambiguity in the hexagonal crystal family.
+            // For instance, "R 3" may mean "R 3:H" (hexagonal setting) or
+            // "R 3:R" (rhombohedral setting). The :H symbols come first
+            // in the table and are used by default. The ratio gamma:alpha
+            // is 120:90 in the hexagonal system and 1:1 in rhombohedral.
+            // We assume that the 'R' entry follows directly the 'H' entry.
+            if (sg.ext == 'H' && (alpha == 0. ? prefer_R : gamma < 1.125 * alpha))
+              return &sg + 1;
+            // Similarly, the origin choice #2 follows directly #1.
+            if (sg.ext == '1' && prefer_2)
+              return &sg + 1;
+            return &sg;
+          }
+          if (*a == ':' && *skip_space(a+1) == sg.ext)
+            return &sg;
+        }
+      } else if (sg.hm[2] == '1' && sg.hm[3] == ' ') {
+        // check monoclinic short names, matching P2 to "P 1 2 1";
+        // as an exception "B 2" == "B 1 1 2" (like in the PDB)
+        const char* b = sg.hm + 4;
+        if (*b != '1' || (first == 'B' && *++b == ' ' && *++b != '1')) {
+          char end = (b == sg.hm + 4 ? ' ' : '\0');
+          const char* a = skip_space(p);
+          while (*a == *b && *b != end) {
+            ++a;
+            ++b;
+          }
+          if (*skip_space(a) == '\0' && *b == end)
+            return &sg;
+        }
+      }
+    }
+  for (const SpaceGroupAltName& sg : spacegroup_tables::alt_names)
+    if (sg.hm[0] == first && sg.hm[2] == *p) {
+      const char* a = skip_space(p + 1);
+      const char* b = skip_space(sg.hm + 3);
+      while (*a == *b && *b != '\0') {
+        a = skip_space(a+1);
+        b = skip_space(b+1);
+      }
+      if (*b == '\0' &&
+          (*a == '\0' || (*a == ':' && *skip_space(a+1) == sg.ext)))
+        return &spacegroup_tables::main[sg.pos];
+    }
+  return nullptr;
 }
 
 } // namespace gemmi

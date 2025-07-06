@@ -1,0 +1,27 @@
+contributors:
+- David Březina
+includes:
+- bgp
+- bgn
+- bcc
+name: Baluchi
+orthographies:
+- autonym: بلۏچی
+  auxiliary: ـ
+  base: ء آ ا ب ت ج د ر ز س ش ل م ن ه و ٹ پ چ ڈ ژ ک گ ی ۏ ے ݔ ࢣ
+  currency: <pes> <urd> <pbu>
+  design_requirements: <pes>
+  marks: ◌َ ◌ُ ◌ِ ◌ٓ
+  numerals: <pes>
+  punctuation: <pes>
+  script: Arabic
+  status: primary
+preferred_as_individual: true
+preferred_name: Balochi
+sources:
+- Balochi language. (2024, August 25). In *Wikipedia*. https://en.wikipedia.org/wiki/Balochi_language?oldid=1242211527
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 7600000
+speakers_date: 2007
+status: living
+validity: preliminary

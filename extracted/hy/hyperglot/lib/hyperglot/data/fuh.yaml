@@ -1,0 +1,17 @@
+contributors:
+- David Březina
+name: Western Niger Fulfulde
+note: Used in Burkina Faso and Niger.
+orthographies:
+- autonym: Fulfulde
+  base: <fue>
+  design_requirements: <fue>
+  numerals: <default>
+  script: Latin
+  status: primary
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Fula language. (2024, August 21). In *Wikipedia*. https://en.wikipedia.org/wiki/Fula_language?oldid=1241563754
+- '*The Unicode Common Locale Data Repository (CLDR)*. (2024, September 27). The Unicode Consortium. https://cldr.unicode.org'
+status: living
+validity: verified

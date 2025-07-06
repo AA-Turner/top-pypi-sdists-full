@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from typing import Any, Optional
 
-from glances.globals import iterkeys, itervalues, nativestr, pretty_date, replace_special_chars, string_value_to_float
+from glances.globals import nativestr, pretty_date, replace_special_chars, string_value_to_float
 from glances.logger import logger
 from glances.stats_streamer import ThreadedIterableStreamer
 
@@ -49,9 +49,10 @@ class PodmanContainerStatsFetcher:
 
     def get_streamed_stats(self) -> dict[str, Any]:
         stats = self._streamer.stats
-        if stats["Error"]:
+        if stats is None or stats.get("Error", False):
             logger.error(f"containers (Podman) Container({self._container.id}): Stats fetching failed")
             logger.debug(f"containers (Podman) Container({self._container.id}): ", stats)
+            return None
 
         return stats["Stats"][0]
 
@@ -69,6 +70,12 @@ class PodmanContainerStatsFetcher:
     def _compute_activity_stats(self) -> dict[str, dict[str, Any]]:
         stats = {"cpu": {}, "memory": {}, "io": {}, "network": {}}
         api_stats = self.get_streamed_stats()
+
+        # Glances breaks if Podman container is started while it is running See #3199
+        if api_stats is None:
+            # If stats fetching failed, return empty stats
+            logger.error(f"containers (Podman) Container({self._container.id}): Failed to fetch stats")
+            return stats
 
         if any(field not in api_stats for field in self.MANDATORY_FIELDS) or (
             "Network" not in api_stats and any(k not in api_stats for k in ['NetInput', 'NetOutput'])
@@ -281,7 +288,7 @@ class PodmanExtension:
 
     def stop(self) -> None:
         # Stop all streaming threads
-        for t in itervalues(self.container_stats_fetchers):
+        for t in self.container_stats_fetchers.values():
             t.stop()
 
         if self.pods_stats_fetcher:
@@ -320,7 +327,7 @@ class PodmanExtension:
                 self.container_stats_fetchers[container.id] = PodmanContainerStatsFetcher(container)
 
         # Stop threads for non-existing containers
-        absent_containers = set(iterkeys(self.container_stats_fetchers)) - {c.id for c in containers}
+        absent_containers = set(self.container_stats_fetchers.keys()) - {c.id for c in containers}
         for container_id in absent_containers:
             # Stop the StatsFetcher
             logger.debug(f"{self.ext_name} plugin - Stop thread for old container {container_id[:12]}")
@@ -379,6 +386,8 @@ class PodmanExtension:
         stats['memory_usage'] = stats['memory'].get('usage')
         if stats['memory'].get('cache') is not None:
             stats['memory_usage'] -= stats['memory']['cache']
+        stats['memory_inactive_file'] = stats['memory'].get('inactive_file')
+        stats['memory_limit'] = stats['memory'].get('limit')
 
         if all(k in stats['io'] for k in ('ior', 'iow', 'time_since_update')):
             stats['io_rx'] = stats['io']['ior'] // stats['io']['time_since_update']

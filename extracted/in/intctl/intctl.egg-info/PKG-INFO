@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: intctl
+Version: 1.0.0
+Summary: INTELLITHING Bootstrap CLI for provisioning cloud resources
+Author-email: INTELLITHING Ltd <hello@intellithing.tech>
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: typer[all]
+Requires-Dist: python-dotenv
+Requires-Dist: pyyaml
+Requires-Dist: rich
+Requires-Dist: requests
+Requires-Dist: google-api-python-client
+Requires-Dist: google-auth
+Requires-Dist: google-auth-httplib2
+Requires-Dist: google-cloud-secret-manager
+Requires-Dist: kubernetes
+Requires-Dist: setuptools
+Requires-Dist: tqdm
+Requires-Dist: cloud-sql-python-connector>=1.18.0
+Requires-Dist: asyncpg
+Requires-Dist: nest_asyncio
+Requires-Dist: prompt_toolkit
+Requires-Dist: requests
+Requires-Dist: jwt
+Requires-Dist: python-dotenv
+Requires-Dist: build

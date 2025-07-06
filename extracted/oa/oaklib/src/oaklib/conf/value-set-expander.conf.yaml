@@ -1,6 +1,0 @@
-resource_resolvers:
-  bioregistry:wikidata:
-    shorthand: "wikidata:"
-prefix_resolvers:
-  obo:
-    shorthand_prefix: "sqlite:obo"

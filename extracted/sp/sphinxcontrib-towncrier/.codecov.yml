@@ -1,0 +1,38 @@
+---
+# yamllint disable rule:truthy
+
+codecov:
+  bot: codecov
+  notify:
+    after_n_builds: 75  # number of test matrix+lint jobs uploading coverage
+    wait_for_ci: false
+
+  require_ci_to_pass: false
+
+  token: bf9ea742-9470-4a97-bfe5-aab1553f30a6  # repo-scoped
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    # Only consider coverage of the code snippet changed in PR
+    project: no
+    patch: yes
+    changes: no
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+comment:
+  layout: "header, diff"
+  behavior: default
+  require_changes: no
+
+...

@@ -1,0 +1,44 @@
+file:
+- statement:
+  - call_statement:
+    - keyword: CALL
+    - procedure_name:
+      - naked_identifier: mydataset
+      - dot: .
+      - procedure_name_identifier: create_customer
+    - bracketed:
+      - start_bracket: (
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - declare_segment:
+    - keyword: DECLARE
+    - naked_identifier: retCode
+    - data_type:
+      - data_type_identifier: INT64
+- statement_terminator: ;
+- statement:
+  - call_statement:
+    - keyword: CALL
+    - procedure_name:
+      - naked_identifier: mySchema
+      - dot: .
+      - procedure_name_identifier: UpdateSomeTables
+    - bracketed:
+      - start_bracket: (
+      - expression:
+        - quoted_literal: '''someAccountId'''
+      - comma: ','
+      - expression:
+        - column_reference:
+          - naked_identifier: retCode
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - column_reference:
+          - naked_identifier: retCode
+- statement_terminator: ;

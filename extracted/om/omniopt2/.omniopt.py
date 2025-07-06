@@ -14,7 +14,6 @@ import re
 import math
 import time
 import random
-import statistics
 import tempfile
 import threading
 
@@ -216,7 +215,7 @@ try:
         from beartype import beartype
 
     with console.status("[bold green]Importing statistics..."):
-        from statistics import mean, median
+        import statistics
 
     with console.status("[bold green]Trying to import pyfiglet..."):
         try:
@@ -7790,8 +7789,8 @@ def generate_time_table_rich() -> None:
 
     table.add_section()
 
-    table.add_row("Average", f"{mean(times_float):.3f}", "", "")
-    table.add_row("Median", f"{median(times_float):.3f}", "", "")
+    table.add_row("Average", f"{statistics.mean(times_float):.3f}", "", "")
+    table.add_row("Median", f"{statistics.median(times_float):.3f}", "", "")
     table.add_row("Total", f"{sum(times_float):.3f}", "", "")
     table.add_row("Max", f"{max(times_float):.3f}", "", "")
     table.add_row("Min", f"{min(times_float):.3f}", "", "")
@@ -7845,8 +7844,8 @@ def build_job_submission_table(durations: List[float], job_counts: List[int]) ->
         table.add_row(str(idx), f"{duration:.3f}", str(jobs), f"{time_per_job:.3f}")
 
     table.add_section()
-    table.add_row("Average", f"{mean(durations):.3f}", "", "")
-    table.add_row("Median", f"{median(durations):.3f}", "", "")
+    table.add_row("Average", f"{statistics.mean(durations):.3f}", "", "")
+    table.add_row("Median", f"{statistics.median(durations):.3f}", "", "")
     table.add_row("Total", f"{sum(durations):.3f}", "", "")
     table.add_row("Max", f"{max(durations):.3f}", "", "")
     table.add_row("Min", f"{min(durations):.3f}", "", "")
@@ -8636,34 +8635,22 @@ def _set_global_executor() -> None:
         executor = AutoExecutor(folder=log_folder)
 
     if executor:
-        executor.update_parameters(
-            name=f'{global_vars["experiment_name"]}_{run_uuid}_{subjob_uuid}',
-            timeout_min=args.worker_timeout,
-            slurm_gres=f"gpu:{args.gpus}",
-            cpus_per_task=args.cpus_per_task,
-            nodes=args.nodes_per_job,
-            stderr_to_stdout=True,
-            mem_gb=args.mem_gb,
-            slurm_signal_delay_s=args.slurm_signal_delay_s,
-            slurm_use_srun=args.slurm_use_srun,
-            exclude=args.exclude
-        )
+        params = {
+            "name": f'{global_vars["experiment_name"]}_{run_uuid}_{subjob_uuid}',
+            "timeout_min": args.worker_timeout,
+            "slurm_gres": f"gpu:{args.gpus}",
+            "cpus_per_task": args.cpus_per_task,
+            "nodes": args.nodes_per_job,
+            "stderr_to_stdout": True,
+            "mem_gb": args.mem_gb,
+            "slurm_signal_delay_s": args.slurm_signal_delay_s,
+            "slurm_use_srun": args.slurm_use_srun,
+            "exclude": args.exclude,
+        }
 
-        print_debug(f"""
-executor.update_parameters(
-    "name"="{f'{global_vars["experiment_name"]}_{run_uuid}_{subjob_uuid}'}",
-    "timeout_min"={args.worker_timeout},
-    "slurm_gres"={f"gpu:{args.gpus}"},
-    "cpus_per_task"={args.cpus_per_task},
-    "nodes"={args.nodes_per_job},
-    "stderr_to_stdout"=True,
-    "mem_gb"={args.mem_gb},
-    "slurm_signal_delay_s"={args.slurm_signal_delay_s},
-    "slurm_use_srun"={args.slurm_use_srun},
-    "exclude"={args.exclude}
-)
-"""
-        )
+        executor.update_parameters(**params)
+
+        print_debug("executor.update_parameters(\n" + json.dumps(params, indent=4) + "\n)")
 
         if args.exclude:
             print_yellow(f"Excluding the following nodes: {args.exclude}")
@@ -10429,12 +10416,7 @@ def run_tests() -> None:
 
     nr_errors += is_equal('get_hostname_from_outfile("")', get_hostname_from_outfile(''), None)
 
-    res = get_hostname_from_outfile('.tests/_plot_example_runs/ten_params/0/single_runs/266908/266908_0_log.out')
-    nr_errors += is_equal('get_hostname_from_outfile(".tests/_plot_example_runs/ten_params/0/single_runs/266908/266908_0_log.out")', res, 'arbeitsrechner')
-
     nr_errors += is_equal('get_parameters_from_outfile("")', get_parameters_from_outfile(''), None)
-    #res = {"one": 678, "two": 531, "three": 569, "four": 111, "five": 127, "six": 854, "seven": 971, "eight": 332, "nine": 235, "ten": 867.6452040672302}
-    #nr_errors += is_equal('get_parameters_from_outfile("".tests/_plot_example_runs/ten_params/0/single_runs/266908/266908_0_log.out")', get_parameters_from_outfile(".tests/_plot_example_runs/ten_params/0/single_runs/266908/266908_0_log.out"), res)
 
     nonzerodebug: str = """
 Exit-Code: 159

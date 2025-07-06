@@ -1,0 +1,32 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Bhojpuri
+orthographies:
+- autonym: भोजपुरी
+  auxiliary: <mag>
+  base: <mag>
+  currency: <default>
+  design_requirements: <mag>
+  marks: <mag>
+  note: The use of the Kaithi script is declining. Devanagari is currently the most commonly used script for oficial documents.
+  numerals: <default>
+  punctuation: <default> ॰
+  script: Devanagari
+  status: primary
+- autonym: 𑂦𑂷𑂔𑂣𑂳𑂩𑂲
+  base: 𑂃 𑂄 𑂅 𑂆 𑂇 𑂈 𑂉 𑂊 𑂋 𑂌 𑂍 𑂎 𑂏 𑂐 𑂑 𑂒 𑂓 𑂔 𑂕 𑂖 𑂗 𑂘 𑂙 𑂚 𑂛 𑂜 𑂝 𑂞 𑂟 𑂠 𑂡 𑂢 𑂣 𑂤 𑂥 𑂦 𑂧 𑂨 𑂩 𑂪 𑂫 𑂬 𑂭 𑂮 𑂯
+  currency: <default Devanagari>
+  design_requirements:
+  - Mark positioning and numerous precomposed forms (namely conjunct ligatures) are required for proper representation of the language.
+  marks: ◌𑂀 ◌𑂂 ◌𑂰 ◌𑂲 ◌𑂳 ◌𑂴 ◌𑂵 ◌𑂶 ◌𑂸 ◌𑂺
+  numerals: <default Devanagari>
+  punctuation: <default Devanagari> 𑂻 𑂾 𑂿 𑃀 𑃁 ࿕
+  script: Kaithi
+  status: historical
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Bhojpuri language. (2024, August 14). In *Wikipedia*. https://en.wikipedia.org/wiki/Bhojpuri_language?oldid=1240245846
+speakers: 51000000
+speakers_date: 2011
+validity: preliminary

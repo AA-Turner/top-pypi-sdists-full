@@ -1,0 +1,30 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Western Panjabi
+orthographies:
+- autonym: ਪੰਜਾਬੀ,
+  base: <pan>
+  currency: <pan>
+  design_requirements: <pan>
+  marks: <pan>
+  note: Used in India.
+  numerals: <pan>
+  punctuation: <pan>
+  script: Gurmukhi
+  status: primary
+- autonym: پن٘جابی
+  auxiliary: <pan>
+  base: <pan>
+  currency: <urd>
+  design_requirements: <pan>
+  marks: <pan>
+  note: Used in Pakistan.
+  numerals: <pes>
+  punctuation: <pes>
+  script: Arabic
+  status: primary
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Lahnda. (2024, July 22). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Lahnda&oldid=1236006077
+validity: preliminary

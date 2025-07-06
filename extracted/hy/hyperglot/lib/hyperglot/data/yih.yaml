@@ -1,0 +1,18 @@
+contributors:
+- David Březina
+- Meir Sadan
+name: Western Yiddish
+orthographies:
+- autonym: ייִדיש
+  base: <ydd>
+  currency: <ydd>
+  marks: <ydd>
+  numerals: <ydd>
+  punctuation: <ydd>
+  script: Hebrew
+  status: primary
+sources:
+- Yiddish orthography. (2024, July 8). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Yiddish_orthography&oldid=1233348492
+speakers: 5000
+status: living
+validity: preliminary

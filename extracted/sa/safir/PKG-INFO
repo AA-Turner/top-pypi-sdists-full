@@ -1,0 +1,108 @@
+Metadata-Version: 2.4
+Name: safir
+Version: 11.0.0
+Summary: The Rubin Observatory SQuaRE framework for FastAPI services.
+Author-email: "Association of Universities for Research in Astronomy, Inc. (AURA)" <sqre-admin@lists.lsst.org>
+License-Expression: MIT
+Project-URL: Homepage, https://safir.lsst.io
+Project-URL: Source, https://github.com/lsst-sqre/safir
+Project-URL: Change log, https://safir.lsst.io/changelog.html
+Project-URL: Issue tracker, https://github.com/lsst-sqre/safir/issues
+Keywords: rubin,lsst
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX
+Classifier: Typing :: Typed
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiokafka<1,>=0.11
+Requires-Dist: click<9,>=8.2.0
+Requires-Dist: cryptography<46
+Requires-Dist: dataclasses-avroschema<1,>=0.65.7
+Requires-Dist: fastapi<1,>=0.100
+Requires-Dist: faststream<0.6,>0.5
+Requires-Dist: gidgethub<6
+Requires-Dist: httpx<1,>=0.20.0
+Requires-Dist: pydantic<3,>2
+Requires-Dist: pydantic-core
+Requires-Dist: pydantic-settings!=2.6.0,<3
+Requires-Dist: python-schema-registry-client<3,>=2.6
+Requires-Dist: safir-logging
+Requires-Dist: sentry-sdk<3,>=2
+Requires-Dist: starlette<1
+Requires-Dist: structlog>=21.2.0
+Provides-Extra: arq
+Requires-Dist: safir-arq>10.2.0; extra == "arq"
+Provides-Extra: db
+Requires-Dist: alembic[tz]<2; extra == "db"
+Requires-Dist: asyncpg<1; extra == "db"
+Requires-Dist: sqlalchemy[asyncio]<3,>=2.0.0; extra == "db"
+Provides-Extra: dev
+Requires-Dist: alembic[tz]>=1.16; extra == "dev"
+Requires-Dist: asgi-lifespan; extra == "dev"
+Requires-Dist: coverage[toml]; extra == "dev"
+Requires-Dist: fastapi>=0.93.0; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest>=6.2.0; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: redis>=5; extra == "dev"
+Requires-Dist: respx; extra == "dev"
+Requires-Dist: scriv; extra == "dev"
+Requires-Dist: sqlalchemy[mypy]; extra == "dev"
+Requires-Dist: testcontainers[postgres,redis]; extra == "dev"
+Requires-Dist: uvicorn; extra == "dev"
+Requires-Dist: documenteer[guide]>=1.4.1; extra == "dev"
+Requires-Dist: autodoc_pydantic; extra == "dev"
+Provides-Extra: gcs
+Requires-Dist: google-auth<3; extra == "gcs"
+Requires-Dist: google-cloud-storage<4; extra == "gcs"
+Provides-Extra: kubernetes
+Requires-Dist: kubernetes_asyncio<33; extra == "kubernetes"
+Provides-Extra: redis
+Requires-Dist: redis<7,>4.5.2; extra == "redis"
+Provides-Extra: testcontainers
+Requires-Dist: testcontainers>=4.10; extra == "testcontainers"
+Provides-Extra: uws
+Requires-Dist: google-auth<3; extra == "uws"
+Requires-Dist: google-cloud-storage<4; extra == "uws"
+Requires-Dist: jinja2<4; extra == "uws"
+Requires-Dist: python-multipart; extra == "uws"
+Requires-Dist: safir-arq>10.2.0; extra == "uws"
+Requires-Dist: vo-models<1,>=0.4.1; extra == "uws"
+Dynamic: license-file
+
+# Safir
+
+Safir is Rubin Observatory's library for building [FastAPI](https://fastapi.tiangolo.com/) services for the [Rubin Science Platform (Phalanx)](https://github.com/lsst-sqre/phalanx) and [Roundtable](https://github.com/lsst-sqre/roundtable) Kubernetes clusters.
+Safir is developed, maintained, and field tested by the SQuaRE team.
+
+Safir is available from [PyPI](https://pypi.org/project/safir/):
+
+```sh
+pip install safir
+```
+
+The best way to create a new FastAPI/Safir service is with the [`fastapi_safir_app` template](https://github.com/lsst/templates/blob/main/project_templates/fastapi_safir_app).
+
+Read more about Safir at https://safir.lsst.io.
+
+## Features
+
+- Set up an `httpx.AsyncClient` as part of the application start-up and shutdown lifecycle.
+- Set up structlog-based logging.
+- Middleware for attaching request context to the logger to include a request UUID, method, and route in all log messages.
+- Process `X-Forwarded-*` headers to determine the source IP and related information of the request.
+- Gather and structure standard metadata about your application.
+- Operate a distributed Redis job queue with [arq](https://arq-docs.helpmanual.io) using convenient clients, testing mocks, and a FastAPI dependency.
+
+## Developing Safir
+
+See https://safir.lsst.io/dev/development.html.

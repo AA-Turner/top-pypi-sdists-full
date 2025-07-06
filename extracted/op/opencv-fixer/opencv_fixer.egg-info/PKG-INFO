@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: opencv-fixer
+Version: 0.2.5
+Summary: Fix OpenCV Issue for numpy, diffusers, etc.
+Home-page: https://github.com/soulteary/opencv-fixer
+Author: soulteary
+Author-email: soulteary@gmail.com
+License: Apache 2.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# OpenCV Fixer
+
+Fix OpenCV Issue for numpy, diffusers, etc.
+
+## Issue Coveraged
+
+- [opencv/opencv-python #884](https://github.com/opencv/opencv-python/issues/884)

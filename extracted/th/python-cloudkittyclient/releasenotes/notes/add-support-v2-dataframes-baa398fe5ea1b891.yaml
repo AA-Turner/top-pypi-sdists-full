@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Support for the ``/v2/dataframes`` endpoint has been added to the client.
-    A new ``dataframes add`` CLI command is also available.

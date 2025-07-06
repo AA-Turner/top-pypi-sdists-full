@@ -1,0 +1,22 @@
+contributors:
+- Sergio Martins
+- David Březina
+name: Saidi Arabic
+orthographies:
+- autonym: صعيدي
+  auxiliary: <arz>
+  base: <arz>
+  currency: <default>
+  design_requirements: <arz>
+  marks: <arz>
+  numerals: <default>
+  punctuation: <arb>
+  script: Arabic
+  status: primary
+sources:
+- Saʽidi Arabic. (2024, April 4). In *Wikipedia*. https://en.wikipedia.org/wiki/Sa%CA%BDidi_Arabic?oldid=1217279230
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 22400000
+speakers_date: 2016
+status: living
+validity: preliminary

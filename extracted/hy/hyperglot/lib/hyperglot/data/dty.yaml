@@ -1,0 +1,21 @@
+contributors:
+- David Březina
+name: Dotyali
+orthographies:
+- autonym: डोटेली
+  auxiliary: <npi>
+  base: <npi>
+  currency: <default>
+  design_alternates: <npi>
+  design_requirements: <npi>
+  marks: <npi>
+  numerals: <default>
+  punctuation: <hin>
+  script: Devanagari
+  status: primary
+sources:
+- Doteli. (2024, August 5). In *Wikipedia*. https://en.wikipedia.org/wiki/Doteli?oldid=1238714355
+- Devanagari. (2024). In *The Unicode Standard, Version 16.0.0* (pp. 545–572). The Unicode Consortium. https://www.unicode.org/versions/Unicode16.0.0/UnicodeStandard-16.0.pdf
+speakers: 790000
+speakers_date: 2011
+validity: preliminary

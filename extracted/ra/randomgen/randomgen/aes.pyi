@@ -1,0 +1,33 @@
+from collections.abc import Sequence
+
+from numpy import ndarray
+
+from randomgen.common import BitGenerator
+from randomgen.typing import IntegerSequenceSeed, SeedMode
+
+class AESCounter(BitGenerator):
+    def __init__(
+        self,
+        seed: IntegerSequenceSeed | None = ...,
+        *,
+        counter: int | Sequence[int] | None = ...,
+        key: int | Sequence[int] | None = ...,
+        mode: SeedMode | None = ...
+    ) -> None: ...
+    @property
+    def use_aesni(self) -> bool: ...
+    @use_aesni.setter
+    def use_aesni(self, value: bool) -> None: ...
+    def seed(
+        self,
+        seed: int | Sequence[int] = ...,
+        counter: int | Sequence[int] | None = ...,
+        key: int | Sequence[int] | None = ...,
+    ) -> None: ...
+    @property
+    def state(self) -> dict[str, str | dict[str, int | ndarray] | int]: ...
+    @state.setter
+    def state(self, value: dict[str, str | dict[str, int | ndarray] | int]) -> None: ...
+    def jump(self, iter: int = ...) -> AESCounter: ...
+    def jumped(self, iter: int = ...) -> AESCounter: ...
+    def advance(self, delta: int) -> AESCounter: ...

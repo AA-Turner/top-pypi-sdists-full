@@ -1,0 +1,102 @@
+Metadata-Version: 2.1
+Name: spool
+Version: 1.0.0
+Summary: Send mails with yaml
+Author: Daniel Besmer
+Author-email: besmerd@gmail.com
+License: BSD-3-Clause
+Project-URL: Documentation, https://besmerd.github.io/spool
+Project-URL: Code, https://github.com/besmerd/spool
+Keywords: email,mailer
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE.rst
+Requires-Dist: cerberus
+Requires-Dist: cryptography
+Requires-Dist: dkimpy
+Requires-Dist: dnspython
+Requires-Dist: jinja2
+Requires-Dist: pyyaml
+Provides-Extra: install
+Requires-Dist: setuptools_scm; extra == "install"
+Provides-Extra: dev
+Requires-Dist: mkdocs; extra == "dev"
+Requires-Dist: mkdocs-material; extra == "dev"
+Requires-Dist: mkdocstrings; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+
+$ spool\_
+=========
+
+Spool allows you to generate test mails specified in YAML.
+
+Installation
+------------
+
+.. code:: sh
+
+   pip install .
+
+
+Usage
+-----
+
+.. code:: sh
+
+   spool --help
+
+Example configuration file:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: yaml
+
+   ---
+   # mails.yml
+
+   # Optional defaults for keys mails
+   defaults:
+     sender: foo@example.com
+     recipents: Bar <bar@example.com>, baz@example.com
+
+   # Optional variables which can be used below
+   vars:
+     message: |
+       Hello world,
+
+       Foo bar baz ...
+
+       Kind regards,
+       Foo
+
+   # Mails to generate/send
+   mails:
+     - name: Test Mail
+       description: Hello world test mail
+       headers:
+         X-Mailer: Spool Mailer
+       text_body: '{{ message }}'
+
+Send/generate mail(s):
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: sh
+
+   # Send mails to/trought a relay smtp server
+   spool --verbose --relay localhost:2525 example/simple.yml
+
+   # Send mails directly to remote smtp server
+   spool --verbose example/simple.yml
+
+   # Use Google's dns servers for MX rr lookup
+   spool --verbose --nameserver 8.8.8.8 example/simple.yml
+
+For further examples visit the
+`documentation <https://besmerd.github.io/spool>`__.

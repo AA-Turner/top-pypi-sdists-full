@@ -1,0 +1,42 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Talysh
+orthographies:
+- autonym: Tolışi
+  auxiliary: <azj>
+  base: <azj>
+  currency: <azj>
+  marks: <azj>
+  note: Used in Azerbaijan.
+  numerals: <default>
+  punctuation: <default>
+  script: Latin
+  status: primary
+- autonym: تالشه
+  auxiliary: <pes>
+  base: <pes>
+  currency: <pes>
+  design_requirements: <pes>
+  marks: <pes>
+  note: Used in Iran.
+  numerals: <pes>
+  punctuation: <pes>
+  script: Arabic
+  status: primary
+- autonym: Толыши
+  base: А Б В Г Д Е Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Ј Ғ Ҹ Ҝ Һ Ә Ы а б в г д е ж з и й к л м н о п р с т у ф х ц ч ш ј ғ ҹ ҝ һ ә ы
+  currency: <azj>
+  marks: ◌̆
+  note: Used in Russia.
+  numerals: <default>
+  punctuation: <default>
+  script: Cyrillic
+  status: secondary
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Talysh language. (2024, August 13). In *Wikipedia*. https://en.wikipedia.org/wiki/Talysh_language?oldid=1240124049
+speakers: 218100
+speakers_date: 2011-2014
+status: living
+validity: verified

@@ -1,0 +1,24 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Iranian Persian
+orthographies:
+- autonym: فارسی
+  auxiliary: ـ
+  base: ء أ ؤ ئ ا ب ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ل م ن ه و پ چ ژ ک گ ی
+  currency: <default Latin> ﷼
+  design_requirements:
+  - Positional forms of the characters (initial, medial, and final forms) and some ligatures are required for proper representation of the language.
+  - Uses Persian numerals (extended Arabic-Indic digits) that have their own code points separate from the Arabic-script numerals.
+  marks: ◌َ ◌ُ ◌ِ ◌ْ ◌ٔ ◌ٰ
+  numerals: ۰ ۱ ۲ ۳ ۴ ۵ ۶ ۷ ۸ ۹ <default Latin>
+  punctuation: <default> « »
+  script: Arabic
+  status: primary
+sources:
+- Iranian Persian. (2024, July 31). In *Wikipedia*. https://en.wikipedia.org/wiki/Iranian_Persian?oldid=1237740929
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 55600000
+speakers_date: 2015
+status: living
+validity: preliminary

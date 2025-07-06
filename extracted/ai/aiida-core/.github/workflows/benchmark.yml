@@ -1,0 +1,81 @@
+name: Performance benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: [docs/**]
+  pull_request:
+    branches-ignore: [gh-pages]
+    paths: [.github/workflows/benchmark*]
+
+# https://docs.github.com/en/actions/using-jobs/using-concurrency
+concurrency:
+    # only cancel in-progress jobs or runs for the current workflow - matches against branch & tags
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  run-and-upload:
+
+    # Only run if branch or PR base is pointing to the upstream repo
+    if: github.repository == 'aiidateam/aiida-core'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        postgres: ['12.14']
+        rabbitmq: [3.8.14-management]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_DB: test_aiida
+          POSTGRES_PASSWORD: ''
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+        - 5432:5432
+      rabbitmq:
+        image: rabbitmq:${{ matrix.rabbitmq }}
+        ports:
+        - 5672:5672
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install aiida-core
+      uses: ./.github/actions/install-aiida-core
+      with:
+        python-version: '3.10'
+        from-lock: 'true'
+
+    - name: Run benchmarks
+      run: pytest --db-backend psql --benchmark-only --benchmark-json benchmark.json tests/
+
+    - name: Store benchmark result
+      uses: aiidateam/github-action-benchmark@v3
+      with:
+        benchmark-data-dir-path: dev/bench/${{ matrix.os }}/psql_dos
+        name: pytest-benchmarks:${{ matrix.os }},psql_dos
+        metadata: postgres:${{ matrix.postgres }}, rabbitmq:${{ matrix.rabbitmq }}
+        output-file-path: benchmark.json
+        render-json-path: .github/workflows/benchmark-config.json
+        commit-msg-append: '[ci skip]'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        # Show alert with commit comment on detecting possible performance regression
+        alert-threshold: 200%
+        comment-on-alert: true
+        fail-on-alert: false
+        alert-comment-cc-users: '@giovannipizzi,@agoscinski,@GeigerJ2,@khsrali,@unkcpz'
+      if: github.event_name == 'push' && github.ref_name == 'main'

@@ -1,0 +1,17 @@
+openapi: 3.0.2
+info:
+  title: Intellithing Dummy API
+  version: 1.0.0
+servers:
+  - url: https://intellithing-{workspace}.endpoints.{project}.cloud.goog
+paths:
+  /:
+    get:
+      summary: Liveness probe
+      operationId: healthCheck
+      responses:
+        '200':
+          description: OK
+x-google-endpoints:
+  - name: intellithing-{workspace}.endpoints.{project}.cloud.goog
+    allowCors: true

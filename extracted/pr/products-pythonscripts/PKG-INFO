@@ -1,0 +1,336 @@
+Metadata-Version: 2.1
+Name: Products.PythonScripts
+Version: 5.1
+Summary: Provides support for restricted execution of Python scripts in Zope.
+Home-page: https://github.com/zopefoundation/Products.PythonScripts
+Author: Zope Foundation and Contributors
+Author-email: zope-dev@zope.dev
+License: ZPL 2.1
+Project-URL: Issue Tracker, https://github.com/zopefoundation/Products.PythonScripts/issues
+Project-URL: Sources, https://github.com/zopefoundation/Products.PythonScripts
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Zope
+Classifier: Framework :: Zope :: 5
+Classifier: License :: OSI Approved :: Zope Public License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.8
+License-File: LICENSE.txt
+Requires-Dist: setuptools
+Requires-Dist: AccessControl
+Requires-Dist: Acquisition
+Requires-Dist: DateTime
+Requires-Dist: DocumentTemplate
+Requires-Dist: RestrictedPython>=4.0b5
+Requires-Dist: zExceptions
+Requires-Dist: Zope>=4.1.2
+
+.. image:: https://github.com/zopefoundation/Products.PythonScripts/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/zopefoundation/Products.PythonScripts/actions/workflows/tests.yml
+
+.. image:: https://coveralls.io/repos/github/zopefoundation/Products.PythonScripts/badge.svg?branch=master
+   :target: https://coveralls.io/github/zopefoundation/Products.PythonScripts?branch=master
+
+.. image:: https://img.shields.io/pypi/v/Products.PythonScripts.svg
+   :target: https://pypi.org/project/Products.PythonScripts/
+   :alt: Current version on PyPI
+
+.. image:: https://img.shields.io/pypi/pyversions/Products.PythonScripts.svg
+   :target: https://pypi.org/project/Products.PythonScripts/
+   :alt: Supported Python versions
+
+
+Products.PythonScripts
+======================
+The Python Scripts product provides support for restricted execution of
+Python scripts, exposing them as callable objects within the Zope
+environment.
+
+Providing access to extra modules
+---------------------------------
+Python script objects have a limited number of "safe" modules
+available to them by default. In the course of working with Zope,
+you will probably wish to make other modules available to script
+objects.
+
+The Utility.py module in the PythonScripts products provides a
+simple way to make modules available for use by script objects
+on a site-wide basis. Before making a module available to Python
+scripts, you should carefully consider the potential for abuse
+or misuse of the module, since all users with permission to
+create and edit Python scripts will be able to use any functions
+and classes defined in the module. In some cases, you may want to
+create a custom module that just imports a subset of names from
+another module and make that custom module available to reduce
+the risk of abuse.
+
+The easiest way to make modules available to Python scripts on
+your site is to create a new directory in your Products directory
+containing an ``__init__.py`` file. At Zope startup time, this
+"product" will be imported, and any module assertions you make
+in the ``__init__.py`` will take effect. Here's how to do it:
+
+- In your Products directory (either in lib/python of your
+  Zope installation or in the root of your Zope install,
+  depending on your deployment model), create a new directory
+  with a name like "GlobalModules".
+
+- In the new directory, create a file named ``__init__.py``.
+
+- Edit the ``__init__.py`` file, and add calls to the 'allow_module'
+  function (located in the Products.PythonScripts.Utility module),
+  passing the names of modules to be enabled for use by scripts.
+  For example::
+
+    # Global module assertions for Python scripts
+    from Products.PythonScripts.Utility import allow_module
+
+    allow_module('base64')
+    allow_module('re')
+    allow_module('DateTime.DateTime')
+
+  This example adds the modules 'base64', 're' and the 'DateTime'
+  module in the 'DateTime' package for use by Python scripts. Note
+  that for packages (dotted names), each module in the package path
+  will become available to script objects.
+
+- Restart your Zope server. After restarting, the modules you enabled
+  in your custom product will be available to Python scripts.
+
+Placing security assertions within the package/module you are trying
+to import will not work unless that package/module is located in
+your Products directory.
+
+This is because that package/module would have to be imported for its
+included security assertions to take effect, but to do
+that would require importing a module without any security
+declarations, which defeats the point of the restricted
+Python environment.
+
+Products work differently as they are imported at Zope startup.
+By placing a package/module in your Products directory, you are
+asserting, among other things, that it is safe for Zope to check
+that package/module for security assertions. As a result, please
+be careful when place packages or modules that are not Zope Products
+in the Products directory.
+
+Changelog
+=========
+
+5.1 (2024-10-16)
+----------------
+
+- Fix behavior when uploading no file in ``Zope >= 5.8.1``.
+
+- Add support for Python 3.12 and 3.13
+
+- Drop support for Python 3.7.
+
+- Show Python Scripts source code in tracebacks.
+  `#64 <https://github.com/zopefoundation/Products.PythonScripts/issues/64>`_
+
+
+5.0 (2023-02-01)
+----------------
+
+- Drop support for Python 2.7, 3.5, 3.6.
+
+
+4.15 (2022-12-16)
+-----------------
+
+- Fix insidious buildout configuration bug for tests against Zope 4.
+
+- Add support for Python 3.11.
+
+
+4.14 (2022-07-13)
+-----------------
+
+- Add support for Python 3.10.
+
+- Remove unused classes ``SecurityManager`` and ``RivilegedUser`` from
+  ``.tests.testBindings``.
+
+4.13 (2021-07-02)
+-----------------
+
+- Make sure "Manager" users can always modify proxy roles
+  (`#50 <https://github.com/zopefoundation/Products.PythonScripts/issues/50>`_)
+
+- Add support for Python 3.9.
+
+- Update configuration for version 5 of ``isort``.
+
+
+4.12 (2020-06-03)
+-----------------
+
+- Add a ``file`` parameter to factory function ``manage_addPythonScript``
+  (`#45 <https://github.com/zopefoundation/Products.PythonScripts/issues/45>`_)
+
+- Fix ``TypeError`` when updating an existing script from a file
+  (`#43 <https://github.com/zopefoundation/Products.PythonScripts/issues/43>`_)
+
+
+4.11 (2020-02-11)
+-----------------
+
+- Fix ``PUT`` issues with string encoding.
+
+
+4.10 (2020-02-11)
+-----------------
+
+- Override ``manage_DAVget`` to get correct editable sources
+  (`#40 <https://github.com/zopefoundation/Products.PythonScripts/issues/40>`_)
+
+
+4.9 (2019-10-09)
+----------------
+
+- Prevent ResourceWarning/Error by closing default contents file
+  (`#39 <https://github.com/zopefoundation/Products.PythonScripts/issues/39>`_)
+
+
+4.8 (2019-09-04)
+----------------
+
+- Show proper error message for not allowed identifiers.
+  (`#33 <https://github.com/zopefoundation/Products.PythonScripts/issues/33>`_)
+
+- Restore History ZMI tab as Zope is supporting it again.
+  (`#38 <https://github.com/zopefoundation/Products.PythonScripts/issues/38>`_)
+
+
+4.7 (2019-05-21)
+----------------
+
+- Make sure a template's ``_body`` attribute is a native string in Python 3
+  (`#30 <https://github.com/zopefoundation/Products.PythonScripts/issues/30>`_)
+
+
+4.6 (2019-04-15)
+----------------
+
+- Fix a serious error that prevents page templates from compiling
+  (`#27 <https://github.com/zopefoundation/Products.PythonScripts/issues/27>`_)
+
+
+4.5 (2019-04-07)
+----------------
+
+- Provide a single default script content template for Python 2 and 3
+
+- Prevent deprecation warning by using ``importlib`` instead of ``imp``
+  (`#24 <https://github.com/zopefoundation/Products.PythonScripts/issues/24>`_)
+
+- Prevent syntax warning due to outdated default script content
+  (`#26 <https://github.com/zopefoundation/Products.PythonScripts/issues/26>`_)
+
+- Allow for entering a title when adding a Python Script
+  (`#25 <https://github.com/zopefoundation/Products.PythonScripts/issues/25>`_)
+
+- adding badges to the README for GitHub and PyPI
+
+- Package metadata cleanups
+
+- cleaned up tox test configuration
+
+
+4.4 (2019-03-08)
+----------------
+
+- Specify supported Python versions using ``python_requires`` in setup.py
+  (`Zope#481 <https://github.com/zopefoundation/Zope/issues/481>`_)
+
+- Add support for Python 3.8
+
+
+4.3 (2019-02-09)
+----------------
+
+- Show a message instead of exception for empty file upload
+  (`#21 <https://github.com/zopefoundation/Products.PythonScripts/issues/21>`_)
+
+
+4.2 (2018-10-11)
+----------------
+
+- Add support for Python 3.7.
+
+- Drop support for Python 3.4.
+
+- Force recompilation of scripts as the compiled code is now stored
+  on `__code__` instead of `func_code`.
+
+- Add a Python 3 compatible default script.
+  (`#10 <https://github.com/zopefoundation/Products.PythonScripts/pull/10>`_)
+
+- Fix security declaration for ``Products.PythonScripts.standard`` which was
+  broken since version 3.0.
+  (`Zope#209 <https://github.com/zopefoundation/Zope/issues/209>`_)
+
+- Fix HTTP-500 error which occurred when entering code containing a
+  syntax error in a PythonScript. It is now rendered as error message like
+  other errors.
+  (`#11 <https://github.com/zopefoundation/Products.PythonScripts/issues/11>`_)
+
+- Update the tests to `RestrictedPython >= 4.0b4`, thus requiring at lest this
+  version.
+  (`#17 <https://github.com/zopefoundation/Products.PythonScripts/pull/17>`_)
+
+- Update HTML code of ZMI for Bootstrap ZMI.
+  (`#16 <https://github.com/zopefoundation/Products.PythonScripts/pull/16>`_)
+
+- Drop support for historical versions which no longer exist since Zope 4.0a2.
+
+
+4.1 (2017-06-19)
+----------------
+
+- Add support for Python 3.4 up to 3.6.
+
+
+4.0.1 (2017-02-06)
+------------------
+
+- Remove `bobobase_modification_time` from edit template.
+
+4.0 (2016-08-06)
+----------------
+
+- Add compatibility with webdav changes in Zope 4.0a2.
+
+.. caution::
+
+    This version needs Zope2 >= 4.0 to run!
+
+3.0 (2016-07-18)
+----------------
+
+- Remove HelpSys support.
+
+2.13.2 (2012-09-09)
+-------------------
+
+- Correct module security declaration for our `standard` module.
+
+2.13.1 (2012-09-09)
+-------------------
+
+- LP #1047318: Adjust tests.
+
+2.13.0 (2010-07-10)
+-------------------
+
+- Released as separate package.

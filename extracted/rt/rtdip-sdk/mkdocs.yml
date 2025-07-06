@@ -1,0 +1,333 @@
+# Copyright 2022 RTDIP
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Project information
+site_name: Real Time Data Ingestion Platform
+site_url: https://github.com/rtdip/core/
+site_author: Real Time Data Ingestion Platform
+site_description: >-
+  Easy access to high volume, historical and real time process data 
+  for analytics applications, engineers, and data scientists wherever they are.
+# Repository
+repo_name: rtdip/core
+repo_url: https://github.com/rtdip/core/
+edit_uri: ""
+
+docs_dir: docs
+
+# Custom Colour Pallete
+extra_css:
+  - assets/extra.css
+
+# Configuration
+theme:
+  name: material
+  custom_dir: docs/overrides
+  # Default values, taken from mkdocs_theme.yml
+  language: en
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    # - navigation.expand
+    - navigation.indexes
+    - navigation.instant
+    # - navigation.sections
+    - navigation.tabs
+    # - navigation.tabs.sticky
+    - navigation.top
+    # - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  favicon: assets/favicon.png
+  logo: assets/logo_lfe.png
+  icon:
+    tag:
+        pipelines: fontawesome/solid/timeline
+
+extra:
+  generator: false
+  tags:
+    Pipelines: pipelines
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            members_order: source
+  - tags
+  - blog:
+      post_excerpt: required
+  - macros:
+      module_name: docs/macros
+
+watch:
+  - src/sdk/python/rtdip_sdk
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - meta
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg # Page tree
+  - pymdownx.snippets:
+      base_path: 
+        - docs
+        - src/sdk
+      check_paths: true
+      url_download: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - About RTDIP: getting-started/about-rtdip.md
+      - Installation: getting-started/installation.md    
+  - SDK:
+      - Overview: sdk/overview.md
+      - Authentication:
+          - Azure: 
+              - Overview: sdk/authentication/azure.md
+              - Azure Active Directory: sdk/code-reference/authentication/azure.md
+          - Databricks: sdk/authentication/databricks.md
+      - Pipelines:
+          - Overview: sdk/pipelines/framework.md
+          - Components: 
+              - Overview: sdk/pipelines/components.md
+              - Sources:
+                  - Spark:
+                      - Eventhub: sdk/code-reference/pipelines/sources/spark/eventhub.md
+                      - Eventhub Kafka: sdk/code-reference/pipelines/sources/spark/kafka_eventhub.md
+                      - Delta: sdk/code-reference/pipelines/sources/spark/delta.md
+                      - Delta Sharing: sdk/code-reference/pipelines/sources/spark/delta_sharing.md
+                      - Autoloader: sdk/code-reference/pipelines/sources/spark/autoloader.md
+                      - IoT Hub: sdk/code-reference/pipelines/sources/spark/iot_hub.md
+                      - Kafka: sdk/code-reference/pipelines/sources/spark/kafka.md
+                      - Kinesis: sdk/code-reference/pipelines/sources/spark/kinesis.md
+                      - ISO:
+                          - MISO Daily Load: sdk/code-reference/pipelines/sources/spark/iso/miso_daily_load_iso.md
+                          - MISO Historical Load: sdk/code-reference/pipelines/sources/spark/iso/miso_historical_load_iso.md
+                          - PJM Daily Load: sdk/code-reference/pipelines/sources/spark/iso/pjm_daily_load_iso.md
+                          - PJM Historical Load: sdk/code-reference/pipelines/sources/spark/iso/pjm_historical_load_iso.md
+                          - CAISO Daily Load: sdk/code-reference/pipelines/sources/spark/iso/caiso_daily_load_iso.md
+                          - CAISO Historical Load: sdk/code-reference/pipelines/sources/spark/iso/caiso_historical_load_iso.md
+                          - ERCOT Daily Load: sdk/code-reference/pipelines/sources/spark/iso/ercot_daily_load_iso.md
+                          - PJM Daily Pricing Load: sdk/code-reference/pipelines/sources/spark/iso/pjm_daily_pricing_iso.md
+                          - PJM Historical Pricing Load: sdk/code-reference/pipelines/sources/spark/iso/pjm_historical_pricing_iso.md
+                      - Weather:
+                          - Base Weather: sdk/code-reference/pipelines/sources/spark/the_weather_company/base_weather.md
+                          - Weather Forecast API V1: sdk/code-reference/pipelines/sources/spark/the_weather_company/weather_forecast_api_v1.md
+                          - Weather Forecast V1 Multi: sdk/code-reference/pipelines/sources/spark/the_weather_company/weather_forecast_api_v1_multi.md
+                      - ECMWF:
+                          - Base MARS: sdk/code-reference/pipelines/sources/spark/ecmwf/base_mars.md
+                          - Weather Forecast: sdk/code-reference/pipelines/sources/spark/ecmwf/weather_forecast.md
+                  - Python:
+                      - Delta: sdk/code-reference/pipelines/sources/python/delta.md
+                      - Delta Sharing: sdk/code-reference/pipelines/sources/python/delta_sharing.md
+                      - ENTSO-E: sdk/code-reference/pipelines/sources/python/entsoe.md
+                      - MFFBAS: sdk/code-reference/pipelines/sources/python/mffbas.md
+              - Transformers:
+                  - Spark:
+                      - Binary To String: sdk/code-reference/pipelines/transformers/spark/binary_to_string.md
+                      - OPC Publisher Json To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/opc_publisher_opcua_json_to_pcdm.md
+                      - OPC Publisher Json for A&E(Alarm & Events) Data to Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/opc_publisher_opcae_json_to_pcdm.md
+                      - Fledge Json To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/fledge_opcua_json_to_pcdm.md
+                      - EdgeX JSON data To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/edgex_opcua_json_to_pcdm.md
+                      - SEM data To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/sem_json_to_pcdm.md
+                      - SSIP PI Binary File data To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/ssip_pi_binary_file_to_pcdm.md
+                      - SSIP PI Binary JSON data To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/ssip_pi_binary_json_to_pcdm.md
+                      - Pandas to PySpark DataFrame Conversion: sdk/code-reference/pipelines/transformers/spark/pandas_to_pyspark.md
+                      - PySpark to Pandas DataFrame Conversion: sdk/code-reference/pipelines/transformers/spark/pyspark_to_pandas.md
+                      - Honeywell APM To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/honeywell_apm_to_pcdm.md
+                      - Process Control Data Model To Honeywell APM: sdk/code-reference/pipelines/transformers/spark/pcdm_to_honeywell_apm.md
+                      - Mirico data To Process Control Data Model: sdk/code-reference/pipelines/transformers/spark/mirico_json_to_pcdm.md
+                      - ISO:
+                          - MISO To Meters Data Model: sdk/code-reference/pipelines/transformers/spark/iso/miso_to_mdm.md
+                          - PJM To Meters Data Model: sdk/code-reference/pipelines/transformers/spark/iso/pjm_to_mdm.md
+                          - ERCOT To Meters Data Model: sdk/code-reference/pipelines/transformers/spark/iso/ercot_to_mdm.md
+                          - CAISO To Meters Data Model: sdk/code-reference/pipelines/transformers/spark/iso/caiso_to_mdm.md
+                      - The Weather Company:
+                          - Raw Forecast To Weather Data Model: sdk/code-reference/pipelines/transformers/spark/the_weather_company/raw_forecast_to_weather_data_model.md
+                      - ECMWF:
+                          - NC Forecast Extract Base To Weather Data Model: sdk/code-reference/pipelines/transformers/spark/ecmwf/nc_extractbase_to_weather_data_model.md
+                          - NC Forecast Extract Point To Weather Data Model: sdk/code-reference/pipelines/transformers/spark/ecmwf/nc_extractpoint_to_weather_data_model.md
+                          - NC Forecast Extract Grid To Weather Data Model: sdk/code-reference/pipelines/transformers/spark/ecmwf/nc_extractgrid_to_weather_data_model.md
+              - Destinations:
+                  - Spark:
+                      - Delta: sdk/code-reference/pipelines/destinations/spark/delta.md
+                      - Delta Merge: sdk/code-reference/pipelines/destinations/spark/delta_merge.md
+                      - Eventhub: sdk/code-reference/pipelines/destinations/spark/eventhub.md
+                      - Eventhub Kafka: sdk/code-reference/pipelines/destinations/spark/kafka_eventhub.md
+                      - Kafka: sdk/code-reference/pipelines/destinations/spark/kafka.md
+                      - Kinesis: sdk/code-reference/pipelines/destinations/spark/kinesis.md
+                      - Rest API: sdk/code-reference/pipelines/destinations/spark/rest_api.md
+                      - PCDM To Delta: sdk/code-reference/pipelines/destinations/spark/pcdm_to_delta.md
+                      - PCDM Latest To Delta: sdk/code-reference/pipelines/destinations/spark/pcdm_latest_to_delta.md                      
+                  - Python:
+                      - Delta: sdk/code-reference/pipelines/destinations/python/delta.md
+                  - Blockchain:
+                      - EVM: sdk/code-reference/pipelines/destinations/blockchain/evm.md
+              - Utilities:
+                  - Spark:
+                      - Session: sdk/code-reference/pipelines/utilities/spark/session.md
+                      - Configuration: sdk/code-reference/pipelines/utilities/spark/configuration.md
+                      - Delta Table Create: sdk/code-reference/pipelines/utilities/spark/delta_table_create.md
+                      - Delta Table Optimize: sdk/code-reference/pipelines/utilities/spark/delta_table_optimize.md
+                      - Delta Table Vacuum: sdk/code-reference/pipelines/utilities/spark/delta_table_vacuum.md
+                      - ADLS Gen 2 Service Principal Connect: sdk/code-reference/pipelines/utilities/spark/adls_gen2_spn_connect.md
+                  - AWS:
+                      - S3 Bucket Policy: sdk/code-reference/pipelines/utilities/aws/s3_bucket_policy.md
+                      - S3 Copy Utility: sdk/code-reference/pipelines/utilities/aws/s3_copy_utility.md
+                  - Azure:
+                      - ADLS Gen 2 ACLs: sdk/code-reference/pipelines/utilities/azure/adls_gen2_acl.md
+                      - Autoloader Resources: sdk/code-reference/pipelines/utilities/azure/autoloader_resources.md
+              - Converters:
+                  - Json: sdk/code-reference/pipelines/converters/pipeline_job_json.md
+              - Secrets:
+                  - Databricks: sdk/code-reference/pipelines/secrets/databricks.md
+                  - Hashicorp Vault: sdk/code-reference/pipelines/secrets/hashicorp_vault.md
+                  - Azure Key Vault: sdk/code-reference/pipelines/secrets/azure_key_vault.md
+              - Deploy:
+                  - Databricks: sdk/code-reference/pipelines/deploy/databricks.md
+              - Monitoring:
+                  - Data Quality: 
+                      - Great Expectations: 
+                        - Data Quality Monitoring: sdk/code-reference/pipelines/monitoring/spark/data_quality/great_expectations.md
+          - Jobs: sdk/pipelines/jobs.md
+          - Deploy:
+              - Databricks Workflows: sdk/pipelines/deploy/databricks.md
+              - Apache Airflow: sdk/pipelines/deploy/apache-airflow.md
+          - Examples:
+              - Python Delta to Delta: sdk/examples/pipelines/deploy/Python-Delta-to-Delta.md
+              - EdgeX Eventhub to Delta: sdk/examples/pipelines/deploy/EdgeX-Eventhub-to-Delta.md
+              - ECMWF to Delta: sdk/examples/pipelines/deploy/ECMWF-to-Delta.md
+              - Dagster:
+                  - Databricks Connect: sdk/examples/pipelines/deploy/dagster/Fledge-Dagster-Pipeline-Databricks.md
+                  - Local: sdk/examples/pipelines/deploy/dagster/Fledge-Dagster-Pipeline-Local.md
+              - Databricks:
+                  - MISO Daily Load Databricks: sdk/examples/pipelines/deploy/databricks/MISODailyLoad-Batch-Pipeline-Databricks.md
+              - Spark Connect: sdk/examples/pipelines/deploy/Fledge-SparkConnect-PCDM.md                  
+              - MISO Daily Load Local: sdk/examples/pipelines/deploy/MISODailyLoad-Batch-Pipeline-Local.md
+              - PJM Daily Load Local: sdk/examples/pipelines/deploy/PJMDailyLoad-Batch-Pipeline-Local.md
+      - Queries:
+          - Query Types: 
+                - Overview: sdk/queries/functions.md
+                - Metadata: sdk/code-reference/query/functions/metadata.md
+                - Time Series:
+                    - Time Series Query Builder: sdk/code-reference/query/functions/time_series/time_series_query_builder.md
+                    - Raw: sdk/code-reference/query/functions/time_series/raw.md
+                    - Latest: sdk/code-reference/query/functions/time_series/latest.md
+                    - Resample: sdk/code-reference/query/functions/time_series/resample.md
+                    - Plot: sdk/code-reference/query/functions/time_series/plot.md
+                    - Interpolate: sdk/code-reference/query/functions/time_series/interpolate.md
+                    - Interpolation at Time: sdk/code-reference/query/functions/time_series/interpolation-at-time.md
+                    - Time Weighted Average: sdk/code-reference/query/functions/time_series/time-weighted-average.md
+                    - Circular Average: sdk/code-reference/query/functions/time_series/circular-average.md
+                    - Circular Standard Deviation: sdk/code-reference/query/functions/time_series/circular-standard-deviation.md
+                    - Summary: sdk/code-reference/query/functions/time_series/summary.md
+                - Weather:
+                    - Weather Data Query Builder: sdk/code-reference/query/functions/weather/weather_query_builder.md
+                    - Weather Raw: sdk/code-reference/query/functions/weather/raw.md
+                    - Weather Latest: sdk/code-reference/query/functions/weather/latest.md
+          - SQL: sdk/code-reference/query/sql/sql_query.md
+          - Connectors: 
+                - Overview: sdk/queries/connectors.md
+                - Databricks SQL Connector: sdk/code-reference/query/connectors/db-sql-connector.md
+                - PYODBC SQL Connector: sdk/code-reference/query/connectors/pyodbc-sql-connector.md
+                - TURBODBC SQL Connector: sdk/code-reference/query/connectors/turbodbc-sql-connector.md
+                - Spark Connector: sdk/code-reference/query/connectors/spark-connector.md
+                - Chat Open AI Databricks Connector: sdk/code-reference/query/connectors/chatopenai_databricks_connector.md
+          - Databricks:
+              - Databricks SQL: sdk/queries/databricks/databricks-sql.md
+              - SQL Warehouses: sdk/queries/databricks/sql-warehouses.md
+              - Troubleshooting: sdk/queries/databricks/troubleshooting.md
+          - Spark Connect: sdk/queries/spark/spark-connect.md
+          - LLMs:
+              - Chat Open AI Databricks: sdk/queries/llm/chatopenai_databricks_connector.md
+          - Examples:
+              - Interpolate: sdk/examples/query/Interpolate.md
+              - Interpolation at Time: sdk/examples/query/Interpolation-at-Time.md
+              - Metadata: sdk/examples/query/Metadata.md
+              - Raw: sdk/examples/query/Raw.md
+              - Resample: sdk/examples/query/Resample.md
+              - Plot: sdk/examples/query/Plot.md
+              - Time Weighted Average: sdk/examples/query/Time-Weighted-Average.md
+              - Circular Average: sdk/examples/query/Circular-Average.md
+              - Circular Standard Deviation: sdk/examples/query/Circular-Standard-Deviation.md
+              - Summary: sdk/examples/query/Summary.md
+  - API:
+      - Overview: api/overview.md
+      - Authentication: api/authentication.md
+      - Examples: api/examples.md
+      - REST API Documentation: api/rest_apis.md
+      - Deployment:
+          - Azure: api/deployment/azure.md
+  - Domains:
+      - Process Control: 
+          - Overview: domains/process_control/overview.md
+          - Data Model: domains/process_control/data_model.md
+      - Smart Meter Data: 
+          - Overview: domains/smart_meter/overview.md
+          - Data Model: domains/smart_meter/data_model.md
+      - Weather Data: 
+          - Overview: domains/weather/overview.md
+          - Data Model: domains/weather/data_model.md
+  - Integration:
+      - Power BI: integration/power-bi.md
+  - Roadmaps:
+      - Overview: roadmap/roadmap-overview.md
+      - 2023: roadmap/yearly-roadmaps/2023-development-roadmap.md
+      - 2022: roadmap/yearly-roadmaps/2022-development-roadmap.md
+  - Releases:
+      - core: releases/core.md
+  - Blog:
+      - blog/index.md
+  - University:
+      - University: university/overview.md
+      

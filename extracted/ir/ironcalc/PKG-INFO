@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: ironcalc
+Version: 0.5.6
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
+License-File: LICENSE-Apache-2.0.md
+License-File: LICENSE-MIT.md
+Summary: Create, edit and evaluate Excel spreadsheets
+Keywords: xlsx,spreadsheet
+Author-email: Nicolás Hatcher <nicolas@theuniverse.today>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://www.ironcalc.com/
+Project-URL: Source, https://github.com/ironcalc/ironcalc
+Project-URL: Tracker, https://github.com/ironcalc/ironcalc/issues
+
+# IronCalc python bindings
+
+With IronCalc you can create, read and manipulate xlsx files.
+You can manage sheets, add, remove, delete rename.
+You can add cell values, retrieve them and most importantly you can evaluate spreadsheets.
+
+## Installation
+
+```bash
+pip install ironcalc
+```
+
+
+
+
+## Compile and test
+
+To compile this and test it:
+
+```bash
+$ python3 -m venv venv
+$ source venv/bin/activate
+$ pip install maturin
+$ maturin develop
+$ cd examples
+examples $ python example.py
+```
+
+From there if you use `python` you can `import ironcalc`. You can either create a new file, read it from a JSON string or import from Excel.
+
+Hopefully the API is straightforward.

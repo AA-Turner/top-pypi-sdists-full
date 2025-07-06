@@ -1,0 +1,61 @@
+Metadata-Version: 2.4
+Name: pkr
+Version: 1.4.34
+Summary: Template engine for deploying docker containers.
+Author-email: Altair Engineering <pclm-team@altair.com>
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Testing
+Classifier: License :: OSI Approved :: Apache Software License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: docker==7.1.0
+Requires-Dist: importlib-metadata>=0.12
+Requires-Dist: ipaddress==1.0.17
+Requires-Dist: jinja2
+Requires-Dist: jinja2-ansible-filters==1.3.2
+Requires-Dist: kubernetes>=25.0.0
+Requires-Dist: passlib>=1.7.1
+Requires-Dist: pybase64==1.3.2
+Requires-Dist: pycryptodome==3.19.1
+Requires-Dist: python-on-whales==0.71.0
+Requires-Dist: tenacity>=7.0.0
+Requires-Dist: bcrypt<=4.0.1
+Requires-Dist: pydantic<2
+Requires-Dist: requests==2.32.2
+Requires-Dist: urllib3==1.26.19
+Provides-Extra: dev
+Requires-Dist: bandit==1.7.4; extra == "dev"
+Requires-Dist: mock==2.0.0; extra == "dev"
+Requires-Dist: pytest==7.4.0; extra == "dev"
+Requires-Dist: tox==4.11.3; extra == "dev"
+Requires-Dist: wrapt==1.14.0; extra == "dev"
+Dynamic: license-file
+
+# PKR
+
+[![Build Status](https://travis-ci.org/altairengineering/pkr.svg?branch=master)](https://travis-ci.org/altairengineering/pkr)
+
+# Introduction
+This repository provide a `structured templating` tool, with primary usage to build and deploy container images.
+
+With a modular driver and extensions design, it can be used either only for templating or with docker, docker compose or k8s.
+
+`pkr` comes from `pocker`, which was the first name of this software.
+
+# Documentation
+
+[Installation](doc/installation.md)
+
+[Quickstart](doc/quickstart.md)
+
+[Examples](doc/examples.md)
+
+[Drivers](doc/drivers.md)
+
+[Reference](doc/reference.md)

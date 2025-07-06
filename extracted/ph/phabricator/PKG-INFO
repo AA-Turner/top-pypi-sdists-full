@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: phabricator
+Version: 0.9.1
+Summary: Phabricator API Bindings
+Home-page: http://github.com/disqus/python-phabricator
+Author: Disqus
+Author-email: opensource@disqus.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Provides-Extra: tests

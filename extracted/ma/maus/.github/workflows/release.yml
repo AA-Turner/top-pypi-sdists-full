@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{secrets.edifact_templates_pat}} # expires 2023-04-24
+          submodules: "recursive"
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install tox
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
+      - name: Run tox
+        run: |
+          tox -e unit_tests
+          tox -e integration_tests
+
+  build-n-publish:
+    name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
+    strategy:
+      matrix:
+        python-version: [3.11]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
+      - name: Build a binary wheel and a source tarball
+        run: |
+          tox -e test_packaging
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  release:
+    needs: build-n-publish
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          architecture: x64
+          python-version: ${{ matrix.python-version }}
+      - uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_CERT_BASE64 }}
+          p12-password: ${{ secrets.DEVELOPER_CERT_PW }}
+        if: matrix.os == 'macos-latest'
+      - name: Set up gon
+        run: |
+          brew tap mitchellh/gon
+          brew install mitchellh/gon/gon
+        if: matrix.os == 'macos-latest'
+      - name: Build Executable
+        run: |
+          pip install tox
+          tox -e build_executable -- -w --name maus_cli_${{ runner.os == 'Windows' && 'win' || runner.os == 'macOS' && 'macos' || 'linux' }} --codesign-identity BC9D64D82416AF9EB2A9487FDBFAB05ED6B39CA3 --target-arch universal2 --osx-bundle-identifier de.hochfrequenz.maus
+      - name: Package app
+        run: |
+          ditto -c -k --keepParent "dist/maus_cli_macos.app" dist/maus_cli_macos.zip
+        if: matrix.os == 'macos-latest'
+      - name: Notarize app
+        run: |
+          gon gon.json
+        env:
+          AC_PASSWORD: ${{ secrets.NOTARIZE_PASSWORD }}
+        if: matrix.os == 'macos-latest'
+      - name: Staple app
+        run: |
+          ls dist/*
+          xcrun stapler staple dist/maus_cli_macos.app
+          xcrun stapler validate dist/maus_cli_macos.app
+          ls dist/*
+        if: matrix.os == 'macos-latest'
+      - name: Repackage stapled app
+        run: |
+          rm -rf dist/maus_cli_macos.zip
+          ditto -c -k --keepParent "dist/maus_cli_macos.app" dist/maus_cli_macos.zip
+        if: matrix.os == 'macos-latest'
+      - name: Generate release notes
+        id: create_release_notes
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          version: ${{ github.ref }}
+          publish: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release and Upload Executable
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.create_release_notes.outputs.body }}
+          files: |
+            ./dist/maus_cli_${{ runner.os == 'Windows' && 'win' || runner.os == 'macOS' && 'macos' || 'linux' }}${{ runner.os == 'Windows' && '.exe' || runner.os == 'macOS' && '' || '' }}

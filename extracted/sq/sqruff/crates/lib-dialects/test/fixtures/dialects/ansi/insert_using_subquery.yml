@@ -1,0 +1,55 @@
+file:
+- statement:
+  - insert_statement:
+    - keyword: INSERT
+    - keyword: INTO
+    - table_reference:
+      - naked_identifier: foo
+    - select_statement:
+      - select_clause:
+        - keyword: SELECT
+        - select_clause_element:
+          - numeric_literal: '0'
+          - alias_expression:
+            - keyword: AS
+            - naked_identifier: bar
+- statement_terminator: ;
+- statement:
+  - insert_statement:
+    - keyword: INSERT
+    - keyword: INTO
+    - table_reference:
+      - naked_identifier: foo
+    - bracketed:
+      - start_bracket: (
+      - select_statement:
+        - select_clause:
+          - keyword: SELECT
+          - select_clause_element:
+            - numeric_literal: '1'
+            - alias_expression:
+              - keyword: AS
+              - naked_identifier: bar
+      - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - insert_statement:
+    - keyword: INSERT
+    - keyword: INTO
+    - table_reference:
+      - naked_identifier: foo
+    - bracketed:
+      - start_bracket: (
+      - bracketed:
+        - start_bracket: (
+        - select_statement:
+          - select_clause:
+            - keyword: SELECT
+            - select_clause_element:
+              - numeric_literal: '1'
+              - alias_expression:
+                - keyword: AS
+                - naked_identifier: bar
+        - end_bracket: )
+      - end_bracket: )
+- statement_terminator: ;

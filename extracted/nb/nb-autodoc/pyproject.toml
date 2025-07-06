@@ -1,0 +1,71 @@
+[project]
+name = "nb-autodoc"
+description = "Python API documentation tool supporting the modern PEPs and typing features."
+authors = [
+    { name = "iyume", email = "iyumelive@gmail.com" },
+]
+requires-python = ">=3.8"
+dynamic = []
+readme = "README.md"
+keywords = [
+    "nonebot",
+    "autodoc",
+    "apidoc",
+    "documentation-tool",
+    "markdown",
+]
+dependencies = [
+    "typing-extensions>=4.0",
+    "click==8.*",
+]
+version = "1.0.0a7"
+
+[project.license]
+text = "MIT"
+
+[project.optional-dependencies]
+
+[project.urls]
+homepage = "https://github.com/nonebot/nb-autodoc"
+repository = "https://github.com/nonebot/nb-autodoc"
+
+[project.scripts]
+nb-autodoc = "nb_autodoc.__main__:main"
+
+[tool.black]
+line-length = 88
+target-version = [
+    "py38",
+]
+
+[tool.isort]
+profile = "black"
+extra_standard_library = [
+    "typing_extensions",
+]
+skip_gitignore = true
+skip_glob = [
+    "tests/analyzerdata/*",
+]
+
+[tool.pyright]
+reportTypedDictNotRequiredAccess = false
+
+[tool.pdm.version]
+source = "file"
+path = "nb_autodoc/__init__.py"
+
+[tool.pdm.build]
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "isort>=5.10.1",
+    "black>=22.6.0",
+    "pytest>=7.1.2",
+]
+
+[build-system]
+requires = [
+    "pdm-pep517",
+]
+build-backend = "pdm.pep517.api"

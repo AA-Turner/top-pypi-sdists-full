@@ -1,0 +1,36 @@
+Metadata-Version: 2.1
+Name: acdh-xml-pyutils
+Version: 1.1.1
+Summary: Utility functions to work with XML
+Home-page: https://github.com/acdh-oeaw/acdh-xml-pyutils
+Author: Peter Andorfer
+Author-email: peter.andorfer@oeaw.ac.at
+License: MIT
+Keywords: acdh_xml_pyutils
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# ACDH XML PyUtils
+
+[![flake8 Lint](https://github.com/acdh-oeaw/acdh-xml-pyutils/actions/workflows/lint.yml/badge.svg)](https://github.com/acdh-oeaw/acdh-xml-pyutils/actions/workflows/lint.yml)
+[![Test](https://github.com/acdh-oeaw/acdh-xml-pyutils/actions/workflows/test.yml/badge.svg)](https://github.com/acdh-oeaw/acdh-xml-pyutils/actions/workflows/test.yml)
+[![PyPI version](https://badge.fury.io/py/acdh-xml-pyutils.svg)](https://badge.fury.io/py/acdh-xml-pyutils)
+
+
+Utility functions to work with XML
+
+
+## Features
+
+* parse XML from files, strings or URLS
+* print/save parsed files
+
+see `tests/test_xml.py` for usage examples

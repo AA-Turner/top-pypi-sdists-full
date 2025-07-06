@@ -1,0 +1,41 @@
+Metadata-Version: 1.2
+Name: shortcodes
+Version: 5.4.0
+Summary: A library for parsing customizable WordPress-style shortcodes.
+Home-page: https://github.com/dmulholl/shortcodes
+Author: Darren Mulholland
+License: Public Domain
+Description: 
+        Shortcodes
+        ==========
+        
+        A library for parsing customizable WordPress-style shortcodes. Useful as a
+        drop-in component in text-processing applications.
+        
+        Supports shortcodes with space-separated positional and keyword arguments::
+        
+            [% tag arg1 "arg 2" key1=arg3 key2="arg 4" %]
+        
+        Shortcodes can be atomic or block-scoped and can be nested to any depth.
+        Innermost shortcodes are processed first::
+        
+            [% tag %] ... content with [% more %] shortcodes ... [% endtag %]
+        
+        Shortcode syntax is customizable::
+        
+            <tag arg="foo"> ... </tag>
+        
+        See the project's `Github homepage <https://github.com/dmulholl/shortcodes>`_
+        for further details.
+        
+        Note that this package requires Python 3.
+        
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: OS Independent
+Classifier: License :: Public Domain
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Text Processing :: General
+Requires-Python: >=3.6

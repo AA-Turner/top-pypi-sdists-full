@@ -1,0 +1,16 @@
+contributors:
+- David Březina
+name: West Central Oromo
+note: The speaker count is an estimate based on the total for Oromo macrolanguage.
+orthographies:
+- autonym: Afaan Oromoo
+  base: <gax>
+  numerals: <default>
+  script: Latin
+  status: primary
+sources:
+- Oromo language. (2024, August 16). In *Wikipedia*. https://en.wikipedia.org/wiki/Oromo_language?oldid=1240644742
+speakers: 26000000
+speakers_date: 2015
+status: living
+validity: verified

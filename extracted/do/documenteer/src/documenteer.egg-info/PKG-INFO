@@ -1,0 +1,127 @@
+Metadata-Version: 2.4
+Name: documenteer
+Version: 1.4.5
+Summary: Rubin Observatory / LSST Sphinx documentation tools, extensions, and configurations.
+License-Expression: MIT
+Project-URL: Homepage, https://documenteer.lsst.io
+Project-URL: Source, https://github.com/lsst-sqre/documenteer
+Keywords: rubin,lsst
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Documentation
+Classifier: Topic :: Documentation :: Sphinx
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Environment :: Console
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: docutils>=0.20
+Requires-Dist: Sphinx<8.2,>=7
+Requires-Dist: PyYAML
+Requires-Dist: GitPython
+Requires-Dist: requests
+Requires-Dist: click
+Requires-Dist: sphinxcontrib-bibtex>=2.0.0
+Requires-Dist: setuptools
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: urllib3
+Requires-Dist: pylatexenc
+Requires-Dist: tomlkit
+Provides-Extra: dev
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: coverage[toml]; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: lxml; extra == "dev"
+Requires-Dist: cssselect; extra == "dev"
+Requires-Dist: defusedxml; extra == "dev"
+Requires-Dist: sphinx-click; extra == "dev"
+Requires-Dist: sphinxcontrib-autoprogram; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-docutils; extra == "dev"
+Requires-Dist: types-mock; extra == "dev"
+Provides-Extra: guide
+Requires-Dist: sphinx_design; extra == "guide"
+Requires-Dist: pydata-sphinx-theme<0.13.0,>=0.10.0; extra == "guide"
+Requires-Dist: sphinx-autodoc-typehints; extra == "guide"
+Requires-Dist: sphinx-automodapi; extra == "guide"
+Requires-Dist: sphinx-copybutton; extra == "guide"
+Requires-Dist: sphinx-prompt<2,>=1.10.0; extra == "guide"
+Requires-Dist: sphinx-jinja>=2; extra == "guide"
+Requires-Dist: myst-parser; extra == "guide"
+Requires-Dist: myst-nb; extra == "guide"
+Requires-Dist: markdown-it-py[linkify]; extra == "guide"
+Requires-Dist: sphinxcontrib-mermaid>=1; extra == "guide"
+Requires-Dist: sphinxext-opengraph; extra == "guide"
+Requires-Dist: sphinxcontrib-redoc; extra == "guide"
+Requires-Dist: sphinxcontrib-jquery; extra == "guide"
+Requires-Dist: sphinxext-rediraffe; extra == "guide"
+Requires-Dist: sphinxcontrib-youtube; extra == "guide"
+Provides-Extra: pipelines
+Requires-Dist: sphinx_design; extra == "pipelines"
+Requires-Dist: pydata-sphinx-theme<0.13.0,>=0.10.0; extra == "pipelines"
+Requires-Dist: sphinx-autodoc-typehints; extra == "pipelines"
+Requires-Dist: sphinx-automodapi; extra == "pipelines"
+Requires-Dist: sphinx-copybutton; extra == "pipelines"
+Requires-Dist: sphinx-prompt<2,>=1.10.0; extra == "pipelines"
+Requires-Dist: sphinx-jinja>=2; extra == "pipelines"
+Requires-Dist: myst-parser; extra == "pipelines"
+Requires-Dist: markdown-it-py[linkify]; extra == "pipelines"
+Requires-Dist: sphinxcontrib-mermaid; extra == "pipelines"
+Requires-Dist: sphinxext-opengraph; extra == "pipelines"
+Requires-Dist: sphinxcontrib-redoc; extra == "pipelines"
+Requires-Dist: sphinxcontrib-jquery; extra == "pipelines"
+Requires-Dist: sphinxcontrib-autoprogram; extra == "pipelines"
+Requires-Dist: sphinxcontrib-doxylink; extra == "pipelines"
+Requires-Dist: sphinx-click; extra == "pipelines"
+Provides-Extra: technote
+Requires-Dist: technote<0.10.0,>=0.9.0; extra == "technote"
+Requires-Dist: sphinx-prompt<2,>=1.10.0; extra == "technote"
+Requires-Dist: sphinxcontrib-mermaid; extra == "technote"
+Requires-Dist: sphinx-diagrams; extra == "technote"
+Requires-Dist: sphinx_design; extra == "technote"
+Requires-Dist: myst-nb; extra == "technote"
+Requires-Dist: sphinxcontrib-youtube; extra == "technote"
+Dynamic: license-file
+
+[![Documentation](https://img.shields.io/badge/documenteer-lsst.io-brightgreen.svg)](https://documenteer.lsst.io)
+[![PyPI](https://img.shields.io/pypi/v/documenteer.svg?style=flat-square)](https://pypi.python.org/pypi/documenteer)
+[![For Python 3.7+](https://img.shields.io/pypi/pyversions/documenteer.svg?style=flat-square)](https://pypi.python.org/pypi/documenteer)
+[![MIT license](https://img.shields.io/pypi/l/documenteer.svg?style=flat-square)](https://pypi.python.org/pypi/documenteer)
+[![CI](https://github.com/lsst-sqre/documenteer/actions/workflows/ci.yaml/badge.svg)](https://github.com/lsst-sqre/documenteer/actions/workflows/ci.yaml)
+[![Weekly CI](https://github.com/lsst-sqre/documenteer/actions/workflows/ci-cron.yaml/badge.svg)](https://github.com/lsst-sqre/documenteer/actions/workflows/ci-cron.yaml)
+
+# Documenteer
+
+Documenteer provides tools, extensions, and configurations for Rubin Observatory's Sphinx documentation projects, [user guides](https://documenteer.lsst.io/guides/index.html), [technotes](https://developer.lsst.io/project-docs/technotes.html) and EUPS-packaged stacks (such as the [LSST Science Pipelines](https://pipelines.lsst.io)).
+
+For more information about Documenteer, see the documentation at https://documenteer.lsst.io.
+
+Browse the [lsst-doc-engineering](https://github.com/topics/lsst-doc-engineering) GitHub topic for more Rubin Observatory documentation engineering projects.
+
+## Quick installation:
+
+For [user guides](https://documenteer.lsst.io/guides/index.html):
+
+```sh
+pip install "documenteer[guide]"
+```
+
+For [technical note projects](https://documenteer.lsst.io/technotes/index.html):
+
+```sh
+pip install "documenteer[technote]"
+```
+
+For the [stack projects](https://documenteer.lsst.io/pipelines/index.html) (such as the [LSST Science Pipelines](https://pipelines.lsst.io)):
+
+```sh
+pip install "documenteer[pipelines]"
+```

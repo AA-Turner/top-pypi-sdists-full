@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "ssb-dash-components"
+version = "0.10.0"
+description = "Dash Component library for SSB"
+authors = ["Miles Mason Winther <42948872+mmwinther@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+dash = ">=2.15.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+dash = { extras = ["testing"], version = ">=2.15.0" }
+selenium = ">=4.2.0"
+pre-commit = ">=3.6.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

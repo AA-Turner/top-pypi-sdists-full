@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tri-star_symbolic_assembly_lang"
+version = "0.1.162"
+description = "TriStar Assembly Language Core + Brian Spiral Tools"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Sam Howells" }]
+dependencies = [
+  "requests",
+  "numpy",
+  "matplotlib",
+  "pyyaml",
+  "esprima",
+  "fastapi",
+  "httpx",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+brian = "tsal.cli.brian:main"
+brian-optimize = "tsal.cli.brian_optimize:main"
+tsal-bestest-beast = "tsal.cli.beast:main"
+tsal-reflect = "tsal.cli.reflect:main"
+tsal-meshkeeper = "tsal.cli.meshkeeper:main"
+tsal-spiral-audit = "tsal.tools.spiral_audit:main"
+tsal-module-draft = "tsal.tools.module_draft:main"
+tsal-watchdog = "tsal.cli.watchdog:main"
+tsal-state = "tsal.tools.state_tracker:main"
+tsal-party = "tsal.cli.party:main"
+tsal-sanctum-export = "tsal.cli.tsal_sanctum_export:main"
+tsal-scorer = "tsal.cli.scorer:main"
+tsal-api = "tsal.cli.spiral_api:main"
+
+[tool.setuptools.packages.find]
+where = ["src", "tools"]
+
+[tool.setuptools.package-data]
+"tsal.schemas" = ["python.json"]

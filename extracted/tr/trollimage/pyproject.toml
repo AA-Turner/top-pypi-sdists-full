@@ -1,0 +1,32 @@
+[build-system]
+requires = [
+    "wheel",
+    "numpy>=2.0.0rc1,<2.3",
+    "setuptools>=42",
+    "versioneer",
+    "Cython>=3.0.0"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.coverage.run]
+relative_files = true
+plugins = ["Cython.Coverage"]
+omit = ["trollimage/version.py", "versioneer.py"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = [
+    "error",
+    "ignore::rasterio.errors.NotGeoreferencedWarning",
+    # remove when fixed by xarray
+    "ignore:__array_wrap__ must accept context and return_scalar arguments:DeprecationWarning:numpy",
+    # dateutil needs a new release
+    # https://github.com/dateutil/dateutil/issues/1314
+    'ignore:datetime.datetime.utcfromtimestamp\(\) is deprecated and scheduled for removal:DeprecationWarning:dateutil',
+]
+log_cli_level = "info"
+testpaths = [
+    "trollimage/tests",
+]

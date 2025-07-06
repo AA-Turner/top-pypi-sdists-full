@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: cppyy-backend
+Version: 1.15.3
+Summary: C/C++ wrapper for Cling
+Home-page: http://pypy.org
+Author: Wim Lavrijsen
+Author-email: WLavrijsen@lbl.gov
+License: LBNL BSD
+Keywords: C++ bindings data science
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Interpreters
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: C
+Classifier: Programming Language :: C++
+Classifier: Natural Language :: English
+License-File: LICENSE.txt
+
+cppyy-backend
+=============
+
+C/C++ wrapper around Cling, the LLVM-based interactive C++ interpreter, for
+use by cppyy, providing stable C and C++ Reflection APIs.
+
+The compilation of cppyy-backend is very fast, but it will pull in
+cppyy-cling, which takes a long time to install if there is no matching wheel
+for your platform, forcing a build from source. By default, all cores will be
+used, but it is also recommended to add the verbose flag to see progress:
+
+  $ python -m pip install --verbose cppyy-backend
+
+For further details, see cppyy's installation instructions:
+  https://cppyy.readthedocs.io/en/latest/installation.html
+
+
+Cling documentation is here:
+  https://root.cern.ch/cling
+
+----
+
+Find the cppyy documentation here:
+  http://cppyy.readthedocs.io
+
+Change log:
+  https://cppyy.readthedocs.io/en/latest/changelog.html
+
+Bug reports/feedback:
+  https://github.com/wlav/cppyy/issues

@@ -1,0 +1,30 @@
+Metadata-Version: 1.1
+Name: quip
+Version: 0.1.12
+Summary: Quick user interfaces for Python
+Home-page: https://github.com/feihong/quip
+Author: Feihong Hsu
+Author-email: feihong.hsu@gmail.com
+License: Apache 2.0
+Description: Quip
+        ====
+        
+        Quip is a minimal web-based user interface framework for Python command-line applications.
+        
+        Installation
+        ------------
+        
+        You need to install the stylus and rapydscript-ng modules via npm::
+        
+          npm install -g stylus rapydscript-ng
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy

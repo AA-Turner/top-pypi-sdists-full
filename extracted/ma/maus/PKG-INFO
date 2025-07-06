@@ -1,0 +1,149 @@
+Metadata-Version: 2.3
+Name: maus
+Version: 0.6.1
+Summary: Python Library that consolidates Anwendungshandbücher (AHB) and Message Implementation Guides (MIG)
+Project-URL: Changelog, https://github.com/Hochfrequenz/mig_ahb_utility_stack/releases
+Project-URL: Homepage, https://github.com/Hochfrequenz/mig_ahb_utility_stack
+Project-URL: Documentation, https://maus.readthedocs.io/en/latest/
+Author-email: Hochfrequenz Unternehmensberatung GmbH <info@hochfrequenz.de>
+License: MIT
+License-File: LICENSE
+Keywords: AHB,MIG,edi@energy,maus
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+Requires-Dist: attrs>=22.1.0
+Requires-Dist: efoli>=0.0.3
+Requires-Dist: marshmallow>=3.18.0
+Requires-Dist: more-itertools
+Provides-Extra: build-executable
+Requires-Dist: pyinstaller==6.10.0; extra == 'build-executable'
+Provides-Extra: cli
+Requires-Dist: click; extra == 'cli'
+Provides-Extra: coverage
+Requires-Dist: coverage==7.6.1; extra == 'coverage'
+Provides-Extra: dev
+Requires-Dist: pip-tools; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: sphinx-rtd-theme==2.0.0; extra == 'docs'
+Requires-Dist: sphinx==7.4.7; extra == 'docs'
+Provides-Extra: formating
+Requires-Dist: black==24.8.0; extra == 'formating'
+Requires-Dist: isort==5.13.2; extra == 'formating'
+Provides-Extra: formatting
+Requires-Dist: black==24.8.0; extra == 'formatting'
+Requires-Dist: isort==5.13.2; extra == 'formatting'
+Provides-Extra: integration-tests
+Requires-Dist: pytest-datafiles==3.0.0; extra == 'integration-tests'
+Requires-Dist: pytest==8.3.2; extra == 'integration-tests'
+Provides-Extra: json-schema
+Requires-Dist: marshmallow-jsonschema==0.13.0; extra == 'json-schema'
+Provides-Extra: linting
+Requires-Dist: pylint==3.2.7; extra == 'linting'
+Provides-Extra: packaging
+Requires-Dist: build==1.2.2; extra == 'packaging'
+Requires-Dist: twine==5.1.1; extra == 'packaging'
+Provides-Extra: spell-check
+Requires-Dist: codespell==2.3.0; extra == 'spell-check'
+Provides-Extra: test-packaging
+Requires-Dist: build==1.2.1; extra == 'test-packaging'
+Requires-Dist: twine==5.1.1; extra == 'test-packaging'
+Provides-Extra: tree
+Requires-Dist: lark>=1.1.5; extra == 'tree'
+Provides-Extra: type-check
+Requires-Dist: mypy==1.11.2; extra == 'type-check'
+Requires-Dist: types-xmltodict==0.13.0.3; extra == 'type-check'
+Provides-Extra: unit-tests
+Requires-Dist: jsonpath-ng==1.6.1; extra == 'unit-tests'
+Requires-Dist: pytest-asyncio==0.23.8; extra == 'unit-tests'
+Requires-Dist: pytest-datafiles==3.0.0; extra == 'unit-tests'
+Requires-Dist: pytest==8.3.2; extra == 'unit-tests'
+Provides-Extra: xml
+Requires-Dist: lxml>=4.9.2; extra == 'xml'
+Requires-Dist: xmltodict; extra == 'xml'
+Description-Content-Type: text/x-rst
+
+MIG AHB Utility Stack (MAUS) 🐭
+===============================
+
+ℹ If you're looking for a wrapper around the new (2024) BDEW XMLs for MIG and AHB, checkout our `fundamend <https://github.com/Hochfrequenz/xml-fundamend-python>`__ repository.
+This maus package uses a different data format, because it's older than 2024.
+
+| |Unittests status badge| |Coverage status badge| |Linting status badge| |Black status badge| |pypy status badge| |read the docs|
+
+.. image:: https://raw.githubusercontent.com/Hochfrequenz/mig_ahb_utility_stack/main/docs/_static/maus-logo.png
+   :target: https://mig-ahb-utility-stack.readthedocs.io/en/stable/api/maus.html
+   :align: right
+   :alt: maus logo
+   :width: 150px
+
+| This repository contains the Python package ``maus``.
+| MAUS is an acronym for **M**\ IG **A**\ HB **U**\ tility **S**\ tack where MIG stands for **M**\ essage **I**\ mplementation **G**\ uide and AHB stands for **A**\ nwendungs\ **h**\ and\ **b**\ uch.
+| The maus software/package allows matching single lines from the AHB with fields specified in the MIG.
+| This package is necessary because EDI\@Energy does not provide any real technical and machine-readable description of the MIGs and AHBs, only PDFs.
+| MAUS can also be used as a data model (``maus.model``) , without using the software or logic included in the package (MIG/AHB matching logic).
+
+We're all hoping for the day of true digitization on which this repository will become obsolete.
+
+What Problem Does It Solve?
+---------------------------
+Image you scraped the AHB PDFs into something machine-readable.
+Machine-readability in this context implies, that for each field/information inside the AHB you can easily access
+
+- segment group (e.g. "``SG4``")
+- segment (e.g. "``LOC``")
+- data element ID (e.g. "``3225``")
+- AHB Expressions (e.g. "``Muss [123] U ([456] O [789])[904]``")
+
+The exact data format (be it CSV, JSON, XML ...) is not important beyond an initial deserialization.
+
+(BTW: The AHB Expression can be parsed and evaluated using the `🦅 AHBicht Library <https://github.com/Hochfrequenz/ahbicht>`__ or our AHBicht REST API which is publicly available.)
+
+Image you also had a machine-readable version of the MIG -- spoiler: Hochfrequenz can help you with that (please contact
+`@JoschaMetze <https://github.com/joschametze>`_ for a demo) -- you still weren't able to make use of your data because the MIG data and AHB data are still unrelated.
+MAUS creates a connection between machine readable AHBs and machine readable MIGs.
+This allows to associate certain lines from the AHB with certain fields in the MIG and is the basis for a meaningful content evaluation/validation of EDIFACT messages, or, to be more precise, validation of data structures that might be converted to EDIFACT.
+
+Code Quality / Production Readiness
+-----------------------------------
+
+-  The code has at least a 95% unit test coverage. ✔️
+-  The code is rated 10/10 in pylint and type checked with mypy (PEP 561). ✔️
+-  The code is `MIT licensed <LICENSE>`__. ✔️
+-  There are only `few dependencies <requirements.in>`__. ✔️
+
+Installation
+------------
+For the bare maus data model and matching logic it's sufficient to install :code:`pip install maus`.
+Only if the MIG you're using is based on XML (namely the Hochfrequenz XML based MIG representation), you need to install :code:`pip install maus[xml]`.
+If you want to use the CLI tool, you need to install :code:`pip install maus[cli]`.
+
+Once installed you can either use the package and its data model in your own Python code or use the mapping logic (of only the Hochfrequenz EDIFACT XML templates as of now) via CLI: :code:`maus --flat_ahb_path flat_ahb_by_kohlrahbi.ahb.json --sgh_path path_to_segment_group_hierarchy.sgh.json --template_path UTILMD5.2e.template --output_path file_to_be_created.maus.json`. The CLI tool is not only available via pip but also as standalone executable in the respective release assets.
+
+Development
+-----------
+
+Please follow the detailed instructions in the `README of our Python
+Template
+Repository <https://github.com/Hochfrequenz/python_template_repository#how-to-use-this-repository-on-your-machine>`__
+on how to setup your local development environment (tl;dr: tox).
+
+Contribute
+----------
+
+You are very welcome to contribute to this template repository by
+opening a pull request against the main branch.
+
+.. |Unittests status badge| image:: https://github.com/Hochfrequenz/mig_ahb_utility_stack/workflows/Unittests/badge.svg
+.. |Coverage status badge| image:: https://github.com/Hochfrequenz/mig_ahb_utility_stack/workflows/Coverage/badge.svg
+.. |Linting status badge| image:: https://github.com/Hochfrequenz/mig_ahb_utility_stack/workflows/Linting/badge.svg
+.. |Black status badge| image:: https://github.com/Hochfrequenz/mig_ahb_utility_stack/workflows/Black/badge.svg
+.. |pypy status badge| image:: https://img.shields.io/pypi/v/maus
+.. |read the docs| image:: https://readthedocs.org/projects/mig-ahb-utility-stack/badge/?version=latest&style=flat

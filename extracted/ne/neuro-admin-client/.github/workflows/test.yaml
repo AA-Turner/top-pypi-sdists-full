@@ -1,0 +1,53 @@
+on:
+  workflow_call: {}
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        py_version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    steps:
+    - name: Checkout commit
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.py_version }}
+    - name: Cache packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-py-${{ matrix.py_version }}-${{ hashFiles('setup.py')
+          }}-${{ hashFiles('requirements.txt') }}
+    - name: Install dependencies
+      run: make setup
+    - name: Lint
+      run: |
+        echo "::add-matcher::.github/actionlint-matcher.json"
+        make lint
+      env:
+        CI_LINT_RUN: 1
+    - name: Run tests
+      run: make test
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./.coverage.xml
+        flags: py${{ matrix.py_version }}
+        name: codecov
+
+  check:
+    name: Check
+    needs:
+    - test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Decide whether the needed jobs succeeded or failed
+      uses: re-actors/alls-green@release/v1
+      with:
+        jobs: ${{ toJSON(needs) }}

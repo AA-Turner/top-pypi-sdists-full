@@ -159,9 +159,11 @@ def metadata_from_addon_dir(
     _set("Author", _no_nl(manifest.author))
     _set("Author-email", _author_email(manifest.author))
     _set("Classifier", _make_classifiers(odoo_series, manifest))
-    long_description = _long_description(addon)
+    long_description, long_description_content_type = _long_description(addon)
     if long_description:
         meta.set_payload(long_description)
+    if long_description_content_type:
+        _set("Description-Content-Type", long_description_content_type)
 
     return meta
 
@@ -379,11 +381,20 @@ def _no_nl(s: Optional[str]) -> Optional[str]:
     return " ".join(s.split())
 
 
-def _long_description(addon: Addon) -> Optional[str]:
+def _long_description(addon: Addon) -> Tuple[Optional[str], Optional[str]]:
+    """
+    :return: a tuple with long description and its content type
+    """
     readme_path = addon.path / "README.rst"
     if readme_path.is_file():
-        return readme_path.read_text(encoding="utf-8")
-    return addon.manifest.description
+        return readme_path.read_text(encoding="utf-8"), "text/x-rst"
+    readme_path = addon.path / "README.md"
+    if readme_path.is_file():
+        return readme_path.read_text(encoding="utf-8"), "text/markdown"
+    readme_path = addon.path / "README.txt"
+    if readme_path.is_file():
+        return readme_path.read_text(encoding="utf-8"), "text/plain"
+    return addon.manifest.description, "text/x-rst"
 
 
 def _make_classifiers(odoo_series: OdooSeries, manifest: Manifest) -> List[str]:
@@ -402,25 +413,21 @@ def _make_classifiers(odoo_series: OdooSeries, manifest: Manifest) -> List[str]:
         ),
         "gpl-2": "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "gpl-2 or any later version": (
-            "License :: OSI Approved :: "
-            "GNU General Public License v2 or later (GPLv2+)"
+            "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)"
         ),
         "gpl-3": "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "gpl-3 or any later version": (
-            "License :: OSI Approved :: "
-            "GNU General Public License v3 or later (GPLv3+)"
+            "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"
         ),
         "lgpl-2": (
-            "License :: OSI Approved :: "
-            "GNU Lesser General Public License v2 (LGPLv2)"
+            "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)"
         ),
         "lgpl-2 or any later version": (
             "License :: OSI Approved :: "
             "GNU Lesser General Public License v2 or later (LGPLv2+)"
         ),
         "lgpl-3": (
-            "License :: OSI Approved :: "
-            "GNU Lesser General Public License v3 (LGPLv3)"
+            "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)"
         ),
         "lgpl-3 or any later version": (
             "License :: OSI Approved :: "

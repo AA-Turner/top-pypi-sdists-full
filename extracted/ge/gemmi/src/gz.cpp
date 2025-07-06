@@ -88,6 +88,30 @@ bool GzStream::read(void* buf, size_t len) {
   return big_gzread((gzFile)f, buf, len) == len;
 }
 
+bool GzStream::skip(size_t n) {
+  return GG(gzseek)((gzFile)f, n, SEEK_CUR) != -1;
+}
+
+long GzStream::tell() {
+  return GG(gztell)((gzFile)f);
+}
+
+std::string GzStream::read_rest() {
+    std::string retval;
+    int c = getc();
+    if (c != EOF) {
+      retval += (char)c;
+      char buf[512];
+      for (;;) {
+        size_t n = big_gzread((gzFile)f, buf,  sizeof(buf));
+        retval.append(buf, n);
+        if (n != sizeof(buf))
+          break;
+      }
+    }
+    return retval;
+}
+
 
 MaybeGzipped::MaybeGzipped(const std::string& path) : BasicInput(path) {}
 

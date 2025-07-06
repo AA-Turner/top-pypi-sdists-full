@@ -1,2 +1,0 @@
-from .face_keypoint_head import FaceKeypointHead
-from .face_keypoint_pose_head import FacePoseHead

@@ -1,0 +1,17 @@
+[project]
+name = "cfile"
+version = "0.4.0"
+description = "A C code generator written in Python 3"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+Homepage = "https://github.com/cogu/cfile"
+Issues = "https://github.com/cogu/cfile/issues"

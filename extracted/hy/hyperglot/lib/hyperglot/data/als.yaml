@@ -1,0 +1,21 @@
+contributors:
+- Sergio Martins
+- David Březina
+- Vincent W.J. van Gerven Oei @vincentwj
+name: Tosk Albanian
+orthographies:
+- autonym: Shqip
+  base: <aln>
+  currency: <aln>
+  marks: <aln>
+  numerals: <default>
+  punctuation: <aln>
+  script: Latin
+  status: primary
+sources:
+- Tosk Albanian. (2024, August 8). In *Wikipedia*. https://en.wikipedia.org/wiki/Tosk_Albanian?oldid=1239264709
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 1800000
+speakers_date: 2011
+status: living
+validity: verified

@@ -190,11 +190,11 @@ def test_describing_function_plot():
 
     cplt = response.plot()
     assert len(plt.gcf().get_axes()) == 1       # make sure there is a plot
-    assert len(cplt.lines[0]) == 4 and len(cplt.lines[1]) == 1
+    assert len(cplt.lines[0]) == 5 and len(cplt.lines[1]) == 1
 
     # Call plot directly
     cplt = ct.describing_function_plot(H_larger, F_saturation, amp, omega)
-    assert len(cplt.lines[0]) == 4 and len(cplt.lines[1]) == 1
+    assert len(cplt.lines[0]) == 5 and len(cplt.lines[1]) == 1
 
 
 def test_describing_function_exceptions():
@@ -205,12 +205,12 @@ def test_describing_function_exceptions():
         assert saturation(3) == 2
 
     # Turn off the bias check
-    bias = ct.describing_function(saturation, 0, zero_check=False)
+    ct.describing_function(saturation, 0, zero_check=False)
 
     # Function should evaluate to zero at zero amplitude
     f = lambda x: x + 0.5
     with pytest.raises(ValueError, match="must evaluate to zero"):
-        bias = ct.describing_function(f, 0, zero_check=True)
+        ct.describing_function(f, 0, zero_check=True)
 
     # Evaluate at a negative amplitude
     with pytest.raises(ValueError, match="cannot evaluate"):
@@ -236,4 +236,4 @@ def test_describing_function_exceptions():
     # Describing function plot for non-describing function object
     resp = ct.frequency_response(H_simple)
     with pytest.raises(TypeError, match="data must be DescribingFunction"):
-        cplt = ct.describing_function_plot(resp)
+        ct.describing_function_plot(resp)

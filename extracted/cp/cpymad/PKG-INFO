@@ -1,0 +1,260 @@
+Metadata-Version: 2.1
+Name: cpymad
+Version: 1.17.0
+Summary: Cython binding to MAD-X
+Author: Yngve Inntjore Levinsen, Kajetan Fuchsberger
+Author-email: Thomas Gläßle <t_glaessle@gmx.de>
+Maintainer-email: Thomas Gläßle <t_glaessle@gmx.de>, Riccardo De Maria <riccardodemaria@gmail.com>
+License: Copying
+        ~~~~~~~
+        
+        cpymad must be used in compliance with the licenses as described in the
+        following sections:
+        
+        
+        License for cpymad source
+        =========================
+        
+        applies to the python source of the cpymad package::
+        
+            Copyright 2013-2020 Thomas Gläßle
+                      2013-2019 HIT Betriebs GmbH
+        
+            This program is free software: you can redistribute it and/or modify
+            it under the terms of the GNU General Public License as published by
+            the Free Software Foundation, either version 3 of the License, or
+            (at your option) any later version.
+        
+            This program is distributed in the hope that it will be useful,
+            but WITHOUT ANY WARRANTY; without even the implied warranty of
+            MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+            GNU General Public License for more details.
+        
+            You should have received a copy of the GNU General Public License
+            along with this program.  If not, see <http://www.gnu.org/licenses/>.
+        
+        For a full text version of the license, see ``LICENSE/GPLv3``.
+        
+        Note that this package is a heavily modified fork of the original
+        cern-cpymad package developed at CERN::
+        
+            Copyright (c) 2011, CERN. All rights reserved.
+        
+            Licensed under the Apache License, Version 2.0 (the "License");
+            you may not use cern-cpymad except in compliance with the License.
+            You may obtain a copy of the License at
+        
+                http://www.apache.org/licenses/LICENSE-2.0
+        
+            Unless required by applicable law or agreed to in writing, software
+            distributed under the License is distributed on an "AS IS" BASIS,
+            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            See the License for the specific language governing permissions and
+            limitations under the License.
+        
+        For details, see the version history or ask the package maintainer.
+        
+        
+        License for MAD-X
+        =================
+        
+        applies to binary distributions that do not require a separate
+        installation of MAD-X, i.e. binaries that are statically linked to MAD-X::
+        
+            CERN
+        
+            EUROPEAN ORGANISATION FOR NUCLEAR RESEARCH
+        
+        
+            Program name:                 MAD --- Methodical Accelerator Design
+        
+            CERN program library entry:   T5001
+        
+            Authors or contacts:          mad@cern.ch
+                                          BE-ABP Group
+                                          CERN
+                                          CH-1211 GENEVA 23
+                                          SWITZERLAND
+        
+        
+            Copyright CERN, Geneva 1990 - Copyright and any other appropriate legal
+            protection of this computer program and associated documentation reserved
+            in all countries of the world. Organisations collaborating with CERN may
+            receive this program and documentation freely and without charge. CERN
+            undertakes no obligation for the maintenance of this program, nor
+            responsibility for its correctness, and accepts no liability whatsoever
+            resulting from its use. Program and documentation are provided solely for
+            the use of the organisation to which they are distributed. This program
+            may not be copied or otherwise distributed without permission. This
+            message must be retained on this and any other authorised copies. The
+            material cannot be sold. CERN should be given credit in all references.
+        
+Project-URL: Github, https://github.com/hibtc/cpymad
+Project-URL: Issues, https://github.com/hibtc/cpymad/issues
+Project-URL: Documentation, http://hibtc.github.io/cpymad/
+Project-URL: Changelog, https://github.com/hibtc/cpymad/blob/master/CHANGES.rst
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.5
+Description-Content-Type: text/x-rst
+License-File: COPYING.rst
+Requires-Dist: numpy
+Requires-Dist: minrpc>=0.1.0
+Provides-Extra: doc
+Requires-Dist: sphinx; extra == "doc"
+Requires-Dist: sphinx_rtd_theme; extra == "doc"
+Requires-Dist: sphinx_substitution_extensions; extra == "doc"
+Requires-Dist: sphinx_automodapi; extra == "doc"
+Requires-Dist: sphinx_autodoc_typehints; extra == "doc"
+Requires-Dist: pandas; extra == "doc"
+Provides-Extra: dev
+Requires-Dist: cython; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+
+cpymad
+------
+|Version| |Python| |Platform| |License| |Tests| |Coverage| |Citation|
+
+cpymad is a Cython_ binding to MAD-X_ for giving full control and access to a
+MAD-X interpreter in python.
+
+.. _Cython: https://cython.org/
+.. _MAD-X: https://cern.ch/mad
+
+
+**Note:** Support for 32bit builds and python 2.7 has been removed in version
+1.8.0. Support for python 3.5 has been removed in version 1.10.0.
+
+**Note:** python 3.8 and below, as well as manylinux1 have reached EOL.
+Support will be removed in a future release.
+
+
+Links
+~~~~~
+
+- `Documentation`_:
+    - `Installation`_
+    - `Getting started`_
+
+- `Source code`_:
+    - `MAD-X source`_
+
+- `Issue tracker`_
+- `Releases`_
+
+.. _Getting started: http://hibtc.github.io/cpymad/getting-started
+.. _Installation: http://hibtc.github.io/cpymad/installation
+.. _Source code: https://github.com/hibtc/cpymad
+.. _Documentation: http://hibtc.github.io/cpymad
+.. _Issue tracker: https://github.com/hibtc/cpymad/issues
+.. _Releases: https://pypi.org/project/cpymad
+.. _MAD-X source: https://github.com/MethodicalAcceleratorDesign/MAD-X
+
+
+License
+~~~~~~~
+
+The cpymad source code itself is under free license, see COPYING.rst_.
+
+However, the MAD-X software package and henceforth all binary cpymad package
+distributions are **NOT FREE**., see `MAD-X license`_.
+
+.. _COPYING.rst: https://github.com/hibtc/cpymad/blob/master/COPYING.rst
+.. _MAD-X license: https://github.com/MethodicalAcceleratorDesign/MAD-X/blob/master/License.txt
+
+
+CHANGELOG
+~~~~~~~~~
+
+The full changelog is available online in CHANGES.rst_.
+
+.. _CHANGES.rst: https://github.com/hibtc/cpymad/blob/master/CHANGES.rst
+
+
+Reporting issues
+~~~~~~~~~~~~~~~~
+
+Note that cpymad links against a custom build of MAD-X that may differ from
+the official CERN command line client. This binary may have problems that the
+official binary does not have and vice versa.
+
+Therefore, before reporting issues, please make sure that you report to the
+correct recipient. First try to check if that problem remains when using the
+MAD-X command line client distributed by CERN, then report the issue:
+
+- to CERN if it can be reproduced with the official MAD-X executable
+- to us if it can not be reproduced with the official MAD-X executable
+
+Please keep the code in the bug report as minimal as possible, i.e. remove
+everything that can be removed such that the issue still occurs. This will
+save us some effort in handling the error report.
+
+Please post the code inline, don't upload zip files, or link to external
+sources, if possible.
+
+Bug reports should describe the issue and contain a minimal python script
+similar to this:
+
+.. code-block:: python
+
+    from cpymad.madx import Madx
+    m = Madx()
+    m.call('commands.madx')
+
+as well as the content of the ``commands.madx`` file.
+
+You can create this file from your original python code with a minimal change
+that tells cpymad to write all MAD-X commands to a file:
+
+.. code-block:: python
+
+   m = Madx(command_log='commands.madx')
+   ...
+
+Now run this file with the official MAD-X command line client::
+
+    madx commands.madx
+
+If ``madx`` reports the same error, check if there are any syntax errors in
+the ``commands.madx`` file. These may result from incorrect usage of cpymad,
+or bugs in cpymad.
+
+
+.. Badges:
+
+.. |Tests| image::      https://github.com/hibtc/cpymad/workflows/build/badge.svg
+   :target:             https://github.com/hibtc/cpymad/actions?query=workflow%3A%22build%22
+   :alt:                GitHub Actions Status
+
+.. |Coverage| image::   https://coveralls.io/repos/hibtc/cpymad/badge.svg?branch=master
+   :target:             https://coveralls.io/r/hibtc/cpymad
+   :alt:                Coverage
+
+.. |Version| image::    https://img.shields.io/pypi/v/cpymad.svg
+   :target:             https://pypi.org/project/cpymad
+   :alt:                Latest Version
+
+.. |License| image::    https://img.shields.io/badge/license-Mixed-red.svg
+   :target:             https://github.com/hibtc/cpymad/blob/master/COPYING.rst
+   :alt:                License: Source: CC0, Apache | Binary: Non-Free
+
+.. |Platform| image::   https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-blue
+   :target:             https://pypi.org/project/cpymad#files
+   :alt:                Supported platforms
+
+.. |Python| image::     https://img.shields.io/pypi/pyversions/cpymad.svg
+   :target:             https://pypi.org/project/cpymad#files
+   :alt:                Python versions
+
+.. |Citation| image::   https://zenodo.org/badge/DOI/10.5281/zenodo.4724856.svg
+   :target:             https://doi.org/10.5281/zenodo.4724856
+   :alt:                DOI and Citation

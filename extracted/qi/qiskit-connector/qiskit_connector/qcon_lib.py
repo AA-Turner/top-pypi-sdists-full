@@ -15,7 +15,8 @@
 # that they have been altered from the originals. All rights reserved by Dr. Jeffrey Chijioke-Uche.
 #_________________________________________________________________________________
 # This file is part of the Qiskit Connector Software.
-
+from pathlib import Path
+import os
 
 eagle = f"""                                                                         
                  ░▒███▒░▒███▒                                                       
@@ -161,26 +162,27 @@ condor = f"""
 ###########################################################################
 
 # Processors:
-eagle_processor = f"media/eagle-2021-removebg.png"
-heron_processor = f"media/heron-2023-removebg.png"
-flamingo_processor = f"media/flamingo-2025-removebg.png"
-condor_processor = f"media/condor-2023-removebg.png"
-egret_processor = f"media/egret-2023-removebg.png"
-falcon_processor = f"media/falcon-2019-removebg.png"
-hummingbird_processor = f"media/hummingbird-2019-removebg.png"
-canary_processor = f"media/canary-2017-removebg.png"
+eagle_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/eagle-2021-removebg.png"
+heron_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/heron-2023-removebg.png"
+flamingo_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/flamingo-2025-removebg.png"
+condor_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/condor-2023-removebg.png"
+egret_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/egret-2023-removebg.png"
+falcon_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/falcon-2019-removebg.png"
+hummingbird_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/hummingbird-2019-removebg.png"
+canary_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/canary-2017-removebg.png"
+# Effects images URLs
+j_eagle_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/eagle-2021-effects.png"
+j_heron_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/heron-2023-effects.png"
+j_flamingo_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/flamingo-2025-effects.png"
+j_condor_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/condor-2023-effects.png"
+j_egret_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/egret-2023-effects.png"
+j_falcon_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/falcon-2019-effects.png"
+j_hummingbird_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/hummingbird-2019-effects.png"
+j_canary_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/canary-2017-effects.png"
 
-j_eagle_processor = f"media/eagle-2021-effects.png"
-j_heron_processor = f"media/heron-2023-effects.png"
-j_flamingo_processor = f"media/flamingo-2025-effects.png"
-j_condor_processor = f"media/condor-2023-effects.png"
-j_egret_processor = f"media/egret-2023-effects.png"
-j_falcon_processor = f"media/falcon-2019-effects.png"
-j_hummingbird_processor = f"media/hummingbird-2019-effects.png"
-j_canary_processor = f"media/canary-2017-effects.png"
 
-##############################################################################
-qcon = f"""
+############################################################
+qcon =  rf"""
    ____   ______                                  __              
   / __ \ / ____/____   ____   ____   ___   _____ / /_ ____   _____
  / / / // /    / __ \ / __ \ / __ \ / _ \ / ___// __// __ \ / ___/

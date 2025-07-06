@@ -1,0 +1,18 @@
+name: Khetrani
+orthographies:
+- autonym: null
+  auxiliary: <pan>
+  base: <pan>
+  currency: <urd>
+  design_requirements: <pan>
+  marks: <pan>
+  note: Used in Pakistan.
+  numerals: <default>
+  punctuation: <default>
+  script: Arabic
+  status: primary
+sources:
+- Khetrani language. (2024, July 4). In *Wikipedia*. https://en.wikipedia.org/w/index.php?title=Khetrani_language&oldid=1232561196
+speakers: 100000
+speakers_date: 2017
+validity: preliminary

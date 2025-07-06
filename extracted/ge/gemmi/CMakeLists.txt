@@ -208,7 +208,7 @@ add_library(gemmi::headers ALIAS gemmi_headers)
 target_include_directories(gemmi_headers INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_compile_features(gemmi_headers INTERFACE cxx_std_17)
+target_compile_features(gemmi_headers INTERFACE cxx_std_14)
 set_target_properties(gemmi_headers PROPERTIES EXPORT_NAME headers)
 
 add_library(gemmi_cpp
@@ -218,7 +218,7 @@ add_library(gemmi_cpp
             src/monlib.cpp src/mtz.cpp src/mtz2cif.cpp
             src/pdb.cpp src/polyheur.cpp src/read_cif.cpp
             src/resinfo.cpp src/riding_h.cpp
-            src/select.cpp src/sprintf.cpp src/symmetry.cpp
+            src/select.cpp src/sprintf.cpp src/dssp.cpp src/symmetry.cpp
             src/to_json.cpp src/to_mmcif.cpp src/to_pdb.cpp src/topo.cpp
             src/xds_ascii.cpp)
 add_library(gemmi::gemmi_cpp ALIAS gemmi_cpp)
@@ -314,6 +314,7 @@ add_single_prog(residues)
 add_single_prog(rmsz)
 add_single_prog(sf2map ADD_SRC prog/mapcoef.cpp)
 add_single_prog(sfcalc)
+add_single_prog(ss)
 add_single_prog(sg)
 add_single_prog(tags)
 add_single_prog(validate ADD_SRC prog/validate_mon.cpp)
@@ -331,9 +332,9 @@ add_executable(gemmi_prog
                prog/mapcoef.cpp prog/mask.cpp prog/merge.cpp
                prog/mondiff.cpp prog/monlib_opt.cpp prog/mtz.cpp prog/mtz2cif.cpp
                prog/reindex.cpp prog/residues.cpp prog/rmsz.cpp prog/set.cpp
-               prog/sf2map.cpp prog/sfcalc.cpp prog/sg.cpp prog/tags.cpp
-               prog/validate.cpp prog/validate_mon.cpp prog/wcn.cpp
-               prog/xds2mtz.cpp
+               prog/sf2map.cpp prog/sfcalc.cpp prog/sg.cpp prog/ss.cpp
+               prog/tags.cpp prog/validate.cpp prog/validate_mon.cpp
+               prog/wcn.cpp prog/xds2mtz.cpp
                $<TARGET_OBJECTS:options>)
 add_executable(gemmi::prog ALIAS gemmi_prog)
 target_link_libraries(gemmi_prog PRIVATE gemmi_cpp)
@@ -379,11 +380,9 @@ target_compile_definitions(cpptest PRIVATE USE_STD_SNPRINTF=1)
 target_link_libraries(cpptest PRIVATE gemmi_cpp)
 target_include_directories(cpptest PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 
-add_executable(hello EXCLUDE_FROM_ALL examples/hello.cpp)
-target_link_libraries(hello PRIVATE gemmi_headers)
 add_executable(doc_example EXCLUDE_FROM_ALL
                docs/code/sym.cpp docs/code/elem.cpp docs/code/resinfo.cpp
-               docs/code/cell.cpp docs/code/mutate.cpp src/resinfo.cpp)
+               docs/code/cell.cpp docs/code/mutate.cpp)
 target_link_libraries(doc_example PRIVATE gemmi_cpp)
 add_executable(doc_example2 EXCLUDE_FROM_ALL docs/code/cif_cc.cpp)
 target_link_libraries(doc_example2 PRIVATE gemmi_headers)
@@ -417,7 +416,7 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} -C \"$<CONFIG>\")
 add_test(NAME cpptest COMMAND cpptest)
 
 add_dependencies(check
-    cpptest hello doc_example doc_example2 doc_newmtz
+    cpptest doc_example doc_example2 doc_newmtz
     test_disulf check_conn print-version)
 
 if (USE_FORTRAN)
@@ -439,7 +438,7 @@ endif()
 if (benchmark_FOUND)
   foreach(b stoi elem mod niggli pdb resinfo round sym writecif)
     add_executable(${b}-bm EXCLUDE_FROM_ALL benchmarks/${b}.cpp)
-    if (b MATCHES "elem|resinfo|pdb|writecif")
+    if (b MATCHES "elem|resinfo|pdb|sym|writecif")
       target_link_libraries(${b}-bm PRIVATE gemmi_cpp)
     endif()
     target_link_libraries(${b}-bm PRIVATE gemmi_headers benchmark::benchmark)
@@ -467,7 +466,7 @@ if (USE_PYTHON)
       COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
       OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nb_cmake_dir)
     list(APPEND CMAKE_PREFIX_PATH "${nb_cmake_dir}")
-    find_package(nanobind 2.2.0 CONFIG REQUIRED)
+    find_package(nanobind 2.4.0 CONFIG REQUIRED)
     message(STATUS "Found nanobind ${nanobind_VERSION}: ${NB_DIR}")
   endif()
   nanobind_add_module(gemmi_py NOMINSIZE

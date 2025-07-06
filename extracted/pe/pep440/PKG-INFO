@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: pep440
+Version: 0.1.2
+Summary: A simple package with utils to check whether versions number match PEP 440.
+Author-email: Matthias Bussonnier <bussonniermatthias@gmail.com>
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: check-manifest ; extra == "lint"
+Requires-Dist: mypy ; extra == "lint"
+Requires-Dist: pytest-console-scripts ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: pytest ; extra == "test"
+Project-URL: Homepage, https://github.com/Carreau/pep440
+Provides-Extra: lint
+Provides-Extra: test
+
+# PEP 440
+
+A simple package with utils to check whether versions number match [Pep
+440](https://www.python.org/dev/peps/pep-0440/)
+
+
+Example:
+
+```
+>>> from pep440 import is_canonical
+>>> is_canonical('4.1.0')
+True
+
+>>> is_canonical('4.2.1.beta2')  # 4.2.1b2 is correct
+False
+```
+
+For a bigger dependencies with more utilities see [PyPA Packaging (version
+submodule)](https://pypi.python.org/pypi/packaging)
+

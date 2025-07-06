@@ -1,0 +1,86 @@
+Metadata-Version: 2.2
+Name: craft-store
+Version: 3.3.0
+Summary: Store bindings for Snaps and Charms
+Author-email: "Canonical Ltd." <snapcraft@lists.snapcraft.io>
+Project-URL: Documentation, https://craft-store.readthedocs.io/en/latest/
+Project-URL: Source, https://github.com/canonical/craft-store
+Project-URL: Issues, https://github.com/canonical/craft-store/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: annotated-types>=0.6.0
+Requires-Dist: keyring>=23.0
+Requires-Dist: overrides>=7.0.0
+Requires-Dist: requests>=2.27.0
+Requires-Dist: requests-toolbelt>=1.0.0
+Requires-Dist: macaroonbakery!=1.3.3,>=1.3.0
+Requires-Dist: pydantic~=2.8
+Requires-Dist: pyxdg>=0.26
+Requires-Dist: jaraco-classes>=3.4.0
+Requires-Dist: httpx>=0.28
+Requires-Dist: typing_extensions>=4.12
+Provides-Extra: lint
+Requires-Dist: codespell[toml]~=2.3; extra == "lint"
+Requires-Dist: yamllint~=1.35; extra == "lint"
+Provides-Extra: types
+Requires-Dist: mypy[reports]~=1.13; extra == "types"
+Requires-Dist: types-PyYAML; extra == "types"
+Requires-Dist: types-Pygments; extra == "types"
+Requires-Dist: types-colorama; extra == "types"
+Requires-Dist: types-docutils; extra == "types"
+Requires-Dist: types-requests; extra == "types"
+Requires-Dist: types-setuptools; extra == "types"
+Provides-Extra: docs
+Requires-Dist: furo==2024.8.6; extra == "docs"
+Requires-Dist: lxd-sphinx-extensions==0.0.16; extra == "docs"
+Requires-Dist: myst-parser==4.0.0; extra == "docs"
+Requires-Dist: pyspelling==2.10; extra == "docs"
+Requires-Dist: sphinx==8.1.3; extra == "docs"
+Requires-Dist: sphinx-autobuild==2024.10.3; extra == "docs"
+Requires-Dist: sphinxcontrib-jquery==4.1; extra == "docs"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
+Requires-Dist: sphinx-design==0.6.1; extra == "docs"
+Requires-Dist: sphinxext-opengraph==0.9.1; extra == "docs"
+Requires-Dist: sphinx-lint==1.0.0; extra == "docs"
+Requires-Dist: sphinx-notfound-page==1.1.0; extra == "docs"
+Requires-Dist: sphinx-reredirects==0.1.5; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=3.0; extra == "docs"
+Requires-Dist: sphinx-tabs==3.4.7; extra == "docs"
+Requires-Dist: sphinx-toolbox>=2.5.0; extra == "docs"
+Provides-Extra: release
+Requires-Dist: twine; extra == "release"
+Requires-Dist: wheel; extra == "release"
+Provides-Extra: tics
+Requires-Dist: flake8; extra == "tics"
+Requires-Dist: pylint; extra == "tics"
+
+[![Documentation Status](https://readthedocs.com/projects/canonical-craft-store/badge/?version=latest)](https://canonical-craft-store.readthedocs-hosted.com/en/latest/?badge=latest)
+
+# Craft Store
+
+This project aims to provide python interfaces for communicating with
+Canonical Stores, such as Charmhub and the Snap Store.
+
+# License
+
+Free software: GNU Lesser General Public License v3
+
+# Documentation
+
+https://canonical-craft-store.readthedocs-hosted.com.
+
+# Contribute to Craft Store
+
+Craft Store is open source and part of the Canonical family. We would love your help.
+
+If you're interested, start with the [contribution guide](CONTRIBUTING.md).

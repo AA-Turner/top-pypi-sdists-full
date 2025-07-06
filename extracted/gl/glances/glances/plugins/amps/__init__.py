@@ -9,7 +9,6 @@
 """Monitor plugin."""
 
 from glances.amps_list import AmpsList as glancesAmpsList
-from glances.globals import iteritems
 from glances.plugins.plugin.model import GlancesPluginModel
 
 # Fields description
@@ -29,7 +28,7 @@ fields_description = {
 }
 
 
-class PluginModel(GlancesPluginModel):
+class AmpsPlugin(GlancesPluginModel):
     """Glances AMPs plugin."""
 
     def __init__(self, args=None, config=None):
@@ -56,7 +55,7 @@ class PluginModel(GlancesPluginModel):
         stats = self.get_init_value()
 
         if self.input_method == 'local':
-            for k, v in iteritems(self.glances_amps.update()):
+            for v in self.glances_amps.update().values():
                 stats.append(
                     {
                         'key': self.get_key(),
@@ -68,7 +67,7 @@ class PluginModel(GlancesPluginModel):
                         'countmin': v.count_min(),
                         'countmax': v.count_max(),
                         'regex': v.regex() is not None,
-                    },
+                    }
                 )
         else:
             # Not available in SNMP mode

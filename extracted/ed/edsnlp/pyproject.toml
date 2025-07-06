@@ -1,0 +1,469 @@
+[project]
+name = "edsnlp"
+description = "Modular, fast NLP framework, compatible with Pytorch and spaCy, offering tailored support for French clinical notes."
+authors = [
+    { name = "Data Science - DSN APHP", email = "perceval.wajsburt@aphp.fr" }
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.7.1"
+dynamic = ['version']
+dependencies = [
+    "loguru",
+    "pytz",
+    "pysimstring>=1.2.1",
+    "regex",
+    # spacy doesn't provide binaries for python<3.9 from 3.8.2 so we need to cap it ourself
+    "spacy>=3.2,<3.8.2; python_version<'3.9'",
+    # at the moment, spacy >=3.8.7 requires cython 3 and messes up the registration of factories
+    "spacy>=3.8.5,<3.8.7; python_version>='3.9'",
+    # thinc doesn't provide binaries for python<3.9 from 8.2.5 so we need to cap it ourself
+    "thinc<8.2.5; python_version<'3.9'",
+    "thinc>=8.2.5; python_version>='3.9'",
+    # blis>1.2.0 (dependency of thinc) doesn't provide binaries for python<3.10 so we need to cap it ourself
+    "blis<1.0.0; python_version<'3.9'",
+    "blis<1.2.1; python_version>='3.9' and python_version<'3.10'",
+    "confit>=0.7.3",
+    "tqdm",
+    "umls-downloader>=0.1.1",
+    "numpy>=1.15.0",
+    "pandas>=1.1.0; python_version<'3.8'",
+    "pandas>=1.4.0; python_version>='3.8'",
+    "typing-extensions>=4.0.0",
+    "dill",
+    # Packaging
+    "build>=1.0.0",
+    "toml",
+    "xxhash",
+    "pyarrow>=3.0.0",  # support for fragment.metadata.num_rows
+    "fsspec; python_version>='3.8'",
+    "fsspec<2023.1.0; python_version<'3.8'",
+    # this is only to avoid backtracking issues with spacy's capping
+    "pydantic>=1.10.2",
+    "pydantic<2.0.0; python_version<'3.8'",
+    "pydantic-core<2.0.0; python_version<'3.8'",
+]
+[project.optional-dependencies]
+dev-no-ml = [
+    "pre-commit>=2.0.0; python_version<'3.8'",
+    "pre-commit>=2.21.0; python_version>='3.8'",
+    "pytest>=7.1.0",
+    "pytest-cov>=3.0.0",
+    "pytest-timeout",
+
+    # Data libs
+    "koalas>=1.8.1; python_version<'3.8'",
+    "pyspark<4.0.0",  # TODO: uncap when we figure out the CI issue with pyspark 4.0.0
+    "polars",
+
+    "scikit-learn",
+
+    # Packaging
+    "poetry",
+
+    "edsnlp[docs-no-ml]",
+]
+docs-no-ml = [
+    "mike~=1.1.2",
+    "mkdocs-charts-plugin==0.0.8",
+    "mkdocs-img2fig-plugin==0.9.3",
+    "mkdocs-material~=9.2.0",
+    "mkdocs-section-index==0.3.4",
+    "mkdocs~=1.5.2",
+    "mkdocstrings>=0.20,<0.28.0",
+    "mkdocstrings-python~=1.1",
+    "mkdocs-minify-plugin",
+    "mkdocs-redirects>=1.2.1;python_version>='3.8'",
+    "markdown-grid-tables==0.4.0",
+    "pybtex~=0.24.0",
+    "pathspec>=0.11.1",  # required by vendored mkdocs-autorefs PR
+    "astunparse",
+    "griffe<0.39",
+    "jedi",
+    "html5lib",
+]
+ml = [
+    "rich-logger>=0.3.1",
+    # TODO: uv doesn't seem to resolve torch correctly, unless we cap it ourself
+    "torch>=1.13.0,<2.0.0; python_version<'3.8'",
+    "torch>=1.13.0,<2.5.0; python_version<'3.9'",
+    "torch>=1.13.0; python_version>='3.9'",
+    "foldedtensor>=0.4.0",
+    "safetensors>=0.3.0; python_version>='3.8'",
+    "safetensors>=0.3.0,<0.5.0; python_version<'3.8'",
+    "transformers>=4.0.0,<5.0.0",
+    "accelerate>=0.20.3,<1.0.0",
+]
+docs = [
+    "edsnlp[docs-no-ml]",
+    "edsnlp[ml]",
+]
+dev = [
+    "edsnlp[dev-no-ml]",
+    "edsnlp[ml]",
+    "optuna>=4.0.0",
+    "plotly>=5.18.0", # required by optuna viz
+    "ruamel.yaml>=0.18.0",
+    "configobj>=5.0.9",
+    "scikit-learn",
+]
+setup = [
+    "mlconjug3<3.9.0",  # bug https://github.com/Ars-Linguistica/mlconjug3/pull/506
+    "numpy<2",  # mlconjug has scikit-learn dep which doesn't support for numpy 2 yet
+]
+
+[project.urls]
+"Source Code" = "https://github.com/aphp/edsnlp"
+"Documentation" = "https://aphp.github.io/edsnlp"
+"Demo" = "https://aphp.github.io/edsnlp/demo"
+"Bug Tracker" = "https://github.com/aphp/edsnlp/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "edsnlp.__version__" }
+
+[tool.setuptools.package-data]
+"edsnlp" = [
+    "**/*.pyx",
+    "**/*.pxd",
+    "**/*.pxi",
+    "resources/*.csv",
+    "resources/*.json",
+    "resources/*.csv.gz",
+    "resources/*.json.gz",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.entry-points."edsnlp_core"]
+"pipeline"  = "edsnlp.core.pipeline:Pipeline"
+"load"      = "edsnlp.core.pipeline:load"
+"optimizer" = "edsnlp.training.optimizer:ScheduledOptimizer"
+
+[project.entry-points."spacy_factories"]
+# Core
+"eds.accents"                     = "edsnlp.pipes.core.normalizer.accents.factory:create_component"
+"eds.contextual_matcher"          = "edsnlp.pipes.core.contextual_matcher.factory:create_component"
+"eds.endlines"                    = "edsnlp.pipes.core.endlines.factory:create_component"
+"eds.matcher"                     = "edsnlp.pipes.core.matcher.factory:create_component"
+"eds.normalizer"                  = "edsnlp.pipes.core.normalizer.factory:create_component"
+"eds.pollution"                   = "edsnlp.pipes.core.normalizer.pollution.factory:create_component"
+"eds.quotes"                      = "edsnlp.pipes.core.normalizer.quotes.factory:create_component"
+"eds.remove_lowercase"            = "edsnlp.pipes.core.normalizer.remove_lowercase.factory:create_component"
+"eds.sentences"                   = "edsnlp.pipes.core.sentences.factory:create_component"
+"eds.spaces"                      = "edsnlp.pipes.core.normalizer.spaces.factory:create_component"
+"eds.terminology"                 = "edsnlp.pipes.core.terminology.factory:create_component"
+
+# NER
+"eds.adicap"                      = "edsnlp.pipes.ner.adicap.factory:create_component"
+"eds.emergency_ccmu"              = "edsnlp.pipes.ner.scores.emergency.ccmu.factory:create_component"
+"eds.charlson"                    = "edsnlp.pipes.ner.scores.charlson.factory:create_component"
+"eds.cim10"                       = "edsnlp.pipes.ner.cim10.factory:create_component"
+"eds.covid"                       = "edsnlp.pipes.ner.covid.factory:create_component"
+"eds.drugs"                       = "edsnlp.pipes.ner.drugs.factory:create_component"
+"eds.elston_ellis"                = "edsnlp.pipes.ner.scores.elston_ellis.factory:create_component"
+"eds.emergency_gemsa"             = "edsnlp.pipes.ner.scores.emergency.gemsa.factory:create_component"
+"eds.emergency_priority"          = "edsnlp.pipes.ner.scores.emergency.priority.factory:create_component"
+"eds.score"                       = "edsnlp.pipes.ner.scores.factory:create_component"
+"eds.sofa"                        = "edsnlp.pipes.ner.scores.sofa.factory:create_component"
+"eds.tnm"                         = "edsnlp.pipes.ner.tnm.factory:create_component"
+"eds.umls"                        = "edsnlp.pipes.ner.umls.factory:create_component"
+"eds.suicide_attempt"             = "edsnlp.pipes.ner.suicide_attempt.factory:create_component"
+
+# NER/Comorbidities
+"eds.aids"                        = "edsnlp.pipes.ner.disorders.aids.factory:create_component"
+"eds.alcohol"                     = "edsnlp.pipes.ner.behaviors.alcohol.factory:create_component"
+"eds.cerebrovascular_accident"    = "edsnlp.pipes.ner.disorders.cerebrovascular_accident.factory:create_component"
+"eds.ckd"                         = "edsnlp.pipes.ner.disorders.ckd.factory:create_component"
+"eds.congestive_heart_failure"    = "edsnlp.pipes.ner.disorders.congestive_heart_failure.factory:create_component"
+"eds.connective_tissue_disease"   = "edsnlp.pipes.ner.disorders.connective_tissue_disease.factory:create_component"
+"eds.copd"                        = "edsnlp.pipes.ner.disorders.copd.factory:create_component"
+"eds.dementia"                    = "edsnlp.pipes.ner.disorders.dementia.factory:create_component"
+"eds.diabetes"                    = "edsnlp.pipes.ner.disorders.diabetes.factory:create_component"
+"eds.hemiplegia"                  = "edsnlp.pipes.ner.disorders.hemiplegia.factory:create_component"
+"eds.leukemia"                    = "edsnlp.pipes.ner.disorders.leukemia.factory:create_component"
+"eds.liver_disease"               = "edsnlp.pipes.ner.disorders.liver_disease.factory:create_component"
+"eds.lymphoma"                    = "edsnlp.pipes.ner.disorders.lymphoma.factory:create_component"
+"eds.myocardial_infarction"       = "edsnlp.pipes.ner.disorders.myocardial_infarction.factory:create_component"
+"eds.peptic_ulcer_disease"        = "edsnlp.pipes.ner.disorders.peptic_ulcer_disease.factory:create_component"
+"eds.peripheral_vascular_disease" = "edsnlp.pipes.ner.disorders.peripheral_vascular_disease.factory:create_component"
+"eds.solid_tumor"                 = "edsnlp.pipes.ner.disorders.solid_tumor.factory:create_component"
+"eds.tobacco"                     = "edsnlp.pipes.ner.behaviors.tobacco.factory:create_component"
+
+# Span classifiers
+"eds.family"                      = "edsnlp.pipes.qualifiers.family.factory:create_component"
+"eds.history"                     = "edsnlp.pipes.qualifiers.history.factory:create_component"
+"eds.hypothesis"                  = "edsnlp.pipes.qualifiers.hypothesis.factory:create_component"
+"eds.negation"                    = "edsnlp.pipes.qualifiers.negation.factory:create_component"
+"eds.reported_speech"             = "edsnlp.pipes.qualifiers.reported_speech.factory:create_component"
+
+# Misc
+"eds.consultation_dates"          = "edsnlp.pipes.misc.consultation_dates.factory:create_component"
+"eds.dates"                       = "edsnlp.pipes.misc.dates.factory:create_component"
+"eds.quantities"                  = "edsnlp.pipes.misc.quantities.factory:create_component"
+"eds.reason"                      = "edsnlp.pipes.misc.reason.factory:create_component"
+"eds.sections"                    = "edsnlp.pipes.misc.sections.factory:create_component"
+"eds.tables"                      = "edsnlp.pipes.misc.tables.factory:create_component"
+
+# Data
+"eds.split"                       = "edsnlp.pipes.misc.split.split:Split"
+"eds.standoff_dict2doc"           = "edsnlp.data.converters:StandoffDict2DocConverter"
+"eds.standoff_doc2dict"           = "edsnlp.data.converters:StandoffDoc2DictConverter"
+"eds.conll_dict2doc"              = "edsnlp.data.converters:ConllDict2DocConverter"
+"eds.omop_dict2doc"               = "edsnlp.data.converters:OmopDict2DocConverter"
+"eds.omop_doc2dict"               = "edsnlp.data.converters:OmopDoc2DictConverter"
+"eds.ents_doc2dict"               = "edsnlp.data.converters:EntsDoc2DictConverter"
+"eds.markup_to_doc"               = "edsnlp.data.converters:MarkupToDocConverter"
+
+# Deprecated (links to the same factories as above)
+"SOFA"                   = "edsnlp.pipes.ner.scores.sofa.factory:create_component"
+"accents"                = "edsnlp.pipes.core.normalizer.accents.factory:create_component"
+"charlson"               = "edsnlp.pipes.ner.scores.charlson.factory:create_component"
+"consultation_dates"     = "edsnlp.pipes.misc.consultation_dates.factory:create_component"
+"contextual-matcher"     = "edsnlp.pipes.core.contextual_matcher.factory:create_component"
+"eds.contextual-matcher" = "edsnlp.pipes.core.contextual_matcher.factory:create_component"
+"dates"                  = "edsnlp.pipes.misc.dates.factory:create_component"
+"eds.AIDS"               = "edsnlp.pipes.ner.disorders.aids.factory:create_component"
+"eds.CKD"                = "edsnlp.pipes.ner.disorders.ckd.factory:create_component"
+"eds.COPD"               = "edsnlp.pipes.ner.disorders.copd.factory:create_component"
+"eds.SOFA"               = "edsnlp.pipes.ner.scores.sofa.factory:create_component"
+"eds.TNM"                = "edsnlp.pipes.ner.tnm.factory:create_component"
+"eds.elston-ellis"       = "edsnlp.pipes.ner.scores.elston_ellis.factory:create_component"
+"eds.elstonellis"        = "edsnlp.pipes.ner.scores.elston_ellis.factory:create_component"
+"eds.emergency.ccmu"     = "edsnlp.pipes.ner.scores.emergency.ccmu.factory:create_component"
+"eds.emergency.gemsa"    = "edsnlp.pipes.ner.scores.emergency.gemsa.factory:create_component"
+"eds.emergency.priority" = "edsnlp.pipes.ner.scores.emergency.priority.factory:create_component"
+"eds.measures"           = "edsnlp.pipes.misc.quantities.factory:create_component"
+"eds.measurements"       = "edsnlp.pipes.misc.quantities.factory:create_component"
+"eds.remove-lowercase"   = "edsnlp.pipes.core.normalizer.remove_lowercase.factory:create_component"
+"emergency.ccmu"         = "edsnlp.pipes.ner.scores.emergency.ccmu.factory:create_component"
+"emergency.gemsa"        = "edsnlp.pipes.ner.scores.emergency.gemsa.factory:create_component"
+"emergency.priority"     = "edsnlp.pipes.ner.scores.emergency.priority.factory:create_component"
+"endlines"               = "edsnlp.pipes.core.endlines.factory:create_component"
+"family"                 = "edsnlp.pipes.qualifiers.family.factory:create_component"
+"hypothesis"             = "edsnlp.pipes.qualifiers.hypothesis.factory:create_component"
+"matcher"                = "edsnlp.pipes.core.matcher.factory:create_component"
+"negation"               = "edsnlp.pipes.qualifiers.negation.factory:create_component"
+"normalizer"             = "edsnlp.pipes.core.normalizer.factory:create_component"
+"pollution"              = "edsnlp.pipes.core.normalizer.pollution.factory:create_component"
+"quotes"                 = "edsnlp.pipes.core.normalizer.quotes.factory:create_component"
+"reason"                 = "edsnlp.pipes.misc.reason.factory:create_component"
+"remove-lowercase"       = "edsnlp.pipes.core.normalizer.remove_lowercase.factory:create_component"
+"reported_speech"        = "edsnlp.pipes.qualifiers.reported_speech.factory:create_component"
+"rspeech"                = "edsnlp.pipes.qualifiers.reported_speech.factory:create_component"
+"score"                  = "edsnlp.pipes.ner.scores.factory:create_component"
+"sections"               = "edsnlp.pipes.misc.sections.factory:create_component"
+"sentences"              = "edsnlp.pipes.core.sentences.factory:create_component"
+"spaces"                 = "edsnlp.pipes.core.normalizer.spaces.factory:create_component"
+"tables"                 = "edsnlp.pipes.misc.tables.factory:create_component"
+"terminology"            = "edsnlp.pipes.core.terminology.factory:create_component"
+
+# We could use spacy_factories in principle, but spacy auto-imports all entry points
+# by default, when some of ours require optional dependencies (on the other hand,
+# edsnlp only import an entrypoint if it is requested). By splitting our pipes between
+# spacy_factories and edsnlp_factories, spacy will only look in the dict above and
+# edsnlp will look both in the above dict and in the one below.
+[project.entry-points."edsnlp_factories"]
+# Trainable
+"eds.transformer"         = "edsnlp.pipes.trainable.embeddings.transformer.factory:create_component"
+"eds.text_cnn"            = "edsnlp.pipes.trainable.embeddings.text_cnn.factory:create_component"
+"eds.span_pooler"         = "edsnlp.pipes.trainable.embeddings.span_pooler.factory:create_component"
+"eds.ner_crf"             = "edsnlp.pipes.trainable.ner_crf.factory:create_component"
+"eds.extractive_qa"      = "edsnlp.pipes.trainable.extractive_qa.factory:create_component"
+"eds.nested_ner"          = "edsnlp.pipes.trainable.ner_crf.factory:create_component"
+"eds.span_qualifier"     = "edsnlp.pipes.trainable.span_classifier.factory:create_component"
+"eds.span_classifier"     = "edsnlp.pipes.trainable.span_classifier.factory:create_component"
+"eds.span_linker"         = "edsnlp.pipes.trainable.span_linker.factory:create_component"
+"eds.biaffine_dep_parser" = "edsnlp.pipes.trainable.biaffine_dep_parser.factory:create_component"
+
+[project.entry-points."edsnlp_schedules"]
+"linear" = "edsnlp.training.optimizer:LinearSchedule"
+
+[project.entry-points."spacy_scorers"]
+"eds.ner_exact"              = "edsnlp.metrics.ner:NerExactMetric"
+"eds.ner_token"              = "edsnlp.metrics.ner:NerTokenMetric"
+"eds.ner_overlap"            = "edsnlp.metrics.ner:NerOverlapMetric"
+"eds.span_attribute"         = "edsnlp.metrics.span_attribute:SpanAttributeMetric"
+"eds.dep_parsing"            = "edsnlp.metrics.dep_parsing:DependencyParsingMetric"
+
+# Deprecated
+"eds.ner_exact_metric"       = "edsnlp.metrics.ner:NerExactMetric"
+"eds.ner_token_metric"       = "edsnlp.metrics.ner:NerTokenMetric"
+"eds.ner_overlap_metric"     = "edsnlp.metrics.ner:NerOverlapMetric"
+"eds.span_attributes_metric" = "edsnlp.metrics.span_attributes:SpanAttributeMetric"
+"eds.span_attributes"        = "edsnlp.metrics.span_attribute:SpanAttributeMetric"
+"eds.ner_exact_scorer"       = "edsnlp.metrics.ner:NerExactMetric"
+"eds.ner_token_scorer"       = "edsnlp.metrics.ner:NerTokenMetric"
+"eds.ner_overlap_scorer"     = "edsnlp.metrics.ner:NerOverlapMetric"
+"eds.span_attributes_scorer" = "edsnlp.metrics.span_attributes:SpanAttributeMetric"
+
+[project.entry-points."edsnlp_readers"]
+"spark" =    "edsnlp.data:from_spark"
+"pandas" =   "edsnlp.data:from_pandas"
+"json" =     "edsnlp.data:read_json"
+"parquet" =  "edsnlp.data:read_parquet"
+"standoff" = "edsnlp.data:read_standoff"
+"brat"     = "edsnlp.data:read_brat"  # alias for standoff
+"conll"    = "edsnlp.data:read_conll"
+
+[project.entry-points."edsnlp_writers"]
+"spark" =    "edsnlp.data:to_spark"
+"pandas" =   "edsnlp.data:to_pandas"
+"json" =     "edsnlp.data:write_json"
+"standoff" = "edsnlp.data:write_standoff"
+"brat"     = "edsnlp.data:write_brat"  # alias for standoff
+
+[project.entry-points."spacy_misc"]
+"eds.span_context_getter" = "edsnlp.utils.span_getters:make_span_context_getter"
+
+[project.entry-points."spacy_languages"]
+"eds" = "edsnlp.language:EDSLanguage"
+
+[project.entry-points."spacy_tokenizers"]
+"eds.tokenizer" = "edsnlp.language:create_eds_tokenizer"
+
+[project.entry-points."mkdocs.plugins"]
+"bibtex" = "docs.scripts.bibtex:BibTexPlugin"
+"autorefs" = "docs.scripts.autorefs.plugin:AutorefsPlugin"
+"clickable_snippets" = "docs.scripts.clickable_snippets:ClickableSnippetsPlugin"
+
+[build-system]
+requires = [
+    "setuptools",
+    "cython>=0.25,<3.1.0",  # v3 causes issues with spacy and numpy (.../spacy/tokens/token.pxd:1:0: 'numpy/ndarray.pxd' not found)
+    "spacy>=3.2,!=3.8.2; python_version<'3.9'",
+    "spacy>=3.2,!=3.8.2,<4.0.0; python_version>='3.9'",
+    # thinc doesn't provide binaries for python<3.9 from 8.2.5 so we need to cap it ourselves
+    "thinc<8.2.5; python_version<'3.9'",
+    "thinc>=8.2.5; python_version>='3.9'",
+    # to update from https://github.com/scipy/oldest-supported-numpy/blob/main/setup.cfg
+    # while setting numpy >= 1.15.0 due to spacy reqs
+    "numpy==1.15.0; python_version=='3.7' and platform_machine not in 'arm64|aarch64|loongarch64' and platform_system!='AIX' and platform_python_implementation != 'PyPy'",
+    "numpy==1.15.0; python_version=='3.7' and platform_machine=='arm64' and platform_system=='Windows' and platform_python_implementation != 'PyPy'",
+    "numpy==1.16.0; python_version=='3.7' and platform_system=='AIX' and platform_machine!='loongarch64' and platform_python_implementation != 'PyPy'",
+    "numpy==1.17.3; python_version=='3.8' and platform_machine not in 'arm64|aarch64|s390x|loongarch64' and platform_python_implementation != 'PyPy'",
+    "numpy==1.17.3; python_version=='3.8' and platform_machine=='arm64' and platform_system=='Windows' and platform_python_implementation != 'PyPy'",
+    "numpy==1.17.5; python_version=='3.8' and platform_machine=='s390x' and platform_python_implementation != 'PyPy'",
+    "numpy==1.19.0; python_version=='3.6' and platform_machine!='loongarch64' and platform_python_implementation=='PyPy'",
+    "numpy==1.19.2; python_version=='3.7' and platform_machine=='aarch64' and platform_system!='AIX' and platform_python_implementation != 'PyPy'",
+    "numpy==1.19.2; python_version=='3.8' and platform_machine=='aarch64' and platform_python_implementation != 'PyPy'",
+    "numpy==1.20.0; python_version=='3.7' and platform_machine!='loongarch64' and platform_python_implementation=='PyPy'",
+    "numpy==1.21.0; python_version=='3.7' and platform_machine=='arm64' and platform_system=='Darwin' and platform_python_implementation!='PyPy'",
+    "numpy==1.21.0; python_version=='3.8' and platform_machine=='arm64' and platform_system=='Darwin' and platform_python_implementation!='PyPy'",
+    "numpy==1.22.2; python_version>='3.8' and python_version<'3.9' and platform_machine=='loongarch64' and platform_python_implementation!='PyPy'",
+    "numpy==1.22.2; python_version=='3.8' and platform_machine!='loongarch64' and platform_python_implementation=='PyPy'",
+    "numpy>=2.0; python_version>='3.9'",
+    "blis<1.0.0; python_version<'3.9'",
+    "blis<1.2.1; python_version>='3.9' and python_version<'3.10'",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+fix = true
+extend-exclude = [
+    ".git",
+    "__pycache__",
+    "__init__.py",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".venv",
+    "build",
+    "edsnlp/pipes/factories.py",
+]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I001"
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["F401"]
+"edsnlp/pipes/factories.py" = [ "F401", "E501" ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["edsnlp"]
+known-third-party = ["build"]
+order-by-type = true
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = false
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+ignore-setters = true
+fail-under = 40
+exclude = ["setup.py", "docs", "build", "tests", "edsnlp/pipes/core/contextual_matcher/models.py"]
+verbose = 0
+quiet = false
+whitelist-regex = []
+ignore-regex = ['__(?!init).*__']
+color = true
+omit-covered-files = false
+# generate-badge = "."
+# badge-format = "svg"
+
+[tool.pytest.ini_options]
+# Some tests may download large objects such as the UMLS
+# This timeout is mostly here to kill the CI in the case of deadlocks or infinite loops
+timeout = 600
+
+[tool.coverage.report]
+precision = 2
+include = ["edsnlp/*"]
+omit = [
+    "tests/*",
+]
+exclude_lines = [
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "@overload",
+    "pragma: no cover",
+    "raise .*Error",
+    "raise .*Exception",
+    "warn\\(",
+    "if __name__ == .__main__.:",
+    "if repr_id in exclude:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "Span.set_extension.*",
+    "Doc.set_extension.*",
+    "Token.set_extension.*",
+]
+
+[tool.coverage.run]
+include = ["edsnlp/*"]
+concurrency = ["multiprocessing", "thread"]
+parallel = true
+
+[tool.uv.pip]
+torch-backend = "auto"
+
+[tool.cibuildwheel]
+skip = [
+    "*p36-*", # Skip Python 3.6
+    "pp*", # Skip PyPy
+    "*-win32", # Skip 32-bit Windows
+    "*-manylinux_i686", # Skip 32-bit Linux
+    "*-win_arm64", # Skip experimental Windows on ARM
+    "*-musllinux*", # Skip slow Linux
+    "*-manylinux_ppc64le", # Skip slow Linux
+    "*-manylinux_s390x", # Skip slow Linux
+    "*p313-*", # skip 3.13 for now (spacy build issue): users will have to build it on their own
+]
+
+before-test = 'pip install pytest "urllib3<2"'
+test-extras = "ml"
+test-command = "pytest {project}/tests/pipelines/test_pipelines.py"

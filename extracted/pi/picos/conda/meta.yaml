@@ -1,0 +1,31 @@
+package:
+  name: picos
+  version: {{ load_setup_py_data().version }}
+
+source:
+  git_url: ..
+
+build:
+  number: 0
+  include_recipe: False
+
+requirements:
+  build:
+    - python {{ python }}
+    - setuptools
+
+  run:
+    - python {{ python }}
+    - cvxopt
+    - numpy
+
+test:
+  imports:
+    - picos
+
+about:
+  description: "A python interface to conic optimization solvers."
+  home: https://gitlab.com/picos-api/picos
+  license: GPL-3.0
+
+# vi:ts=2:et:ai

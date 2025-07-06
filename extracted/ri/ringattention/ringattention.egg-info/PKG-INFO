@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: ringattention
+Version: 0.1.2
+Summary: RingAttention for Transformers with Arbitrarily Large Context.
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/forhaoliu/ringattention
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: jax>=0.4.29
+Requires-Dist: einops
+Requires-Dist: flax

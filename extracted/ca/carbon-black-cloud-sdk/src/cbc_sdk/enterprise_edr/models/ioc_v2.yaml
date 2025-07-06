@@ -1,0 +1,33 @@
+# *******************************************************
+# Copyright (c) Broadcom, Inc. 2020-2025. All Rights Reserved. Carbon Black.
+# SPDX-License-Identifier: MIT
+# *******************************************************
+# *
+# * DISCLAIMER. THIS PROGRAM IS PROVIDED TO YOU "AS IS" WITHOUT
+# * WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER ORAL OR WRITTEN,
+# * EXPRESS OR IMPLIED. THE AUTHOR SPECIFICALLY DISCLAIMS ANY IMPLIED
+# * WARRANTIES OR CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY,
+# * NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE.
+type: object
+required:
+  - id
+  - match_type
+  - values
+properties:
+  id:
+    type: string
+    description: The IOC_V2's unique ID
+  match_type:
+    type: string
+    description: How IOCs in this IOC_V2 are matched
+  values:
+    type: array
+    items:
+      type: string
+    description: A list of IOCs
+  field:
+    type: string
+    description: The kind of IOCs contained in this IOC_V2
+  link:
+    type: string
+    description: A URL for some reference for this IOC_V2

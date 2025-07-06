@@ -1,0 +1,83 @@
+Metadata-Version: 2.1
+Name: aws-cdk.aws-chatbot
+Version: 1.204.0
+Summary: The CDK Construct Library for AWS::Chatbot
+Home-page: https://github.com/aws/aws-cdk
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/aws/aws-cdk.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 7 - Inactive
+Classifier: License :: OSI Approved
+Classifier: Framework :: AWS CDK
+Classifier: Framework :: AWS CDK :: 1
+Requires-Python: ~=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+
+# AWS::Chatbot Construct Library
+
+<!--BEGIN STABILITY BANNER-->---
+
+
+![End-of-Support](https://img.shields.io/badge/End--of--Support-critical.svg?style=for-the-badge)
+
+> AWS CDK v1 has reached End-of-Support on 2023-06-01.
+> This package is no longer being updated, and users should migrate to AWS CDK v2.
+>
+> For more information on how to migrate, see the [*Migrating to AWS CDK v2* guide](https://docs.aws.amazon.com/cdk/v2/guide/migrating-v2.html).
+
+---
+<!--END STABILITY BANNER-->
+
+AWS Chatbot is an AWS service that enables DevOps and software development teams to use Slack chat rooms to monitor and respond to operational events in their AWS Cloud. AWS Chatbot processes AWS service notifications from Amazon Simple Notification Service (Amazon SNS), and forwards them to Slack chat rooms so teams can analyze and act on them immediately, regardless of location.
+
+This module is part of the [AWS Cloud Development Kit](https://github.com/aws/aws-cdk) project.
+
+```python
+import aws_cdk.aws_chatbot as chatbot
+import aws_cdk.aws_sns as sns
+import aws_cdk.aws_iam as iam
+
+
+slack_channel = chatbot.SlackChannelConfiguration(self, "MySlackChannel",
+    slack_channel_configuration_name="YOUR_CHANNEL_NAME",
+    slack_workspace_id="YOUR_SLACK_WORKSPACE_ID",
+    slack_channel_id="YOUR_SLACK_CHANNEL_ID"
+)
+
+slack_channel.add_to_role_policy(iam.PolicyStatement(
+    effect=iam.Effect.ALLOW,
+    actions=["s3:GetObject"
+    ],
+    resources=["arn:aws:s3:::abc/xyz/123.txt"]
+))
+
+slack_channel.add_notification_topic(sns.Topic(self, "MyTopic"))
+```
+
+## Log Group
+
+Slack channel configuration automatically create a log group with the name `/aws/chatbot/<configuration-name>` in `us-east-1` upon first execution with
+log data set to never expire.
+
+The `logRetention` property can be used to set a different expiration period. A log group will be created if not already exists.
+If the log group already exists, it's expiration will be configured to the value specified in this construct (never expire, by default).
+
+By default, CDK uses the AWS SDK retry options when interacting with the log group. The `logRetentionRetryOptions` property
+allows you to customize the maximum number of retries and base backoff duration.
+
+*Note* that, if `logRetention` is set, a [CloudFormation custom
+resource](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cfn-customresource.html) is added
+to the stack that pre-creates the log group as part of the stack deployment, if it already doesn't exist, and sets the
+correct log retention period (never expire, by default).

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-plotly-dash
-Version: 2.4.6
+Version: 2.4.7
 Summary: Django use of plotly dash apps through template tags
 Home-page: https://github.com/GibbsConsulting/django-plotly-dash
 Author: Mark Gibbs

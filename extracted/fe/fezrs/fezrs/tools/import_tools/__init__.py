@@ -1,2 +1,0 @@
-from .geoeye_calculator import Geoeye_Calculator
-from .landsat8_calculator import Landsat8_Calculator

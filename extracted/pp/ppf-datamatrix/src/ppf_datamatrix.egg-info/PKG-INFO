@@ -1,0 +1,46 @@
+Metadata-Version: 2.1
+Name: ppf-datamatrix
+Version: 0.2
+Summary: Python port of https://github.com/datalog/datamatrix-svg
+Home-page: https://github.com/adrianschlatter/ppf.datamatrix/tree/master
+Author: Adrian Schlatter
+License: MIT
+Keywords: datamatrix,svg,python,ipython,codecs
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Manufacturing
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Other Audience
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Framework :: IPython
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Provides-Extra: test
+Provides-Extra: dev
+License-File: LICENSE
+
+# ppf.datamatrix
+
+ppf.datamatrix is a pure-python package to generate datamatrix codes in SVG.
+Also, it integrates nicely in IPython.
+
+ppf.datamatrix has been ported from [datalog's
+datamatrix-svg](https://github.com/datalog/datamatrix-svg), which is written in
+javascript.  If you like to see what you'll get before installation, check out
+their [nice web demo](https://datalog.github.io/demo/datamatrix-svg).
+
+Creating a datamatrix with ppf.datamatrix is as easy as
+
+```
+from ppf.datamatrix import DataMatrix
+
+myDataMatrix = DataMatrix('Test!')
+```
+
+A graphically enabled IPython terminal will even represent myDataMatrix as a
+picture.
+
+Check out the project website to find out  more!

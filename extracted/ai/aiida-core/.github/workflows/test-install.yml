@@ -1,0 +1,212 @@
+name: test-install
+
+on:
+  pull_request:
+    paths:
+    - environment.yml
+    - pyproject.toml
+    - util/dependency_management.py
+    - .github/workflows/test-install.yml
+    branches-ignore: [gh-pages]
+  schedule:
+  - cron: 30 02 * * *      # nightly build
+
+env:
+  FORCE_COLOR: 1
+
+# https://docs.github.com/en/actions/using-jobs/using-concurrency
+concurrency:
+  # only cancel in-progress jobs or runs for the current workflow - matches against branch & tags
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  validate-dependency-specification:
+    # Note: The specification is also validated by the pre-commit hook.
+
+    if: github.repository == 'aiidateam/aiida-core'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5.2.1
+      with:
+        version: latest
+
+    - name: Install utils/ dependencies
+      run: uv pip install --system -r utils/requirements.txt
+
+    - name: Validate conda environment file
+      run: python ./utils/dependency_management.py validate-environment-yml
+
+  create-conda-environment:
+    # Verify that we can create a valid conda environment from the environment.yml file.
+
+    needs: [validate-dependency-specification]
+    if: github.repository == 'aiidateam/aiida-core'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        channels: conda-forge
+
+    - run: conda --version
+
+    - name: Test conda environment
+      run: |
+        conda env create --dry-run -f environment.yml -n test-environment
+
+  install-with-pip:
+
+    if: github.repository == 'aiidateam/aiida-core'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        extras: ['', '[atomic_tools,docs,notebook,rest,tests,tui]']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Pip install
+      id: pip_install
+      run: |
+        python -m pip --version
+        python -m pip install -e .${{ matrix.extras }}
+        python -m pip freeze
+
+    - name: Test importing aiida
+      if: steps.pip_install.outcome == 'success'
+      run: python -c "import aiida"
+
+  install-with-conda:
+    # Verify that we can install AiiDA with conda.
+
+    if: github.repository == 'aiidateam/aiida-core'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+
+        # Not being able to install with conda on a specific Python version is
+        # not sufficient to fail the run, but something we want to be aware of.
+        optional: [true]
+
+        include:
+          # Installing with conda without specyfing the Python version should
+          # not fail since this is advocated as part of the user documentation.
+        - python-version: ''
+          optional: false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        channels: conda-forge
+
+    # Use mamba because conda is running out of memory
+    # see https://github.com/conda-incubator/setup-miniconda/issues/274
+    - run: |
+        conda install -n base conda-libmamba-solver
+        conda config --set solver libmamba
+
+    # Temporary workaround: https://github.com/mamba-org/mamba/issues/488
+    - run: rm /usr/share/miniconda/pkgs/cache/*.json
+
+    - name: Test installation
+      id: test_installation
+      continue-on-error: ${{ matrix.optional }}
+      run: >
+        conda create --dry-run -n test-install aiida-core
+        ${{ matrix.python-version && format('python={0}', matrix.python-version) }}
+
+    - name: Warn about failure
+      if: steps.test_installation.outcome == 'Failure'
+      run: >
+        echo "::warning ::Failed conda installation for
+        Python ${{ matrix.python-version }}."
+
+  tests:
+
+    needs: [install-with-pip]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+
+    services:
+      postgres:
+        image: postgres:10
+        env:
+          POSTGRES_DB: test_aiida
+          POSTGRES_PASSWORD: ''
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+        - 5432:5432
+      rabbitmq:
+        image: rabbitmq:3.8.14-management
+        ports:
+        - 5672:5672
+        - 15672:15672
+      slurm:
+        image: xenonmiddleware/slurm:17
+        ports:
+        - 5001:22
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: sudo apt update && sudo apt install postgresql graphviz
+
+    - name: Install aiida-core
+      uses: ./.github/actions/install-aiida-core
+      with:
+        python-version: ${{ matrix.python-version }}
+        extras: '[atomic_tools,docs,notebook,rest,tests,tui]'
+        from-lock: 'false'
+
+    - name: Setup AiiDA environment
+      run: .github/workflows/setup.sh
+
+    - name: Run test suite
+      env:
+        AIIDA_TEST_PROFILE: test_aiida
+        AIIDA_WARN_v3: 1
+      run: |
+        pytest -n auto --db-backend psql -m 'not nightly' tests/

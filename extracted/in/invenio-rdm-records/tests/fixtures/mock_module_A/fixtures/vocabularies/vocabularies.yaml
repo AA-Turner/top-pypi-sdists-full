@@ -1,0 +1,7 @@
+subjects:
+  pid-type: sub
+  schemes:
+    - id: MeSH
+      name: Medical Subject Headings
+      uri: https://www.nlm.nih.gov/mesh/meshhome.html
+      data-file: subjects_mesh.yaml

@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: dnstwist
+Version: 20250130
+Summary: Domain name permutation engine for detecting homograph phishing attacks, typo squatting, and brand impersonation
+Home-page: https://github.com/elceef/dnstwist
+Author: Marcin Ulikowski
+Author-email: marcin@ulikowski.pl
+License: ASL 2.0
+Description: Project website: https://github.com/elceef/dnstwist
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Provides-Extra: full

@@ -1,0 +1,21 @@
+contributors:
+- Sergio Martins
+name: Qashqa'i
+orthographies:
+- autonym: قشقايی ديل
+  auxiliary: <pes>
+  base: <pes>
+  currency: <pes>
+  design_requirements: <pes>
+  marks: <pes>
+  numerals: <pes>
+  punctuation: <pes>
+  script: Arabic
+  status: primary
+sources:
+- Qashqai language. (2024, June 20). In *Wikipedia*. https://en.wikipedia.org/wiki/Qashqai_language?oldid=1230062258
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 949000
+speakers_date: 2015
+status: living
+validity: preliminary

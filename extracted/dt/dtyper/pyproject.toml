@@ -1,0 +1,43 @@
+[tool.doks]
+auto = true
+
+[tool.poetry]
+authors = ["Tom Ritchford <tom@swirly.com>"]
+description = "🗝 Fix and improve `typer` 🗝"
+homepage = "https://github.com/rec/dtyper"
+name = "dtyper"
+readme = "README.md"
+repository = "https://github.com/rec/dtyper"
+version = "2.5.1"
+documentation = "https://rec.github.io/dtyper"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+typer = "*"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "*"
+mypy = "*"
+pytest = "*"
+ruff = "*"
+
+[tool.coverage.run]
+branch = true
+source = ["dtyper"]
+
+[tool.coverage.report]
+fail_under = 94
+skip_covered = true
+exclude_lines = ["pragma: no cover", "if False:", "if __name__ == .__main__.:", "raise NotImplementedError"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.mypy]
+strict = true
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]

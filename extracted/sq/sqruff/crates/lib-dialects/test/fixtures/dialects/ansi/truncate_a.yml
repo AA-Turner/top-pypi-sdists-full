@@ -1,0 +1,6 @@
+file:
+- statement:
+  - truncate_statement:
+    - keyword: truncate
+    - table_reference:
+      - naked_identifier: a

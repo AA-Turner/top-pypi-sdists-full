@@ -1,0 +1,289 @@
+dataset:
+  - fides_key: mongo_test
+    name: Mongo Example Test Dataset
+    description: Example of a Mongo dataset that contains 'details' about customers defined in the 'postgres_example_test_dataset'
+    collections:
+      - name: customer_details
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+          - name: customer_id
+            data_categories: [user.unique_id]
+            fides_meta:
+              references:
+                - dataset: postgres_example_test_dataset
+                  field: customer.id
+                  direction: from
+          - name: gender
+            data_categories: [user.demographic.gender]
+            fides_meta:
+              data_type: string
+          - name: birthday
+            data_categories: [user.demographic.date_of_birth]
+            fides_meta:
+              data_type: string
+          - name: workplace_info
+            fides_meta:
+              data_type: object
+            fields:
+              - name: employer
+                fides_meta:
+                  data_type: string
+              - name: position
+                data_categories: [user.job_title]
+                fides_meta:
+                  data_type: string
+              - name: direct_reports
+                data_categories: [user.name]
+                fides_meta:
+                  data_type: string[]
+          - name: emergency_contacts
+            fides_meta:
+              data_type: object[]
+            fields:
+              - name: name
+                data_categories: [user.name]
+                fides_meta:
+                  data_type: string
+              - name: relationship
+                fides_meta:
+                  data_type: string
+              - name: phone
+                data_categories: [user.contact.phone_number]
+                fides_meta:
+                  data_type: string
+          - name: children
+            data_categories: [user.childrens]
+            fides_meta:
+              data_type: string[]
+          - name: travel_identifiers
+            fides_meta:
+              data_type: string[]
+              data_categories: [system.operations]
+          - name: comments
+            fides_meta:
+              data_type: object[]
+            fields:
+              - name: comment_id
+                fides_meta:
+                  data_type: string
+                  references:
+                    - dataset: mongo_test
+                      field: conversations.thread.comment
+                      direction: to
+      - name: internal_customer_profile
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: customer_identifiers
+            fields:
+              - name: internal_id
+                fides_meta:
+                  data_type: string
+                  references:
+                    - dataset: mongo_test
+                      field: customer_feedback.customer_information.internal_customer_id
+                      direction: from
+              - name: derived_emails
+                data_categories: [user]
+                fides_meta:
+                  data_type: string[]
+                  identity: email
+              - name: derived_phone
+                data_categories: [user]
+                fides_meta:
+                  data_type: string[]
+                  return_all_elements: true
+                  identity: phone_number
+          - name: derived_interests
+            data_categories: [user]
+            fides_meta:
+              data_type: string[]
+      - name: customer_feedback
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: customer_information
+            fields:
+              - name: email
+                fides_meta:
+                  identity: email
+                  data_type: string
+              - name: phone
+                data_categories: [user.contact.phone_number]
+                fides_meta:
+                  data_type: string
+              - name: internal_customer_id
+                data_categories: [system.operations]
+                fides_meta:
+                  data_type: string
+          - name: rating
+            data_categories: [user]
+            fides_meta:
+              data_type: integer
+          - name: date
+            data_categories: [system.operations]
+            fides_meta:
+              data_type: string
+          - name: message
+            data_categories: [user]
+            fides_meta:
+              data_type: string
+      - name: flights
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: passenger_information
+            fields:
+              - name: passenger_ids
+                fides_meta:
+                  data_type: string[]
+                  references:
+                    - dataset: mongo_test
+                      field: customer_details.travel_identifiers
+                      direction: from
+              - name: full_name
+                data_categories: [user.name]
+                fides_meta:
+                  data_type: string
+          - name: flight_no
+          - name: date
+          - name: pilots
+            data_categories: [system.operations]
+            fides_meta:
+              data_type: string[]
+          - name: plane
+            data_categories: [system.operations]
+            fides_meta:
+              data_type: integer
+      - name: conversations
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: thread
+            fides_meta:
+              data_type: object[]
+            fields:
+              - name: comment
+                fides_meta:
+                  data_type: string
+              - name: message
+                fides_meta:
+                  data_type: string
+              - name: chat_name
+                data_categories: [user.name]
+                fides_meta:
+                  data_type: string
+              - name: ccn
+                data_categories: [user.financial.bank_account]
+                fides_meta:
+                  data_type: string
+      - name: employee
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: email
+            data_categories: [user.contact.email]
+            fides_meta:
+              identity: email
+              data_type: string
+          - name: id
+            data_categories: [user.unique_id]
+            fides_meta:
+              primary_key: True
+              references:
+                - dataset: mongo_test
+                  field: flights.pilots
+                  direction: from
+          - name: name
+            data_categories: [user.name]
+            fides_meta:
+              data_type: string
+      - name: aircraft
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: planes
+            data_categories: [system.operations]
+            fides_meta:
+              data_type: string[]
+              references:
+                - dataset: mongo_test
+                  field: flights.plane
+                  direction: from
+          - name: model
+            data_categories: [system.operations]
+            fides_meta:
+              data_type: string
+      - name: payment_card
+        fields:
+          - name: _id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: billing_address_id
+            data_categories: [system.operations]
+          - name: ccn
+            data_categories: [user.financial.bank_account]
+            fides_meta:
+              references:
+                - dataset: mongo_test
+                  field: conversations.thread.ccn
+                  direction: from
+          - name: code
+            data_categories: [user.financial]
+          - name: customer_id
+            data_categories: [user.unique_id]
+          - name: id
+            data_categories: [system.operations]
+            fides_meta:
+              primary_key: True
+          - name: name
+            data_categories: [user.financial]
+          - name: preferred
+            data_categories: [user]
+      - name: rewards
+        fields:
+          - name: _id
+            fides_meta:
+              primary_key: True
+              data_type: object_id
+          - name: owner
+            fides_meta:
+              data_type: object[]
+              return_all_elements: true
+            fields:
+              - name: phone
+                data_categories: [user.contact.phone_number]
+                fides_meta:
+                  data_type: string
+                  references:
+                    - dataset: mongo_test
+                      field: internal_customer_profile.customer_identifiers.derived_phone
+                      direction: from
+              - name: shopper_name
+          - name: points
+            fides_meta:
+              data_type: integer
+          - name: expiration_date

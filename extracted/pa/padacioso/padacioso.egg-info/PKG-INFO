@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: padacioso
+Version: 1.0.0
+Summary: dead simple intent parser
+Home-page: https://github.com/OpenVoiceOS/padacioso
+Author: jarbasai
+Author-email: jarbasai@mailfence.com
+License: apache-2.0
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: extras

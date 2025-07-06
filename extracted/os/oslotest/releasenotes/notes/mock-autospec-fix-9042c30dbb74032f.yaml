@@ -1,5 +1,0 @@
----
-other:
-  - |
-    Oslotest now contains the mock_fixture module, which offers fixes to the
-    autospec functionality in the mock library.

@@ -15,7 +15,6 @@ functionality implemented in the interconnect() function itself.
 import pytest
 
 import numpy as np
-import scipy as sp
 import math
 
 import control as ct
@@ -46,15 +45,15 @@ def test_summing_junction(inputs, output, dimension, D):
 def test_summation_exceptions():
     # Bad input description
     with pytest.raises(ValueError, match="could not parse input"):
-        sumblk = ct.summing_junction(np.pi, 'y')
+        ct.summing_junction(np.pi, 'y')
 
     # Bad output description
     with pytest.raises(ValueError, match="could not parse output"):
-        sumblk = ct.summing_junction('u', np.pi)
+        ct.summing_junction('u', np.pi)
 
     # Bad input dimension
     with pytest.raises(ValueError, match="unrecognized dimension"):
-        sumblk = ct.summing_junction('u', 'y', dimension=False)
+        ct.summing_junction('u', 'y', dimension=False)
 
 
 @pytest.mark.parametrize("dim", [1, 3])
@@ -346,7 +345,7 @@ def test_interconnect_exceptions():
 
     # NonlinearIOSytem
     with pytest.raises(TypeError, match="unrecognized keyword"):
-        nlios =  ct.NonlinearIOSystem(
+        ct.NonlinearIOSystem(
             None, lambda t, x, u, params: u*u, input_count=1, output_count=1)
 
     # Summing junction
@@ -666,15 +665,29 @@ def test_interconnect_params():
     # Create a nominally unstable system
     sys1 = ct.nlsys(
         lambda t, x, u, params: params['a'] * x[0] + u[0],
-        states=1, inputs='u', outputs='y', params={'a': 1})
+        states=1, inputs='u', outputs='y', params={'a': 2, 'c':2})
 
     # Simple system for serial interconnection
     sys2 = ct.nlsys(
         None, lambda t, x, u, params: u[0],
-        inputs='r', outputs='u')
+        inputs='r', outputs='u', params={'a': 4, 'b': 3})
 
-    # Create a series interconnection
+    # Make sure default parameters get set as expected
     sys = ct.interconnect([sys1, sys2], inputs='r', outputs='y')
+    assert sys.params == {'a': 4, 'c': 2, 'b': 3}
+    assert sys.dynamics(0, [1], [0]).item() == 4
+
+    # Make sure we can override the parameters
+    sys = ct.interconnect(
+        [sys1, sys2], inputs='r', outputs='y', params={'b': 1})
+    assert sys.params == {'b': 1}
+    assert sys.dynamics(0, [1], [0]).item() == 2
+    assert sys.dynamics(0, [1], [0], params={'a': 5}).item() == 5
+
+    # Create final series interconnection, with proper parameter values
+    sys = ct.interconnect(
+        [sys1, sys2], inputs='r', outputs='y', params={'a': 1})
+    assert sys.params == {'a': 1}
 
     # Make sure we can call the update function
     sys.updfcn(0, [0], [0], {})

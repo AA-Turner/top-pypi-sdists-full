@@ -1,0 +1,473 @@
+baseline:
+  api-key:
+  best-params:
+    ibmsc:
+      batch-size: 8
+      epochs: 15
+      head-size: 30
+      learning-rate: 1e-5
+    vast:
+      batch-size: 64
+      head-size: 30
+      epochs: 15
+      learning-rate: 1e-5
+    perspectrum:
+      batch-size: 32
+      head-size: 30
+      epochs: 15
+      learning-rate: 1e-5
+
+  model-name: microsoft/deberta-base
+  model-path: /bigwork/nhwpajjy/pre-trained-models/microsoft/deberta-base
+  model-path-fine-tuned: /bigwork/nhwpajjy/pre-trained-models/deberta-base-fine-tuned
+  params:
+    batch-size:
+    - 16
+    - 8
+    - 4
+    - 32
+    - 64
+    epochs:
+    - 15
+    - 1
+    head-size:
+    - 30
+    learning-rate:
+    - 1e-5
+    - 1e-4
+    - 3e-5
+    - 1e-7
+    - 1e-6
+dataset:
+  path-ibmsc-root: data/claim_stance_dataset_v1.csv
+experiment:
+  ibmsc:
+    path-few-shots: experiment/ibmsc-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/run-time.logs
+    path-run-results: /bigwork/nhwpajjy/few-shot-priming-data/results/run-time.tsv
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data/results/ibmsc-results.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/ibmsc-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/ibmsc-train.csv
+    path-validation: /bigwork/nhwpajjy/few-shot-priming-data/experiment/ibmsc-validation.csv
+    ks: [2, 4, 8, 16, 32, 64]
+    few-shot-size: 16
+  vast:
+    path-few-shots: experiment/vast-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/run-time.logs
+    path-run-results: /bigwork/nhwpajjy/few-shot-priming-data/results/run-time.tsv
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data/results/vast-results.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/vast-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/vast-train.csv
+    path-validation: /bigwork/nhwpajjy/few-shot-priming-data/experiment/vast-validation.csv
+    ks: [3, 6, 12, 24, 48 ,96]
+    few-shot-size: 12
+  perspectrum:
+    path-few-shots: experiment/perspectrum-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/run-time.logs
+    path-run-results: /bigwork/nhwpajjy/few-shot-priming-data/results/run-time.tsv
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data/results/perspectrum-results.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/perspectrum-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/perspectrum-train.csv
+    path-validation: /bigwork/nhwpajjy/few-shot-priming-data/experiment/perspectrum-validation.csv
+    ks: [2, 4, 8, 16, 32, 64]
+    few-shot-size: 16
+
+  fnc1:
+    path-few-shots: /bigwork/nhwpajjy/few-shot-priming-data/experiment/fnc1-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/fnc1-run-time.logs
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data//results/fnc1-run-time.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/FNC-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/FNC-train.csv
+#    path-validation: /bigwork/nhwpajjy/few-shot-priming-data/experiment/FNC-validation.csv
+  ARC:
+    path-few-shots: /bigwork/nhwpajjy/few-shot-priming-data/experiment/ARC-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/ARC-run-time.logs
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data/results/ARC-run-time.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/ARC-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/ARC-train.csv
+  emergent:
+    path-few-shots: /bigwork/nhwpajjy/few-shot-priming-data/experiment/emergent-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/emergent-run-time.logs
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data/results/emergent-run-time.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/emergent-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/emergent-train.csv
+  snopes:
+    path-few-shots: /bigwork/nhwpajjy/few-shot-priming-data/experiment/snopes-few-shots.csv
+    path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/snopes-run-time.logs
+    path-results: /bigwork/nhwpajjy/few-shot-priming-data/results/snopes-run-time.tsv
+    path-test: /bigwork/nhwpajjy/few-shot-priming-data/experiment/snopes-test.csv
+    path-training: /bigwork/nhwpajjy/few-shot-priming-data/experiment/snopes-train.csv
+    path-validation: /bigwork/nhwpajjy/few-shot-priming-data/experiment/snopes-validation.csv
+
+openai:
+  key: ''
+pre-trained-models:
+  alpaca:
+    model-name: wxjiao/alpaca-7b
+    tokenizer-name: decapoda-research/llama-7b-hf
+  gpt-j:
+    model-name: EleutherAI/gpt-j-6B
+    model-path: /bigwork/nhwpajjy/pre-trained-models/gptj-16
+    learning-rate:
+      - 2e-5
+      - 5e-5
+      - 1e-3
+      - 1e-5
+      - 1e-6
+  models:
+  - t5-base
+  - bert-base-uncased
+  - gpt2
+  - opt
+  - gpt2-xl
+  path: /bigwork/nhwpajjy/pre-trained-models
+
+seeds: [488, 528, 350, 785, 934]
+ks: [2, 4, 8, 16, 32 ,64]
+
+prompt:
+  batch-size: 16
+  few-shot-size: 16
+  logs: logs/prompt.log
+  llama2-7b-input-limit: 2048
+  llama2-7b-path: /bigwork/nhwpajjy/pre-trained-models/llama2-7b-hf
+  alpaca-7b-path: /bigwork/nhwpajjy/pre-trained-models/wxjiao/alpaca-7b
+  alpaca-7b-input-limit: 2048
+  mistral-7b-instruct-path:  /bigwork/nhwpajjy/pre-trained-models/Mistral-7B-Instruct-v0.2
+  vicuna-7b-path: /bigwork/nhwpajjy/pre-trained-models/vicuna-7b-v1.5
+  vicuna-7b-input-limit: 2048
+  mistral-7b-instruct-input-limit: 8192
+  gemma-7b-instruct-path: /bigwork/nhwpajjy/pre-trained-models/gemma-1.1-7b-it
+  gemma-7b-instruct-input-limit: 8192
+  opt-30b-input-limit: 2048
+  opt-30b-path: /bigwork/nhwpajjy/pre-trained-models/opt-30b
+  gpt2-path: gpt2
+  gpt2-input-limit: 1024
+  #model-input-limit: 102488
+  #model-name: facebook/opt-350m
+  #model-path: facebook/opt-350m
+  #model-type: facebook/opt-350m
+prompt-fine-tuning:
+  best-params-gpt2:
+    batch-size: 16
+    epochs: 1
+    learning-rate: 2.0e-5
+    early-stopping-threshold: 0.0
+  alpaca-7b-best-params:
+    ibmsc:
+      batch-size: 4
+      epochs: 140
+      learning-rate: 3.0e-4
+      early-stopping-threshold: 0.0
+#best hyperparamters contrastive learning
+#      batch-size: 64
+#      epochs: 40
+#      learning-rate: 5.0e-5
+#      early-stopping-threshold: 0.05
+
+    vast:
+      # best hyper paramter all training old
+      #batch-size: 64
+      #epochs: 25
+      #learning-rate: 1.0e-3
+      #early-stopping-threshold: 1.0e-6
+
+      # best hyper paramter all training
+      #batch-size: 64
+      #epochs: 110
+      #learning-rate: 3.0e-4
+      #early-stopping-threshold: 1.0e-2
+      #best hyperparamters contrastive learning
+      batch-size: 64
+      epochs: 50
+      learning-rate: 5.0e-5
+      early-stopping-threshold: 0.01
+
+    perspectrum:
+      batch-size: 4
+      epochs: 110
+      learning-rate: 3.0e-4
+      early-stopping-threshold: 3.0e-7
+#best hyperparamters contrastive learning
+#      batch-size: 64
+#      epochs: 110
+#      learning-rate: 2.0e-5
+#      early-stopping-threshold: 0.01
+
+  mistral-7b-instruct-best-params:
+    ibmsc:
+      #best contrastive
+      #batch-size: 64
+      #epochs: 50
+      #learning-rate: 2.0e-4
+      #early-stopping-threshold: 0.02
+
+      batch-size: 8
+      epochs: 50
+      learning-rate: 2.0e-4
+      early-stopping-threshold: 5.0e-2
+    vast:
+      # best contrastive
+      #batch-size: 32
+      #epochs: 110
+      #learning-rate: 1.0e-5
+      #early-stopping-threshold: 0.003
+# what is this?
+#      batch-size: 4
+#      epochs: 40
+#      learning-rate: 2.0e-5
+#      early-stopping-threshold: 3.0e-2
+#Best training params
+       batch-size: 32
+       epochs: 110
+       learning-rate: 2.0e-4
+       early-stopping-threshold: 3.0e-7
+
+    perspectrum:
+      # best contrastive
+      #batch-size: 32
+      #epochs: 40
+      #learning-rate: 0.0002
+      #early-stopping-threshold: 2.0e-5
+#      batch-size: 4
+#      epochs: 110
+#      learning-rate: 2.0e-4
+#      early-stopping-threshold: 1.0e-2
+     #Best all training params
+       batch-size: 32
+       epochs: 110
+       learning-rate: 2.0e-4
+       early-stopping-threshold: 1.0e-6
+
+  alpaca-7b-params:
+    batch-size:
+      - 64
+    epochs:
+      - 110
+      - 40
+      - 50
+
+    learning-rate:
+      - 5.0e-5
+      - 3.0e-4
+      - 2.0e-5
+    early-stopping-threshold:
+      - 2.0e-5
+      - 1.0e-6
+      - 3.0e-4
+      - 0.01
+      - 0.1
+      - 0.2
+
+  vicuna-7b:
+    batch-size:
+      - 64
+      - 32
+      - 16
+      - 8
+      - 4
+    epochs:
+      - 110
+      - 20
+      - 40
+      - 50
+      - 10
+
+    learning-rate:
+      - 5.0e-5
+      - 2.0e-5
+    early-stopping-threshold:
+      - 2.0e-5
+      - 1.0e-6
+      - 3.0e-7
+      - 3.0e-4
+      - 0.01
+      - 0.1
+      - 0.05
+      - 0.03
+      - 0.2
+
+
+  mistral-7b-instruct-params:
+    batch-size:
+      - 64
+      - 32
+      - 16
+      - 8
+      - 4
+    epochs:
+      - 110
+      - 20
+      - 50
+      - 40
+    learning-rate:
+      - 2.0e-4
+      - 2.0e-5
+      - 1.0e-5
+    early-stopping-threshold:
+      - 2.0e-5
+      - 1.0e-6
+      - 3.0e-7
+      - 3.0e-4
+      - 0.01
+      - 0.1
+      - 0.05
+      - 0.03
+      - 0.2
+
+  few-shot-size: 16
+
+  alpaca-7b-cutoff-len: 2048
+
+  alpaca-7b-path: /bigwork/nhwpajjy/pre-trained-models/wxjiao/alpaca-7b
+  alpaca-7b-tokenizer-path: /bigwork/nhwpajjy/pre-trained-models/wxjiao/alpaca-7b
+  alpaca-7b-template-path: data/alpaca.json
+  alpaca-7b-fine-tuned-path : /bigwork/nhwpajjy/pre-trained-models/wxjiao/alpaca-7b-fine-tuned
+  #mistral-7b-instruct-path: /bigwork/nhwpajjy/pre-trained-models/wxjiao/mistral-7b-fine-tuned/prompt-fine-tuning-vast-test-mistral-7b-instruct-all-training-data/best
+  mistral-7b-instruct-path: /bigwork/nhwpajjy/pre-trained-models/Mistral-7B-Instruct-v0.2
+  mistral-7b-instruct-tokenizer-path: /bigwork/nhwpajjy/pre-trained-models/Mistral-7B-Instruct-v0.2
+  mistral-7b-instruct-template-path: data/mistral.json
+  mistral-7b-instruct-fine-tuned-path: /bigwork/nhwpajjy/pre-trained-models/wxjiao/mistral-7b-fine-tuned
+  mistral-7b-instruct-cutoff-len: 8192
+  vicuna-7b-path: /bigwork/nhwpajjy/pre-trained-models/vicuna-7b-v1.5
+  vicuna-7b-tokenizer-path: /bigwork/nhwpajjy/pre-trained-models/Mistral-7B-Instruct-v0.2
+  vicuna-7b-input-limit: 2048
+  vicuna-7b-template-path: data/vicuna.json
+
+
+stance-priming:
+  best-params:
+    ibmsc:
+      lr: 3.0e-4
+      epochs: 100
+      batch-size: 64 # 32
+
+    vast:
+      lr: 3.0e-4
+      epochs: 100
+      batch-size: 64
+
+    perspectrum:
+      lr: 2.0e-5 # 3.0e-4
+      epochs: 100
+      batch-size: 64
+
+  base-model: /bigwork/nhwpajjy/pre-trained-models/all-mpnet-base-v2
+
+  ibmsc-model: /bigwork/nhwpajjy/few-shot-priming-data/contrastive_learning/models/ibmsc-all-new
+  vast-model: /bigwork/nhwpajjy/few-shot-priming-data/contrastive_learning/models/vast-all-new
+  perspectrum-model: /bigwork/nhwpajjy/few-shot-priming-data/contrastive_learning/models/perspectrum-all-new
+
+  ibmsc-similarities: /bigwork/nhwpajjy/few-shot-priming-data/contrastive_learning/models/ibmsc-stance-similarties.json
+  perspectrum-similarities: /bigwork/nhwpajjy/few-shot-priming-data/contrastive_learning/models/perspectrum-stance-similarties.json
+  vast-similarities: /bigwork/nhwpajjy/few-shot-priming-data/contrastive_learning/models/vast-stance-similarties.json
+
+  ibmsc-examples : /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-similar-stance-examples.tsv
+  perspectrum-examples : /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/perspectrum-similar-stance-examples.tsv
+  vast-examples : /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-similar-stance-examples.tsv
+
+topic-similarity:
+  path-logs: /bigwork/nhwpajjy/few-shot-priming-data/logs/topic-similarity.log
+  count-of-samples-per-cluster: 10
+  bow:
+    ibmsc-test: null
+    ibmsc-validation: 10
+    vast-test: null
+    vast-validation: null
+  model-path:
+    ibmsc-test: /bigwork/nhwpajjy/pre-trained-models/topic-models/ibmsc-test
+    ibmsc-validation: /bigwork/nhwpajjy/pre-trained-models/topic-models/ibmsc-validation
+    vast-test: /bigwork/nhwpajjy/pre-trained-models/topic-models/vast-test
+    vast-validation: /bigwork/nhwpajjy/pre-trained-models/topic-models/vast-validation
+  params:
+    contextual_size: 768
+    n_components: 15
+    num_epochs: 200
+  ctm-similarity-path:
+    ibmsc-test: /bigwork/nhwpajjy/pre-trained-models/topic-models/similarities-ibmsc-test-ctm.json
+    ibmsc-validation: /bigwork/nhwpajjy/pre-trained-models/topic-models/similarities-ibmsc-validation-ctm.json
+    vast-test: null
+    vast-validation: null
+  sentence-transformer-similarity-path:
+    ibmsc-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/similarities-ibmsc-test-sentence-transformer.json
+    ibmsc-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/similarities-ibmsc-validation-sentence-transformer.json
+    vast-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/similarities-vast-test-sentence-transformer.json
+    vast-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/similarities-vast-validation-sentence-transformer.json
+    perspectrum-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/similarities-perspectrum-test-sentence-transformer.json
+    perspectrum-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/similarities-perspectrum-validation-sentence-transformer.json
+#   fnc1-test: data/similarity/similarities-fnc1-test-sentence-transformer.json
+#   fnc1-validation: data/similarity/similarities-fnc1-validation-sentence-transformer.json
+    fnc1-test: notebooks/data-preparation/similarity/similarities-fnc1-test-sentence-transformer.json
+    fnc1-validation: notebooks/data-preparation/similarity/similarities-fnc1-validation-sentence-transformer.json
+    ARC-test: notebooks/data-preparation/similarity/similarities-ARC-test-sentence-transformer.json
+    ARC-validation: notebooks/data-preparation/similarity/similarities-ARC-validation-sentence-transformer.json
+    emergent-test: notebooks/data-preparation/similarity/similarities-emergent-test-sentence-transformer.json
+    emergent-validation: notebooks/data-preparation/similarity/similarities-emergent-validation-sentence-transformer.json
+    snopes-test: notebooks/data-preparation/similarity/similarities-snopes-test-sentence-transformer.json
+    snopes-validation: notebooks/data-preparation/similarity/similarities-snopes-validation-sentence-transformer.json
+
+  diverse-examples:
+    ibmsc-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-test-diverse-examples.tsv
+    ibmsc-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-validation-diverse-examples.tsv
+    vast-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-test-diverse-examples.tsv
+    vast-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-validation-diverse-examples.tsv
+    perspectrum-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/perspectrum-test-diverse-examples.tsv
+    perspectrum-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/perspectrum-validation-diverse-examples.tsv
+    perspectrum-test-no-duplicates: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/perspectrum-test-diverse-examples-no-duplicates.tsv
+
+  diverse-examples-topics:
+    ibmsc-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-test-diverse-examples-topics.tsv
+    vast-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-test-diverse-examples-topics.tsv
+
+  similar-examples-ks:
+    ibmsc-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-similar-topic-examples.tsv
+    #ibmsc-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-validation-similar-examples.tsv
+    vast-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-similar-topic-examples.tsv
+    #vast-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-validation-similar-examples.tsv
+    perspectrum-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/perspectrum-similar-topic-examples.tsv
+    #perspectrum-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/perspectrum-validation-similar-examples.tsv
+
+  similar-examples-topics:
+    ibmsc-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-test-similar-examples-topics.tsv
+    ibmsc-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/ibmsc-validation-similar-examples-topics.tsv
+    vast-test: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-test-similar-examples-topics.tsv
+    vast-validation: /bigwork/nhwpajjy/few-shot-priming-data/sampling-strategies/vast-validation-similar-examples-topics.tsv
+
+analyze-k:
+  prompt-fine-tuning:
+    ibmsc:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-fine-tuning-ibmsc-analyze-k.pdf
+    vast:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-fine-tuning-vast-analyze-k.pdf
+    perspectrum:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-fine-tuning-perspectrum-analyze-k.pdf
+  prompt:
+    ibmsc:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompting-ibmsc-analyze-k.pdf
+    vast:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompting-vast-analyze-k.pdf
+    perspectrum:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompting-perspectrum-analyze-k.pdf
+
+analyze-prime-similarity:
+  k: 16
+
+  prompt:
+    perspectrum:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-perspectrum-analyze-prime-similarity.pdf
+    ibmsc:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-ibmsc-analyze-prime-similarity.pdf
+    vast:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-vast-analyze-prime-similarity.pdf
+
+
+analyze-topic-similarity:
+  k: 16
+
+  prompt:
+    perspectrum:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-perspectrum-analyze-topic-similarity.pdf
+    ibmsc:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-ibmsc-analyze-topic-similarity.pdf
+    vast:
+      figure-path: /bigwork/nhwpajjy/few-shot-priming-data/results/prompt-vast-analyze-topic-similarity.pdf

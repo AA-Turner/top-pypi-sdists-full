@@ -1,0 +1,107 @@
+[project]
+name = "fs.onedrivefs"
+version = "1.2.2"
+description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
+maintainers = [
+	{ name = "Rehan KHwaja", email = "rehan@khwaja.name" }
+]
+keywords = ["filesystem", "Pyfilesystem2", "onedrive"]
+readme = "README.md"
+classifiers = [
+	"License :: OSI Approved :: MIT License",
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "fs>=2.4.13,<3",
+    "requests>=2.20",
+    "requests-oauthlib>=1.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/rkhwaja/fs.onedrivefs"
+
+[project.entry-points."fs.opener"]
+onedrive = "fs.onedrivefs.opener:OneDriveFSOpener"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fs"]
+
+[tool.poe.tasks]
+lint = "ruff check fs/onedrivefs/ tests/"
+
+[tool.poe.tasks.test]
+shell = """
+pytest --cov=fs -n 8 --reruns 2 --only-rerun requests.exceptions.HTTPError || exit 1
+coverage xml
+"""
+
+[tool.ruff]
+line-length = 1000
+lint.ignore = [
+    "ANN",      # Requires annotations
+    "B011",     # Disallows `assert False`
+    "COM812",   # Requires trailing commas
+    "D",        # Requires various docstrings
+    "DTZ",      # flake8-datetimez
+    "EM",       # Disallows using a string literal for exceptions
+    "ERA001",   # Disallows commented out code
+    "FBT002",   # Disallows boolean positional arguments
+    "FIX",      # Disallows FIXME-type comments
+    "G004",     # Disallows using f-strings in log strings
+    "I",        # False positive isort complaints
+    "N",        # PEP8 naming rules
+    "PLR0912",  # Too many branches
+    "PLR0913",  # Too many arguments
+    "PTH",      # Requires use of pathlib
+    "S101",     # Disallows use of assert
+    "T201",     # Disallows use of print
+    "TD",       # Requires a particular formatting of TODO comments
+    "TRY003",   # Disallows long exception messages
+    "W191",     # Disallows tab indentation
+    ]
+lint.select = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401",     # Unused import
+    ]
+"fs/**" = [
+    "PT",       # Various pytest style requirements
+    ]
+"tests/**" = [
+    "PT009",    # Disallows unittest assertions, but they come from the `fs` package
+    "PT011",    # Too general an exception type expected
+    "PT013",    # Requires pytest to be imported a certain way
+    ]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+multiline-quotes = "single"
+
+[tool.uv]
+dev-dependencies = [
+    "pyperclip>=1.7",
+    "pytest>=3.10",
+    "pytest-localserver>=0.5.0",
+    "pyngrok>=7",
+    "click>=7.0",
+    "pytest-cov>=2.9.0",
+    "pynacl>=1.5.0",
+    "cffi>=1.15.0 ; sys_platform == 'darwin'",
+    "pytest-rerunfailures>=10",
+    "poethepoet>=0.16.4",
+    "pytest-xdist>=3.2.1",
+    "ruff>=0.4.4",
+]

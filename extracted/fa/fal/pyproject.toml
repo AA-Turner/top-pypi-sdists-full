@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools", "wheel", "setuptools_scm[toml]>=7"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = "../../"
+git_describe_command= 'git describe --tags --abbrev=0 --dirty --match "fal_v*"'
+tag_regex = "^fal_v(?P<version>.*)$"
+fallback_version = "0.0.0"
+version_file = "src/fal/_fal_version.py"
+
+[tool.setuptools.packages.find]
+where = ["src", "openapi-fal-rest"]
+include = ["fal", "openapi_fal_rest"]
+namespaces = false
+
+[project]
+name = "fal"
+dynamic = ["version"]
+description = "fal is an easy-to-use Serverless Python Framework"
+authors = [{ name = "Features & Labels <support@fal.ai>"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "isolate[build]>=0.18.0,<0.19.0",
+    "isolate-proto>=0.10.0,<0.11.0",
+    "grpcio>=1.64.0,<2",
+    "dill==0.3.7",
+    "cloudpickle==3.0.0",
+    "typing-extensions>=4.7.1,<5",
+    "structlog>=22.3.0,<23",
+    "opentelemetry-api>=1.15.0,<2",
+    "opentelemetry-sdk>=1.15.0,<2",
+    "grpc-interceptor>=0.15.0,<1",
+    "colorama>=0.4.6,<1",
+    "portalocker>=2.7.0,<3",
+    "rich>=13.3.2,<14",
+    "rich_argparse",
+    "packaging>=21.3",
+    "pathspec>=0.11.1,<1",
+    "pydantic!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,<2.11",
+    # serve=True dependencies
+    "structlog>=22.0",
+    "fastapi>=0.99.1,<1",
+    "starlette-exporter>=0.21.0",
+    # rest-api-client dependencies
+    "httpx>=0.15.4",
+    "attrs>=21.3.0",
+    "python-dateutil>=2.8.0,<3",
+    "types-python-dateutil>=2.8.0,<3",
+    # For 3.9 and earlier, importlib-metadata's newer versions are included in the standard library.
+    'importlib-metadata>=4.4; python_version < "3.10"',
+    "msgpack>=1.0.7,<2",
+    "websockets>=12.0,<13",
+    "pillow>=10.2.0,<11",
+    "pyjwt[crypto]>=2.8.0,<3",
+    "uvicorn>=0.29.0,<1",
+    "cookiecutter",
+    "tomli>2,<3",
+    "tomli-w>=1,<2",
+    "fsspec",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx<8.2.0",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+]
+test = [
+    "pytest<8",
+    "pytest-asyncio",
+    "pytest-xdist",
+    "pytest-timeout",
+    "flaky",
+    "boto3",
+]
+dev = [
+    "fal[docs,test]",
+    "openapi-python-client>=0.14.1,<1",
+]
+
+[project.scripts]
+fal = "fal.cli:main"
+
+[tool.ruff]
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "PLC", "PLE", "PLW", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fal"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.pytest.ini_options]
+timeout = 300

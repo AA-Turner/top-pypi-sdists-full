@@ -1,0 +1,97 @@
+# This is a separate run of the Python test suite that doesn't cache the tox
+# environment and runs from a schedule.  The purpose is to test compatibility
+# with the latest versions of dependencies.
+
+name: Periodic CI
+
+"on":
+  schedule:
+    - cron: "0 12 * * 1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+        sphinx-version:
+          - "7"
+          - "dev"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Install graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install graphviz
+
+      - name: Run tests in tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          tox-envs: "lint,typing-sphinx${{ matrix.sphinx-version }},py-test-sphinx${{ matrix.sphinx-version }},demo"
+          use-cache: false
+
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - name: Build docs in tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: "3.12"
+          tox-envs: "docs,docs-lint"
+          use-cache: false
+
+  pypi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Build and publish
+        uses: lsst-sqre/build-and-publish-to-pypi@v3
+        with:
+          upload: false

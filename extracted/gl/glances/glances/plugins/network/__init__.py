@@ -62,7 +62,7 @@ items_history_list = [
 ]
 
 
-class PluginModel(GlancesPluginModel):
+class NetworkPlugin(GlancesPluginModel):
     """Glances network plugin.
 
     stats is a list
@@ -114,10 +114,15 @@ class PluginModel(GlancesPluginModel):
         """
         if self.input_method == 'local':
             stats = self.update_local()
+
+            # Update the stats
+            for stat in stats:
+                if stat.get('bytes_recv') is None:
+                    print(f"def update: bytes_recv is None for {stat['interface_name']}")
+
         else:
             stats = self.get_init_value()
 
-        # Update the stats
         self.stats = stats
 
         return self.stats
@@ -203,8 +208,10 @@ class PluginModel(GlancesPluginModel):
         # Add specifics information
         # Alert
         for i in self.get_raw():
+            if_real_name = i['interface_name'].split(':')[0]
+
             # Skip alert if no timespan to measure
-            if 'bytes_recv_rate_per_sec' not in i or 'bytes_sent_rate_per_sec' not in i:
+            if not i.get('bytes_recv_rate_per_sec') or not i.get('bytes_sent_rate_per_sec'):
                 continue
 
             # Convert rate to bps (to be able to compare to interface speed)
@@ -212,7 +219,6 @@ class PluginModel(GlancesPluginModel):
             bps_tx = int(i['bytes_sent_rate_per_sec'] * 8)
 
             # Decorate the bitrate with the configuration file thresholds
-            if_real_name = i['interface_name'].split(':')[0]
             alert_rx = self.get_alert(bps_rx, header=if_real_name + '_rx')
             alert_tx = self.get_alert(bps_tx, header=if_real_name + '_tx')
 
@@ -299,11 +305,11 @@ class PluginModel(GlancesPluginModel):
                 to_bit = 8
                 unit = 'b'
 
-            if args.network_cumul and 'bytes_recv' in i and 'bytes_sent' in i:
+            if args.network_cumul and i.get('bytes_recv') is not None and i.get('bytes_sent') is not None:
                 rx = self.auto_unit(int(i['bytes_recv'] * to_bit)) + unit
                 tx = self.auto_unit(int(i['bytes_sent'] * to_bit)) + unit
                 ax = self.auto_unit(int(i['bytes_all'] * to_bit)) + unit
-            elif 'bytes_recv_rate_per_sec' in i and 'bytes_sent_rate_per_sec' in i:
+            elif i.get('bytes_recv_rate_per_sec') is not None and i.get('bytes_sent_rate_per_sec') is not None:
                 rx = self.auto_unit(int(i['bytes_recv_rate_per_sec'] * to_bit)) + unit
                 tx = self.auto_unit(int(i['bytes_sent_rate_per_sec'] * to_bit)) + unit
                 ax = self.auto_unit(int(i['bytes_all_rate_per_sec'] * to_bit)) + unit

@@ -1,0 +1,212 @@
+[build-system]
+requires = ['flit_core >=3.4,<4']
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'plumpy'
+dynamic = ['version']
+description = 'A Python workflow library.'
+authors = [
+    {name = 'Martin Uhrin', email = 'martin.uhrin@gmail.com'},
+    {name = 'Sebastiaan Huber'},
+    {name = 'Jason Yu'},
+    {name = 'Leopold Talirz'},
+    {name = 'Dominik Gresch'},
+]
+readme = 'README.md'
+license = {file = 'LICENSE.txt'}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'License :: OSI Approved :: MIT License',
+    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+]
+keywords = ['workflow', 'multithreaded', 'rabbitmq']
+requires-python = '>=3.9'
+dependencies = [
+    'kiwipy[rmq]~=0.8.5',
+    'nest_asyncio~=1.5,>=1.5.1',
+    'pyyaml~=6.0',
+]
+
+[project.urls]
+Home = 'https://github.com/aiidateam/plumpy'
+Source = 'https://github.com/aiidateam/plumpy'
+Documentation = 'https://plumpy.readthedocs.io'
+
+[project.optional-dependencies]
+docs = [
+    'ipython~=7.0',
+    'kiwipy[docs]~=0.8.3',
+    'markupsafe==2.0.1',
+    'myst-nb~=1.2.0',
+    'sphinx~=7.2.0',
+    'sphinx-book-theme~=1.1.4',
+    'importlib-metadata~=4.12.0',
+]
+pre-commit = [
+    'mypy==1.13.0',
+    'pre-commit~=2.2',
+    'types-pyyaml'
+]
+tests = [
+    'ipykernel==6.12.1',
+    'pytest~=7.0',
+    'pytest-asyncio~=0.12,<0.17',
+    'pytest-cov~=4.1',
+    'pytest-notebook>=0.8.0',
+    'shortuuid==1.0.8',
+    'importlib-resources~=5.2',
+]
+
+[tool.flit.module]
+name = 'plumpy'
+
+[tool.flit.sdist]
+exclude = [
+    'docs/',
+    'examples/',
+    'tests/',
+]
+
+[tool.flynt]
+line-length = 120
+fail-on-change = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.ruff.lint]
+ignore = [
+  'F403',  # Star imports unable to detect undefined names
+  'F405',  # Import may be undefined or defined from star imports
+  'PLR0911',  # Too many return statements
+  'PLR0912',  # Too many branches
+  'PLR0913',  # Too many arguments in function definition
+  'PLR0915',  # Too many statements
+  'PLR2004',  # Magic value used in comparison
+  'RUF005',  # Consider iterable unpacking instead of concatenation
+  'RUF012'  # Mutable class attributes should be annotated with `typing.ClassVar`
+]
+select = [
+  'E',  # pydocstyle
+  'W',  # pydocstyle
+  'F',  # pyflakes
+  'I',  # isort
+  'N',  # pep8-naming
+  'PLC',  # pylint-convention
+  'PLE',  # pylint-error
+  'PLR',  # pylint-refactor
+  'PLW',  # pylint-warning
+  'RUF'  # ruff
+]
+
+[tool.mypy]
+show_error_codes = true
+strict = true
+# reduce stricness, eventually these should be removed
+disallow_any_generics = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = 'test.*'
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    'aio_pika.*',
+    'aiocontextvars.*',
+    'frozendict.*',
+    'kiwipy.*',
+    'nest_asyncio.*',
+    'tblib.*',
+]
+ignore_missing_imports = true
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    'duplicate-code',
+    'global-statement',
+    'import-outside-toplevel',
+    'inconsistent-return-statements',
+    'locally-disabled',
+    'missing-docstring',
+    'protected-access',
+    'raise-missing-from',
+    'too-few-public-methods',
+    'too-many-ancestors',
+    'too-many-arguments',
+    'too-many-instance-attributes',
+]
+
+[tool.pytest.ini_options]
+minversion = '6.0'
+testpaths = [
+    'test',
+]
+filterwarnings = []
+
+[tool.yapf]
+align_closing_bracket_with_visual_indent = true
+based_on_style = 'google'
+coalesce_brackets = true
+column_limit = 120
+dedent_closing_brackets = true
+indent_dictionary_value = false
+split_arguments_when_comma_terminated = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py37
+
+[testenv]
+usedevelop = true
+
+[testenv:py{37,38,39,310}]
+description = Run the unit tests
+extras =
+    tests
+commands = pytest {posargs}
+
+[testenv:py{37,38,39,310}-pre-commit]
+description = Run the style checks and formatting
+extras =
+    pre-commit
+    tests
+commands = pre-commit run {posargs}
+
+[testenv:docs-{update,clean}]
+description = Build the documentation
+extras = docs
+whitelist_externals = rm
+commands =
+    clean: rm -rf docs/_build
+    sphinx-build -nW --keep-going -b {posargs:html} docs/source/ docs/_build/{posargs:html}
+
+[testenv:docs-live]
+description = Build the documentation and launch browser (with live updates)
+extras = docs
+deps = sphinx-autobuild
+commands =
+    sphinx-autobuild \
+        --re-ignore _build/.* \
+        --port 0 --open-browser \
+        -n -b {posargs:html} docs/source/ docs/_build/{posargs:html}
+"""

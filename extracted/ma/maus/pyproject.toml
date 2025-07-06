@@ -1,0 +1,139 @@
+[build-system]
+requires = ["hatchling>=1.8.0", "hatch-vcs", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[project]
+name = "maus"
+description = "Python Library that consolidates Anwendungshandbücher (AHB) and Message Implementation Guides (MIG)"
+long_description = "file: README.rst"
+long_description_content_type = "text/x-rst; charset=UTF-8"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Hochfrequenz Unternehmensberatung GmbH", email = "info@hochfrequenz.de" },
+]
+keywords = ["MIG", "AHB", "maus", "edi@energy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "attrs>=22.1.0",
+    "marshmallow>=3.18.0",
+    "more_itertools",
+    "efoli>=0.0.3"
+    # add everything you add in requirements.in here
+]
+dynamic = ["readme", "version"]
+
+[project.optional-dependencies]
+unit_tests = [
+    "pytest==8.3.2",
+    "pytest-datafiles==3.0.0",
+    "jsonpath-ng==1.6.1",
+    "pytest-asyncio==0.23.8"
+]
+integration_tests = [
+    "pytest==8.3.2",
+    "pytest-datafiles==3.0.0"
+]
+linting = [
+    "pylint==3.2.7"
+]
+type_check = [
+    "mypy==1.11.2",
+    "types-xmltodict==0.13.0.3"
+]
+spell_check = [
+    "codespell==2.3.0"
+]
+coverage = [
+    "coverage==7.6.1"
+]
+formatting = [
+    "black==24.8.0",
+    "isort==5.13.2"
+]
+packaging = [
+    "build==1.2.2",
+    "twine==5.1.1"
+]
+build_executable = [
+    "pyinstaller==6.10.0"
+]
+docs = [
+    "Sphinx==7.4.7",
+    "sphinx-rtd-theme==2.0.0"
+]
+json_schema = [
+    "marshmallow-jsonschema==0.13.0"
+]
+test_packaging = [
+    "build==1.2.1",
+    "twine==5.1.1"
+]
+formating = [
+    "black==24.8.0",
+    "isort==5.13.2"
+]
+dev = [
+    "pip-tools"
+]
+xml = ["lxml>=4.9.2", "xmltodict"] # for parsing the Hochfrequenz MIG templates
+tree = ["lark>=1.1.5"] # for parsing the Hochfrequenz .tree files
+cli = ["click"] # for the CLI tool (w/o python installer/executable)
+
+[project.urls]
+Changelog = "https://github.com/Hochfrequenz/mig_ahb_utility_stack/releases"
+Homepage = "https://github.com/Hochfrequenz/mig_ahb_utility_stack"
+Documentation = "https://maus.readthedocs.io/en/latest/"
+
+# wird das tool als CLI script verwendet, dann muss hier der Name des Scripts angegeben werden
+[project.scripts]
+maus = "maus.cli:main"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/x-rst"
+fragments = [{ path = "README.rst" }]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/_maus_version.py"
+template = '''
+version = "{version}"
+'''
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/tests"]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]
+
+[tool.setuptools_scm]
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+line_length = 120
+profile = "black"
+
+[tool.pylint."MESSAGES CONTROL"]
+max-line-length = 120
+disable = "fixme"
+
+[tool.pytest.ini_options]
+# When the mode is auto, all discovered async tests are considered asyncio-driven
+# even if they have no @pytest.mark.asyncio marker.
+# https://github.com/pytest-dev/pytest-asyncio#auto-mode
+asyncio_mode = "auto"

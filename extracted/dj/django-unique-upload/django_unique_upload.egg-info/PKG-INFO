@@ -1,0 +1,23 @@
+Metadata-Version: 1.1
+Name: django-unique-upload
+Version: 0.2.1
+Summary: A django utility that creates unique file names for uploaded files via uuids. 
+Home-page: https://github.com/agconti/django-unique-upload
+Author: Andrew Conti
+Author-email: agc11d@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Topic :: Internet :: WWW/HTTP

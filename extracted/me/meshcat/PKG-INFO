@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: meshcat
+Version: 0.3.2
+Summary: WebGL-based visualizer for 3D geometries and scenes
+Home-page: https://github.com/rdeits/meshcat-python
+Author: Robin Deits
+Author-email: mail@robindeits.com
+License: MIT
+Download-URL: https://github.com/rdeits/meshcat-python/archive/v0.3.2.tar.gz
+Platform: UNKNOWN
+License-File: LICENSE.txt
+
+UNKNOWN
+

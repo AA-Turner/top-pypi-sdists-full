@@ -1,0 +1,37 @@
+include:
+  - local: .gitlab/ci/test.yml
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/debian/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/debian/all@2
+    inputs:
+      needs: [sdist]
+      debian_versions:
+        - bullseye
+        - bookworm
+        - testing  # build, but don't test
+      test_install: >-
+        --no-install-recommends
+        bzip2
+        igwn-ligolw
+        libxml2-utils
+        make
+        python3-coverage
+        python3-lal
+        python3-matplotlib
+        python3-pip
+        python3-pytest
+        python3-pytest-benchmark
+        python3-pytest-cov
+        python3-pytest-doctestplus
+        xz-utils
+
+# -- overwrite test script
+
+debian_test:
+  script: !reference [.system_test, script]
+  variables:
+    PYTEST_ADDOPTS: !reference [.system_test, variables, PYTEST_ADDOPTS]
+
+# don't run a test job for debian:testing, no python3-lal package
+debian_test_testing:
+  rules: [when: never]

@@ -1,5 +1,0 @@
----
-inp:
-    class: File
-    path: ./test_temp/hello.tar
-ex: Hello.java

@@ -1,0 +1,22 @@
+contributors:
+- Sergio Martins
+- David Březina
+name: Baharna Arabic
+orthographies:
+- autonym: بحراني
+  auxiliary: <arb>
+  base: <arb>
+  currency: <default>
+  design_requirements: <arb>
+  marks: <arb>
+  numerals: <default>
+  punctuation: <arb>
+  script: Arabic
+  status: primary
+sources:
+- Bahrani Arabic. (2024, January 21). In *Wikipedia*. https://en.wikipedia.org/wiki/Bahrani_Arabic?oldid=1197755013
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 730000
+speakers_date: 2001-2013
+status: living
+validity: preliminary

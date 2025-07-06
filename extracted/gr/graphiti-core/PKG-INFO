@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphiti-core
-Version: 0.15.0
+Version: 0.15.1
 Summary: A temporal graph building library
 Project-URL: Homepage, https://help.getzep.com/graphiti/graphiti/overview
 Project-URL: Repository, https://github.com/getzep/graphiti
@@ -21,6 +21,7 @@ Requires-Dist: anthropic>=0.49.0; extra == 'anthropic'
 Provides-Extra: dev
 Requires-Dist: anthropic>=0.49.0; extra == 'dev'
 Requires-Dist: diskcache-stubs>=5.6.3.6.20240818; extra == 'dev'
+Requires-Dist: falkordb<2.0.0,>=1.1.2; extra == 'dev'
 Requires-Dist: google-genai>=1.8.0; extra == 'dev'
 Requires-Dist: groq>=0.2.0; extra == 'dev'
 Requires-Dist: ipykernel>=6.29.5; extra == 'dev'
@@ -37,12 +38,16 @@ Requires-Dist: ruff>=0.7.1; extra == 'dev'
 Requires-Dist: sentence-transformers>=3.2.1; extra == 'dev'
 Requires-Dist: transformers>=4.45.2; extra == 'dev'
 Requires-Dist: voyageai>=0.2.3; extra == 'dev'
-Provides-Extra: falkord-db
-Requires-Dist: falkordb<2.0.0,>=1.1.2; extra == 'falkord-db'
+Provides-Extra: falkordb
+Requires-Dist: falkordb<2.0.0,>=1.1.2; extra == 'falkordb'
 Provides-Extra: google-genai
 Requires-Dist: google-genai>=1.8.0; extra == 'google-genai'
 Provides-Extra: groq
 Requires-Dist: groq>=0.2.0; extra == 'groq'
+Provides-Extra: sentence-transformers
+Requires-Dist: sentence-transformers>=3.2.1; extra == 'sentence-transformers'
+Provides-Extra: voyageai
+Requires-Dist: voyageai>=0.2.3; extra == 'voyageai'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -184,7 +189,18 @@ or
 uv add graphiti-core
 ```
 
-You can also install optional LLM providers as extras:
+### Installing with FalkorDB Support
+
+If you plan to use FalkorDB as your graph database backend, install with the FalkorDB extra:
+
+```bash
+pip install graphiti-core[falkordb]
+
+# or with uv
+uv add graphiti-core[falkordb]
+```
+
+### You can also install optional LLM providers as extras:
 
 ```bash
 # Install with Anthropic support
@@ -198,6 +214,9 @@ pip install graphiti-core[google-genai]
 
 # Install with multiple providers
 pip install graphiti-core[anthropic,groq,google-genai]
+
+# Install with FalkorDB and LLM providers
+pip install graphiti-core[falkordb,anthropic,google-genai]
 ```
 
 ## Quick Start

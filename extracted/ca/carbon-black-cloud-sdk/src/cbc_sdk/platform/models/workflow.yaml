@@ -1,0 +1,49 @@
+# *******************************************************
+# Copyright (c) Broadcom, Inc. 2020-2025. All Rights Reserved. Carbon Black.
+# SPDX-License-Identifier: MIT
+# *******************************************************
+# *
+# * DISCLAIMER. THIS PROGRAM IS PROVIDED TO YOU "AS IS" WITHOUT
+# * WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER ORAL OR WRITTEN,
+# * EXPRESS OR IMPLIED. THE AUTHOR SPECIFICALLY DISCLAIMS ANY IMPLIED
+# * WARRANTIES OR CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY,
+# * NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE.
+type: object
+description: Tracking system for alerts as they are triaged and resolved
+properties:
+  changed_by:
+    type: string
+    description: Username of the user who changed the workflow
+  change_timestamp:
+    type: string
+    format: date-time
+    description: When the workflow was last updated
+  changed_by_type:
+    type: string
+    description: The type of request that made the change
+  determination:
+    type: string
+    enum:
+      - TRUE_POSITIVE
+      - FALSE_POSITIVE
+      - NONE
+  closure_reason:
+    type: string
+    description: Alert remediation code. Indicates the result of the investigation
+      into the alert
+    enum:
+      - NO_REASON
+      - RESOLVED
+      - RESOLVED_BENIGN_KNOWN_GOOD
+      - DUPLICATE_CLEANUP
+      - OTHER
+  note:
+    type: string
+    description: Comment when updating the workflow
+  status:
+    type: string
+    description: State of the workflow
+    enum:
+      - OPEN
+      - IN_PROGRESS
+      - CLOSED

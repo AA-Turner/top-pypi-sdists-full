@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: clandestined
+Version: 1.1.0
+Summary: rendezvous hashing implementation based on murmur3 hash
+Home-page: https://github.com/ewdurbin/clandestined-python
+Author: Ee Durbin
+Author-email: ewdurbin@gmail.com
+License: MIT
+License-File: LICENSE

@@ -15,6 +15,14 @@ import time
 import unittest
 from datetime import datetime
 
+# Ugly hack waiting for Python 3.10 deprecation
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone
+
+    UTC = timezone.utc
+
 from glances import __version__
 from glances.events_list import GlancesEventsList
 from glances.filter import GlancesFilter, GlancesFilterList
@@ -146,6 +154,11 @@ class TestGlances(unittest.TestCase):
                 self.assertGreater(
                     plugin_instance.get_raw_history(first_history_field)[1][0],
                     plugin_instance.get_raw_history(first_history_field)[0][0],
+                )
+                # Check time
+                self.assertEqual(
+                    plugin_instance.get_raw_history(first_history_field)[1][0].tzinfo,
+                    UTC,
                 )
 
             # Update stats (add third element)

@@ -1,0 +1,49 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: select
+      - select_clause_element:
+        - wildcard_expression:
+          - wildcard_identifier:
+            - naked_identifier: d
+            - dot: .
+            - star: '*'
+      - comma: ','
+      - select_clause_element:
+        - wildcard_expression:
+          - wildcard_identifier:
+            - naked_identifier: r
+            - dot: .
+            - star: '*'
+          - select_except_clause:
+            - keyword: except
+            - bracketed:
+              - start_bracket: (
+              - naked_identifier: date_key
+              - end_bracket: )
+    - from_clause:
+      - keyword: from
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: my_table
+          - alias_expression:
+            - keyword: as
+            - naked_identifier: d
+        - join_clause:
+          - keyword: inner
+          - keyword: join
+          - from_expression_element:
+            - table_expression:
+              - table_reference:
+                - naked_identifier: my_other_table
+            - alias_expression:
+              - keyword: as
+              - naked_identifier: r
+          - keyword: using
+          - bracketed:
+            - start_bracket: (
+            - naked_identifier: date_key
+            - end_bracket: )

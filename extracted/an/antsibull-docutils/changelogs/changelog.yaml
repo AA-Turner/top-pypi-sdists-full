@@ -35,3 +35,13 @@ releases:
       - 1.2.0.yml
       - 12-rst-find-code.yml
     release_date: '2025-06-16'
+  1.2.1:
+    changes:
+      bugfixes:
+        - Ensure that ``path`` and ``root_prefix`` for ``antsibull_docutils.rst_code_finder.find_code_blocks()``
+          can actually be path-like objects (https://github.com/ansible-community/antsibull-docutils/pull/13).
+      release_summary: Bugfix release.
+    fragments:
+      - 1.2.1.yml
+      - 13-path.yml
+    release_date: '2025-07-05'

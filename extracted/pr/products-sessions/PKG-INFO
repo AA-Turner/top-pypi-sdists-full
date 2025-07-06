@@ -1,0 +1,313 @@
+Metadata-Version: 2.2
+Name: Products.Sessions
+Version: 6.0
+Summary: Zope session management.
+Home-page: https://github.com/zopefoundation/Products.Sessions/
+Author: Zope Foundation and Contributors
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
+Project-URL: Issue Tracker, https://github.com/zopefoundation/Products.Sessions/issues
+Project-URL: Sources, https://github.com/zopefoundation/Products.Sessions
+Keywords: Zope sessions management Transience product ZMI
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Zope
+Classifier: Framework :: Zope :: 4
+Classifier: Framework :: Zope :: 5
+Classifier: License :: OSI Approved :: Zope Public License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: setuptools
+Requires-Dist: AccessControl
+Requires-Dist: Acquisition
+Requires-Dist: persistent
+Requires-Dist: Persistence
+Requires-Dist: transaction
+Requires-Dist: ZODB
+Requires-Dist: Zope>=4.0b5
+Requires-Dist: zope.interface
+Requires-Dist: zope.deferredimport
+Provides-Extra: tests
+Requires-Dist: Products.TemporaryFolder>=6.2; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+.. image:: https://github.com/zopefoundation/Products.Sessions/actions/workflows/tests.yml/badge.svg
+        :target: https://github.com/zopefoundation/Products.Sessions/actions/workflows/tests.yml
+
+.. image:: https://coveralls.io/repos/github/zopefoundation/Products.Sessions/badge.svg?branch=master
+   :target: https://coveralls.io/github/zopefoundation/Products.Sessions?branch=master
+
+.. image:: https://img.shields.io/pypi/v/Products.Sessions.svg
+   :target: https://pypi.org/project/Products.Sessions/
+   :alt: Current version on PyPI
+
+.. image:: https://img.shields.io/pypi/pyversions/Products.Sessions.svg
+   :target: https://pypi.org/project/Products.Sessions/
+   :alt: Supported Python versions
+
+Overview
+========
+
+Zope server side session management.
+
+This package contains ``Products.Sessions`` and ``Products.Transience``.
+
+Please note
+-----------
+Before release 5.2 of the ``tempstorage`` package sessioning configurations
+using the simple temporary folder implementation shown below were discouraged
+because the temporary storage backend could lose data. This is no longer the
+case.
+
+Using sessions with Zope
+------------------------
+For simple RAM memory-based sessioning support, suitable for smaller
+deployments with a single Zope application server instance, add or uncomment
+the following temporary storage database definition in your Zope configuration
+file::
+
+  <zodb_db temporary>
+      <temporarystorage>
+        name Temporary database (for sessions)
+      </temporarystorage>
+      mount-point /temp_folder
+      container-class Products.TemporaryFolder.TemporaryContainer
+  </zodb_db>
+
+After a Zope restart, visit the Zope Management Interface and select
+ZODB Mount Point from the list of addable items to instantiate the temporary
+folder mount point. This only needs to be done once. After that point the
+``temp_folder`` object will be recreated on each Zope restart and the session
+support will automatically put a session data container into the temporary
+folder.
+
+For more advanced scenarios see the `Zope book chapter on Session management
+<https://zope.readthedocs.io/en/latest/zopebook/Sessions.html#alternative-server-side-session-backends-for-zope-4>`_.
+
+Changelog
+=========
+
+6.0 (2025-04-05)
+----------------
+
+- Add an interface and method to clear a session's data.
+  It is recommended to clear session data when a user logs into a site
+  to harden the application agains session fixation attacks.
+  See https://owasp.org/www-community/attacks/Session_fixation.
+
+- Show clear deprecation warnings for old interface class locations.
+
+- Add support for Python 3.13.
+
+- Drop support for Python 3.8.
+
+- Drop support for Python 3.7.
+
+
+5.0 (2023-10-16)
+----------------
+
+- Add support for Python 3.12.
+
+- Fix the browser ID manager cookie setting for Availability.
+  The name of the cookie flag ws incorrect so it was always False.
+
+- Drop support for Python 2.7, 3.5, 3.6.
+
+
+4.15 (2022-12-16)
+-----------------
+
+- Fix insidious buildout configuration bug for tests against Zope 4.
+
+- Add support for Python 3.11.
+
+
+4.14 (2022-09-20)
+-----------------
+
+- Add ability to set the session cookie's ``SameSite`` flag.
+  See https://hacks.mozilla.org/2020/08/changes-to-samesite-cookie-behavior/
+  for some background on how browsers change handling ``SameSite``.
+  The behavior of existing sites will not change unless the site administrator
+  changes the cookie configuration explicitly. New browser id managers will use
+  ``Lax`` by default.
+
+
+4.13 (2022-07-13)
+-----------------
+
+- Add support for Python 3.10.
+
+4.12 (2021-08-09)
+-----------------
+
+- Fix PY2 bug in ``BrowserIdManager.getNewBrowserId``
+  (`#45 <https://github.com/zopefoundation/Products.Sessions/issues/45>`_)
+
+
+4.11 (2021-07-07)
+-----------------
+
+- Improve out-of-the-box experience by instantiating a session data container
+  if the session data manager uses the default configuration that points
+  to a temporary folder
+
+- Reinstate simple sessioning with ``Products.TemporaryFolder``
+  (`#43 <https://github.com/zopefoundation/Products.Sessions/issues/43>`_)
+
+
+4.10 (2021-07-02)
+-----------------
+
+- Reduce usage of deprecated ``tempstorage`` for testing and remove warnings
+  (`#41 <https://github.com/zopefoundation/Products.Sessions/issues/41>`_)
+
+
+4.9 (2021-03-16)
+----------------
+
+- Add support for Python 3.9
+
+
+4.8 (2020-08-21)
+----------------
+
+- Don't break completely when no session data container is available
+  (`#35 <https://github.com/zopefoundation/Products.Sessions/issues/35>`_)
+
+
+4.7 (2020-08-07)
+----------------
+
+- Make the product compatible with ``transaction`` version 3
+  (`#32 <https://github.com/zopefoundation/Products.Sessions/issues/32>`_)
+
+
+4.6 (2019-10-12)
+----------------
+
+- Banish dependency on ``Products.TemporaryFolder`` into a tests extra
+  and point out its issues under Zope 4 in the README.
+  (`#26 <https://github.com/zopefoundation/Products.Sessions/issues/26>`_)
+
+- Switch tests dependencies to Zope 4.x branch to retain Python 2 compatibility
+
+- Fix access permissions for ``meta_type`` and ``zmi_icon`` properties so
+  they don't raise when accessed in the admin interface.
+  (`#24 <https://github.com/zopefoundation/Products.Sessions/pull/24>`_)
+
+- Fix Python 3 compatibility of ``_p_resolveConflict``.
+  (`#25 <https://github.com/zopefoundation/Products.Sessions/pull/25>`_)
+
+
+4.5 (2019-04-15)
+----------------
+
+- add badges to the README
+
+- add additional links on PyPI
+
+
+4.4 (2019-03-28)
+----------------
+
+- improve flake8 compliance
+
+- Implement ``__contains__`` on ``TransientObject``
+  (`#21 <https://github.com/zopefoundation/Products.Sessions/issues/21>`_)
+
+- Fix session data manager edit form
+
+
+4.3.2 (2019-03-07)
+------------------
+
+- Fix ``NameError`` in ``Products/Transience/Transience.py`` introduced in
+  version 4.3.
+
+
+4.3.1 (2019-03-07)
+------------------
+
+- Fix HTML of ``manageDataManager.dtml``.
+  (`#22 <https://github.com/zopefoundation/Products.Sessions/pull/22>`_)
+
+4.3 (2019-02-17)
+----------------
+
+- Specify supported Python versions using ``python_requires`` in setup.py
+  (`Zope#481 <https://github.com/zopefoundation/Zope/issues/481>`_)
+
+- Add support for Python 3.8
+
+
+4.2.1 (2018-11-30)
+------------------
+
+- Make sure ``TransientObjectContainer.getTimeoutMinutes`` returns ints.
+  (`#17 <https://github.com/zopefoundation/Products.Sessions/issues/17>`_)
+
+- Add ``tox``-based testing for unit tests, code coverage and linting.
+
+- Fix ZMI layout.
+  (`#19 <https://github.com/zopefoundation/Products.Sessions/pull/19>`_)
+
+
+4.2 (2018-11-06)
+----------------
+
+- Update the forms to Bootstrap ZMI.
+  (`#8 <https://github.com/zopefoundation/Products.Sessions/pull/8>`_)
+
+- Add support for Python 3.7.
+
+
+4.1 (2018-06-06)
+----------------
+
+- Add support for Python 3.5 and 3.6.
+
+- Quote variables in Products.Transience manage_container to avoid XSS.
+  From Products.PloneHotfix20160830.
+
+- Bring back Application initialization (creation of BrowserIdManager and
+  SessionDataManager in the ZODB on first startup).
+  This requires Zope >= 4.0b5.
+
+
+4.0 (2016-07-23)
+----------------
+
+- Released as separate distribution including the code.
+  This release requires Zope >= 4.0.
+
+
+3.0 (2016-08-01)
+----------------
+
+- Create a separate distribution called `Products.Sessions` without
+  any code inside it. This allows projects to depend on this project
+  inside the Zope 2.13 release line.

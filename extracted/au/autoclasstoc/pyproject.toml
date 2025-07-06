@@ -1,0 +1,71 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "autoclasstoc"
+authors = [
+  {name = "Kale Kundert", email = "kale@thekunderts.net"},
+]
+readme = "README.rst"
+dynamic = ["version", "description"]
+requires-python = ">=3.6"
+classifiers = [
+  'Programming Language :: Python :: 3',
+]
+dependencies = [
+  'sphinx>=3.0',
+  'docutils',
+  'more_itertools',
+]
+
+[project.optional-dependencies]
+tests = [
+  'pytest',
+  'parametrize_from_file',
+  're_assert',
+  'pytest_tmp_files',
+  'lxml',
+  'coverage[toml]',
+  'coverage_enable_subprocess',
+  'tox',
+]
+docs = [
+  'sphinx>=3.1',
+  'sphinx_rtd_theme',
+]
+
+[project.urls]
+'Documentation' = 'https://autoclasstoc.readthedocs.io/en/latest/'
+'Version Control' = 'https://github.com/kalekundert/autoclasstoc'
+'Bug Tracker' = 'https://github.com/kalekundert/autoclasstoc/issues'
+'Continuous Integration' = 'https://github.com/kalekundert/autoclasstoc/actions'
+'Test Coverage' = 'https://coveralls.io/github/kalekundert/autoclasstoc'
+
+[tool.coverage.run]
+branch = true
+parallel = true
+data_file = '${COVERAGE_OUTPUT_DIR-.}/.coverage'
+source = ['autoclasstoc']
+
+[tool.coverage.paths]
+source = [
+    'autoclasstoc',
+    '.tox/*/lib/*/site-packages/autoclasstoc',
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "^\\s*raise AssertionError\\b",
+    "^\\s*raise NotImplementedError\\b",
+]
+
+[tool.semantic_release]
+version_variables = ['autoclasstoc/__init__.py:__version__']
+build_command = 'python -m pip install build && python -m build'
+
+[tool.ruff.lint]
+select = ["F"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]

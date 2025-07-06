@@ -1,0 +1,29 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Muslim Tat
+orthographies:
+- base: А Б В Г Д Е Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я Ё Ӏ а б в г д е ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я ё ӏ
+  currency: <default>
+  marks: ◌̆ ◌̈
+  note: Used in Russia.
+  numerals: <default>
+  punctuation: <default>
+  script: Cyrillic
+  status: primary
+- autonym: Tati
+  auxiliary: <azj>
+  base: <azj>
+  currency: <azj>
+  marks: <azj>
+  note: Used in Azerbaijan.
+  numerals: <azj>
+  punctuation: <azj>
+  script: Latin
+  status: primary
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Tat language (Caucasus). (2024, May 7). In *Wikipedia*. https://en.wikipedia.org/wiki/Tat_language_(Caucasus)?oldid=1222761735
+speakers: 28000
+status: living
+validity: preliminary

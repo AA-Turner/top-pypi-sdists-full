@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: quasardb
+Version: 3.14.1
+Summary: Python API for quasardb
+Home-page: https://www.quasardb.net/
+Author: quasardb SAS
+Author-email: contact@quasardb.net
+License: BSD
+Keywords: quasardb timeseries database API driver
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Other Audience
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: BSD License
+License-File: LICENSE.md
+Requires-Dist: numpy
+Provides-Extra: pandas
+Requires-Dist: pandas; extra == "pandas"
+Provides-Extra: tests
+Requires-Dist: pytest>=6.2.5; extra == "tests"
+Requires-Dist: pytest-runner>=5.3.1; extra == "tests"
+Requires-Dist: pytest-benchmark==3.4.1; extra == "tests"
+Requires-Dist: teamcity-messages>=1.29; extra == "tests"

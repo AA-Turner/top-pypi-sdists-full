@@ -1,0 +1,258 @@
+Metadata-Version: 2.4
+Name: pyramid_oereb
+Version: 2.5.6
+Summary: pyramid_oereb, extension for pyramid web frame work to provide a basic server part for the oereb project
+Author-email: François Voisard <francois.voisard@ne.ch>
+License: BSD 2-Clause License
+        
+        Copyright (c) 2017-2019, Kanton Basel-Landschaft, République et Canton de Neuchâtel,
+        Camptocamp SA
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        * Redistributions of source code must retain the above copyright notice, this
+          list of conditions and the following disclaimer.
+        
+        * Redistributions in binary form must reproduce the above copyright notice,
+          this list of conditions and the following disclaimer in the documentation
+          and/or other materials provided with the distribution.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: Repository, https://github.com/openoereb/pyramid_oereb
+Project-URL: Changelog, https://github.com/openoereb/pyramid_oereb/blob/master/CHANGES.rst
+Keywords: pyramid oereb
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Pyramid
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Provides-Extra: recommend
+Requires-Dist: pypdf==5.1.0; extra == "recommend"
+Requires-Dist: filetype==1.2.0; extra == "recommend"
+Requires-Dist: geoalchemy2==0.17.1; extra == "recommend"
+Requires-Dist: pyramid==2.0.2; extra == "recommend"
+Requires-Dist: pyramid-debugtoolbar==4.12.1; extra == "recommend"
+Requires-Dist: qrcode==8.0; extra == "recommend"
+Requires-Dist: image==1.5.33; extra == "recommend"
+Requires-Dist: shapely==2.0.6; extra == "recommend"
+Requires-Dist: SQLAlchemy==2.0.36; extra == "recommend"
+Requires-Dist: pyaml-env==1.2.2; extra == "recommend"
+Requires-Dist: urllib3==2.3.0; extra == "recommend"
+Requires-Dist: waitress==3.0.2; extra == "recommend"
+Requires-Dist: pyreproj==3.0.0; extra == "recommend"
+Requires-Dist: mako-render==0.1.0; extra == "recommend"
+Requires-Dist: requests==2.32.3; extra == "recommend"
+Requires-Dist: geolink-formatter==2.0.6; extra == "recommend"
+Requires-Dist: pyconizer==0.1.4; extra == "recommend"
+Requires-Dist: c2cwsgiutils[standard]==6.0.8; extra == "recommend"
+Provides-Extra: no-version
+Requires-Dist: pypdf; extra == "no-version"
+Requires-Dist: filetype; extra == "no-version"
+Requires-Dist: geoalchemy2; extra == "no-version"
+Requires-Dist: pyramid; extra == "no-version"
+Requires-Dist: pyramid-debugtoolbar; extra == "no-version"
+Requires-Dist: qrcode; extra == "no-version"
+Requires-Dist: image; extra == "no-version"
+Requires-Dist: shapely; extra == "no-version"
+Requires-Dist: SQLAlchemy; extra == "no-version"
+Requires-Dist: pyaml-env; extra == "no-version"
+Requires-Dist: urllib3; extra == "no-version"
+Requires-Dist: waitress; extra == "no-version"
+Requires-Dist: pyreproj; extra == "no-version"
+Requires-Dist: mako-render; extra == "no-version"
+Requires-Dist: requests; extra == "no-version"
+Requires-Dist: geolink-formatter; extra == "no-version"
+Requires-Dist: pyconizer; extra == "no-version"
+Requires-Dist: c2cwsgiutils[standard]; extra == "no-version"
+Provides-Extra: testing
+Requires-Dist: jsonschema==4.23.0; extra == "testing"
+Requires-Dist: lxml==5.3.1; extra == "testing"
+Requires-Dist: pytest==8.3.4; extra == "testing"
+Requires-Dist: pytest-cov==6.0.0; extra == "testing"
+Requires-Dist: pytest-ordering==0.6; extra == "testing"
+Requires-Dist: requests-mock==1.12.1; extra == "testing"
+Requires-Dist: responses==0.25.3; extra == "testing"
+Requires-Dist: webtest==3.0.4; extra == "testing"
+Requires-Dist: pillow==11.1.0; extra == "testing"
+Provides-Extra: dev
+Requires-Dist: flake8==7.1.2; extra == "dev"
+Requires-Dist: Flake8-pyproject==1.2.3; extra == "dev"
+Requires-Dist: pyflakes==3.2.0; extra == "dev"
+Requires-Dist: pycodestyle==2.12.1; extra == "dev"
+Requires-Dist: Sphinx==7.4.7; extra == "dev"
+Requires-Dist: sphinx_rtd_theme==3.0.2; extra == "dev"
+Requires-Dist: psycopg2==2.9.10; extra == "dev"
+Requires-Dist: mccabe==0.7.0; extra == "dev"
+Requires-Dist: c2c.template==2.4.2; extra == "dev"
+Requires-Dist: yappi; extra == "dev"
+Dynamic: license-file
+
+===============================
+``pyramid_oereb`` (ÖREB-Server)
+===============================
+
+Project description
+===================
+
+``pyramid_oereb`` is an open-source implementation of the server side part for the swiss `"Cadastre of
+Public-law Restrictions on landownership" (PLR-cadastre) <https://www.cadastre.ch/en/oereb.html>`__.
+
+It is written in Python and designed as a plugin for the `Pyramid Web Framework
+<http://docs.pylonsproject.org/projects/pyramid/en/latest/>`__. This allows ``pyramid_oereb`` to be
+included in any Pyramid web application.
+
+Please refer to the `documentation <https://openoereb.github.io/pyramid_oereb/>`__ for detailed
+information and instructions for installation and configuration.
+
+If you are interested in contributing or extending the project, take a look at the
+`contribution page <https://openoereb.github.io/pyramid_oereb/doc/contrib/>`__.
+
+
+Starting the development server
+===============================
+
+#. Build run the initial build depending on your OS:
+
+   * ``docker network create print-network``
+   * Linux: ``docker compose run --rm -u $(id -u):$(id -g) oereb-make build``
+   * MAC/Windows: ``docker compose run --rm oereb-make build``
+
+#. ``docker compose up``
+
+Running ``docker compose up`` will start the DB (it will automatically import the test/dev data on startup) and start
+a running instance of the pyramid_oereb DEV server connected to the DB. The project folder is mounted
+to it. So changes take effect.
+
+The sample static extract should then be available at http://localhost:6543/oereb/extract/json?EGRID=CH113928077734
+
+
+Running the tests
+=================
+
+To run the tests locally:
+
+The docker way:
+---------------
+  * ``docker network create print-network``
+  * Linux: ``docker compose run --rm -u $(id -u):$(id -g) oereb-server make build tests``
+  * MAC/Windows: ``docker compose run --rm oereb-server make build tests``
+
+For systems having a local make tool, the following recipe can be used:
+``make docker-tests``
+
+sometimes the local postgres port is already in use, and you must override it:
+``EXPOSED_PGPORT=5433 make docker-tests``
+
+
+Local tests:
+------------
+For local tests without the complete docker composition you need a running DB.
+You can create one based on the oereb image:
+``docker compose up -d oereb-db``
+
+or create an empty postgis DB
+``docker run -p 5555:5432 --name pg_oereb --rm -it -e POSTGRES_PASSWORD=pw postgis/postgis``
+
+Then you can run the tests easily:
+``make tests``
+
+If the DB does not use standard credentials, you can set them as ENV vars:
+``PGPORT=5555 PGPASSWORD=pw make tests``
+
+To run one specfic test:
+
+.. code-block:: bash
+
+  docker compose exec oereb-server PYTEST_OPTS="-k <name_of_the_test>" make tests
+
+Troubleshooting
+---------------
+Some local files may remain from previous builds, and the regular user may not be able to delete them.
+In this case cleanup can be done like:
+
+.. code-block:: bash
+
+  docker compose run --rm oereb-make clean-all
+
+
+
+Useful ``make`` targets
+=======================
+
+Run the ``make`` targets found in the Makefile either in the ``oereb-server`` container (if using ``docker compose``) or in your local shell (if running the server locally).
+Some useful targets:
+
+- ``make serve-dev`` to run the application
+- ``make tests`` to run the application tests
+- ``make docker-tests`` to run the application tests inside a docker composition, so one does not have to care about local set up
+- ``make clean`` to empty the database
+- ``make clean-all`` to empty the database, uninstall the application and the virtual env and clear the rendered configuration files
+- ``make docker-clean-all`` to clean up everything written by the docker container. This is sometimes useful when docker has created some files with root only permission
+
+If necessary the application is re-installed and the database is filled when running ``make serve-dev`` again.
+
+
+There are further make targets to check the validity of federal data:
+
+- ``make check_fed_data`` downloads currently known federal data definitions and compares them with the active ones
+- ``make update_fed_data_urls`` try to retrieve the new urls from the server's index page. The file fed.urls must then be committed to the repo
+- ``make update_fed_data_urls`` generate new json files in the repo. The modified files must then be committed
+- ``make auto_update_fed_data`` automagic command which finds the new URLs, generates json data, copies json to project. The files fed.urls and dev/sample_data/ch.*.json must be committed if changed
+
+Using MapFish-Print
+===================
+
+To be able to test the OEREB static extract (pdf), you need to run ``pyramid_oereb`` with ``docker compose`` and to have a running instance of `pyramid_oereb_mfp <https://github.com/openoereb/pyramid_oereb_mfp>`__.
+The Docker network ``print-network`` is also required and can be created with:
+
+.. code-block:: bash
+
+  docker network create print-network
+
+It is also possible to launch a Mapfish Print service on a local URL (via Docker or not) and then run the server via `make serve`. The correct print url must be provided:
+
+.. code-block:: bash
+
+  PRINT_URL="http://localhost:8680/print/oereb" EXPOSED_PGPORT=5433 PGPORT=5433 make serve-dev
+
+The sample static extract should then be available at http://localhost:6543/oereb/extract/pdf?EGRID=CH113928077734
+
+
+CI Status
+=========
+
+CI status on master branch:
+
+.. image:: https://github.com/openoereb/pyramid_oereb/actions/workflows/ci.yaml/badge.svg
+   :alt: Master CI status
+   :target: https://github.com/openoereb/pyramid_oereb/actions/workflows/ci.yaml
+
+Daily check status:
+
+.. image:: https://github.com/openoereb/pyramid_oereb/actions/workflows/daily_check.yaml/badge.svg
+   :alt: Daily check status
+   :target: https://github.com/openoereb/pyramid_oereb/actions/workflows/daily_check.yaml
+
+Code Quality Status:
+
+.. image:: https://api.codacy.com/project/badge/Grade/cf50094a4e84434d837babf1106f9fcb
+   :alt: Codacy Badge
+   :target: https://app.codacy.com/gh/openoereb/pyramid_oereb?utm_source=github.com&utm_medium=referral&utm_content=openoereb/pyramid_oereb&utm_campaign=Badge_Grade_Settings

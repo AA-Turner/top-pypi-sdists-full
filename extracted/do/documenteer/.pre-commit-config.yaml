@@ -1,0 +1,39 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+        exclude: ^src/documenteer/storage/localtemplates/technote/ci\.yaml
+      - id: check-toml
+      - id: check-json
+      - id: trailing-whitespace
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
+    rev: v1.0.1
+    hooks:
+      - id: rst-linter
+        files: (README\.rst)|(CHANGELOG\.rst)
+
+  - repo: https://github.com/PyCQA/isort/
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        additional_dependencies:
+          - toml
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+
+  - repo: https://github.com/asottile/blacken-docs
+    rev: 1.16.0
+    hooks:
+      - id: blacken-docs
+        additional_dependencies: [black==22.12.0]
+        args: [-l, '79', -t, py38]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8

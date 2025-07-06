@@ -1,65 +1,27 @@
-"""margins.py
+# margins.py - functions for computing stability margins
+#
+# Initial author: Richard M. Murray
+# Creation date: 14 July 2011
 
-Functions for computing stability margins and related functions.
-
-Routines in this module:
-
-margins.stability_margins
-margins.phase_crossover_frequencies
-margins.margin
-"""
-
-"""Copyright (c) 2011 by California Institute of Technology
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-
-1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the California Institute of Technology nor
-   the names of its contributors may be used to endorse or promote
-   products derived from this software without specific prior
-   written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL CALTECH
-OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-SUCH DAMAGE.
-
-Author: Richard M. Murray
-Date: 14 July 2011
-
-$Id$
-"""
+"""Functions for computing stability margins and related functions."""
 
 import math
 from warnings import warn
+
 import numpy as np
 import scipy as sp
-from . import xferfcn
-from .lti import evalfr
-from .iosys import issiso
-from . import frdata
-from . import freqplot
+
+from . import frdata, freqplot, xferfcn, statesp
 from .exception import ControlMIMONotImplemented
+from .iosys import issiso
+from .ctrlutil import mag2db
+try:
+    from slycot import ab13md
+except ImportError:
+    ab13md = None
 
-__all__ = ['stability_margins', 'phase_crossover_frequencies', 'margin']
-
+__all__ = ['stability_margins', 'phase_crossover_frequencies', 'margin',
+           'disk_margins']
 
 # private helper functions
 def _poly_iw(sys):
@@ -81,11 +43,16 @@ def _poly_iw_sqr(pol_iw):
 
 def _poly_iw_real_crossing(num_iw, den_iw, epsw):
     # Return w where imag(H(iw)) == 0
+
+    # Compute the imaginary part of H = (num.r + j num.i)/(den.r + j den.i)
     test_w = np.polysub(np.polymul(num_iw.imag, den_iw.real),
                         np.polymul(num_iw.real, den_iw.imag))
+
+    # Find the real-valued w > 0 where imag(H(iw)) = 0
     w = np.roots(test_w)
     w = np.real(w[np.isreal(w)])
     w = w[w >= epsw]
+
     return w
 
 
@@ -206,6 +173,7 @@ def _poly_z_wstab(num, den, num_inv_zp, den_inv_zq, p_q, dt, epsw):
 
     return z, w
 
+
 def _likely_numerical_inaccuracy(sys):
     # crude, conservative check for if
     # num(z)*num(1/z) << den(z)*den(1/z) for DT systems
@@ -248,18 +216,16 @@ def _likely_numerical_inaccuracy(sys):
 #                    systems
 
 
+# TODO: consider handling sysdata similar to margin (via *sysdata?)
 def stability_margins(sysdata, returnall=False, epsw=0.0, method='best'):
-    """Calculate stability margins and associated crossover frequencies.
+    """Stability margins and associated crossover frequencies.
 
     Parameters
     ----------
-    sysdata : LTI system or (mag, phase, omega) sequence
-        sys : LTI system
-            Linear SISO system representing the loop transfer function
-        mag, phase, omega : sequence of array_like
-            Arrays of magnitudes (absolute values, not dB), phases (degrees),
-            and corresponding frequencies. Crossover frequencies returned are
-            in the same units as those in `omega` (e.g., rad/sec or Hz).
+    sysdata : LTI system or 3-tuple of array_like
+        Linear SISO system representing the loop transfer function.
+        Alternatively, a three tuple of the form (mag, phase, omega)
+        providing the frequency response can be passed.
     returnall : bool, optional
         If true, return all margins found. If False (default), return only the
         minimum stability margins. For frequency data or FRD systems, only
@@ -269,22 +235,23 @@ def stability_margins(sysdata, returnall=False, epsw=0.0, method='best'):
         and not returned as margin.
     method : string, optional
         Method to use (default is 'best'):
-        'poly': use polynomial method if passed a :class:`LTI` system.
-        'frd': calculate crossover frequencies using numerical interpolation
-        of a :class:`FrequencyResponseData` representation of the system if
-        passed a :class:`LTI` system.
-        'best': use the 'poly' method if possible, reverting to 'frd' if it is
-        detected that numerical inaccuracy is likey to arise in the 'poly'
-        method for for discrete-time systems.
+
+        * 'poly': use polynomial method if passed a `LTI` system.
+        * 'frd': calculate crossover frequencies using numerical
+          interpolation of a `FrequencyResponseData` representation
+          of the system if passed a `LTI` system.
+        * 'best': use the 'poly' method if possible, reverting to 'frd' if
+          it is detected that numerical inaccuracy is likely to arise in the
+          'poly' method for for discrete-time systems.
 
     Returns
     -------
     gm : float or array_like
-        Gain margin
+        Gain margin.
     pm : float or array_like
-        Phase margin
+        Phase margin.
     sm : float or array_like
-        Stability margin, the minimum distance from the Nyquist plot to -1
+        Stability margin, the minimum distance from the Nyquist plot to -1.
     wpc : float or array_like
         Phase crossover frequency (where phase crosses -180 degrees), which is
         associated with the gain margin.
@@ -292,14 +259,16 @@ def stability_margins(sysdata, returnall=False, epsw=0.0, method='best'):
         Gain crossover frequency (where gain crosses 1), which is associated
         with the phase margin.
     wms : float or array_like
-        Stability margin frequency (where Nyquist plot is closest to -1)
+        Stability margin frequency (where Nyquist plot is closest to -1).
 
-    Note that the gain margin is determined by the gain of the loop
-    transfer function at the phase crossover frequency(s), the phase
-    margin is determined by the phase of the loop transfer function at
-    the gain crossover frequency(s), and the stability margin is
-    determined by the frequency of maximum sensitivity (given by the
-    magnitude of 1/(1+L)).
+    Notes
+    -----
+    The gain margin is determined by the gain of the loop transfer function
+    at the phase crossover frequency(s), the phase margin is determined by
+    the phase of the loop transfer function at the gain crossover
+    frequency(s), and the stability margin is determined by the frequency
+    of maximum sensitivity (given by the magnitude of 1/(1+L)).
+
     """
     # TODO: FRD method for cont-time systems doesn't work
     try:
@@ -424,9 +393,8 @@ def stability_margins(sysdata, returnall=False, epsw=0.0, method='best'):
         # find all stab margins?
         widx, = np.where(np.diff(np.sign(np.diff(_dstab(sys.omega)))) > 0)
         wstab = np.array(
-            [sp.optimize.minimize_scalar(_dstab,
-                                         bracket=(sys.omega[i], sys.omega[i+1])
-                                         ).x
+            [sp.optimize.minimize_scalar(
+                _dstab, bracket=(sys.omega[i], sys.omega[i+1])).x
              for i in widx])
         wstab = wstab[(wstab >= sys.omega[0]) * (wstab <= sys.omega[-1])]
         ws_resp = sys(1j * wstab)
@@ -459,20 +427,20 @@ def stability_margins(sysdata, returnall=False, epsw=0.0, method='best'):
 
 # Contributed by Steffen Waldherr <waldherr@ist.uni-stuttgart.de>
 def phase_crossover_frequencies(sys):
-    """Compute frequencies and gains at intersections with real axis
-    in Nyquist plot.
+    """Compute Nyquist plot real-axis crossover frequencies and gains.
 
     Parameters
     ----------
-    sys : SISO LTI system
+    sys : LTI
+        SISO LTI system.
 
     Returns
     -------
     omega : ndarray
         1d array of (non-negative) frequencies where Nyquist plot
-        intersects the real axis
-    gain : ndarray
-        1d array of corresponding gains
+        intersects the real axis.
+    gains : ndarray
+        1d array of corresponding gains.
 
     Examples
     --------
@@ -493,35 +461,39 @@ def phase_crossover_frequencies(sys):
         omega = _poly_iw_real_crossing(num_iw, den_iw, 0.)
 
         # using real() to avoid rounding errors and results like 1+0j
-        gain = np.real(evalfr(sys, 1J * omega))
+        gains = np.real(sys(omega * 1j, warn_infinite=False))
     else:
         zargs = _poly_z_invz(sys)
         z, omega = _poly_z_real_crossing(*zargs, epsw=0.)
-        gain = np.real(evalfr(sys, z))
+        gains = np.real(sys(z, warn_infinite=False))
 
-    return omega, gain
+    return omega, gains
 
 
 def margin(*args):
-    """margin(sysdata)
+    """
+    margin(sys) \
+    margin(mag, phase, omega)
 
-    Calculate gain and phase margins and associated crossover frequencies.
+    Gain and phase margins and associated crossover frequencies.
+
+    Can be called as ``margin(sys)`` where `sys` is a SISO LTI system or
+    ``margin(mag, phase, omega)``.
 
     Parameters
     ----------
-    sysdata : LTI system or (mag, phase, omega) sequence
-        sys : StateSpace or TransferFunction
-            Linear SISO system representing the loop transfer function
-        mag, phase, omega : sequence of array_like
-            Input magnitude, phase (in deg.), and frequencies (rad/sec) from
-            bode frequency response data
+    sys : `StateSpace` or `TransferFunction`
+        Linear SISO system representing the loop transfer function.
+    mag, phase, omega : sequence of array_like
+        Input magnitude, phase (in deg.), and frequencies (rad/sec) from
+        bode frequency response data.
 
     Returns
     -------
     gm : float
-        Gain margin
+        Gain margin.
     pm : float
-        Phase margin (in degrees)
+        Phase margin (in degrees).
     wcg : float or array_like
         Crossover frequency associated with gain margin (phase crossover
         frequency), where phase crosses below -180 degrees.
@@ -551,3 +523,137 @@ def margin(*args):
                          % len(args))
 
     return margin[0], margin[1], margin[3], margin[4]
+
+
+def disk_margins(L, omega, skew=0.0, returnall=False):
+    """Disk-based stability margins of loop transfer function.
+
+    Parameters
+    ----------
+    L : `StateSpace` or `TransferFunction`
+        Linear SISO or MIMO loop transfer function.
+    omega : sequence of array_like
+        1D array of (non-negative) frequencies (rad/s) at which
+        to evaluate the disk-based stability margins.
+    skew : float or array_like, optional
+        Skew parameter(s) for disk margin (default = 0.0):
+
+        * skew = 0.0 "balanced" sensitivity function 0.5*(S - T)
+        * skew = 1.0 sensitivity function S
+        * skew = -1.0 complementary sensitivity function T
+
+    returnall : bool, optional
+        If True, return frequency-dependent margins.
+        If False (default), return worst-case (minimum) margins.
+
+    Returns
+    -------
+    DM : float or array_like
+        Disk margin.
+    DGM : float or array_like
+        Disk-based gain margin.
+    DPM : float or array_like
+        Disk-based phase margin.
+
+    Examples
+    --------
+    >> omega = np.logspace(-1, 3, 1001)
+    >> P = control.ss([[0, 10], [-10, 0]], np.eye(2), [[1, 10],
+    [-10, 1]], 0)
+    >> K = control.ss([], [], [], [[1, -2], [0, 1]])
+    >> L = P * K
+    >> DM, DGM, DPM = control.disk_margins(L, omega, skew=0.0)
+    """
+
+    # First argument must be a system
+    if not isinstance(L, (statesp.StateSpace, xferfcn.TransferFunction)):
+        raise ValueError(
+            "Loop gain must be state-space or transfer function object")
+
+    # Loop transfer function must be square
+    if statesp.ss(L).B.shape[1] != statesp.ss(L).C.shape[0]:
+        raise ValueError("Loop gain must be square (n_inputs = n_outputs)")
+
+    # Need slycot if L is MIMO, for mu calculation
+    if not L.issiso() and ab13md == None:
+        raise ControlMIMONotImplemented(
+            "Need slycot to compute MIMO disk_margins")
+
+    # Get dimensions of feedback system
+    num_loops = statesp.ss(L).C.shape[0]
+    I = statesp.ss([], [], [], np.eye(num_loops))
+
+    # Loop sensitivity function
+    S = I.feedback(L)
+
+    # Compute frequency response of the "balanced" (according
+    # to the skew parameter "sigma") sensitivity function [1-2]
+    ST = S + 0.5 * (skew - 1) * I
+    ST_mag, ST_phase, _ = ST.frequency_response(omega)
+    ST_jw = (ST_mag * np.exp(1j * ST_phase))
+    if not L.issiso():
+        ST_jw = ST_jw.transpose(2, 0, 1)
+
+    # Frequency-dependent complex disk margin, computed using
+    # upper bound of the structured singular value, a.k.a. "mu",
+    # of (S + (skew - I)/2).
+    DM = np.zeros(omega.shape)
+    DGM = np.zeros(omega.shape)
+    DPM = np.zeros(omega.shape)
+    for ii in range(0, len(omega)):
+        # Disk margin (a.k.a. "alpha") vs. frequency
+        if L.issiso() and ab13md == None:
+            # For the SISO case, the norm on (S + (skew - I)/2) is
+            # unstructured, and can be computed as the magnitude
+            # of the frequency response.
+            DM[ii] = 1.0 / ST_mag[ii]
+        else:
+            # For the MIMO case, the norm on (S + (skew - I)/2)
+            # assumes a single complex uncertainty block diagonal
+            # uncertainty structure. AB13MD provides an upper bound
+            # on this norm at the given frequency omega[ii].
+            DM[ii] = 1.0 / ab13md(ST_jw[ii], np.array(num_loops * [1]),
+                                  np.array(num_loops * [2]))[0]
+
+        # Disk-based gain margin (dB) and phase margin (deg)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            # Real-axis intercepts with the disk
+            gamma_min = (1 - 0.5 * DM[ii] * (1 - skew)) \
+                      / (1 + 0.5 * DM[ii] * (1 + skew))
+            gamma_max = (1 + 0.5 * DM[ii] * (1 - skew)) \
+                      / (1 - 0.5 * DM[ii] * (1 + skew))
+
+            # Gain margin (dB)
+            DGM[ii] = mag2db(np.minimum(1 / gamma_min, gamma_max))
+            if np.isnan(DGM[ii]):
+                DGM[ii] = float('inf')
+
+            # Phase margin (deg)
+            if np.isinf(gamma_max):
+                DPM[ii] = 90.0
+            else:
+                DPM[ii] = (1 + gamma_min * gamma_max) \
+                        / (gamma_min + gamma_max)
+                if abs(DPM[ii]) >= 1.0:
+                    DPM[ii] = float('Inf')
+                else:
+                    DPM[ii] = np.rad2deg(np.arccos(DPM[ii]))
+
+    if returnall:
+        # Frequency-dependent disk margin, gain margin and phase margin
+        return DM, DGM, DPM
+    else:
+        # Worst-case disk margin, gain margin and phase margin
+        if DGM.shape[0] and not np.isinf(DGM).all():
+            with np.errstate(all='ignore'):
+                gmidx = np.where(DGM == np.min(DGM))
+        else:
+            gmidx = -1
+
+        if DPM.shape[0]:
+            pmidx = np.where(DPM == np.min(DPM))
+
+        return (
+            float('inf') if DM.shape[0] == 0 else np.amin(DM),
+            float('inf') if gmidx == -1 else DGM[gmidx][0],
+            float('inf') if DPM.shape[0] == 0 else DPM[pmidx][0])

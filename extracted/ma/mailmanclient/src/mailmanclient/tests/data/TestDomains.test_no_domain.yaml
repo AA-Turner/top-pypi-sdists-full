@@ -1,0 +1,258 @@
+interactions:
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.1.2a1]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Sun, 25 Feb 2018 03:57:24 GMT']
+      server: [WSGIServer/0.2 CPython/3.5.2]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:12:30 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:00 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:34 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:14:08 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:15:56 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:17:50 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:18:54 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:19:53 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:20:29 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:22:08 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:28:12 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:46:20 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:47:04 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:48:11 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 404, message: Not Found}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.0/domains/example.org
+  response:
+    body: {string: 404 Not Found}
+    headers:
+      Date: ['Wed, 16 May 2018 00:50:21 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['13']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 404, message: Not Found}
+version: 1

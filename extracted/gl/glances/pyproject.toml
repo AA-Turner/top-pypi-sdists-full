@@ -23,6 +23,7 @@ dependencies = [
   "packaging",
   "psutil>=5.6.7",
   "windows-curses; platform_system == 'Windows'",
+  "shtab; platform_system != 'Windows'",
 ]
 description = "A cross-platform curses-based monitoring tool"
 dynamic = ["version"]
@@ -59,6 +60,7 @@ dev = [
   "pyright",
   "pytest",
   "requirements-parser",
+  "rstcheck",
   "ruff",
   "selenium",
   "semgrep",
@@ -73,11 +75,13 @@ export = [
   "ibmcloudant",
   "influxdb-client",
   "influxdb>=1.0.0",
+  "influxdb3-python",
   "kafka-python",
   "paho-mqtt",
   "pika",
   "potsdb",
   "prometheus_client",
+  "psycopg[binary]",
   "pymongo",
   "pyzmq",
   "statsd",
@@ -88,7 +92,7 @@ ip = ["netifaces2"]
 raid = ["pymdstat"]
 sensors = ["batinfo; platform_system == 'Linux'"]
 smart = ["pySMART.smartx"]
-snmp = ["pysnmp-lextudio<6.2.0"]
+snmp = ["pysnmp-lextudio<6.3.1"]
 sparklines = ["sparklines"]
 web = [
   "fastapi>=0.82.0",

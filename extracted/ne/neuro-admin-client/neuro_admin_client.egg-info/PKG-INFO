@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: neuro-admin-client
+Version: 25.5.0
+Summary: Internal client for Neu.ro admin service
+Home-page: https://github.com/neuro-inc/neuro-admin-client
+License: Apache 2
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.1
+Requires-Dist: yarl>=1.10
+Requires-Dist: multidict>=6
+Dynamic: license-file
+
+# neuro-admin-client
+Client library for Neuro Admin microservice

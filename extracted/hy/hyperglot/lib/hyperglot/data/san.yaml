@@ -1,0 +1,23 @@
+contributors:
+- David Březina
+- Sergio Martins
+name: Sanskrit
+orthographies:
+- autonym: संस्कृतम्
+  auxiliary: ꣻ
+  base: अ आ इ ई उ ऊ ऋ ॠ ऌ ॡ ए ऐ ओ औ क ख ग घ ङ च छ ज झ ञ ट ठ ड ढ ण त थ द ध न प फ ब भ म य र ल ळ व श ष स ह ‌ ‍ ऽ
+  currency: <default>
+  design_alternates: र ल श ५ ८ ९
+  design_requirements:
+  - The Devanagari used for Sanskrit makes use of different forms for some of the characters (marked in the previews) and conjunct ligatures compared to the Hindi version.
+  - Mark positioning and numerous precomposed forms (namely conjunct ligatures) are required for proper representation of the language.
+  marks: ◌ँ ◌ं ◌ः ◌़ ◌ा ◌ि ◌ी ◌ु ◌ू ◌ृ ◌े ◌ै ◌ो ◌ौ ◌्
+  note: Sanskrit has been written using a variety of Brahmic scrits and, later, also the Latin-script transliteration. There a no native speakers of Sanskrit.
+  numerals: <default>
+  punctuation: <hin>
+  script: Devanagari
+  status: primary
+sources:
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+- Sanskrit. (2024, August 27). In *Wikipedia*. https://en.wikipedia.org/wiki/Sanskrit?oldid=1242643117
+validity: preliminary

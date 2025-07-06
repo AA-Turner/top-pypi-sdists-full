@@ -1,2 +1,0 @@
-from .replace_namespace_vars import str_to_namespace_var
-from .replace_namespace_vars import replace_namespace_vars

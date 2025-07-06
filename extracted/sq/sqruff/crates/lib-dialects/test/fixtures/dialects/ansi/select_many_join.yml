@@ -1,0 +1,85 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - wildcard_expression:
+          - wildcard_identifier:
+            - star: '*'
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: a
+          - alias_expression:
+            - keyword: as
+            - naked_identifier: foo
+        - join_clause:
+          - keyword: JOIN
+          - from_expression_element:
+            - table_expression:
+              - table_reference:
+                - naked_identifier: b
+        - join_clause:
+          - keyword: JOIN
+          - from_expression_element:
+            - table_expression:
+              - table_reference:
+                - naked_identifier: c
+            - alias_expression:
+              - keyword: as
+              - naked_identifier: foobar
+        - join_clause:
+          - keyword: JOIN
+          - from_expression_element:
+            - table_expression:
+              - table_reference:
+                - naked_identifier: d
+      - comma: ','
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: e
+          - alias_expression:
+            - keyword: as
+            - naked_identifier: bar
+        - join_clause:
+          - keyword: JOIN
+          - from_expression_element:
+            - table_expression:
+              - table_reference:
+                - naked_identifier: f
+        - join_clause:
+          - keyword: JOIN
+          - from_expression_element:
+            - table_expression:
+              - function:
+                - function_name:
+                  - function_name_identifier: g
+                - bracketed:
+                  - start_bracket: (
+                  - expression:
+                    - quoted_literal: '''blah'''
+                  - end_bracket: )
+            - alias_expression:
+              - keyword: as
+              - naked_identifier: tbl_func
+        - join_clause:
+          - keyword: JOIN
+          - from_expression_element:
+            - table_expression:
+              - table_reference:
+                - naked_identifier: h
+      - comma: ','
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: baz
+          - alias_expression:
+            - keyword: as
+            - naked_identifier: buzz

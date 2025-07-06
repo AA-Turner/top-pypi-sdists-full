@@ -1,5 +1,0 @@
-mod exponential_moving_average_crossover;
-pub use self::exponential_moving_average_crossover::ExponentialMovingAverageCrossover;
-
-mod simple_moving_average_crossover;
-pub use self::simple_moving_average_crossover::SimpleMovingAverageCrossover;

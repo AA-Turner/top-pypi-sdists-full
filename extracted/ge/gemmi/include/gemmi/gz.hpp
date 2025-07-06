@@ -21,6 +21,10 @@ struct GEMMI_DLL GzStream final : public AnyStream {
   char* gets(char* line, int size) override;
   int getc() override;
   bool read(void* buf, size_t len) override;
+  bool skip(size_t n) override;
+  long tell() override;
+  std::string read_rest() override;
+
 private:
   void* f;  // implementation detail
 };

@@ -1,0 +1,486 @@
+Metadata-Version: 2.1
+Name: snap-helpers
+Version: 0.4.2
+Summary: Helpers for interacting with the Snap system within a Snap
+Author-email: Alberto Donato <alberto.donato@gmail.com>
+Maintainer-email: Alberto Donato <alberto.donato@gmail.com>
+License:                    GNU LESSER GENERAL PUBLIC LICENSE
+                               Version 3, 29 June 2007
+        
+         Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+         Everyone is permitted to copy and distribute verbatim copies
+         of this license document, but changing it is not allowed.
+        
+        
+          This version of the GNU Lesser General Public License incorporates
+        the terms and conditions of version 3 of the GNU General Public
+        License, supplemented by the additional permissions listed below.
+        
+          0. Additional Definitions.
+        
+          As used herein, "this License" refers to version 3 of the GNU Lesser
+        General Public License, and the "GNU GPL" refers to version 3 of the GNU
+        General Public License.
+        
+          "The Library" refers to a covered work governed by this License,
+        other than an Application or a Combined Work as defined below.
+        
+          An "Application" is any work that makes use of an interface provided
+        by the Library, but which is not otherwise based on the Library.
+        Defining a subclass of a class defined by the Library is deemed a mode
+        of using an interface provided by the Library.
+        
+          A "Combined Work" is a work produced by combining or linking an
+        Application with the Library.  The particular version of the Library
+        with which the Combined Work was made is also called the "Linked
+        Version".
+        
+          The "Minimal Corresponding Source" for a Combined Work means the
+        Corresponding Source for the Combined Work, excluding any source code
+        for portions of the Combined Work that, considered in isolation, are
+        based on the Application, and not on the Linked Version.
+        
+          The "Corresponding Application Code" for a Combined Work means the
+        object code and/or source code for the Application, including any data
+        and utility programs needed for reproducing the Combined Work from the
+        Application, but excluding the System Libraries of the Combined Work.
+        
+          1. Exception to Section 3 of the GNU GPL.
+        
+          You may convey a covered work under sections 3 and 4 of this License
+        without being bound by section 3 of the GNU GPL.
+        
+          2. Conveying Modified Versions.
+        
+          If you modify a copy of the Library, and, in your modifications, a
+        facility refers to a function or data to be supplied by an Application
+        that uses the facility (other than as an argument passed when the
+        facility is invoked), then you may convey a copy of the modified
+        version:
+        
+           a) under this License, provided that you make a good faith effort to
+           ensure that, in the event an Application does not supply the
+           function or data, the facility still operates, and performs
+           whatever part of its purpose remains meaningful, or
+        
+           b) under the GNU GPL, with none of the additional permissions of
+           this License applicable to that copy.
+        
+          3. Object Code Incorporating Material from Library Header Files.
+        
+          The object code form of an Application may incorporate material from
+        a header file that is part of the Library.  You may convey such object
+        code under terms of your choice, provided that, if the incorporated
+        material is not limited to numerical parameters, data structure
+        layouts and accessors, or small macros, inline functions and templates
+        (ten or fewer lines in length), you do both of the following:
+        
+           a) Give prominent notice with each copy of the object code that the
+           Library is used in it and that the Library and its use are
+           covered by this License.
+        
+           b) Accompany the object code with a copy of the GNU GPL and this license
+           document.
+        
+          4. Combined Works.
+        
+          You may convey a Combined Work under terms of your choice that,
+        taken together, effectively do not restrict modification of the
+        portions of the Library contained in the Combined Work and reverse
+        engineering for debugging such modifications, if you also do each of
+        the following:
+        
+           a) Give prominent notice with each copy of the Combined Work that
+           the Library is used in it and that the Library and its use are
+           covered by this License.
+        
+           b) Accompany the Combined Work with a copy of the GNU GPL and this license
+           document.
+        
+           c) For a Combined Work that displays copyright notices during
+           execution, include the copyright notice for the Library among
+           these notices, as well as a reference directing the user to the
+           copies of the GNU GPL and this license document.
+        
+           d) Do one of the following:
+        
+               0) Convey the Minimal Corresponding Source under the terms of this
+               License, and the Corresponding Application Code in a form
+               suitable for, and under terms that permit, the user to
+               recombine or relink the Application with a modified version of
+               the Linked Version to produce a modified Combined Work, in the
+               manner specified by section 6 of the GNU GPL for conveying
+               Corresponding Source.
+        
+               1) Use a suitable shared library mechanism for linking with the
+               Library.  A suitable mechanism is one that (a) uses at run time
+               a copy of the Library already present on the user's computer
+               system, and (b) will operate properly with a modified version
+               of the Library that is interface-compatible with the Linked
+               Version.
+        
+           e) Provide Installation Information, but only if you would otherwise
+           be required to provide such information under section 6 of the
+           GNU GPL, and only to the extent that such information is
+           necessary to install and execute a modified version of the
+           Combined Work produced by recombining or relinking the
+           Application with a modified version of the Linked Version. (If
+           you use option 4d0, the Installation Information must accompany
+           the Minimal Corresponding Source and Corresponding Application
+           Code. If you use option 4d1, you must provide the Installation
+           Information in the manner specified by section 6 of the GNU GPL
+           for conveying Corresponding Source.)
+        
+          5. Combined Libraries.
+        
+          You may place library facilities that are a work based on the
+        Library side by side in a single library together with other library
+        facilities that are not Applications and are not covered by this
+        License, and convey such a combined library under terms of your
+        choice, if you do both of the following:
+        
+           a) Accompany the combined library with a copy of the same work based
+           on the Library, uncombined with any other library facilities,
+           conveyed under the terms of this License.
+        
+           b) Give prominent notice with the combined library that part of it
+           is a work based on the Library, and explaining where to find the
+           accompanying uncombined form of the same work.
+        
+          6. Revised Versions of the GNU Lesser General Public License.
+        
+          The Free Software Foundation may publish revised and/or new versions
+        of the GNU Lesser General Public License from time to time. Such new
+        versions will be similar in spirit to the present version, but may
+        differ in detail to address new problems or concerns.
+        
+          Each version is given a distinguishing version number. If the
+        Library as you received it specifies that a certain numbered version
+        of the GNU Lesser General Public License "or any later version"
+        applies to it, you have the option of following the terms and
+        conditions either of that published version or of any later version
+        published by the Free Software Foundation. If the Library as you
+        received it does not specify a version number of the GNU Lesser
+        General Public License, you may choose any version of the GNU Lesser
+        General Public License ever published by the Free Software Foundation.
+        
+          If the Library as you received it specifies that a proxy can decide
+        whether future versions of the GNU Lesser General Public License shall
+        apply, that proxy's public statement of acceptance of any version is
+        permanent authorization for you to choose that version for the
+        Library.
+        
+Project-URL: changelog, https://github.com/albertodonato/snap-helpers/blob/main/CHANGES.rst
+Project-URL: documentation, https://readthedocs.org/projects/snap-helpers/
+Project-URL: homepage, https://github.com/albertodonato/snap-helpers
+Project-URL: repository, https://github.com/albertodonato/snap-helpers
+Keywords: snap,snapcraft,snappy
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: System :: Archiving :: Packaging
+Classifier: Topic :: System :: Software Distribution
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+Provides-Extra: testing
+License-File: LICENSE.txt
+
+snap-helpers - Interact with the Snap system within a Snap
+==========================================================
+
+|Latest Version| |Snap Package| |Build Status| |Coverage Status| |Documentation|
+
+
+A Python library to interact with snap configuration and properties from inside
+a snap.
+
+It exposes a top-level ``snaphelpers.Snap`` object which provides access to:
+
+- snap details:
+
+  .. code:: python
+
+     >>> snap = snaphelpers.Snap()
+     >>> snap.name
+     'snap-helpers'
+     >>> snap.instance_name
+     'snap-helpers'
+     >>> snap.version
+     '0.3.0+git5.5794660'
+     >>> snap.revision
+     '138'
+
+- paths:
+
+  .. code:: python
+
+     >>> snap.paths.common
+     PosixPath('/var/snap/snap-helpers/common')
+     >>> snap.paths.data
+     PosixPath('/var/snap/snap-helpers/138')
+     >>> snap.paths.real_home
+     PosixPath('/home/ack')
+     >>> snap.paths.snap
+     PosixPath('/snap/snap-helpers/138')
+     >>> snap.paths.user_common
+     PosixPath('/home/ack/snap/snap-helpers/common')
+     >>> snap.paths.user_data
+     PosixPath('/home/ack/snap/snap-helpers/138')
+
+- snap-related environment variables:
+
+  .. code:: python
+
+     >>> pprint.pprint(dict(snap.environ))
+     {'ARCH': 'amd64',
+      'COMMON': '/var/snap/snap-helpers/common',
+      'CONTEXT': 'XbhAD8QBMDwJiEi5LcN-5fCrVeAG7qBGojWiWA0vXkx0hX-JxyqX',
+      'COOKIE': 'XbhAD8QBMDwJiEi5LcN-5fCrVeAG7qBGojWiWA0vXkx0hX-JxyqX',
+      'DATA': '/var/snap/snap-helpers/138',
+      'INSTANCE_KEY': '',
+      'INSTANCE_NAME': 'snap-helpers',
+      'LIBRARY_PATH': '/var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void',
+      'NAME': 'snap-helpers',
+      'REAL_HOME': '/home/ack',
+      'REEXEC': '',
+      'REVISION': '138',
+      'SNAP': '/snap/snap-helpers/138',
+      'USER_COMMON': '/home/ack/snap/snap-helpers/common',
+      'USER_DATA': '/home/ack/snap/snap-helpers/138',
+      'VERSION': '0.3.0+git5.5794660'}
+     >>> snap.environ.ARCH
+     'amd64'
+
+- configuration options:
+
+  .. code:: python
+
+     >>> snap.config.set({'foo.bar': 'baz', 'asdf': 3})  # this needs to be run as root
+     >>> options = snap.config.get_options('foo', 'asdf')
+     >>> options['foo']
+     {'bar': 'baz'}
+     >>> options['foo.bar']
+     'baz'
+     >>> options['asdf']
+     3
+     >>> options.as_dict()
+     {'asdf': 3, 'foo': {'bar': 'baz'}}
+
+- setting snap health status, along with message and optional status code:
+
+  .. code:: python
+
+     >>> snap.health.okay()
+     >>> snap.health.waiting('foo must happen first', code='wait-foo')
+
+  Health status (when different from ``okay``) is visible from the ``snap``
+  CLI::
+
+    $ snap info snap-helpers
+    name:    snap-helpers
+    summary: Test snap for snap-helpers
+    health:
+      status:  waiting
+      message: foo must happen first
+      code:    wait-foo
+      checked: today at 16:23 CEST
+
+- content of snap metadata files such as:
+
+  - ``snap/metadata.yaml``
+  - ``meta/snap.yaml``
+  - ``snap/snapcraft.yaml``
+
+  These can be accessed as follows:
+
+  .. code:: python
+
+     >>> snap.metadata_files.snap
+     SnapMetadataFile(/snap/snap-helpers/138/meta/snap.yaml)
+     >>> snap.metadata_files.snap.path
+     PosixPath('/snap/snap-helpers/138/meta/snap.yaml')
+     >>> snap.metadata_files.snap["name"]
+     'snap-helpers'
+     >>> snap.metadata_files.snap["base"]
+     'core22'
+     >>> pprint.pprint(dict(snap.metadata_files.snap))
+     {'apps': {'python': {'command': 'bin/python3',
+                          'plugs': ['home', 'network', 'network-bind']},
+               'snap-helpers': {'command': 'bin/snap-helpers-shell',
+                                'plugs': ['home', 'network', 'network-bind']}},
+      'architectures': ['amd64'],
+      'base': 'core22',
+      'confinement': 'strict',
+      'description': 'Test snap for the snap-helpers Python library.\n'
+                     '\n'
+                     'It provides python and ipython shells to interact and test '
+                     'the `snaphelpers`\n'
+                     'library.\n'
+                     '\n'
+                     'See the https://github.com/albertodonato/snap-helpers for '
+                     'more details.\n',
+      'environment': {'LD_LIBRARY_PATH': '${SNAP_LIBRARY_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}:$SNAP/lib',
+                      'PATH': '$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH'},
+      'grade': 'stable',
+      'license': 'LGPL-3.0',
+      'name': 'snap-helpers',
+      'slots': {'snap-helpers-lib': {'content': 'snap-helpers-lib',
+                                     'interface': 'content',
+                                     'read': ['$SNAP/lib/python3.10/site-packages/snaphelpers']}},
+      'summary': 'Test snap for the snap-helpers Python library.',
+      'version': '0.3.0+git5.5794660'}
+
+
+Hook helpers
+------------
+
+The library provides helpers to reduce boilerplate when setting up hooks for
+the snap, by using ``entry-points`` in the package metadata.
+
+This can be done in ``setup.py``:
+
+.. code:: python
+
+   setup(
+       # ...
+       entry_points={
+           "snaphelpers.hooks": [
+               "configure = testapp:configure_hook",
+               "install = testapp:install_hook",
+           ]
+       }
+   )
+
+or in ``setup.cfg``:
+
+.. code:: ini
+
+   [options.entry_points]
+   snaphelpers.hooks =
+       configure = testapp:configure_hook
+       install = testapp:install_hook
+
+or in ``pyproject.toml``:
+
+.. code:: toml
+
+   [project.entry-points."snaphelpers.hooks"]
+   configure = "testapp:configure_hook"
+   install = "testapp:install_hook"
+
+
+Hook functions are called with a ``Snap`` object as argument:
+
+.. code:: python
+
+   def install_hook(snap: snaphelpers.Snap):
+       # ...
+
+
+   def configure_hook(snap: snaphelpers.Snap):
+       # ...
+
+``snap-helpers`` will take care of the hooks plumbing (i.e. creating hook files
+in ``$SNAP/snap/hooks``).
+
+
+Supported snap bases
+--------------------
+
+Currently supported snap bases are:
+
+- ``core20`` (Python 3.8)
+- ``core22`` (Python 3.10)
+
+The ``core18`` base (with Python 3.6) is supported until the ``0.3.2`` release.
+
+
+Testing with the snap
+---------------------
+
+The ``snap-helpers`` snap provides a way to easily test code using the library
+in a real snap environment with strict confinement.
+
+It provides an IPython_ shell which automatically imports the ``snaphelpers``
+module and provides a ``Snap`` instance for the current snap.
+
+.. code::
+
+   $ snap-helpers
+   Python 3.10.4 (main, Jun 29 2022, 12:14:53) [GCC 11.2.0]
+   Type 'copyright', 'credits' or 'license' for more information
+   IPython 8.7.0 -- An enhanced Interactive Python. Type '?' for help.
+
+
+   Use the "snap" variable for an instance for the current snap.
+
+   In [1]: import pprint
+
+   In [2]: pprint.pprint(dict(snap.environ))
+   {'ARCH': 'amd64',
+    'COMMON': '/var/snap/snap-helpers/common',
+    'CONTEXT': 'XbhAD8QBMDwJiEi5LcN-5fCrVeAG7qBGojWiWA0vXkx0hX-JxyqX',
+    'COOKIE': 'XbhAD8QBMDwJiEi5LcN-5fCrVeAG7qBGojWiWA0vXkx0hX-JxyqX',
+    'DATA': '/var/snap/snap-helpers/138',
+    'INSTANCE_KEY': '',
+    'INSTANCE_NAME': 'snap-helpers',
+    'LIBRARY_PATH': '/var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void',
+    'NAME': 'snap-helpers',
+    'REAL_HOME': '/home/ack',
+    'REEXEC': '',
+    'REVISION': '138',
+    'SNAP': '/snap/snap-helpers/138',
+    'USER_COMMON': '/home/ack/snap/snap-helpers/common',
+    'USER_DATA': '/home/ack/snap/snap-helpers/138',
+    'VERSION': '0.3.0+git5.5794660'}
+
+The snap can be built and installed as follows:
+
+.. code:: shell
+
+   $ snapcraft -v
+   $ sudo snap install --dangerous snap-helpers_*.snap
+
+
+Installation
+------------
+
+``snap-helpers`` can be installed from PyPI_.
+
+Run:
+
+.. code:: shell
+
+   $ pip install snap-helpers
+
+
+Documentation
+-------------
+
+Full documentation is available on ReadTheDocs_.
+
+
+.. _IPython: https://ipython.org/
+.. _PyPI: https://pypi.org/
+.. _ReadTheDocs: https://snap-helpers.readthedocs.io/en/latest/
+
+.. |Latest Version| image:: https://img.shields.io/pypi/v/snap-helpers.svg
+   :alt: Latest Version
+   :target: https://pypi.python.org/pypi/snap-helpers
+.. |Snap Package| image:: https://snapcraft.io/snap-helpers/badge.svg
+   :alt: Snap Package
+   :target: https://snapcraft.io/snap-helpers
+.. |Build Status| image:: https://github.com/albertodonato/snap-helpers/workflows/CI/badge.svg
+   :alt: Build Status
+   :target: https://github.com/albertodonato/snap-helpers/actions?query=workflow%3ACI
+.. |Coverage Status| image:: https://img.shields.io/codecov/c/github/albertodonato/snap-helpers/main.svg
+   :alt: Coverage Status
+   :target: https://codecov.io/gh/albertodonato/snap-helpers
+.. |Documentation| image:: https://readthedocs.org/projects/snap-helpers/badge/?version=stable
+   :alt: Documentation
+   :target: https://snap-helpers.readthedocs.io/en/stable/?badge=stable

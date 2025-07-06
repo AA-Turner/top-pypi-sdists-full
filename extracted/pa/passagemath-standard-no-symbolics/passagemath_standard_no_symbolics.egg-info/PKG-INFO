@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-standard-no-symbolics
-Version: 10.5.44
+Version: 10.5.45
 Summary: passagemath: Sage library without the symbolics subsystem
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -29,32 +29,32 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/x-rst
 Requires-Dist: six>=1.15.0
-Requires-Dist: passagemath-brial~=10.5.44.0
-Requires-Dist: passagemath-categories~=10.5.44.0
-Requires-Dist: passagemath-combinat~=10.5.44.0
-Requires-Dist: passagemath-eclib~=10.5.44.0
-Requires-Dist: passagemath-environment~=10.5.44.0
-Requires-Dist: passagemath-flint~=10.5.44.0
-Requires-Dist: passagemath-gap~=10.5.44.0
-Requires-Dist: passagemath-giac~=10.5.44.0
-Requires-Dist: passagemath-glpk~=10.5.44.0
-Requires-Dist: passagemath-graphs~=10.5.44.0
-Requires-Dist: passagemath-groups~=10.5.44.0
-Requires-Dist: passagemath-homfly~=10.5.44.0
-Requires-Dist: passagemath-lcalc~=10.5.44.0
-Requires-Dist: passagemath-libbraiding~=10.5.44.0
-Requires-Dist: passagemath-libecm~=10.5.44.0
-Requires-Dist: passagemath-linbox~=10.5.44.0
-Requires-Dist: passagemath-modules~=10.5.44.0
-Requires-Dist: passagemath-ntl~=10.5.44.0
-Requires-Dist: passagemath-objects~=10.5.44.0
-Requires-Dist: passagemath-pari~=10.5.44.0
-Requires-Dist: passagemath-plot~=10.5.44.0
-Requires-Dist: passagemath-polyhedra~=10.5.44.0
-Requires-Dist: passagemath-repl~=10.5.44.0
-Requires-Dist: passagemath-schemes~=10.5.44.0
-Requires-Dist: passagemath-singular~=10.5.44.0
-Requires-Dist: passagemath-tachyon~=10.5.44.0
+Requires-Dist: passagemath-brial~=10.5.45.0
+Requires-Dist: passagemath-categories~=10.5.45.0
+Requires-Dist: passagemath-combinat~=10.5.45.0
+Requires-Dist: passagemath-eclib~=10.5.45.0
+Requires-Dist: passagemath-environment~=10.5.45.0
+Requires-Dist: passagemath-flint~=10.5.45.0
+Requires-Dist: passagemath-gap~=10.5.45.0
+Requires-Dist: passagemath-giac~=10.5.45.0
+Requires-Dist: passagemath-glpk~=10.5.45.0
+Requires-Dist: passagemath-graphs~=10.5.45.0
+Requires-Dist: passagemath-groups~=10.5.45.0
+Requires-Dist: passagemath-homfly~=10.5.45.0
+Requires-Dist: passagemath-lcalc~=10.5.45.0
+Requires-Dist: passagemath-libbraiding~=10.5.45.0
+Requires-Dist: passagemath-libecm~=10.5.45.0
+Requires-Dist: passagemath-linbox~=10.5.45.0
+Requires-Dist: passagemath-modules~=10.5.45.0
+Requires-Dist: passagemath-ntl~=10.5.45.0
+Requires-Dist: passagemath-objects~=10.5.45.0
+Requires-Dist: passagemath-pari~=10.5.45.0
+Requires-Dist: passagemath-plot~=10.5.45.0
+Requires-Dist: passagemath-polyhedra~=10.5.45.0
+Requires-Dist: passagemath-repl~=10.5.45.0
+Requires-Dist: passagemath-schemes~=10.5.45.0
+Requires-Dist: passagemath-singular~=10.5.45.0
+Requires-Dist: passagemath-tachyon~=10.5.45.0
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: cython!=3.0.3,<4.0,>=3.0
 Requires-Dist: cython<3.1.0,>=3.0.8
@@ -64,7 +64,7 @@ Requires-Dist: memory_allocator
 Requires-Dist: numpy>=1.19
 Requires-Dist: numpy>=1.22.4
 Requires-Dist: pkgconfig
-Requires-Dist: pplpy>=0.8.6
+Requires-Dist: passagemath-ppl
 Requires-Dist: requests>=2.13.0
 Requires-Dist: ipython>=7.13.0
 Requires-Dist: pexpect>=4.8.0
@@ -83,7 +83,7 @@ Requires-Dist: passagemath-repl; extra == "test"
 Provides-Extra: lrcalc
 Requires-Dist: lrcalc; extra == "lrcalc"
 Provides-Extra: primecountpy
-Requires-Dist: primecountpy; extra == "primecountpy"
+Requires-Dist: passagemath-primesieve-primecount; extra == "primecountpy"
 
 ======================================================================================
  passagemath: Sage library without the symbolics subsystem

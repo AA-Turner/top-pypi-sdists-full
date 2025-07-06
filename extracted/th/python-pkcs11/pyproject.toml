@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools>=80.8", "cython", "setuptools-scm>=8.3.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-pkcs11"
+description = "PKCS#11 support for Python"
+readme = "README.rst"
+authors = [
+    {name = "Andrey Kislyuk", email = "kislyuk@gmail.com"},
+    {name = "Danielle Madeley", email = "danielle@madeley.id.au"},
+]
+maintainers = [
+    {name = "Andrey Kislyuk", email = "kislyuk@gmail.com"},
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = ["asn1crypto>=1.5.1"]
+license = "MIT"
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://python-pkcs11.readthedocs.io/en/latest/"
+Documentation = "https://python-pkcs11.readthedocs.io/en/latest/"
+Issues = "https://github.com/pyauth/python-pkcs11/issues"
+Repository = "https://github.com/pyauth/python-pkcs11"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+    "B",  # flake8-bugbear
+    "E",  # pycodestyle
+    "F",  # pyflakes
+    "I",  # isort
+    "G",  # flake8-logging-format
+    "RUF",  # ruff specific checks
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.setuptools]
+ext-modules = [
+    {name = "pkcs11._pkcs11", sources = ["pkcs11/_pkcs11.pyx"]}
+]
+
+[tool.cibuildwheel.linux]
+archs = ["auto64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
+[tool.cibuildwheel.macos]
+archs = ["universal2"]
+
+[tool.setuptools.packages.find]
+include = ["pkcs11*"]
+
+[dependency-groups]
+testing = [
+    "cryptography>=44.0.0",
+    "parameterized>=0.9.0",
+    "pytest>=8.3.4",
+]
+docs = [
+    "sphinx>=7.4.7",
+    "sphinx-rtd-theme>=3.0.2",
+]
+lint = [
+    "ruff>=0.8.3",
+]
+release = [
+    "setuptools>=80.8",
+    "setuptools-scm>=8.3.1",
+    "cython",
+]
+docs-build = [
+    { include-group = "docs" },
+    "python-pkcs11",
+]
+dev = [
+    { include-group = "docs" },
+    { include-group = "testing" },
+    { include-group = "lint" },
+    { include-group = "release" },
+]
+
+[tool.setuptools_scm]

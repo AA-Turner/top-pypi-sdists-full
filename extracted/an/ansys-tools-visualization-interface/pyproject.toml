@@ -1,0 +1,160 @@
+[build-system]
+requires = ["flit_core >=3.2,<3.11"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "ansys-tools-visualization-interface"
+version = "0.11.0"
+description = "A Python visualization interface for PyAnsys libraries"
+readme = "README.rst"
+requires-python = ">=3.10,<4"
+license = { file = "LICENSE" }
+authors = [{ name = "ANSYS, Inc.", email = "pyansys.core@ansys.com" }]
+maintainers = [{ name = "ANSYS, Inc.", email = "pyansys.core@ansys.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pyvista >= 0.43.0,<1",
+    "websockets >= 12.0,< 16",
+    "trame >= 3.6.0,<4",
+    "trame-vtk >= 2.8.7,<3,!=2.8.16",
+    "trame-vuetify >= 2.4.3,< 4",
+]
+
+[project.optional-dependencies]
+pyvistaqt = [
+    "pyside6 >= 6.8.0,<7",
+    "pyvistaqt >= 0.11.1,<1",
+]
+tests = [
+    "pytest==8.4.1",
+    "pyvista==0.45.2",
+    "pytest-pyvista==0.1.9",
+    "pytest-cov==6.2.1",
+    "pyside6==6.9.1",
+]
+
+doc = [
+    "pyvista==0.45.2",
+    "ansys-sphinx-theme==1.5.2",
+    "jupyter_sphinx==0.5.3",
+    "jupytext==1.17.2",
+    "nbsphinx==0.9.6",
+    "numpydoc==1.9.0",
+    "sphinx==8.2.3",
+    "sphinx-autoapi==3.6.0",
+    "sphinx-copybutton==0.5.2",
+    "sphinx_design==0.6.1",
+    "sphinx-gallery==0.19.0",
+    "sphinx-jinja==2.0.2",
+    "ansys-fluent-core==0.33.0",
+]
+
+[project.urls]
+Source = "https://github.com/ansys/ansys-tools-visualization-interface"
+Issues = "https://github.com/ansys/ansys-tools-visualization-interface/issues"
+Discussions = "https://github.com/ansys/ansys-tools-visualization-interface/discussions"
+Documentation = "https://visualization-interface.tools.docs.pyansys.com/"
+Releases = "https://github.com/ansys/ansys-tools-visualization-interface/releases/"
+
+[tool.flit.module]
+name = "ansys.tools.visualization_interface"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+force_sort_within_sections = true
+line_length = 100
+src_paths = ["doc", "src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --cov=ansys.tools.visualization_interface --cov-report html:.cov/html --cov-report xml:.cov/xml --cov-report term -vv --image_cache_dir tests/_image_cache --add_missing_images"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["examples/**/*.py"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle, see https://beta.ruff.rs/docs/rules/#pycodestyle-e-w
+    "D",   # pydocstyle, see https://beta.ruff.rs/docs/rules/#pydocstyle-d
+    "F",   # pyflakes, see https://beta.ruff.rs/docs/rules/#pyflakes-f
+    "I",   # isort, see https://beta.ruff.rs/docs/rules/#isort-i
+    "N",   # pep8-naming, see https://beta.ruff.rs/docs/rules/#pep8-naming-n
+    "PTH", # flake8-use-pathlib, https://beta.ruff.rs/docs/rules/#flake8-use-pathlib-pth
+]
+ignore = ["D416"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["ansys"]
+
+[tool.ruff.lint.pydocstyle]
+# Settings: https://docs.astral.sh/ruff/settings/#lintpydocstyle
+convention = "google"
+
+[tool.towncrier]
+package = "ansys.tools.visualization_interface"
+directory = "doc/changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+underlines = ["", "", ""]
+template = "doc/changelog.d/changelog_template.jinja"
+title_format = "## [{version}](https://github.com/ansys/ansys-tools-visualization-interface/releases/tag/v{version}) - {project_date}"
+issue_format = "[#{issue}](https://github.com/ansys/ansys-tools-visualization-interface/pull/{issue})"
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "dependencies"
+name = "Dependencies"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "miscellaneous"
+name = "Miscellaneous"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "documentation"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "maintenance"
+name = "Maintenance"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "test"
+name = "Test"
+showcontent = true

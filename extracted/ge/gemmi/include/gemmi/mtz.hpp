@@ -422,20 +422,17 @@ struct GEMMI_DLL Mtz : public MtzMetadata {
 
   void setup_spacegroup();
 
-  void read_raw_data(AnyStream& stream);
+  void read_raw_data(AnyStream& stream, bool do_read=true);
 
   void read_all_headers(AnyStream& stream);
 
-  void read_stream(AnyStream&& stream, bool with_data) {
-    read_all_headers(stream);
-    if (with_data)
-      read_raw_data(stream);
-  }
+  void read_stream(AnyStream& stream, bool with_data);
 
   void read_file(const std::string& path) {
     try {
       source_path = path;
-      read_stream(FileStream(path.c_str(), "rb"), true);
+      FileStream stream(path.c_str(), "rb");
+      read_stream(stream, true);
     } catch (std::system_error&) {
       throw;  // system_error::what() includes path, don't add anything
     } catch (std::runtime_error& e) {
@@ -446,10 +443,7 @@ struct GEMMI_DLL Mtz : public MtzMetadata {
   template<typename Input>
   void read_input(Input&& input, bool with_data) {
     source_path = input.path();
-    if (CharArray mem = input.uncompress_into_buffer())
-      read_stream(MemoryStream(mem.data(), mem.size()), with_data);
-    else
-      read_stream(FileStream(input.path().c_str(), "rb"), with_data);
+    read_stream(*input.create_stream(), with_data);
   }
 
   /// the same as read_input(MaybeGzipped(path), with_data)
@@ -546,6 +540,8 @@ struct GEMMI_DLL Mtz : public MtzMetadata {
   void write_to_cstream(std::FILE* stream) const;
   void write_to_string(std::string& str) const;
   void write_to_file(const std::string& path) const;
+  size_t size_to_write() const;
+  size_t write_to_buffer(char* buf, size_t maxlen) const;
 
 private:
   template<typename Write> void write_to_stream(Write write) const;

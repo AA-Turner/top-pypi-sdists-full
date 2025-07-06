@@ -1,0 +1,140 @@
+Metadata-Version: 2.1
+Name: cuml-cu11
+Version: 25.6.0
+Summary: cuML - RAPIDS ML Algorithms
+Author: NVIDIA Corporation
+License: Apache-2.0
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Project-URL: Homepage, https://github.com/rapidsai/cuml
+Project-URL: Documentation, https://docs.rapids.ai/api/cuml/stable/
+Requires-Python: >=3.10
+Requires-Dist: cuda-python<12.0a0,>=11.8.5
+Requires-Dist: cudf-cu11==25.6.*
+Requires-Dist: cupy-cuda11x>=12.0.0
+Requires-Dist: cuvs-cu11==25.6.*
+Requires-Dist: dask-cuda==25.6.*
+Requires-Dist: dask-cudf-cu11==25.6.*
+Requires-Dist: joblib>=0.11
+Requires-Dist: libcuml-cu11==25.6.*
+Requires-Dist: numba<0.62.0a0,>=0.59.1
+Requires-Dist: numpy<3.0a0,>=1.23
+Requires-Dist: nvidia-cublas-cu11
+Requires-Dist: nvidia-cufft-cu11
+Requires-Dist: nvidia-curand-cu11
+Requires-Dist: nvidia-cusolver-cu11
+Requires-Dist: nvidia-cusparse-cu11
+Requires-Dist: packaging
+Requires-Dist: pylibraft-cu11==25.6.*
+Requires-Dist: raft-dask-cu11==25.6.*
+Requires-Dist: rapids-dask-dependency==25.6.*
+Requires-Dist: rmm-cu11==25.6.*
+Requires-Dist: scikit-learn>=1.5
+Requires-Dist: scipy>=1.8.0
+Requires-Dist: treelite==4.4.1
+Provides-Extra: test
+Requires-Dist: certifi; extra == "test"
+Requires-Dist: cython>=3.0.0; extra == "test"
+Requires-Dist: dask-ml; extra == "test"
+Requires-Dist: hdbscan<0.8.40,>=0.8.39; extra == "test"
+Requires-Dist: hypothesis<7,>=6.0; extra == "test"
+Requires-Dist: nltk; extra == "test"
+Requires-Dist: numpydoc; extra == "test"
+Requires-Dist: pynndescent; extra == "test"
+Requires-Dist: pytest-benchmark; extra == "test"
+Requires-Dist: pytest-cases; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: pytest==7.*; extra == "test"
+Requires-Dist: pyyaml; extra == "test"
+Requires-Dist: scikit-learn>=1.5; extra == "test"
+Requires-Dist: seaborn; extra == "test"
+Requires-Dist: statsmodels; extra == "test"
+Requires-Dist: tenacity; extra == "test"
+Requires-Dist: umap-learn==0.5.7; extra == "test"
+Requires-Dist: xgboost>=2.1.0; extra == "test"
+Description-Content-Type: text/markdown
+
+# cuML Python Package
+
+This folder contains the Python and Cython code of the algorithms and ML primitives of cuML, that are distributed in the Python cuML package.
+
+Contents:
+
+- [cuML Python Package](#cuml-python-package)
+    - [Build Configuration](#build-configuration)
+    - [RAFT Integration in cuml.raft](#raft-integration-in-cumlraft)
+    - [Build Requirements](#build-requirements)
+    - [Python Tests](#python-tests)
+
+### Build Configuration
+
+The build system uses setup.py for configuration and building.
+
+cuML's setup.py can be configured through environment variables and command line arguments.
+
+The environment variables are:
+
+| Environment variable | Possible values | Default behavior if not set | Behavior |
+| --- | --- | --- | --- |
+| CUDA_HOME | path/to/cuda_toolkit | Inferred by location of `nvcc` | Optional variable allowing to manually specify location of the CUDA toolkit. |
+| CUML_BUILD_PATH | path/to/libcuml_build_folder | Looked for in path_to_cuml_repo/cpp/build | Optional variable allowing to manually specify location of libcuml++ build folder. |
+| RAFT_PATH | path/to/raft |  Looked for in path_to_cuml_repo/cpp/build, if not found clone  | Optional variable allowing to manually specify location of the RAFT Repository. |
+
+The command line arguments (i.e. passed alongside `setup.py` when invoking, for
+example `setup.py --singlegpu`) are:
+
+
+| Argument | Behavior |
+| --- | --- |
+| clean --all | Cleans all Python and Cython artifacts, including pycache folders, .cpp files resulting of cythonization and compiled extensions. |
+| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucx-py. |
+
+
+### RAFT Integration in cuml.raft
+
+RAFT's Python and Cython is located in the [RAFT repository](https://github.com/rapidsai/raft/python). It was designed to be included in projects as opposed to be distributed by itself, so at build time, **setup.py creates a symlink from cuML, located in `/python/cuml/raft/` to the Python folder of RAFT**.
+
+For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-25.06/docs/source/build.md) for recommendations.
+
+To configure RAFT at build time:
+
+1. If the environment variable `RAFT_PATH` points to the RAFT repo, then that will be used.
+2. If there is a libcuml build folder that has cloned RAFT already, setup.py will use that RAFT. Location of this can be configured with the environment variable CUML_BUILD_PATH.
+3. If none of the above happened, then setup.py will clone RAFT and use it directly.
+
+The RAFT Python code gets included in the cuML build and distributable artifacts as if it was always present in the folder structure of cuML.
+
+### Build Requirements
+
+cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-25.06/environments) includes all dependencies required to build cuML.
+
+To build cuML's Python package, the following dependencies are required:
+
+- cudatoolkit version corresponding to system CUDA toolkit
+- cython >= 0.29, < 0.30
+- numpy
+- cmake >= 3.14
+- cudf version matching the cuML version
+- libcuml version matching the cuML version
+- libcuml={{ version }}
+- cupy>=7.8.0,<12.0.0a0
+- joblib >=0.11
+
+Packages required for multigpu algorithms*:
+- libcumlprims version matching the cuML version
+- ucx-py version matching the cuML version
+- dask-cudf version matching the cuML version
+- nccl>=2.5
+- rapids-dask-dependency version matching the cuML version
+
+* this can be avoided with `--singlegpu` argument flag.
+
+
+### Python Tests
+
+Python tests are based on the pytest library. To run them, from the `path_to_cuml/python/` folder, simply type `pytest`.

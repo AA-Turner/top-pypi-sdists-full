@@ -1,0 +1,64 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - function:
+          - function_name:
+            - function_name_identifier: DATE
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - column_reference:
+                - naked_identifier: zendesk
+                - dot: .
+                - naked_identifier: created_at
+            - comma: ','
+            - expression:
+              - quoted_literal: '''America/New_York'''
+            - end_bracket: )
+        - alias_expression:
+          - keyword: AS
+          - naked_identifier: date
+      - comma: ','
+      - select_clause_element:
+        - function:
+          - function_name:
+            - function_name_identifier: COUNT
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - case_expression:
+                - keyword: CASE
+                - when_clause:
+                  - keyword: WHEN
+                  - expression:
+                    - column_reference:
+                      - naked_identifier: zendesk
+                      - dot: .
+                      - naked_identifier: support_team
+                    - keyword: IN
+                    - bracketed:
+                      - start_bracket: (
+                      - quoted_literal: '''tech support'''
+                      - comma: ','
+                      - quoted_literal: '''taskus'''
+                      - comma: ','
+                      - quoted_literal: '''onc'''
+                      - end_bracket: )
+                  - keyword: THEN
+                  - expression:
+                    - numeric_literal: '1'
+                - keyword: END
+            - end_bracket: )
+        - alias_expression:
+          - keyword: AS
+          - naked_identifier: tech_support
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: zendesk

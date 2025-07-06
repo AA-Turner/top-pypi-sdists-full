@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dghs-imgutils
-Version: 0.17.0
+Version: 0.18.0
 Summary: A convenient and user-friendly anime-style image data processing library that integrates various advanced anime-style image processing models.
 Home-page: https://github.com/deepghs/imgutils
 Author: narugo1992, 7eu7d7
@@ -57,6 +57,20 @@ Requires-Dist: tokenizers>=0.20.0; python_version >= "3.9"
 Requires-Dist: tokenizers<0.21,>=0.20.0; python_version < "3.9"
 Requires-Dist: pyrfc6266>=1
 Requires-Dist: urlobject>=2
+Provides-Extra: gpu
+Requires-Dist: onnxruntime-gpu; extra == "gpu"
+Provides-Extra: transformers
+Requires-Dist: transformers; extra == "transformers"
+Requires-Dist: torch; extra == "transformers"
+Requires-Dist: torchvision; extra == "transformers"
+Provides-Extra: torchvision
+Requires-Dist: torch; extra == "torchvision"
+Requires-Dist: torchvision; extra == "torchvision"
+Provides-Extra: model
+Requires-Dist: torch; extra == "model"
+Requires-Dist: safetensors; extra == "model"
+Provides-Extra: demo
+Requires-Dist: gradio>=4.44.0; extra == "demo"
 Provides-Extra: test
 Requires-Dist: coverage>=5; extra == "test"
 Requires-Dist: mock>=4.0.3; extra == "test"
@@ -97,20 +111,6 @@ Requires-Dist: ipykernel>=6.15; extra == "doc"
 Requires-Dist: py-cpuinfo>=8.0.0; extra == "doc"
 Requires-Dist: click>=7.0.0; extra == "doc"
 Requires-Dist: pyarrow; extra == "doc"
-Provides-Extra: demo
-Requires-Dist: gradio>=4.44.0; extra == "demo"
-Provides-Extra: transformers
-Requires-Dist: transformers; extra == "transformers"
-Requires-Dist: torch; extra == "transformers"
-Requires-Dist: torchvision; extra == "transformers"
-Provides-Extra: gpu
-Requires-Dist: onnxruntime-gpu; extra == "gpu"
-Provides-Extra: model
-Requires-Dist: torch; extra == "model"
-Requires-Dist: safetensors; extra == "model"
-Provides-Extra: torchvision
-Requires-Dist: torch; extra == "torchvision"
-Requires-Dist: torchvision; extra == "torchvision"
 
 # imgutils
 

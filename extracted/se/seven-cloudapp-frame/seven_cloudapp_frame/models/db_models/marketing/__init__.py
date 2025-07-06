@@ -1,1 +1,0 @@
-__all__=["marketing_program_model",]

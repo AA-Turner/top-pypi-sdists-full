@@ -1,52 +1,24 @@
 # flatsys.py - trajectory generation for differentially flat systems
 # RMM, 10 Nov 2012
-#
-# This file contains routines for computing trajectories for differentially
-# flat nonlinear systems.  It is (very) loosely based on the NTG software
-# package developed by Mark Milam and Kudah Mushambi, but rewritten from
-# scratch in python.
-#
-# Copyright (c) 2012 by California Institute of Technology
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the California Institute of Technology nor
-#    the names of its contributors may be used to endorse or promote
-#    products derived from this software without specific prior
-#    written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL CALTECH
-# OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+
+"""Trajectory generation for differentially flat systems.
+
+"""
 
 import itertools
+import warnings
+
 import numpy as np
 import scipy as sp
 import scipy.optimize
-import warnings
+
+from ..config import _process_kwargs, _process_param
+from ..exception import ControlArgument
+from ..nlsys import NonlinearIOSystem
+from ..optimal import _optimal_aliases
+from ..timeresp import _check_convert_array
 from .poly import PolyFamily
 from .systraj import SystemTrajectory
-from ..nlsys import NonlinearIOSystem
-from ..timeresp import _check_convert_array
 
 
 # Flat system class (for use as a base class)
@@ -54,22 +26,49 @@ class FlatSystem(NonlinearIOSystem):
     """Base class for representing a differentially flat system.
 
     The FlatSystem class is used as a base class to describe differentially
-    flat systems for trajectory generation.  The output of the system does not
-    need to be the differentially flat output.
+    flat systems for trajectory generation.  The output of the system does
+    not need to be the differentially flat output.  Flat systems are
+    usually created with the `flatsys` factory function.
+
+    Parameters
+    ----------
+    forward : callable
+        A function to compute the flat flag given the states and input.
+    reverse : callable
+        A function to compute the states and input given the flat flag.
+    dt : None, True or float, optional
+        System timebase.
+
+    Attributes
+    ----------
+    ninputs, noutputs, nstates : int
+        Number of input, output and state variables.
+    shape : tuple
+        2-tuple of I/O system dimension, (noutputs, ninputs).
+    input_labels, output_labels, state_labels : list of str
+        Names for the input, output, and state variables.
+    name : string, optional
+        System name.
+
+    See Also
+    --------
+    flatsys
 
     Notes
     -----
     The class must implement two functions:
 
-    zflag = flatsys.foward(x, u, params)
+    ``zflag = flatsys.forward(x, u, params)``
+
         This function computes the flag (derivatives) of the flat output.
-        The inputs to this function are the state 'x' and inputs 'u' (both
+        The inputs to this function are the state `x` and inputs `u` (both
         1D arrays).  The output should be a 2D array with the first
         dimension equal to the number of system inputs and the second
         dimension of the length required to represent the full system
         dynamics (typically the number of states)
 
-    x, u = flatsys.reverse(zflag, params)
+    ``x, u = flatsys.reverse(zflag, params)``
+
         This function system state and inputs give the the flag (derivatives)
         of the flat output.  The input to this function is an 2D array whose
         first dimension is equal to the number of system inputs and whose
@@ -78,17 +77,19 @@ class FlatSystem(NonlinearIOSystem):
         `x` and inputs `u` (both 1D arrays).
 
     A flat system is also an input/output system supporting simulation,
-    composition, and linearization.  If the update and output methods are
-    given, they are used in place of the flat coordinates.
+    composition, and linearization.  In the current implementation, the
+    update function must be given explicitly, but the output function
+    defaults to the flat outputs.  If the output method is given, it is
+    used in place of the flat outputs.
 
     """
     def __init__(self,
                  forward, reverse,              # flat system
-                 updfcn=None, outfcn=None,      # nonlinar I/O system
+                 updfcn=None, outfcn=None,      # nonlinear I/O system
                  **kwargs):                     # I/O system
         """Create a differentially flat I/O system.
 
-        The FlatIOSystem constructor is used to create an input/output system
+        The `FlatSystem` constructor is used to create an input/output system
         object that also represents a differentially flat system.
 
         """
@@ -113,7 +114,6 @@ class FlatSystem(NonlinearIOSystem):
             + f"Reverse: {self.reverse}"
 
     def forward(self, x, u, params=None):
-
         """Compute the flat flag given the states and input.
 
         Given the states and inputs for a system, compute the flat
@@ -134,7 +134,7 @@ class FlatSystem(NonlinearIOSystem):
         Returns
         -------
         zflag : list of 1D arrays
-            For each flat output :math:`z_i`, zflag[i] should be an
+            For each flat output :math:`z_i`, `zflag[i]` should be an
             ndarray of length :math:`q_i` that contains the flat
             output and its first :math:`q_i` derivatives.
 
@@ -176,20 +176,26 @@ class FlatSystem(NonlinearIOSystem):
 
 
 def flatsys(*args, updfcn=None, outfcn=None, **kwargs):
-    """Create a differentially flat I/O system.
+    """flatsys(forward, reverse[, updfcn, outfcn]) \
+    flatsys(linsys)
+
+    Create a differentially flat I/O system.
 
     The flatsys() function is used to create an input/output system object
     that also represents a differentially flat system.  It can be used in a
     variety of forms:
 
     ``fs.flatsys(forward, reverse)``
-        Create a flat system with mapings to/from flat flag.
+
+        Create a flat system with mappings to/from flat flag.
 
     ``fs.flatsys(forward, reverse, updfcn[, outfcn])``
+
         Create a flat system that is also a nonlinear I/O system.
 
     ``fs.flatsys(linsys)``
-        Create a flat system from a linear (StateSpace) system.
+
+        Create a flat system from a linear (`StateSpace`) system.
 
     Parameters
     ----------
@@ -202,28 +208,28 @@ def flatsys(*args, updfcn=None, outfcn=None, **kwargs):
     updfcn : callable, optional
         Function returning the state update function
 
-            `updfcn(t, x, u[, param]) -> array`
+            ``updfcn(t, x, u[, params]) -> array``
 
         where `x` is a 1-D array with shape (nstates,), `u` is a 1-D array
-        with shape (ninputs,), `t` is a float representing the currrent
-        time, and `param` is an optional dict containing the values of
+        with shape (ninputs,), `t` is a float representing the current
+        time, and `params` is an optional dict containing the values of
         parameters used by the function.  If not specified, the state
         space update will be computed using the flat system coordinates.
 
     outfcn : callable, optional
         Function returning the output at the given state
 
-            `outfcn(t, x, u[, param]) -> array`
+            ``outfcn(t, x, u[, params]) -> array``
 
-        where the arguments are the same as for `upfcn`.  If not
+        where the arguments are the same as for `updfcn`.  If not
         specified, the output will be the flat outputs.
 
     inputs : int, list of str, or None
         Description of the system inputs.  This can be given as an integer
         count or as a list of strings that name the individual signals.
         If an integer count is specified, the names of the signal will be
-        of the form `s[i]` (where `s` is one of `u`, `y`, or `x`).  If
-        this parameter is not given or given as `None`, the relevant
+        of the form 's[i]' (where 's' is one of 'u', 'y', or 'x').  If
+        this parameter is not given or given as None, the relevant
         quantity will be determined when possible based on other
         information provided to functions using the system.
 
@@ -234,10 +240,9 @@ def flatsys(*args, updfcn=None, outfcn=None, **kwargs):
         Description of the system states.  Same format as `inputs`.
 
     dt : None, True or float, optional
-        System timebase.  None (default) indicates continuous
-        time, True indicates discrete time with undefined sampling
-        time, positive number is discrete time with specified
-        sampling time.
+        System timebase.  None (default) indicates continuous time, True
+        indicates discrete time with undefined sampling time, positive
+        number is discrete time with specified sampling time.
 
     params : dict, optional
         Parameter values for the systems.  Passed to the evaluation
@@ -245,17 +250,22 @@ def flatsys(*args, updfcn=None, outfcn=None, **kwargs):
         defaults.
 
     name : string, optional
-        System name (used for specifying signals)
+        System name (used for specifying signals).
 
     Returns
     -------
-    sys: :class:`FlatSystem`
+    sys : `FlatSystem`
         Flat system.
 
+    Other Parameters
+    ----------------
+    input_prefix, output_prefix, state_prefix : string, optional
+        Set the prefix for input, output, and state signals.  Defaults =
+        'u', 'y', 'x'.
+
     """
-    from .linflat import LinearFlatSystem
     from ..statesp import StateSpace
-    from ..iosys import _process_iosys_keywords
+    from .linflat import LinearFlatSystem
 
     if len(args) == 1 and isinstance(args[0], StateSpace):
         # We were passed a linear system, so call linflat
@@ -293,7 +303,7 @@ def flatsys(*args, updfcn=None, outfcn=None, **kwargs):
 def _basis_flag_matrix(sys, basis, flag, t):
     """Compute the matrix of basis functions and their derivatives
 
-    This function computes the matrix ``M`` that is used to solve for the
+    This function computes the matrix `M` that is used to solve for the
     coefficients of the basis functions given the state and input.  Each
     column of the matrix corresponds to a basis function and each row is a
     derivative, with the derivatives (flag) for each output stacked on top
@@ -316,7 +326,8 @@ l
 
 # Solve a point to point trajectory generation problem for a flat system
 def point_to_point(
-        sys, timepts, x0=0, u0=0, xf=0, uf=0, T0=0, cost=None, basis=None,
+        sys, timepts, initial_state=0, initial_input=0, final_state=0,
+        final_input=0, initial_time=0, integral_cost=None, basis=None,
         trajectory_constraints=None, initial_guess=None, params=None, **kwargs):
     """Compute trajectory between an initial and final conditions.
 
@@ -325,72 +336,100 @@ def point_to_point(
 
     Parameters
     ----------
-    flatsys : FlatSystem object
+    sys : `FlatSystem` object
         Description of the differentially flat system.  This object must
-        define a function `flatsys.forward()` that takes the system state and
-        produceds the flag of flat outputs and a system `flatsys.reverse()`
-        that takes the flag of the flat output and prodes the state and
-        input.
-
+        define a function `~FlatSystem.forward` that takes the system state
+        and produces the flag of flat outputs and a function
+        `~FlatSystem.reverse` that takes the flag of the flat output and
+        produces the state and input.
     timepts : float or 1D array_like
         The list of points for evaluating cost and constraints, as well as
         the time horizon.  If given as a float, indicates the final time for
         the trajectory (corresponding to xf)
-
-    x0, u0, xf, uf : 1D arrays
-        Define the desired initial and final conditions for the system.  If
-        any of the values are given as None, they are replaced by a vector of
-        zeros of the appropriate dimension.
-
-    T0 : float, optional
+    initial_state (or x0) : 1D array_like
+        Initial state for the system.  Defaults to zero.
+    initial_input (or u0) : 1D array_like
+        Initial input for the system.  Defaults to zero.
+    final_state (or xf) : 1D array_like
+        Final state for the system.  Defaults to zero.
+    final_input (or uf) : 1D array_like
+        Final input for the system.  Defaults to zero.
+    initial_time (or T0) : float, optional
         The initial time for the trajectory (corresponding to x0).  If not
         specified, its value is taken to be zero.
-
-    basis : :class:`~control.flatsys.BasisFamily` object, optional
+    basis : `BasisFamily` object, optional
         The basis functions to use for generating the trajectory.  If not
-        specified, the :class:`~control.flatsys.PolyFamily` basis family
+        specified, the `PolyFamily` basis family
         will be used, with the minimal number of elements required to find a
         feasible trajectory (twice the number of system states)
-
-    cost : callable
+    integral_cost (or cost) : callable
         Function that returns the integral cost given the current state
-        and input.  Called as `cost(x, u)`.
-
-    trajectory_constraints : list of tuples, optional
-        List of constraints that should hold at each point in the time vector.
-        Each element of the list should consist of a tuple with first element
-        given by :class:`scipy.optimize.LinearConstraint` or
-        :class:`scipy.optimize.NonlinearConstraint` and the remaining
-        elements of the tuple are the arguments that would be passed to those
+        and input.  Called as ``integral_cost(x, u)``.
+    trajectory_constraints (or constraints) : list of tuples, optional
+        List of constraints that should hold at each point in the time
+        vector.  Each element of the list should consist of a tuple with
+        first element given by `scipy.optimize.LinearConstraint` or
+        `scipy.optimize.NonlinearConstraint` and the remaining elements of
+        the tuple are the arguments that would be passed to those
         functions.  The following tuples are supported:
 
-        * (LinearConstraint, A, lb, ub): The matrix A is multiplied by stacked
-          vector of the state and input at each point on the trajectory for
-          comparison against the upper and lower bounds.
+        * (LinearConstraint, A, lb, ub): The matrix A is multiplied by
+          stacked vector of the state and input at each point on the
+          trajectory for comparison against the upper and lower bounds.
 
         * (NonlinearConstraint, fun, lb, ub): a user-specific constraint
-          function `fun(x, u)` is called at each point along the trajectory
-          and compared against the upper and lower bounds.
+          function ``fun(x, u)`` is called at each point along the
+          trajectory and compared against the upper and lower bounds.
 
         The constraints are applied at each time point along the trajectory.
-
-    minimize_kwargs : str, optional
-        Pass additional keywords to :func:`scipy.optimize.minimize`.
+    initial_guess : 2D array_like, optional
+        Initial guess for the trajectory coefficients (not implemented).
+    params : dict, optional
+        Parameter values for the system.  Passed to the evaluation
+        functions for the system as default values, overriding internal
+        defaults.
 
     Returns
     -------
-    traj : :class:`~control.flatsys.SystemTrajectory` object
+    traj : `SystemTrajectory` object
         The system trajectory is returned as an object that implements the
-        `eval()` function, we can be used to compute the value of the state
-        and input and a given time t.
+        `~SystemTrajectory.eval` function, we can be used to
+        compute the value of the state and input and a given time t.
+
+    Other Parameters
+    ----------------
+    minimize_method : str, optional
+        Set the method used by `scipy.optimize.minimize`.
+    minimize_options : str, optional
+        Set the options keyword used by `scipy.optimize.minimize`.
+    minimize_kwargs : str, optional
+        Pass additional keywords to `scipy.optimize.minimize`.
 
     Notes
     -----
     Additional keyword parameters can be used to fine tune the behavior of
     the underlying optimization function.  See `minimize_*` keywords in
-    :func:`OptimalControlProblem` for more information.
+    `OptimalControlProblem` for more information.
 
     """
+    # Process parameter and keyword arguments
+    _process_kwargs(kwargs, _optimal_aliases)
+    x0 = _process_param(
+        'initial_state', initial_state, kwargs, _optimal_aliases, sigval=0)
+    u0 = _process_param(
+        'initial_input', initial_input, kwargs, _optimal_aliases, sigval=0)
+    xf = _process_param(
+        'final_state', final_state, kwargs, _optimal_aliases, sigval=0)
+    uf = _process_param(
+        'final_input', final_input, kwargs, _optimal_aliases, sigval=0)
+    T0 = _process_param(
+        'initial_time', initial_time, kwargs, _optimal_aliases, sigval=0)
+    cost = _process_param(
+        'integral_cost', integral_cost, kwargs, _optimal_aliases)
+    trajectory_constraints = _process_param(
+        'trajectory_constraints', trajectory_constraints, kwargs,
+        _optimal_aliases)
+
     #
     # Make sure the problem is one that we can handle
     #
@@ -407,11 +446,6 @@ def point_to_point(
     timepts = np.atleast_1d(timepts)
     Tf = timepts[-1]
     T0 = timepts[0] if len(timepts) > 1 else T0
-
-    # Process keyword arguments
-    if trajectory_constraints is None:
-        # Backwards compatibility
-        trajectory_constraints = kwargs.pop('constraints', None)
 
     minimize_kwargs = {}
     minimize_kwargs['method'] = kwargs.pop('minimize_method', None)
@@ -491,7 +525,7 @@ def point_to_point(
         warnings.warn("basis too small; solution may not exist")
 
     if cost is not None or trajectory_constraints is not None:
-        # Make sure that we have enough timepoints to evaluate
+        # Make sure that we have enough time points to evaluate
         if timepts.size < 3:
             raise ControlArgument(
                 "There must be at least three time points if trajectory"
@@ -631,96 +665,114 @@ def point_to_point(
 
 
 # Solve a point to point trajectory generation problem for a flat system
-def solve_flat_ocp(
-        sys, timepts, x0=0, u0=0, trajectory_cost=None, basis=None,
-        terminal_cost=None, trajectory_constraints=None,
+def solve_flat_optimal(
+        sys, timepts, initial_state=0, initial_input=0, integral_cost=None,
+        basis=None, terminal_cost=None, trajectory_constraints=None,
         initial_guess=None, params=None, **kwargs):
     """Compute trajectory between an initial and final conditions.
 
-    Compute an optimial trajectory for a differentially flat system starting
+    Compute an optimal trajectory for a differentially flat system starting
     from an initial state and input value.
 
     Parameters
     ----------
-    flatsys : FlatSystem object
+    sys : `FlatSystem` object
         Description of the differentially flat system.  This object must
-        define a function `flatsys.forward()` that takes the system state and
-        produceds the flag of flat outputs and a system `flatsys.reverse()`
-        that takes the flag of the flat output and prodes the state and
-        input.
-
+        define a function `~FlatSystem.forward` that takes the system state
+        and produces the flag of flat outputs and a function
+        `~FlatSystem.reverse` that takes the flag of the flat output and
+        produces the state and input.
     timepts : float or 1D array_like
         The list of points for evaluating cost and constraints, as well as
         the time horizon.  If given as a float, indicates the final time for
         the trajectory (corresponding to xf)
-
-    x0, u0 : 1D arrays
-        Define the initial conditions for the system.  If either of the
-        values are given as None, they are replaced by a vector of zeros of
-        the appropriate dimension.
-
-    basis : :class:`~control.flatsys.BasisFamily` object, optional
+    initial_state (or x0), input_input (or u0) : 1D arrays
+        Define the initial conditions for the system (default = 0).
+    initial_input (or u0) : 1D array_like
+        Initial input for the system.  Defaults to zero.
+    basis : `BasisFamily` object, optional
         The basis functions to use for generating the trajectory.  If not
-        specified, the :class:`~control.flatsys.PolyFamily` basis family
+        specified, the `PolyFamily` basis family
         will be used, with the minimal number of elements required to find a
         feasible trajectory (twice the number of system states)
-
-    trajectory_cost : callable
+    integral_cost : callable
         Function that returns the integral cost given the current state
-        and input.  Called as `cost(x, u)`.
-
+        and input.  Called as ``cost(x, u)``.
     terminal_cost : callable
         Function that returns the terminal cost given the state and input.
-        Called as `cost(x, u)`.
-
+        Called as ``cost(x, u)``.
     trajectory_constraints : list of tuples, optional
-        List of constraints that should hold at each point in the time vector.
-        Each element of the list should consist of a tuple with first element
-        given by :class:`scipy.optimize.LinearConstraint` or
-        :class:`scipy.optimize.NonlinearConstraint` and the remaining
-        elements of the tuple are the arguments that would be passed to those
+        List of constraints that should hold at each point in the time
+        vector.  Each element of the list should consist of a tuple with
+        first element given by `scipy.optimize.LinearConstraint` or
+        `scipy.optimize.NonlinearConstraint` and the remaining elements of
+        the tuple are the arguments that would be passed to those
         functions.  The following tuples are supported:
 
-        * (LinearConstraint, A, lb, ub): The matrix A is multiplied by stacked
-          vector of the state and input at each point on the trajectory for
-          comparison against the upper and lower bounds.
+        * (LinearConstraint, A, lb, ub): The matrix A is multiplied by
+          stacked vector of the state and input at each point on the
+          trajectory for comparison against the upper and lower bounds.
 
         * (NonlinearConstraint, fun, lb, ub): a user-specific constraint
-          function `fun(x, u)` is called at each point along the trajectory
-          and compared against the upper and lower bounds.
+          function ``fun(x, u)`` is called at each point along the
+          trajectory and compared against the upper and lower bounds.
 
         The constraints are applied at each time point along the trajectory.
-
     initial_guess : 2D array_like, optional
         Initial guess for the optimal trajectory of the flat outputs.
-
-    minimize_kwargs : str, optional
-        Pass additional keywords to :func:`scipy.optimize.minimize`.
+    params : dict, optional
+        Parameter values for the system.  Passed to the evaluation
+        functions for the system as default values, overriding internal
+        defaults.
 
     Returns
     -------
-    traj : :class:`~control.flatsys.SystemTrajectory` object
+    traj : `SystemTrajectory`
         The system trajectory is returned as an object that implements the
-        `eval()` function, we can be used to compute the value of the state
-        and input and a given time t.
+        `SystemTrajectory.eval` function, we can be used to
+        compute the value of the state and input and a given time `t`.
+
+    Other Parameters
+    ----------------
+    minimize_method : str, optional
+        Set the method used by `scipy.optimize.minimize`.
+
+    minimize_options : str, optional
+        Set the options keyword used by `scipy.optimize.minimize`.
+
+    minimize_kwargs : str, optional
+        Pass additional keywords to `scipy.optimize.minimize`.
 
     Notes
     -----
-    1. Additional keyword parameters can be used to fine tune the behavior
-       of the underlying optimization function.  See `minimize_*` keywords
-       in :func:`~control.optimal.OptimalControlProblem` for more information.
+    Additional keyword parameters can be used to fine tune the behavior of
+    the underlying optimization function.  See `minimize_*` keywords in
+    `control.optimal.OptimalControlProblem` for more information.
 
-    2. The return data structure includes the following additional attributes:
-           * success : bool indicating whether the optimization succeeded
-           * cost : computed cost of the returned trajectory
-           * message : message returned by optimization if success if False
+    The return data structure includes the following additional attributes:
 
-    3. A common failure in solving optimal control problem is that the
-       default initial guess violates the constraints and the optimizer
-       can't find a feasible solution.  Using the `initial_guess` parameter
-       can often be used to overcome these errors.
+        * `success` : bool indicating whether the optimization succeeded
+        * `cost` : computed cost of the returned trajectory
+        * `message` : message returned by optimization if success if False
+
+    A common failure in solving optimal control problem is that the default
+    initial guess violates the constraints and the optimizer can't find a
+    feasible solution.  Using the `initial_guess` parameter can often be
+    used to overcome these errors.
 
     """
+    # Process parameter and keyword arguments
+    _process_kwargs(kwargs, _optimal_aliases)
+    x0 = _process_param(
+        'initial_state', initial_state, kwargs, _optimal_aliases, sigval=0)
+    u0 = _process_param(
+        'initial_input', initial_input, kwargs, _optimal_aliases, sigval=0)
+    trajectory_cost = _process_param(
+        'integral_cost', integral_cost, kwargs, _optimal_aliases)
+    trajectory_constraints = _process_param(
+        'trajectory_constraints', trajectory_constraints, kwargs,
+        _optimal_aliases)
+
     #
     # Make sure the problem is one that we can handle
     #
@@ -731,16 +783,7 @@ def solve_flat_ocp(
 
     # Process final time
     timepts = np.atleast_1d(timepts)
-    Tf = timepts[-1]
-    T0 = timepts[0] if len(timepts) > 1 else T0
-
-    # Process keyword arguments
-    if trajectory_constraints is None:
-        # Backwards compatibility
-        trajectory_constraints = kwargs.pop('constraints', None)
-    if trajectory_cost is None:
-        # Compatibility with point_to_point
-        trajectory_cost = kwargs.pop('cost', None)
+    T0 = timepts[0] if len(timepts) > 1 else 0
 
     minimize_kwargs = {}
     minimize_kwargs['method'] = kwargs.pop('minimize_method', None)
@@ -962,3 +1005,7 @@ def solve_flat_ocp(
 
     # Return a function that computes inputs and states as a function of time
     return systraj
+
+
+# Convenience aliases
+solve_flat_ocp = solve_flat_optimal

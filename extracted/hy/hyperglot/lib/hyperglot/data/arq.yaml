@@ -1,0 +1,21 @@
+contributors:
+- David Březina
+name: Algerian Arabic
+orthographies:
+- autonym: دارجة جزائرية
+  auxiliary: <arb>
+  base: <arb>
+  currency: <default>
+  design_requirements: <arb>
+  marks: <arb>
+  numerals: <default>
+  punctuation: <arb>
+  script: Arabic
+  status: primary
+sources:
+- Algerian Arabic. (2024, August 16). In *Wikipedia*. https://en.wikipedia.org/wiki/Algerian_Arabic?oldid=1240714341
+- Ager, S. (2021, May 4). *Omniglot* https://www.omniglot.com
+speakers: 27000000
+speakers_date: 2012
+status: living
+validity: preliminary

@@ -1,0 +1,91 @@
+Metadata-Version: 2.4
+Name: EXtra-geom
+Version: 1.15.0
+Summary: Tools to work with EuXFEL detector geometry and assemble detector images
+Home-page: https://github.com/European-XFEL/EXtra-geom
+Author: European XFEL GmbH
+Author-email: da-support@xfel.eu
+Maintainer: Thomas Michelat
+License: BSD-3-Clause
+Project-URL: Documentation, https://extra-geom.readthedocs.io/en/latest/
+Project-URL: Changelog, https://extra-geom.readthedocs.io/en/latest/changelog.html
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cfel_fmt<3.0,>=2.0
+Requires-Dist: h5py>=2.7.1
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Provides-Extra: interpolate
+Requires-Dist: scipy; extra == "interpolate"
+Provides-Extra: docs
+Requires-Dist: sphinx>=4.3; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: ipython; extra == "docs"
+Requires-Dist: sphinxcontrib_github_alt; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=1.2; extra == "docs"
+Requires-Dist: Jinja2<3.1.0; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: nbval; extra == "test"
+Requires-Dist: testpath; extra == "test"
+Requires-Dist: xarray; extra == "test"
+Requires-Dist: EXtra-data; extra == "test"
+Requires-Dist: pyFAI; extra == "test"
+Requires-Dist: condat_gridconv; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+[![Build Status](https://github.com/European-XFEL/EXtra-geom/workflows/Tests/badge.svg)](https://github.com/European-XFEL/EXtra-geom/actions?query=workflow%3ATests)
+[![codecov](https://codecov.io/gh/European-XFEL/EXtra-geom/branch/master/graph/badge.svg)](https://codecov.io/gh/European-XFEL/EXtra-geom)
+
+Python tools to work with EuXFEL detector geometry and assemble detector images.
+
+[Documentation](https://extra-geom.readthedocs.io/en/latest/)
+
+Installing
+==========
+
+*EXtra-geom* is available in our Python environment on the Maxwell cluster:
+
+    module load exfel exfel-python
+
+You can also install it [from PyPI](https://pypi.org/project/EXtra-geom/)
+to use in other environments with Python 3:
+
+    pip install extra_geom
+
+If you get a permissions error, add the `--user` flag to that command.
+
+
+Contributing
+===========
+
+Tests
+-----
+
+Tests can be run as follows:
+
+    python3 -m pytest -v --pyargs extra_geom
+
+In the source directory, you can also omit `--pyargs extra_geom`.

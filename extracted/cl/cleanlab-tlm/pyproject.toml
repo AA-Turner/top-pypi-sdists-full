@@ -1,0 +1,140 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cleanlab-tlm"
+dynamic = ["version"]
+description = 'Python client library for Cleanlab Trustworthy Language Model'
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Cleanlab Inc", email = "team@cleanlab.ai" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "aiohttp>=3.8.1",
+  "nest_asyncio>=1.5.0",
+  "pandas==2.*",
+  "requests>=2.27.1",
+  "tqdm>=4.64.0",
+  "semver>=2.13.0,<3.0.0",
+  "typing_extensions>=4.2.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/cleanlab/cleanlab-tlm#readme"
+Issues = "https://github.com/cleanlab/cleanlab-tlm/issues"
+Source = "https://github.com/cleanlab/cleanlab-tlm"
+
+[tool.hatch.version]
+path = "src/cleanlab_tlm/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+  "pytest",
+  "pytest-asyncio",
+  "python-dotenv",
+  "tiktoken",
+  "openai",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --strict --install-types --non-interactive {args:src/cleanlab_tlm tests}"
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+  "python-dotenv",
+  "pytest-asyncio",
+  "tiktoken",
+  "openai",
+]
+
+[tool.hatch.envs.hatch-test.env-vars]
+COVERAGE_FAIL_UNDER = ""
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.python.env-vars = [ { key = "COVERAGE_FAIL_UNDER", value = "--fail-under=60", if = [ "3.12" ] } ]
+
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest{env:HATCH_TEST_ARGS:} {args}"
+run-cov = "coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}"
+cov-combine = "coverage combine"
+cov-report = "coverage report {env:COVERAGE_FAIL_UNDER}"
+
+[tool.coverage.run]
+source_pkgs = ["cleanlab_tlm", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/cleanlab_tlm/__about__.py",
+  "*/tests/*",
+]
+
+[tool.coverage.paths]
+cleanlab_tlm = ["src/cleanlab_tlm", "*/cleanlab-tlm/src/cleanlab_tlm"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.hatch.envs.coverage]
+detached = true
+dependencies = [
+  "coverage",
+]
+
+[tool.hatch.envs.coverage.scripts]
+report = "coverage report --fail-under=60"
+html = "coverage html"
+xml = "coverage xml"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "error",
+    "ignore:prompt.*failed.*:UserWarning",  # Expected warnings from TLM error testing
+    "ignore:Please ensure that your SSL certificates are up to date.*:UserWarning",  # SSL cert warning
+    "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning",  # Async cleanup warning
+    "ignore:There is no current event loop:DeprecationWarning",  # Asyncio event loop warning
+]
+
+[tool.ruff.lint]
+ignore = [
+  "FA100",
+  "UP007",
+  "UP006",
+  "T201",
+  "FBT001",
+  "FBT002",
+  "S101",
+  "TRY003",
+  "EM101",
+  "EM102",
+  "B904",
+  "B028",
+  "BLE001"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "SLF001", # private member accessed
+  "S311", # random number generator
+  "DTZ005", # datetime timezone
+]

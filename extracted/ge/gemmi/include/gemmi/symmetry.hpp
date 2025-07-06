@@ -9,40 +9,17 @@
 #define GEMMI_SYMMETRY_HPP_
 
 #include <cstdlib>    // for strtol, abs
-#include <cstring>    // for memchr, strchr
-#include <cmath>      // for fabs
 #include <array>
-#include <algorithm>  // for count, sort, remove
+#include <algorithm>  // for sort, remove
 #include <functional> // for hash
-#include <stdexcept>  // for runtime_error, invalid_argument
+#include <stdexcept>  // for invalid_argument
 #include <string>
 #include <tuple>      // for tie
 #include <vector>
 
 #include "fail.hpp"   // for fail, unreachable
 
-// we use brace elision for Op::Rot = std:array<std::array<int,3>,3>
-#ifdef __clang__
-# pragma clang diagnostic push
-# pragma clang diagnostic ignored "-Wmissing-braces"
-#endif
-
 namespace gemmi {
-
-// UTILS
-
-namespace impl {
-
-// copied a helper function from atox.hpp to keep it a two-header lib
-inline const char* skip_blank(const char* p) {
-  if (p)
-    while (*p == ' ' || *p == '\t' || *p == '_') // '_' can be used as space
-      ++p;
-  return p;
-}
-
-} // namespace impl
-
 
 // OP
 
@@ -50,15 +27,25 @@ inline const char* skip_blank(const char* p) {
 // or a different operation of similar kind.
 // Both "rotation" matrix and translation vector are fractional, with DEN
 // used as the denominator.
-struct Op {
+struct GEMMI_DLL Op {
   static constexpr int DEN = 24;  // 24 to handle 1/8 in change-of-basis
   typedef std::array<std::array<int, 3>, 3> Rot;
   typedef std::array<int, 3> Tran;
 
   Rot rot;
   Tran tran;
+  char notation = ' ';
 
-  std::string triplet(char style='x') const;
+  bool is_hkl() const { return notation == 'h'; }
+
+  Op as_hkl() const {
+    return is_hkl() ? *this : Op{rot, {0,0,0}, 'h'};
+  }
+  Op as_xyz() const {
+    return is_hkl() ? Op{rot, {0,0,0}, 'x'} : *this;
+  }
+
+  std::string triplet(char style=' ') const;
 
   Op inverse() const;
 
@@ -90,16 +77,17 @@ struct Op {
   Op add_centering(const Tran& a) const { return translated(a).wrap(); }
 
   Rot negated_rot() const {
-    return { -rot[0][0], -rot[0][1], -rot[0][2],
-             -rot[1][0], -rot[1][1], -rot[1][2],
-             -rot[2][0], -rot[2][1], -rot[2][2] };
+    return {{{-rot[0][0], -rot[0][1], -rot[0][2]},
+             {-rot[1][0], -rot[1][1], -rot[1][2]},
+             {-rot[2][0], -rot[2][1], -rot[2][2]}}};
   }
 
-  Rot transposed_rot() const {
-    return { rot[0][0], rot[1][0], rot[2][0],
-             rot[0][1], rot[1][1], rot[2][1],
-             rot[0][2], rot[1][2], rot[2][2] };
+  static Rot transpose(const Rot& rot) {
+    return {{{rot[0][0], rot[1][0], rot[2][0]},
+             {rot[0][1], rot[1][1], rot[2][1]},
+             {rot[0][2], rot[1][2], rot[2][2]}}};
   }
+  Rot transposed_rot() const { return transpose(rot); }
 
   // DEN^3 for rotation, -DEN^3 for rotoinversion
   int det_rot() const {
@@ -120,6 +108,8 @@ struct Op {
   }
 
   Op combine(const Op& b) const {
+    if (is_hkl() != b.is_hkl())
+      fail("can't combine real- and reciprocal-space Op");
     Op r;
     for (int i = 0; i != 3; ++i) {
       r.tran[i] = tran[i] * Op::DEN;
@@ -131,10 +121,13 @@ struct Op {
       }
       r.tran[i] /= Op::DEN;
     }
+    r.notation = notation;
     return r;
   }
 
   std::array<double, 3> apply_to_xyz(const std::array<double, 3>& xyz) const {
+    if (is_hkl())
+      fail("can't apply reciprocal-space Op to xyz");
     std::array<double, 3> out;
     for (int i = 0; i != 3; ++i)
       out[i] = (rot[i][0] * xyz[0] + rot[i][1] * xyz[1] + rot[i][2] * xyz[2] +
@@ -181,10 +174,10 @@ struct Op {
   }
 
   static constexpr Op identity() {
-    return {{DEN,0,0, 0,DEN,0, 0,0,DEN}, {0,0,0}};
+    return {{{{DEN,0,0}, {0,DEN,0}, {0,0,DEN}}}, {0,0,0}, ' '};
   }
   static constexpr Op::Rot inversion_rot() {
-    return {-DEN,0,0, 0,-DEN,0, 0,0,-DEN};
+    return {{{-DEN,0,0}, {0,-DEN,0}, {0,0,-DEN}}};
   }
   bool operator<(const Op& rhs) const {
     return std::tie(rot, tran) < std::tie(rhs.rot, rhs.tran);
@@ -202,7 +195,7 @@ inline Op& operator*=(Op& a, const Op& b) { a = a * b; return a; }
 inline Op Op::inverse() const {
   int detr = det_rot();
   if (detr == 0)
-    fail("cannot invert matrix: " + Op{rot, {0,0,0}}.triplet());
+    fail("cannot invert matrix: " + Op{rot, {0,0,0}, notation}.triplet());
   int d2 = Op::DEN * Op::DEN;
   Op inv;
   inv.rot[0][0] = d2 * (rot[1][1] * rot[2][2] - rot[2][1] * rot[1][2]) / detr;
@@ -218,222 +211,20 @@ inline Op Op::inverse() const {
     inv.tran[i] = (-tran[0] * inv.rot[i][0]
                    -tran[1] * inv.rot[i][1]
                    -tran[2] * inv.rot[i][2]) / Op::DEN;
+  inv.notation = notation;
   return inv;
 }
 
 // inverse of Op::float_seitz()
-inline Op seitz_to_op(const std::array<std::array<double,4>, 4>& t) {
-  static_assert(Op::DEN == 24, "");
-  auto check_round = [](double d) {
-    double r = std::round(d * Op::DEN);
-    if (std::fabs(r - d * Op::DEN) > 0.05)
-      fail("all numbers in Seitz matrix must be equal Z/24");
-    return static_cast<int>(r);
-  };
-  Op op;
-  if (std::fabs(t[3][0]) + std::fabs(t[3][1]) + std::fabs(t[3][2]) +
-      std::fabs(t[3][3] - 1) > 1e-3)
-    fail("the last row in Seitz matrix must be [0 0 0 1]");
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j)
-      op.rot[i][j] = check_round(t[i][j]);
-    op.tran[i] = check_round(t[i][3]);
-  }
-  return op;
-}
+GEMMI_DLL Op seitz_to_op(const std::array<std::array<double,4>, 4>& t);
 
+// helper function for use in AsuBrick::str()
+GEMMI_DLL void append_op_fraction(std::string& s, int w);
 
 // TRIPLET -> OP
-
-inline int interpret_miller_character(char c, const std::string& s) {
-  static const signed char values[] =
-    //a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z
-    { 1, 2, 3, 0, 0, 0, 0, 1, 0, 0, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3 };
-  size_t idx = size_t((c | 0x20) - 'a');  // "|0x20" = to lower
-  if (idx >= sizeof(values) || values[idx] == 0)
-    fail("unexpected character '", c, "' in: ", s);
-  return values[idx] - 1;
-}
-
-// decimal_fract is useful only for non-crystallographic ops (such as x+0.12)
-inline std::array<int, 4> parse_triplet_part(const std::string& s,
-                                             double* decimal_fract=nullptr) {
-  std::array<int, 4> r = { 0, 0, 0, 0 };
-  int num = Op::DEN;
-  const char* c = s.c_str();
-  while (*(c = impl::skip_blank(c))) {
-    if (*c == '+' || *c == '-') {
-      num = (*c == '+' ? Op::DEN : -Op::DEN);
-      c = impl::skip_blank(++c);
-    }
-    if (num == 0)
-      fail("wrong or unsupported triplet format: " + s);
-    int r_idx;
-    int den = 1;
-    double fract = 0;
-    if ((*c >= '0' && *c <= '9') || *c == '.') {
-      // syntax examples in this branch: "1", "-1/2", "+2*x", "1/2 * b"
-      char* endptr;
-      int n = std::strtol(c, &endptr, 10);
-      // some COD CIFs have decimal fractions ("-x+0.25", ".5+Y", "1.25000-y")
-      if (*endptr == '.') {
-        // avoiding strtod() etc which is locale-dependent
-        fract = n;
-        for (double denom = 0.1; *++endptr >= '0' && *endptr <= '9'; denom *= 0.1)
-          fract += int(*endptr - '0') * denom;
-        double rounded = std::round(fract * num);
-        if (!decimal_fract) {
-          if (std::fabs(rounded - fract * num) > 0.05)
-            fail("unexpected number in a symmetry triplet part: " + s);
-          num = int(rounded);
-        }
-      } else {
-        num *= n;
-      }
-      if (*endptr == '/')
-        den = std::strtol(endptr + 1, &endptr, 10);
-      if (*endptr == '*') {
-        c = impl::skip_blank(endptr + 1);
-        r_idx = interpret_miller_character(*c, s);
-        ++c;
-      } else {
-        c = endptr;
-        r_idx = 3;
-      }
-    } else {
-      // syntax examples in this branch: "x", "+a", "-k/3"
-      r_idx = interpret_miller_character(*c, s);
-      c = impl::skip_blank(++c);
-      if (*c == '/') {
-        char* endptr;
-        den = std::strtol(c + 1, &endptr, 10);
-        c = endptr;
-      }
-    }
-    if (den != 1) {
-      if (den <= 0 || Op::DEN % den != 0 || fract != 0)
-        fail("Wrong denominator " + std::to_string(den) + " in: " + s);
-      num /= den;
-    }
-    r[r_idx] += num;
-    if (decimal_fract)
-      decimal_fract[r_idx] = num > 0 ? fract : -fract;
-    num = 0;
-  }
-  if (num != 0)
-    fail("trailing sign in: " + s);
-  return r;
-}
-
-inline Op parse_triplet(const std::string& s) {
-  if (std::count(s.begin(), s.end(), ',') != 2)
-    fail("expected exactly two commas in triplet");
-  size_t comma1 = s.find(',');
-  size_t comma2 = s.find(',', comma1 + 1);
-  auto a = parse_triplet_part(s.substr(0, comma1));
-  auto b = parse_triplet_part(s.substr(comma1 + 1, comma2 - (comma1 + 1)));
-  auto c = parse_triplet_part(s.substr(comma2 + 1));
-  Op::Rot rot = {a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]};
-  Op::Tran tran = {a[3], b[3], c[3]};
-  return { rot, tran };
-}
-
-
-// OP -> TRIPLET
-
-namespace impl {
-
-// much faster than s += std::to_string(n) for n in 0 ... 99
-inline void append_small_number(std::string& s, int n) {
-  if (n < 0 || n >= 100) {
-    s += std::to_string(n);
-  } else if (n < 10) {
-    s += char('0' + n);
-  } else { // 10 ... 99
-    int tens = n / 10;
-    s += char('0' + tens);
-    s += char('0' + n - 10 * tens);
-  }
-}
-
-inline void append_sign_of(std::string& s, int n) {
-  if (n < 0)
-    s += '-';
-  else if (!s.empty())
-    s += '+';
-}
-
-// append w/DEN fraction reduced to the lowest terms
-inline std::pair<int,int> get_op_fraction(int w) {
-  // Op::DEN == 24 == 2 * 2 * 2 * 3
-  int denom = 1;
-  for (int i = 0; i != 3; ++i)
-    if (w % 2 == 0)  // 2, 2, 2
-      w /= 2;
-    else
-      denom *= 2;
-  if (w % 3 == 0)    // 3
-    w /= 3;
-  else
-    denom *= 3;
-  return {w, denom};
-}
-
-inline void append_fraction(std::string& s, std::pair<int,int> frac) {
-  append_small_number(s, frac.first);
-  if (frac.second != 1) {
-    s += '/';
-    append_small_number(s, frac.second);
-  }
-}
-
-} // namespace impl
-
-inline std::string make_triplet_part(const std::array<int, 3>& xyz, int w,
-                                     char style='x') {
-  std::string s;
-  const char* letters = "xyz hkl abc XYZ HKL ABC";
-  switch(style | 0x20) {  // |0x20 converts to lower case
-    case 'x': break;
-    case 'h': letters += 4; break;
-    case 'a': letters += 8; break;
-    default: fail("unexpected triplet style: ", style);
-  }
-  if (!(style & 0x20))  // not lower
-    letters += 12;
-  for (int i = 0; i != 3; ++i)
-    if (xyz[i] != 0) {
-      impl::append_sign_of(s, xyz[i]);
-      int a = std::abs(xyz[i]);
-      if (a != Op::DEN) {
-        std::pair<int,int> frac = impl::get_op_fraction(a);
-        if (frac.first == 1) {  // e.g. "x/3"
-          s += letters[i];
-          s += '/';
-          impl::append_small_number(s, frac.second);
-        } else {  // e.g. "2/3*x"
-          impl::append_fraction(s, frac);
-          s += '*';
-          s += letters[i];
-        }
-      } else {
-        s += letters[i];
-      }
-    }
-  if (w != 0) {
-    impl::append_sign_of(s, w);
-    std::pair<int,int> frac = impl::get_op_fraction(std::abs(w));
-    impl::append_fraction(s, frac);
-  }
-  return s;
-}
-
-inline std::string Op::triplet(char style) const {
-  return make_triplet_part(rot[0], tran[0], style) +
-   "," + make_triplet_part(rot[1], tran[1], style) +
-   "," + make_triplet_part(rot[2], tran[2], style);
-}
-
+GEMMI_DLL std::array<int, 4> parse_triplet_part(const std::string& s, char& notation,
+                                                double* decimal_fract=nullptr);
+GEMMI_DLL Op parse_triplet(const std::string& s, char notation=' ');
 
 // GROUPS OF OPERATIONS
 
@@ -479,7 +270,7 @@ struct GroupOps {
         sym_ops.resize(init_size);
         return false;
       }
-      sym_ops.push_back({neg, op.tran});
+      sym_ops.push_back({neg, op.tran, op.notation});
     }
     return true;
   }
@@ -768,161 +559,7 @@ inline GroupOps split_centering_vectors(const std::vector<Op>& ops) {
   return go;
 }
 
-// INTERPRETING HALL SYMBOLS
-// based on both ITfC vol.B ch.1.4 (2010)
-// and http://cci.lbl.gov/sginfo/hall_symbols.html
-
-// matrices for Nz from Table 3 and 4 from hall_symbols.html
-inline Op::Rot hall_rotation_z(int N) {
-  constexpr int d = Op::DEN;
-  switch (N) {
-    case 1: return {d,0,0,  0,d,0,  0,0,d};
-    case 2: return {-d,0,0, 0,-d,0, 0,0,d};
-    case 3: return {0,-d,0, d,-d,0, 0,0,d};
-    case 4: return {0,-d,0, d,0,0,  0,0,d};
-    case 6: return {d,-d,0, d,0,0,  0,0,d};
-    case '\'': return {0,-d,0, -d,0,0, 0,0,-d};
-    case '"':  return {0,d,0,   d,0,0, 0,0,-d};
-    case '*':  return {0,0,d,   d,0,0, 0,d,0};
-    default: fail("incorrect axis definition");
-  }
-}
-inline Op::Tran hall_translation_from_symbol(char symbol) {
-  constexpr int h = Op::DEN / 2;
-  constexpr int q = Op::DEN / 4;
-  switch (symbol) {
-    case 'a': return {h, 0, 0};
-    case 'b': return {0, h, 0};
-    case 'c': return {0, 0, h};
-    case 'n': return {h, h, h};
-    case 'u': return {q, 0, 0};
-    case 'v': return {0, q, 0};
-    case 'w': return {0, 0, q};
-    case 'd': return {q, q, q};
-    default: fail(std::string("unknown symbol: ") + symbol);
-  }
-}
-
-inline Op hall_matrix_symbol(const char* start, const char* end,
-                             int pos, int& prev) {
-  Op op = Op::identity();
-  bool neg = (*start == '-');
-  const char* p = (neg ? start + 1 : start);
-  if (*p < '1' || *p == '5' || *p > '6')
-    fail("wrong n-fold order notation: " + std::string(start, end));
-  int N = *p++ - '0';
-  int fractional_tran = 0;
-  char principal_axis = '\0';
-  char diagonal_axis = '\0';
-  for (; p < end; ++p) {
-    if (*p >= '1' && *p <= '5') {
-      if (fractional_tran != '\0')
-        fail("two numeric subscripts");
-      fractional_tran = *p - '0';
-    } else if (*p == '\'' || *p == '"' || *p == '*') {
-      if (N != (*p == '*' ? 3 : 2))
-        fail("wrong symbol: " + std::string(start, end));
-      diagonal_axis = *p;
-    } else if (*p == 'x' || *p == 'y' || *p == 'z') {
-      principal_axis = *p;
-    } else {
-      op.translate(hall_translation_from_symbol(*p));
-    }
-  }
-  // fill in implicit values
-  if (!principal_axis && !diagonal_axis) {
-    if (pos == 1) {
-      principal_axis = 'z';
-    } else if (pos == 2 && N == 2) {
-      if (prev == 2 || prev == 4)
-        principal_axis = 'x';
-      else if (prev == 3 || prev == 6)
-        diagonal_axis = '\'';
-    } else if (pos == 3 && N == 3) {
-      diagonal_axis = '*';
-    } else if (N != 1) {
-      fail("missing axis");
-    }
-  }
-  // get the operation
-  op.rot = hall_rotation_z(diagonal_axis ? diagonal_axis : N);
-  if (neg)
-    op.rot = op.negated_rot();
-  auto alter_order = [](const Op::Rot& r, int i, int j, int k) {
-    return Op::Rot{ r[i][i], r[i][j], r[i][k],
-                    r[j][i], r[j][j], r[j][k],
-                    r[k][i], r[k][j], r[k][k] };
-  };
-  if (principal_axis == 'x')
-    op.rot = alter_order(op.rot, 2, 0, 1);
-  else if (principal_axis == 'y')
-    op.rot = alter_order(op.rot, 1, 2, 0);
-  if (fractional_tran)
-    op.tran[principal_axis - 'x'] += Op::DEN / N * fractional_tran;
-  prev = N;
-  return op;
-}
-
-// Parses either short (0 0 1) or long notation (x,y,z+1/12)
-// but without multipliers (such as 1/2x) to keep things simple for now.
-inline Op parse_hall_change_of_basis(const char* start, const char* end) {
-  if (std::memchr(start, ',', end - start) != nullptr) // long symbol
-    return parse_triplet(std::string(start, end));
-  // short symbol (0 0 1)
-  Op cob = Op::identity();
-  char* endptr;
-  for (int i = 0; i != 3; ++i) {
-    cob.tran[i] = std::strtol(start, &endptr, 10) % 12 * (Op::DEN / 12);
-    start = endptr;
-  }
-  if (endptr != end)
-    fail("unexpected change-of-basis format: " + std::string(start, end));
-  return cob;
-}
-
-inline GroupOps generators_from_hall(const char* hall) {
-  auto find_blank = [](const char* p) {
-    while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '_') // '_' == ' '
-      ++p;
-    return p;
-  };
-  if (hall == nullptr)
-    fail("null");
-  hall = impl::skip_blank(hall);
-  GroupOps ops;
-  ops.sym_ops.emplace_back(Op::identity());
-  bool centrosym = (hall[0] == '-');
-  const char* lat = impl::skip_blank(centrosym ? hall + 1 : hall);
-  if (!lat)
-    fail("not a hall symbol: " + std::string(hall));
-  ops.cen_ops = centring_vectors(*lat);
-  int counter = 0;
-  int prev = 0;
-  const char* part = impl::skip_blank(lat + 1);
-  while (*part != '\0' && *part != '(') {
-    const char* space = find_blank(part);
-    ++counter;
-    if (part[0] != '1' || (part[1] != ' ' && part[1] != '\0')) {
-      Op op = hall_matrix_symbol(part, space, counter, prev);
-      ops.sym_ops.emplace_back(op);
-    }
-    part = impl::skip_blank(space);
-  }
-  if (centrosym)
-    ops.sym_ops.push_back({Op::identity().negated_rot(), {0,0,0}});
-  if (*part == '(') {
-    const char* rb = std::strchr(part, ')');
-    if (!rb)
-      fail("missing ')': " + std::string(hall));
-    if (ops.sym_ops.empty())
-      fail("misplaced translation: " + std::string(hall));
-    ops.change_basis_forward(parse_hall_change_of_basis(part + 1, rb));
-
-    if (*impl::skip_blank(find_blank(rb + 1)) != '\0')
-      fail("unexpected characters after ')': " + std::string(hall));
-  }
-  return ops;
-}
+GEMMI_DLL GroupOps generators_from_hall(const char* hall);
 
 inline GroupOps symops_from_hall(const char* hall) {
   GroupOps ops = generators_from_hall(hall);
@@ -1091,14 +728,14 @@ inline Op::Rot centred_to_primitive(char centring_type) {
   constexpr int H = Op::DEN / 2;
   constexpr int T = Op::DEN / 3;
   switch (centring_type) {
-    case 'P': return {D,0,0, 0,D,0, 0,0,D};
-    case 'A': return {-D,0,0, 0,-H,H, 0,H,H};
-    case 'B': return {-H,0,H, 0,-D,0, H,0,H};
-    case 'C': return {H,H,0, H,-H,0, 0,0,-D};
-    case 'I': return {-H,H,H, H,-H,H, H,H,-H};
-    case 'R': return {2*T,-T,-T, T,T,-2*T, T,T,T};
-    case 'H': return {2*T,-T,0, T,T,0, 0,0,D};  // not used normally
-    case 'F': return {0,H,H, H,0,H, H,H,0};
+    case 'P': return {{{D,0,0},     {0,D,0},    {0,0,D}}};
+    case 'A': return {{{-D,0,0},    {0,-H,H},   {0,H,H}}};
+    case 'B': return {{{-H,0,H},    {0,-D,0},   {H,0,H}}};
+    case 'C': return {{{H,H,0},     {H,-H,0},   {0,0,-D}}};
+    case 'I': return {{{-H,H,H},    {H,-H,H},   {H,H,-H}}};
+    case 'R': return {{{2*T,-T,-T}, {T,T,-2*T}, {T,T,T}}};
+    case 'H': return {{{2*T,-T,0},  {T,T,0},    {0,0,D}}};  // not used normally
+    case 'F': return {{{0,H,H},     {H,0,H},    {H,H,0}}};
     default: fail("not a centring type: ", centring_type);
   }
 }
@@ -1181,7 +818,7 @@ struct SpaceGroup { // typically 44 bytes
   bool is_reference_setting() const { return basisop_idx == 0; }
 
   Op centred_to_primitive() const {
-    return {gemmi::centred_to_primitive(centring_type()), {0,0,0}};
+    return {gemmi::centred_to_primitive(centring_type()), {0,0,0}, 'x'};
   }
 
   /// Returns change-of-hand operator. Compatible with similar sgtbx function.
@@ -1189,7 +826,7 @@ struct SpaceGroup { // typically 44 bytes
     if (is_centrosymmetric())
       return Op::identity();
     Op::Tran t = nonzero_inversion_center(number);
-    Op op{Op::inversion_rot(), {2*t[0], 2*t[1], 2*t[2]}};
+    Op op{Op::inversion_rot(), {2*t[0], 2*t[1], 2*t[2]}, 'x'};
     if (!is_reference_setting()) {
       Op b = basisop();
       op = b.combine(op).combine(b.inverse());
@@ -1242,114 +879,9 @@ inline const SpaceGroup& get_spacegroup_reference_setting(int number) {
 /// \param prefer can specify preferred H/R settings and 1/2 origin choice.
 /// For example, prefer="2H" means the origin choice 2 and hexagonal
 /// settings. The default is "1H".
-inline const SpaceGroup* find_spacegroup_by_name(std::string name,
+GEMMI_DLL const SpaceGroup* find_spacegroup_by_name(std::string name,
                                   double alpha=0., double gamma=0.,
-                                  const char* prefer=nullptr) {
-  bool prefer_2 = false;
-  bool prefer_R = false;
-  if (prefer)
-    for (const char* p = prefer; *p != '\0'; ++p) {
-      if (*p == '2')
-        prefer_2 = true;
-      else if (*p == 'R')
-        prefer_R = true;
-      else if (*p != '1' && *p != 'H')
-        throw std::invalid_argument("find_spacegroup_by_name(): invalid arg 'prefer'");
-    }
-  const char* p = impl::skip_blank(name.c_str());
-  if (*p >= '0' && *p <= '9') { // handle numbers
-    char *endptr;
-    long n = std::strtol(p, &endptr, 10);
-    return *endptr == '\0' ? find_spacegroup_by_number(n) : nullptr;
-  }
-  char first = *p & ~0x20; // to uppercase
-  if (first == '\0')
-    return nullptr;
-  if (first == 'H')
-    first = 'R';
-  p = impl::skip_blank(p+1);
-  size_t start = p - name.c_str();
-  // change letters to lower case, except the letter after :
-  for (size_t i = start; i < name.size(); ++i) {
-    if (name[i] >= 'A' && name[i] <= 'Z')
-      name[i] |= 0x20;  // to lowercase
-    else if (name[i] == ':')
-      while (++i < name.size())
-        if (name[i] >= 'a' && name[i] <= 'z')
-          name[i] &= ~0x20;  // to uppercase
-  }
-  // allow names ending with R or H, such as R3R instead of R3:R
-  if (name.back() == 'h' || name.back() == 'r') {
-    name.back() &= ~0x20;  // to uppercase
-    name.insert(name.end() - 1, ':');
-  }
-  // The string that const char* p points to was just modified.
-  // This confuses some compilers (GCC 4.8), so let's re-assign p.
-  p = name.c_str() + start;
-
-  for (const SpaceGroup& sg : spacegroup_tables::main)
-    if (sg.hm[0] == first) {
-      if (sg.hm[2] == *p) {
-        const char* a = impl::skip_blank(p + 1);
-        const char* b = impl::skip_blank(sg.hm + 3);
-        // In IT 1935 and 1952, symbols of centrosymmetric, cubic space groups
-        // 200-206 and 221-230 had symbol 3 (not -3), e.g. Pm3 instead of Pm-3,
-        // as listed in Table 3.3.3.1 in ITfC (2016) vol. A, p.788.
-        while ((*a == *b && *b != '\0') ||
-               (*a == '3' && *b == '-' && b == sg.hm + 4 && *++b == '3')) {
-          a = impl::skip_blank(a+1);
-          b = impl::skip_blank(b+1);
-        }
-        if (*b == '\0') {
-          if (*a == '\0') {
-            // Change hexagonal settings to rhombohedral if the unit cell
-            // angles are more consistent with the latter.
-            // We have possible ambiguity in the hexagonal crystal family.
-            // For instance, "R 3" may mean "R 3:H" (hexagonal setting) or
-            // "R 3:R" (rhombohedral setting). The :H symbols come first
-            // in the table and are used by default. The ratio gamma:alpha
-            // is 120:90 in the hexagonal system and 1:1 in rhombohedral.
-            // We assume that the 'R' entry follows directly the 'H' entry.
-            if (sg.ext == 'H' && (alpha == 0. ? prefer_R : gamma < 1.125 * alpha))
-              return &sg + 1;
-            // Similarly, the origin choice #2 follows directly #1.
-            if (sg.ext == '1' && prefer_2)
-              return &sg + 1;
-            return &sg;
-          }
-          if (*a == ':' && *impl::skip_blank(a+1) == sg.ext)
-            return &sg;
-        }
-      } else if (sg.hm[2] == '1' && sg.hm[3] == ' ') {
-        // check monoclinic short names, matching P2 to "P 1 2 1";
-        // as an exception "B 2" == "B 1 1 2" (like in the PDB)
-        const char* b = sg.hm + 4;
-        if (*b != '1' || (first == 'B' && *++b == ' ' && *++b != '1')) {
-          char end = (b == sg.hm + 4 ? ' ' : '\0');
-          const char* a = impl::skip_blank(p);
-          while (*a == *b && *b != end) {
-            ++a;
-            ++b;
-          }
-          if (*impl::skip_blank(a) == '\0' && *b == end)
-            return &sg;
-        }
-      }
-    }
-  for (const SpaceGroupAltName& sg : spacegroup_tables::alt_names)
-    if (sg.hm[0] == first && sg.hm[2] == *p) {
-      const char* a = impl::skip_blank(p + 1);
-      const char* b = impl::skip_blank(sg.hm + 3);
-      while (*a == *b && *b != '\0') {
-        a = impl::skip_blank(a+1);
-        b = impl::skip_blank(b+1);
-      }
-      if (*b == '\0' &&
-          (*a == '\0' || (*a == ':' && *impl::skip_blank(a+1) == sg.ext)))
-        return &spacegroup_tables::main[sg.pos];
-    }
-  return nullptr;
-}
+                                  const char* prefer=nullptr);
 
 inline const SpaceGroup& get_spacegroup_by_name(const std::string& name) {
   const SpaceGroup* sg = find_spacegroup_by_name(name);
@@ -1508,9 +1040,5 @@ template<> struct hash<gemmi::Op> {
   }
 };
 } // namespace std
-
-#ifdef __clang__
-# pragma clang diagnostic pop  // ignored -Wmissing-braces
-#endif
 
 #endif

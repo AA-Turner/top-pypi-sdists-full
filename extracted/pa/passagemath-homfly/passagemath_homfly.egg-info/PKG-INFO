@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-homfly
-Version: 10.5.44
+Version: 10.5.45
 Summary: passagemath: Homfly polynomials of knots/links with libhomfly
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

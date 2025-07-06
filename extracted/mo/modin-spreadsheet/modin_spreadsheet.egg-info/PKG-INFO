@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: modin-spreadsheet
+Version: 0.1.2
+Summary: An implementation for the Spreadsheet API of Modin
+Home-page: https://github.com/modin-project/modin-spreadsheet
+Author: Modin Maintainers
+Author-email: dev@modin.org
+License: Apache-2.0
+Description: An implementation for the Spreadsheet API of Modin
+Keywords: ipython,jupyter,widgets
+Platform: UNKNOWN
+Provides-Extra: test

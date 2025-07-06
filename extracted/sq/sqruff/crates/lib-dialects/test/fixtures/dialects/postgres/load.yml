@@ -1,0 +1,11 @@
+file:
+- statement:
+  - load_statement:
+    - keyword: LOAD
+    - quoted_literal: '''funzioniGDB.so'''
+- statement_terminator: ;
+- statement:
+  - load_statement:
+    - keyword: LOAD
+    - quoted_literal: '''/some/path/funzioniGDB.so'''
+- statement_terminator: ;

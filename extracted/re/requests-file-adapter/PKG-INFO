@@ -1,0 +1,99 @@
+Metadata-Version: 2.3
+Name: Requests_File_Adapter
+Version: 2024.3
+Summary: File adapter for the Requests library.
+Project-URL: Homepage, https://gitlab.inria.fr/jrye/requests-file-adapter
+Project-URL: Source, https://gitlab.inria.fr/jrye/requests-file-adapter.git
+Project-URL: Documentation, https://jrye.gitlabpages.inria.fr/requests-file-adapter
+Project-URL: Issues, https://gitlab.inria.fr/jrye/requests-file-adapter/-/issues
+Author-email: Jan-Michael Rye <jan-michael.rye@inria.fr>
+License: MIT License
+        
+        Copyright (c) 2022, Inria
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+License-File: LICENSE.txt
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.6
+Requires-Dist: psutil
+Requires-Dist: requests
+Description-Content-Type: text/markdown
+
+---
+title: README
+---
+
+# Synopsis
+
+A file adapter for the [Requests](https://docs.python-requests.org/en/latest/index.html) library. This adapter is similar to and inspired by [Requests-File](https://github.com/dashea/requests-file) but with the following changes:
+
+* HEAD requests return a response without content instead of opening the file.
+* The following HTTP response headers are set for regular files:
+    - Content-Length (always)
+    - Last-Modified (always)
+    - Content-Type (if successfully detected by the mimetypes package)
+    - Content-Encoding (if successfully detected by the mimetypes package)
+* The request supports URI hosts that resolve to the localhost or any local IP address.
+* A convenience function is provided to get a requests.Session object with the provided file adapter already mounted.
+
+# Links
+
+[insert: links]: #
+
+## GitLab
+
+* [Homepage](https://gitlab.inria.fr/jrye/requests-file-adapter)
+* [Source](https://gitlab.inria.fr/jrye/requests-file-adapter.git)
+* [Documentation](https://jrye.gitlabpages.inria.fr/requests-file-adapter)
+* [Issues](https://gitlab.inria.fr/jrye/requests-file-adapter/-/issues)
+* [GitLab package registry](https://gitlab.inria.fr/jrye/requests-file-adapter/-/packages)
+
+## Other Repositories
+
+* [Python Package Index](https://pypi.org/project/Requests-File-Adapter/)
+
+[/insert: links]: #
+
+# Installation
+
+Install the `requests_file_adapter` package with your Python package manager, e.g.
+
+~~~
+pip install requests_file_adapter
+~~~
+
+# Usage
+
+Using the `get_session` function:
+
+~~~python
+import pathlib
+from requests_file_adapter import get_session
+
+path = pathlib.Path("example.txt").resolve()
+uri = path.as_uri
+
+session = get_session()
+resp = session.get(uri)
+for header, value in resp.headers.items():
+    print(header, value)
+print(header.content)
+~~~
+
+Alternatively, create the session without using the `get_session` function:
+
+~~~python
+import requests
+from requests_file_adapter import FileAdapter
+
+session = requests.Session()
+session.mount("file://", FileAdapter())
+
+# ...
+~~~

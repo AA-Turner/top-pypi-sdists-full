@@ -1,0 +1,18 @@
+[tasks.python]
+command = "maturin"
+args = ["build"]
+cwd = "python"
+dependencies = ["install-maturin"]
+
+[tasks.install-maturin]
+command = "pip"
+args = ["install", "maturin>=0.12,<0.13"]
+
+[tasks.install-python-sdk.windows]
+command = "pip"
+args = [
+    "install",
+    "target/wheels/longbridge-0.2.77-cp310-none-win_amd64.whl",
+    "-I",
+]
+dependencies = ["python"]

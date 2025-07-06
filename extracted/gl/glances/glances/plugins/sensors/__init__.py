@@ -14,12 +14,12 @@ from typing import Any
 
 import psutil
 
-from glances.globals import to_fahrenheit
+from glances.globals import natural_keys, to_fahrenheit
 from glances.logger import logger
 from glances.outputs.glances_unicode import unicode_message
 from glances.plugins.plugin.model import GlancesPluginModel
-from glances.plugins.sensors.sensor.glances_batpercent import PluginModel as BatPercentPluginModel
-from glances.plugins.sensors.sensor.glances_hddtemp import PluginModel as HddTempPluginModel
+from glances.plugins.sensors.sensor.glances_batpercent import BatpercentPlugin
+from glances.plugins.sensors.sensor.glances_hddtemp import HddtempPlugin
 from glances.timer import Counter
 
 # Define all kind of sensors available in Glances
@@ -66,7 +66,7 @@ fields_description = {
 }
 
 
-class PluginModel(GlancesPluginModel):
+class SensorsPlugin(GlancesPluginModel):
     """Glances sensors plugin.
 
     The stats list includes both sensors and hard disks stats, if any.
@@ -90,12 +90,12 @@ class PluginModel(GlancesPluginModel):
 
         # Instance for the HDDTemp Plugin in order to display the hard disks temperatures
         start_duration.reset()
-        hddtemp_plugin = HddTempPluginModel(args=args, config=config)
+        hddtemp_plugin = HddtempPlugin(args=args, config=config)
         logger.debug(f"HDDTemp sensor plugin init duration: {start_duration.get()} seconds")
 
         # Instance for the BatPercent in order to display the batteries capacities
         start_duration.reset()
-        batpercent_plugin = BatPercentPluginModel(args=args, config=config)
+        batpercent_plugin = BatpercentPlugin(args=args, config=config)
         logger.debug(f"Battery sensor plugin init duration: {start_duration.get()} seconds")
 
         self.sensors_grab_map = {}
@@ -144,7 +144,7 @@ class PluginModel(GlancesPluginModel):
         # Remove duplicates thanks to https://stackoverflow.com/a/9427216/1919431
         stats_transformed = [dict(t) for t in {tuple(d.items()) for d in stats_transformed}]
         # Sort by label
-        return sorted(stats_transformed, key=lambda d: d['label'])
+        return sorted(stats_transformed, key=lambda d: natural_keys(d['label']))
 
     @GlancesPluginModel._check_decorator
     @GlancesPluginModel._log_result_decorator

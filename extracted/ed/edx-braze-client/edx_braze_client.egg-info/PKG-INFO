@@ -1,0 +1,34 @@
+Metadata-Version: 2.2
+Name: edx-braze-client
+Version: 1.1.1
+Summary: Python app for interacting with Braze APIs
+Home-page: https://github.com/edx/braze-client
+Author: edX
+Author-email: oscm@edx.org
+License: AGPL 3.0
+Keywords: Python edx
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+License-File: LICENSE
+License-File: LICENSE.txt
+Requires-Dist: Django
+Requires-Dist: edx-ace
+Requires-Dist: edx-django-utils
+Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Python app for interacting with Braze APIs, read the README and CHANGELOG.

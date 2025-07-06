@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-restql
-Version: 0.16.2
+Version: 0.17.0
 Summary: Turn your API made with Django REST Framework(DRF) into a GraphQL like API.
 Home-page: https://yezyilomo.github.io/django-restql
 Author: Yezy Ilomo
@@ -182,6 +182,14 @@ Full documentation for this project is available at [https://yezyilomo.github.io
 
 ## Running Tests
 `python runtests.py`
+
+
+## Writing & Deploying Docs
+Run `pip3 install mkdocs-material` to install mkdocs-material
+
+Run `mkdocs serve` to serve docs locally
+
+Run `mkdocs gh-deploy --force` to deploy docs to gh-page
 
 
 ## Credits

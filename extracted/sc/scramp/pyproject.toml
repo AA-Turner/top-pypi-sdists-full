@@ -50,28 +50,31 @@ exclude = [".git", "__pycache__", "build", "dist", "venv", ".tox"]
 application-import-names = ["scramp"]
 
 [tool.tox]
-legacy_tox_ini = """
-[tox]
-isolated_build = True
-envlist = py
+requires = ["tox>=4.19"]
+envlist = ["py"]
 
-[testenv]
-allowlist_externals=/usr/bin/rm
-commands =
-    black --check .
-    flake8 .
-    pytest -v -x -W error test
-    rm -rf dist
-    python -m build
-    twine check dist/*
-deps =
-    build
-    pytest
-    pytest-mock
-    black
-    flake8
-    Flake8-pyproject
-    flake8-alphabetize
-    passlib
-    twine
-"""
+[tool.tox.env_run_base]
+description = "Run test under {base_python}"
+allowlist_externals = ["rm"]
+commands = [
+    ["black", "--check", "."],
+    ["flake8", "."],
+    ["validate-pyproject", "pyproject.toml"],
+    ["pytest", "-v", "-x", "-W error", "test"],
+    ["rm", "-rf", "dist"],
+    ["python", "-m", "build"],
+    ["twine", "check", "dist/*"],
+]
+deps = [
+    "pytest",
+    "pytest-mock",
+    "black",
+    "flake8",
+    "flake8-alphabetize",
+    "Flake8-pyproject",
+    "docutils",
+    "build",
+    "passlib",
+    "twine",
+    "validate-pyproject",
+]

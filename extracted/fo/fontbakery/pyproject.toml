@@ -1,0 +1,291 @@
+[build-system]
+requires = ["setuptools >= 61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fontbakery"
+dynamic = ["version"]
+description = "A font quality assurance tool for everyone"
+requires-python = ">=3.9"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [
+    { name = "Chris Simpkins", email = "csimpkins@google.com" },
+    { name = "Dave Crossland", email = "dcrossland@google.com" },
+    { name = "Felipe Sanches", email = "juca@members.fsf.org" },
+    { name = "Jens Kutilek" },
+    { name = "Lasse Fister" },
+    { name = "Marc Foley" },
+    { name = "Miguel Sousa" },
+    { name = "Nikolaus Waxweiler" },
+    { name = "Rosalie Wagner" },
+    { name = "Simon Cozens" },
+    { name = "Vitaly Volkov" },
+    { name = "Viviana Monsalve" },
+    { name = "Yanone" },
+]
+maintainers = [
+    { name = "Felipe Sanches", email = "juca@members.fsf.org" },
+]
+
+dependencies = [
+    "beziers >= 0.6.0, == 0.6.*",
+    "cmarkgfm >= 0.4",
+    "defcon",
+    "dehinter >= 3.1.0",  # 3.1.0 added dehinter.font.hint function
+    "fontTools[ufo] >= 4.47.0",  # varLib.interpolatableHelpers.InterpolatableProblem
+    "freetype-py < 2.4.0",  # see: https://github.com/fonttools/fontbakery/issues/4143
+    "Jinja2 >= 3.0.0",  # issue #4717
+    "munkres",
+    "opentypespec >= 1.9.2",  # recognize 'sunu' script tag for Sunuwar (fontbakery/issues/5014)
+    "opentype-sanitizer >= 9.1.0, == 9.*",
+    "packaging >= 14.5",  # VERSION_PATTERN was added on v14.5 (fontbakery/issues/4792)
+    "pip-api",
+    "PyYAML",
+    "requests >= 2.19",  # issue #4718
+    "rich",
+    "toml",
+    "typing_extensions ; python_version < '3.11'",
+    "ufolint",
+    "ufo2ft >= 2.25.2",  # script lists for Unicode 14.0 were updated on v2.25.2
+    "uharfbuzz",
+    "vharfbuzz >= 0.2.0",
+]
+
+[project.optional-dependencies]
+
+# Note: These dependencies are meant to be private (not used explicitly by users)
+#       and are used just to facilitate maintainance of versioning
+#       dependencies that are shared by multiple vendor-profiles.
+#       (this way, the maintainer only needs to edit a single entry)
+
+beautifulsoup4 = [
+    "beautifulsoup4 >= 4.7.1",
+    # For parsing registered vendor IDs
+    # googlefonts/vendor_id produces an ERROR if Beautiful Soup 4
+    # version 4.0.1 to 4.6.1 or 4.7.0 is installed because of bugs in Beautiful Soup
+    # (see https://github.com/fonttools/fontbakery/issues/4270)
+]
+
+shaperglot = [
+    "shaperglot >= 1.0.0a1, == 1.*",
+]
+
+# These Google Fonts profile dependencies contain data that is critical to
+# always be up-to-date, so we treat any update to these deps the same way we would
+# deal with API-breaking updates. Only the latest released version is acceptable:
+googlefontsalwayslatest = [
+    "axisregistry >= 0.4.12, == 0.4.*",
+    "gflanguages >= 0.7.3, == 0.7.*",
+    "gfsubsets >= 2024.9.25",
+    "glyphsets >= 1.1.0, == 1.*",
+    "shaperglot >= 1.0.2, == 1.*",
+]
+
+
+# Profile-specific dependencies:
+
+adobefonts = [
+    # The Adobe Fonts profile currently depends only on the base-install of
+    # fontbakery dependencies. But we keep here a place-holder "extra" for
+    # consistency (all vendor-specific profiles have the same install instructions)
+    # And at some point in the future there may be actual dependencies listed
+    # here for this profile.
+]
+
+fontval = [
+    "lxml",
+]
+
+fontwerk = [
+    "fontbakery[googlefonts]",
+]
+
+googlefonts = [
+    "collidoscope >= 0.5.2",
+    # 0.5.2 added Python 3.11 wheels
+    # (see https://github.com/fonttools/fontbakery/issues/3970)
+
+    "fonttools[lxml,unicode]",
+    # (see https://github.com/googlefonts/gflanguages/pull/7)
+
+    "protobuf >= 3.7.0, < 4",
+    # 3.7.0 fixed a bug on parsing some METADATA.pb files.
+    # We cannot use v4 because our protobuf files have been compiled with v3.
+    # (see https://github.com/fonttools/fontbakery/issues/2200)
+
+    "stringbrewer",
+
+    "unicodedata2",
+
+    "fontbakery[beautifulsoup4]",
+    "fontbakery[googlefontsalwayslatest]",
+    "fontbakery[shaperglot]",
+]
+
+iso15008 = []
+
+microsoft = []
+
+notofonts = [
+    "fontbakery[googlefonts]",
+]
+
+typenetwork = [
+    "unicodedata2",
+
+    "fontbakery[beautifulsoup4]",
+    "fontbakery[shaperglot]",
+]
+
+
+# Dependencies for building our documentation:
+
+docs = [
+    "myst-parser >= 2.0.0, == 2.*",
+    "sphinx >= 7.1.2, == 7.1.*",
+    "sphinx_rtd_theme >= 2.0.0, == 2.*",
+    "m2r >= 0.3.1, == 0.3.*",
+]
+
+
+# Some users may want a full install of all profiles:
+
+all = [
+    "fontbakery[docs]",
+    "fontbakery[adobefonts]",
+    "fontbakery[fontval]",
+    "fontbakery[fontwerk]",
+    "fontbakery[googlefonts]",
+    "fontbakery[iso15008]",
+    "fontbakery[notofonts]",
+    "fontbakery[typenetwork]",
+]
+
+
+# Requirements for running code-tests:
+
+tests = [
+    "black == 23.12.1",
+    "pylint == 3.0.3",
+    "pytest-cov == 4.1.0",
+    "pytest-xdist == 3.5.0",
+    "requests-mock == 1.10.0",
+
+    "fontbakery[all]",
+]
+
+[project.scripts]
+fontbakery = "fontbakery.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["Lib"]
+
+[tool.setuptools_scm]
+write_to = "Lib/fontbakery/_version.py"
+
+# ============================================================================
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+# 'extend-exclude' excludes files or directories in addition to the defaults
+extend-exclude = '''
+# A regex preceded with ^/ will apply only to files and directories
+# in the root of the project. Separate regexes with | .
+(
+    .*_pb2.py  # exclude autogenerated Protocol Buffer files anywhere in the project
+    |^/Lib/fontbakery/legacy_checkids.py
+)
+'''
+
+# ============================================================================
+[tool.ruff]
+exclude = [
+    "*_pb2.py",
+    "Lib/fontbakery/prelude.py",
+]
+
+# ============================================================================
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+addopts = "--color=yes  --verbose"
+filterwarnings = [
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
+]
+
+# ============================================================================
+[tool.pylint.master]
+ignore-patterns = ".*_pb2.py"
+jobs = 0     # Specifying 0 will auto-detect the number of processors available to use
+logging-format-style = "new"
+msg-template = "{msg_id} ({symbol}) {path} @ {line} — {msg}"
+output-format = "colorized"
+score = "n"
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    # Error
+    "no-member",
+    "no-name-in-module",
+    "used-before-assignment",
+
+    # Warning
+    "broad-exception-caught",
+    "broad-exception-raised",
+    "cell-var-from-loop",
+    "fixme",
+    "keyword-arg-before-vararg",
+    "protected-access",
+    "raise-missing-from",
+    "redefined-outer-name",
+    "subprocess-run-check",
+    "superfluous-parens",
+    "undefined-loop-variable",
+    "unnecessary-pass",
+    "unused-argument",
+    "unused-variable",
+
+    # Convention
+    "consider-iterating-dictionary",
+    "consider-using-dict-items",
+    "consider-using-enumerate",
+    "consider-using-f-string",
+    "import-outside-toplevel",
+    "invalid-name",
+    "missing-docstring",
+    "too-many-lines",
+
+    # Refactor
+    "chained-comparison",
+    "consider-using-with",
+    "duplicate-code",
+    "inconsistent-return-statements",
+    "no-else-raise",
+    "no-else-return",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-boolean-expressions",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-nested-blocks",
+    "too-many-public-methods",
+    "too-many-return-statements",
+    "too-many-statements",
+    "unnecessary-dict-index-lookup",
+    "use-a-generator",
+
+    # Information
+    "c-extension-no-member",
+
+    # FIXME on Sphinx code,
+    "abstract-method",
+    "unexpected-keyword-arg",
+    "logging-too-many-args",
+    "attribute-defined-outside-init",
+]
+
+[tool.pytype]
+inputs = ["Lib"]
+exclude = ["Lib/fontbakery/*_pb2.py", "Lib/fontbakery/sphinx_extensions"]

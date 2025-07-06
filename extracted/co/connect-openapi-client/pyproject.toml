@@ -1,0 +1,144 @@
+[tool.poetry]
+name = "connect-openapi-client"
+version = "34.0"
+description = "Connect Python OpenAPI Client"
+authors = ["CloudBlue"]
+license = "Apache-2.0"
+packages = [
+    { include = "connect" },
+    { include = "cnct" }
+]
+readme = "./README.md"
+documentation = "https://connect-openapi-client.readthedocs.io/en/latest/"
+homepage = "https://connect.cloudblue.com"
+repository = "https://github.com/cloudblue/connect-python-openapi-client"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Utilities",
+    "Topic :: Software Development :: Libraries",
+]
+keywords = [
+    "fulfillment",
+    "api",
+    "client",
+    "openapi",
+    "utility",
+    "connect",
+    "cloudblue",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4"
+connect-markdown-renderer = "^3"
+PyYAML = ">=5.3.1"
+requests = ">=2.23"
+inflect = ">=4.1"
+httpx = ">=0.23"
+asgiref = "^3.3.4"
+responses = ">=0.14.0,<1"
+pytest-httpx = ">=0.27,<0.30"
+importlib-metadata = "^6.6"
+
+[tool.poetry.group.test.dependencies]
+black = "23.*"
+pytest = ">=6.1.2,<8"
+pytest-cov = ">=2.10.1,<5"
+pytest-mock = "^3.10"
+coverage = {extras = ["toml"], version = ">=5.3,<7"}
+flake8 = ">=6"
+flake8-black = "0.*"
+flake8-bugbear = ">=20,<23"
+flake8-cognitive-complexity = "^0.1"
+flake8-commas = "~4"
+flake8-future-import = "~0.4"
+flake8-import-order = ">=0.18.2"
+flake8-isort = "^6.0"
+flake8-broken-line = ">=1.0"
+flake8-pyproject = "^1.2.3"
+isort = "^5.10"
+pytest-asyncio = "^0.15.1"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.3.1"
+mkdocs-material = "^8.5.3"
+mkdocstrings = "^0.20.0"
+mkdocstrings-python = "^0.8.3"
+
+[tool.poetry.plugins.pytest11]
+"pytest_connect_client" = "connect.client.testing.fixtures"
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "setuptools>=42"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+addopts = "--cov=connect.client --cov-report=term-missing:skip-covered --cov-report=html --cov-report=xml"
+log_cli = false
+log_cli_level = "INFO"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+omit = [
+    "*/migrations/*",
+    "*/config/*",
+    "*/settings/*",
+    "*/manage.py",
+    "*/wsgi.py",
+    "*/urls.py",
+    "connect/client/contrib/*"
+]
+
+exclude_lines = [
+    "pragma: no cover",
+    "def __str__",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.isort]
+src_paths = "*"
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+group_by_package = true
+multi_line_output = 3
+force_grid_wrap = 4
+combine_as_imports = true
+use_parentheses = true
+include_trailing_comma = true
+line_length = 100
+lines_after_imports = 2
+
+[tool.flake8]
+exclude = [
+    ".idea",
+    ".vscode",
+    ".git",
+    "pg_data",
+    "venv",
+    "*.eggs",
+    "*.egg",
+    "tests/fixtures",
+    "setup.py",
+    "resources",
+    "docs/*",
+]
+show-source = true
+max-line-length = 100
+max-cognitive-complexity = 15
+select = "B"
+ignore = ["FI1", "W503"]
+
+
+[tool.black]
+line_length = 100
+skip-string-normalization = true

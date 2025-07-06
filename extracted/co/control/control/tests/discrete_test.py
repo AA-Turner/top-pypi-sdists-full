@@ -1,4 +1,4 @@
-"""discrete_test.py - test discrete time classes
+"""discrete_test.py - test discrete-time classes
 
 RMM, 9 Sep 2012
 """
@@ -22,15 +22,17 @@ class TestDiscrete:
         class Tsys:
             pass
         T = Tsys()
-        # Single input, single output continuous and discrete time systems
+        # Single input, single output continuous and discrete-time systems
         sys = rss(3, 1, 1)
         T.siso_ss1 = StateSpace(sys.A, sys.B, sys.C, sys.D, None)
         T.siso_ss1c = StateSpace(sys.A, sys.B, sys.C, sys.D, 0.0)
-        T.siso_ss1d = StateSpace(sys.A, sys.B, sys.C, sys.D, 0.1)
-        T.siso_ss2d = StateSpace(sys.A, sys.B, sys.C, sys.D, 0.2)
-        T.siso_ss3d = StateSpace(sys.A, sys.B, sys.C, sys.D, True)
 
-        # Two input, two output continuous time system
+        dsys = ct.sample_system(sys, 1)
+        T.siso_ss1d = StateSpace(dsys.A, dsys.B, dsys.C, dsys.D, 0.1)
+        T.siso_ss2d = StateSpace(dsys.A, dsys.B, dsys.C, dsys.D, 0.2)
+        T.siso_ss3d = StateSpace(dsys.A, dsys.B, dsys.C, dsys.D, True)
+
+        # Two input, two output continuous-time system
         A = [[-3., 4., 2.], [-1., -3., 0.], [2., 5., 3.]]
         B = [[1., 4.], [-3., -3.], [-2., 1.]]
         C = [[4., 2., -3.], [1., 4., 3.]]
@@ -38,18 +40,19 @@ class TestDiscrete:
         T.mimo_ss1 = StateSpace(A, B, C, D, None)
         T.mimo_ss1c = StateSpace(A, B, C, D, 0)
 
-        # Two input, two output discrete time system
-        T.mimo_ss1d = StateSpace(A, B, C, D, 0.1)
+        # Two input, two output discrete-time system
+        T.mimo_ss1d = ct.sample_system(T.mimo_ss1c, 0.1)
 
         # Same system, but with a different sampling time
-        T.mimo_ss2d = StateSpace(A, B, C, D, 0.2)
+        T.mimo_ss2d = StateSpace(
+            T.mimo_ss1d.A, T.mimo_ss1d.B, T.mimo_ss1d.C, T.mimo_ss1d.D, 0.2)
 
         # Single input, single output continuus and discrete transfer function
         T.siso_tf1 = TransferFunction([1, 1], [1, 2, 1], None)
-        T.siso_tf1c = TransferFunction([1, 1], [1, 2, 1], 0)
-        T.siso_tf1d = TransferFunction([1, 1], [1, 2, 1], 0.1)
-        T.siso_tf2d = TransferFunction([1, 1], [1, 2, 1], 0.2)
-        T.siso_tf3d = TransferFunction([1, 1], [1, 2, 1], True)
+        T.siso_tf1c = TransferFunction([1, 1], [1, 0.2, 1], 0)
+        T.siso_tf1d = TransferFunction([1, 1], [1, 0.2, 0.1], 0.1)
+        T.siso_tf2d = TransferFunction([1, 1], [1, 0.2, 0.1], 0.2)
+        T.siso_tf3d = TransferFunction([1, 1], [1, 0.2, 0.1], True)
 
         return T
 
@@ -231,14 +234,14 @@ class TestDiscrete:
 
     def testAddition(self, tsys):
         # State space addition
-        sys = tsys.siso_ss1 + tsys.siso_ss1d
-        sys = tsys.siso_ss1 + tsys.siso_ss1c
-        sys = tsys.siso_ss1c + tsys.siso_ss1
-        sys = tsys.siso_ss1d + tsys.siso_ss1
-        sys = tsys.siso_ss1c + tsys.siso_ss1c
-        sys = tsys.siso_ss1d + tsys.siso_ss1d
-        sys = tsys.siso_ss3d + tsys.siso_ss3d
-        sys = tsys.siso_ss1d + tsys.siso_ss3d
+        _sys = tsys.siso_ss1 + tsys.siso_ss1d
+        _sys = tsys.siso_ss1 + tsys.siso_ss1c
+        _sys = tsys.siso_ss1c + tsys.siso_ss1
+        _sys = tsys.siso_ss1d + tsys.siso_ss1
+        _sys = tsys.siso_ss1c + tsys.siso_ss1c
+        _sys = tsys.siso_ss1d + tsys.siso_ss1d
+        _sys = tsys.siso_ss3d + tsys.siso_ss3d
+        _sys = tsys.siso_ss1d + tsys.siso_ss3d
 
         with pytest.raises(ValueError):
             StateSpace.__add__(tsys.mimo_ss1c, tsys.mimo_ss1d)
@@ -246,14 +249,14 @@ class TestDiscrete:
             StateSpace.__add__(tsys.mimo_ss1d, tsys.mimo_ss2d)
 
         # Transfer function addition
-        sys = tsys.siso_tf1 + tsys.siso_tf1d
-        sys = tsys.siso_tf1 + tsys.siso_tf1c
-        sys = tsys.siso_tf1c + tsys.siso_tf1
-        sys = tsys.siso_tf1d + tsys.siso_tf1
-        sys = tsys.siso_tf1c + tsys.siso_tf1c
-        sys = tsys.siso_tf1d + tsys.siso_tf1d
-        sys = tsys.siso_tf2d + tsys.siso_tf2d
-        sys = tsys.siso_tf1d + tsys.siso_tf3d
+        _sys = tsys.siso_tf1 + tsys.siso_tf1d
+        _sys = tsys.siso_tf1 + tsys.siso_tf1c
+        _sys = tsys.siso_tf1c + tsys.siso_tf1
+        _sys = tsys.siso_tf1d + tsys.siso_tf1
+        _sys = tsys.siso_tf1c + tsys.siso_tf1c
+        _sys = tsys.siso_tf1d + tsys.siso_tf1d
+        _sys = tsys.siso_tf2d + tsys.siso_tf2d
+        _sys = tsys.siso_tf1d + tsys.siso_tf3d
 
         with pytest.raises(ValueError):
             TransferFunction.__add__(tsys.siso_tf1c, tsys.siso_tf1d)
@@ -261,22 +264,22 @@ class TestDiscrete:
             TransferFunction.__add__(tsys.siso_tf1d, tsys.siso_tf2d)
 
         # State space + transfer function
-        sys = tsys.siso_ss1c + tsys.siso_tf1c
-        sys = tsys.siso_tf1c + tsys.siso_ss1c
-        sys = tsys.siso_ss1d + tsys.siso_tf1d
-        sys = tsys.siso_tf1d + tsys.siso_ss1d
+        _sys = tsys.siso_ss1c + tsys.siso_tf1c
+        _sys = tsys.siso_tf1c + tsys.siso_ss1c
+        _sys = tsys.siso_ss1d + tsys.siso_tf1d
+        _sys = tsys.siso_tf1d + tsys.siso_ss1d
         with pytest.raises(ValueError):
             TransferFunction.__add__(tsys.siso_tf1c, tsys.siso_ss1d)
 
     def testMultiplication(self, tsys):
         # State space multiplication
-        sys = tsys.siso_ss1 * tsys.siso_ss1d
-        sys = tsys.siso_ss1 * tsys.siso_ss1c
-        sys = tsys.siso_ss1c * tsys.siso_ss1
-        sys = tsys.siso_ss1d * tsys.siso_ss1
-        sys = tsys.siso_ss1c * tsys.siso_ss1c
-        sys = tsys.siso_ss1d * tsys.siso_ss1d
-        sys = tsys.siso_ss1d * tsys.siso_ss3d
+        _sys = tsys.siso_ss1 * tsys.siso_ss1d
+        _sys = tsys.siso_ss1 * tsys.siso_ss1c
+        _sys = tsys.siso_ss1c * tsys.siso_ss1
+        _sys = tsys.siso_ss1d * tsys.siso_ss1
+        _sys = tsys.siso_ss1c * tsys.siso_ss1c
+        _sys = tsys.siso_ss1d * tsys.siso_ss1d
+        _sys = tsys.siso_ss1d * tsys.siso_ss3d
 
         with pytest.raises(ValueError):
             StateSpace.__mul__(tsys.mimo_ss1c, tsys.mimo_ss1d)
@@ -284,13 +287,13 @@ class TestDiscrete:
             StateSpace.__mul__(tsys.mimo_ss1d, tsys.mimo_ss2d)
 
         # Transfer function multiplication
-        sys = tsys.siso_tf1 * tsys.siso_tf1d
-        sys = tsys.siso_tf1 * tsys.siso_tf1c
-        sys = tsys.siso_tf1c * tsys.siso_tf1
-        sys = tsys.siso_tf1d * tsys.siso_tf1
-        sys = tsys.siso_tf1c * tsys.siso_tf1c
-        sys = tsys.siso_tf1d * tsys.siso_tf1d
-        sys = tsys.siso_tf1d * tsys.siso_tf3d
+        _sys = tsys.siso_tf1 * tsys.siso_tf1d
+        _sys = tsys.siso_tf1 * tsys.siso_tf1c
+        _sys = tsys.siso_tf1c * tsys.siso_tf1
+        _sys = tsys.siso_tf1d * tsys.siso_tf1
+        _sys = tsys.siso_tf1c * tsys.siso_tf1c
+        _sys = tsys.siso_tf1d * tsys.siso_tf1d
+        _sys = tsys.siso_tf1d * tsys.siso_tf3d
 
         with pytest.raises(ValueError):
             TransferFunction.__mul__(tsys.siso_tf1c, tsys.siso_tf1d)
@@ -298,10 +301,10 @@ class TestDiscrete:
             TransferFunction.__mul__(tsys.siso_tf1d, tsys.siso_tf2d)
 
         # State space * transfer function
-        sys = tsys.siso_ss1c * tsys.siso_tf1c
-        sys = tsys.siso_tf1c * tsys.siso_ss1c
-        sys = tsys.siso_ss1d * tsys.siso_tf1d
-        sys = tsys.siso_tf1d * tsys.siso_ss1d
+        _sys = tsys.siso_ss1c * tsys.siso_tf1c
+        _sys = tsys.siso_tf1c * tsys.siso_ss1c
+        _sys = tsys.siso_ss1d * tsys.siso_tf1d
+        _sys = tsys.siso_tf1d * tsys.siso_ss1d
         with pytest.raises(ValueError):
             TransferFunction.__mul__(tsys.siso_tf1c,
                           tsys.siso_ss1d)
@@ -309,13 +312,13 @@ class TestDiscrete:
 
     def testFeedback(self, tsys):
         # State space feedback
-        sys = feedback(tsys.siso_ss1, tsys.siso_ss1d)
-        sys = feedback(tsys.siso_ss1, tsys.siso_ss1c)
-        sys = feedback(tsys.siso_ss1c, tsys.siso_ss1)
-        sys = feedback(tsys.siso_ss1d, tsys.siso_ss1)
-        sys = feedback(tsys.siso_ss1c, tsys.siso_ss1c)
-        sys = feedback(tsys.siso_ss1d, tsys.siso_ss1d)
-        sys = feedback(tsys.siso_ss1d, tsys.siso_ss3d)
+        _sys = feedback(tsys.siso_ss1, tsys.siso_ss1d)
+        _sys = feedback(tsys.siso_ss1, tsys.siso_ss1c)
+        _sys = feedback(tsys.siso_ss1c, tsys.siso_ss1)
+        _sys = feedback(tsys.siso_ss1d, tsys.siso_ss1)
+        _sys = feedback(tsys.siso_ss1c, tsys.siso_ss1c)
+        _sys = feedback(tsys.siso_ss1d, tsys.siso_ss1d)
+        _sys = feedback(tsys.siso_ss1d, tsys.siso_ss3d)
 
         with pytest.raises(ValueError):
             feedback(tsys.mimo_ss1c, tsys.mimo_ss1d)
@@ -323,13 +326,13 @@ class TestDiscrete:
             feedback(tsys.mimo_ss1d, tsys.mimo_ss2d)
 
         # Transfer function feedback
-        sys = feedback(tsys.siso_tf1, tsys.siso_tf1d)
-        sys = feedback(tsys.siso_tf1, tsys.siso_tf1c)
-        sys = feedback(tsys.siso_tf1c, tsys.siso_tf1)
-        sys = feedback(tsys.siso_tf1d, tsys.siso_tf1)
-        sys = feedback(tsys.siso_tf1c, tsys.siso_tf1c)
-        sys = feedback(tsys.siso_tf1d, tsys.siso_tf1d)
-        sys = feedback(tsys.siso_tf1d, tsys.siso_tf3d)
+        _sys = feedback(tsys.siso_tf1, tsys.siso_tf1d)
+        _sys = feedback(tsys.siso_tf1, tsys.siso_tf1c)
+        _sys = feedback(tsys.siso_tf1c, tsys.siso_tf1)
+        _sys = feedback(tsys.siso_tf1d, tsys.siso_tf1)
+        _sys = feedback(tsys.siso_tf1c, tsys.siso_tf1c)
+        _sys = feedback(tsys.siso_tf1d, tsys.siso_tf1d)
+        _sys = feedback(tsys.siso_tf1d, tsys.siso_tf3d)
 
         with pytest.raises(ValueError):
             feedback(tsys.siso_tf1c, tsys.siso_tf1d)
@@ -337,10 +340,11 @@ class TestDiscrete:
             feedback(tsys.siso_tf1d, tsys.siso_tf2d)
 
         # State space, transfer function
-        sys = feedback(tsys.siso_ss1c, tsys.siso_tf1c)
-        sys = feedback(tsys.siso_tf1c, tsys.siso_ss1c)
-        sys = feedback(tsys.siso_ss1d, tsys.siso_tf1d)
-        sys = feedback(tsys.siso_tf1d, tsys.siso_ss1d)
+        _sys = feedback(tsys.siso_ss1c, tsys.siso_tf1c)
+        _sys = feedback(tsys.siso_tf1c, tsys.siso_ss1c)
+        _sys = feedback(tsys.siso_ss1d, tsys.siso_tf1d)
+
+        _sys = feedback(tsys.siso_tf1d, tsys.siso_ss1d)
         with pytest.raises(ValueError):
             feedback(tsys.siso_tf1c, tsys.siso_ss1d)
 
@@ -416,11 +420,11 @@ class TestDiscrete:
         wwarp = 1
         Ts = 0.1
         with pytest.warns(UserWarning, match="prewarp_frequency ignored: incompatible conversion"):
-            plant_d_warped = plant.sample(Ts, discretization_type, prewarp_frequency=wwarp)
+            plant.sample(Ts, discretization_type, prewarp_frequency=wwarp)
         with pytest.warns(UserWarning, match="prewarp_frequency ignored: incompatible conversion"):
-            plant_d_warped = sample_system(plant, Ts, discretization_type, prewarp_frequency=wwarp)
+            sample_system(plant, Ts, discretization_type, prewarp_frequency=wwarp)
         with pytest.warns(UserWarning, match="prewarp_frequency ignored: incompatible conversion"):
-            plant_d_warped = c2d(plant, Ts, discretization_type, prewarp_frequency=wwarp)
+            c2d(plant, Ts, discretization_type, prewarp_frequency=wwarp)
 
     def test_sample_system_errors(self, tsys):
         # Check errors
@@ -463,7 +467,7 @@ class TestDiscrete:
 
     @pytest.mark.usefixtures("legacy_plot_signature")
     def test_discrete_bode(self, tsys):
-        # Create a simple discrete time system and check the calculation
+        # Create a simple discrete-time system and check the calculation
         sys = TransferFunction([1], [1, 0.5], 1)
         omega = [1, 2, 3]
         mag_out, phase_out, omega_out = bode(sys, omega, plot=True)
@@ -473,7 +477,7 @@ class TestDiscrete:
         np.testing.assert_array_almost_equal(phase_out, np.angle(H_z))
 
     def test_signal_names(self, tsys):
-        "test that signal names are preserved in conversion to discrete-time"
+        "test that signal names are preserved in conversion to discrete time"
         ssc = StateSpace(tsys.siso_ss1c,
             inputs='u', outputs='y', states=['a', 'b', 'c'])
         ssd = ssc.sample(0.1)

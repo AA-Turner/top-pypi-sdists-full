@@ -1,0 +1,51 @@
+Metadata-Version: 2.2
+Name: dllist
+Version: 2.0.0
+Summary: List the shared libraries loaded by the current process.
+Author-email: Brian Ward <bward@flatironinstitute.org>
+License: BSD-3-Clause
+Project-URL: Homepage, https://github.com/wardbrian/dllist
+Project-URL: Bug Tracker, https://github.com/wardbrian/dllist/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: System
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+
+# dllist
+
+> [!NOTE]
+> This functionality is available [in the standard library](https://github.com/python/cpython/pull/122946) starting in Python 3.14
+
+A very small Python library to list the DLLs loaded by the current process.
+This is equivalent to the [`dllist`](https://docs.julialang.org/en/v1/stdlib/Libdl/#Base.Libc.Libdl.dllist) function in Julia.
+
+*Note*: This library is tested on macOS, Linux, and Windows.
+Some platforms which provide the same API as Linux (e.g. FreeBSD) also work.
+
+## Installation
+
+`dllist` is [available on PyPI](https://pypi.org/project/dllist/):
+
+```
+pip install dllist
+```
+
+## Usage
+The single function this library provides is `dllist()`, which returns a list of the shared
+ibraries loaded by the current process.
+The first element is usually a representation of the current process itself (often, the empty string),
+and the rest are the shared libraries loaded by the process.
+```python
+import dllist
+print(dllist.dllist())
+# ['', 'linux-vdso.so.1', '/lib/x86_64-linux-gnu/libpthread.so.0', '/lib/x86_64-linux-gnu/libdl.so.2', ... ]
+```
+
+*Note*: The library paths are not postprocessed by this library. Depending on your usage, you may need to convert them to absolute paths and/or perform case-normalization (Windows).

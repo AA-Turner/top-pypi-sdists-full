@@ -1,0 +1,80 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "autohooks-plugin-isort"
+version = "23.10.0"
+description = "An autohooks plugin for python code formatting via isort"
+license = "GPL-3.0-or-later"
+authors = ["Greenbone AG <info@greenbone.net>"]
+readme = "README.md"
+homepage = "https://github.com/greenbone/autohooks-plugin-isort"
+repository = "https://github.com/greenbone/autohooks-plugin-isort"
+documentation = ""
+classifiers = [
+  # Full list: https://pypi.org/pypi?%3Aaction=list_classifiers
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [
+  { include = "autohooks" },
+  { include = "poetry.lock", format = "sdist" },
+]
+keywords = ["git", "formatting", "hooks", "isort"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+isort = ">=5.8.0"
+autohooks = ">=21.6.0"
+
+[tool.poetry.dev-dependencies]
+autohooks-plugin-pylint = ">=21.6.0"
+autohooks-plugin-black = ">=22.7.0"
+autohooks-plugin-mypy = ">=22.7.0"
+coverage = ">=7.2.7"
+pontos = ">=22.7.2"
+
+[tool.black]
+line-length = 80
+target-version = ['py39', 'py310', 'py311', 'py312']
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.github
+  | \.vscode
+  | _build
+  | build
+  | dist
+  | docs
+)/
+'''
+
+[tool.autohooks]
+mode = "poetry"
+pre-commit = [
+  'autohooks.plugins.black',
+  'autohooks.plugins.isort',
+  'autohooks.plugins.pylint',
+  'autohooks.plugins.mypy',
+]
+
+[tool.pontos.version]
+version-module-file = "autohooks/plugins/isort/__version__.py"
+
+[tool.isort]
+profile = "black"
+line_length = 80
+
+[tool.mypy]
+files = "autohooks"
+ignore_missing_imports = true

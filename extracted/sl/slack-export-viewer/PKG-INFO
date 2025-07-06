@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: slack-export-viewer
+Version: 3.3.1
+Summary: Slack Export Archive Viewer
+Home-page: https://github.com/hfaran/slack-export-viewer
+Author: hfaran
+Author-email: private@private.com
+License: MIT License
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: click
+Requires-Dist: Werkzeug<3.0.0
+Requires-Dist: Flask<3.0.0
+Requires-Dist: markdown2
+Requires-Dist: emoji<3.0,>=2.0.0
+Requires-Dist: frozen-flask<2.0,>=1.0.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+See README at https://github.com/hfaran/slack-export-viewer

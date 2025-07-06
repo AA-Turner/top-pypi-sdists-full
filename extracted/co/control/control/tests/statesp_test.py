@@ -1,4 +1,4 @@
-"""statesp_test.py - test state space class
+"""Tests for the StateSpace class.
 
 RMM, 30 Mar 2011 based on TestStateSp from v0.4a)
 RMM, 14 Jun 2019 statesp_array_test.py coverted from statesp_test.py to test
@@ -7,23 +7,22 @@ BG,  26 Jul 2020 merge statesp_array_test.py differences into statesp_test.py
                  convert to pytest
 """
 
-import numpy as np
-from numpy.testing import assert_array_almost_equal
-import pytest
 import operator
+
+import numpy as np
+import pytest
 from numpy.linalg import solve
+from numpy.testing import assert_array_almost_equal
 from scipy.linalg import block_diag, eigvals
 
 import control as ct
 from control.config import defaults
 from control.dtime import sample_system
-from control.lti import evalfr
-from control.statesp import StateSpace, _convert_to_statespace, tf2ss, \
-    _statesp_defaults, _rss_generate, linfnorm, ss, rss, drss
+from control.lti import LTI, evalfr
+from control.statesp import StateSpace, _convert_to_statespace, \
+    _rss_generate, _statesp_defaults, drss, linfnorm, rss, ss, tf2ss
 from control.xferfcn import TransferFunction, ss2tf
-
-from .conftest import editsdefaults, slycotonly
-
+from .conftest import assert_tf_close_coeff, slycotonly
 
 class TestStateSpace:
     """Tests for the StateSpace class."""
@@ -121,28 +120,27 @@ class TestStateSpace:
         np.testing.assert_almost_equal(sys.D, sys322ABCD[3])
         assert sys.dt == dtref
 
-    @pytest.mark.parametrize("args, exc, errmsg",
-                             [((True, ), TypeError,
-                               "(can only take in|sys must be) a StateSpace"),
-                              ((1, 2), TypeError, "1, 4, or 5 arguments"),
-                              ((np.ones((3, 2)), np.ones((3, 2)),
-                                np.ones((2, 2)), np.ones((2, 2))),
-                               ValueError, "A must be square"),
-                              ((np.ones((3, 3)), np.ones((2, 2)),
-                                np.ones((2, 3)), np.ones((2, 2))),
-                               ValueError, "A and B"),
-                              ((np.ones((3, 3)), np.ones((3, 2)),
-                                np.ones((2, 2)), np.ones((2, 2))),
-                               ValueError, "A and C"),
-                              ((np.ones((3, 3)), np.ones((3, 2)),
-                                np.ones((2, 3)), np.ones((2, 3))),
-                               ValueError, "B and D"),
-                              ((np.ones((3, 3)), np.ones((3, 2)),
-                                np.ones((2, 3)), np.ones((3, 2))),
-                               ValueError, "C and D"),
-                              ])
+    @pytest.mark.parametrize(
+        "args, exc, errmsg",
+        [((True, ), TypeError, "(can only take in|sys must be) a StateSpace"),
+         ((1, 2), TypeError, "1, 4, or 5 arguments"),
+         ((np.ones((3, 2)), np.ones((3, 2)),
+           np.ones((2, 2)), np.ones((2, 2))), ValueError,
+          r"A must be a square matrix"),
+         ((np.ones((3, 3)), np.ones((2, 2)),
+           np.ones((2, 3)), np.ones((2, 2))), ValueError,
+          r"Incompatible dimensions of B matrix; expected \(3, 2\)"),
+         ((np.ones((3, 3)), np.ones((3, 2)),
+           np.ones((2, 2)), np.ones((2, 2))), ValueError,
+          r"Incompatible dimensions of C matrix; expected \(2, 3\)"),
+         ((np.ones((3, 3)), np.ones((3, 2)),
+           np.ones((2, 3)), np.ones((2, 3))), ValueError,
+          r"Incompatible dimensions of D matrix; expected \(2, 2\)"),
+         (([1j], 2, 3, 0), TypeError, "real number, not 'complex'"),
+        ])
     def test_constructor_invalid(self, args, exc, errmsg):
         """Test invalid input to StateSpace() constructor"""
+
         with pytest.raises(exc, match=errmsg):
             StateSpace(*args)
         with pytest.raises(exc, match=errmsg):
@@ -247,7 +245,6 @@ class TestStateSpace:
 
         np.testing.assert_almost_equal(true_z, z)
 
-    @slycotonly
     def test_zero_mimo_sys322_square(self, sys322):
         """Evaluate the zeros of a square MIMO system."""
 
@@ -255,7 +252,6 @@ class TestStateSpace:
         true_z = np.sort([44.41465, -0.490252, -5.924398])
         np.testing.assert_array_almost_equal(z, true_z)
 
-    @slycotonly
     def test_zero_mimo_sys222_square(self, sys222):
         """Evaluate the zeros of a square MIMO system."""
 
@@ -319,6 +315,335 @@ class TestStateSpace:
         np.testing.assert_array_almost_equal(sys.C, C)
         np.testing.assert_array_almost_equal(sys.D, D)
 
+    def test_add_sub_mimo_siso(self):
+        # Test SS with SS
+        ss_siso = StateSpace(
+            np.array([
+                [1, 2],
+                [3, 4],
+            ]),
+            np.array([
+                [1],
+                [4],
+            ]),
+            np.array([
+                [1, 1],
+            ]),
+            np.array([
+                [0],
+            ]),
+        )
+        ss_siso_1 = StateSpace(
+            np.array([
+                [1, 1],
+                [3, 1],
+            ]),
+            np.array([
+                [3],
+                [-4],
+            ]),
+            np.array([
+                [-1, 1],
+            ]),
+            np.array([
+                [0.1],
+            ]),
+        )
+        ss_siso_2 = StateSpace(
+            np.array([
+                [1, 0],
+                [0, 1],
+            ]),
+            np.array([
+                [0],
+                [2],
+            ]),
+            np.array([
+                [0, 1],
+            ]),
+            np.array([
+                [0],
+            ]),
+        )
+        ss_mimo = ss_siso_1.append(ss_siso_2)
+        expected_add = ct.combine_tf([
+            [ss2tf(ss_siso_1 + ss_siso), ss2tf(ss_siso)],
+            [ss2tf(ss_siso), ss2tf(ss_siso_2 + ss_siso)],
+        ])
+        expected_sub = ct.combine_tf([
+            [ss2tf(ss_siso_1 - ss_siso), -ss2tf(ss_siso)],
+            [-ss2tf(ss_siso), ss2tf(ss_siso_2 - ss_siso)],
+        ])
+        for op, expected in [
+            (StateSpace.__add__, expected_add),
+            (StateSpace.__radd__, expected_add),
+            (StateSpace.__sub__, expected_sub),
+            (StateSpace.__rsub__, -expected_sub),
+        ]:
+            result = op(ss_mimo, ss_siso)
+            assert_tf_close_coeff(
+                expected.minreal(),
+                ss2tf(result).minreal(),
+            )
+        # Test SS with array
+        expected_add = ct.combine_tf([
+            [ss2tf(1 + ss_siso), ss2tf(ss_siso)],
+            [ss2tf(ss_siso), ss2tf(1 + ss_siso)],
+        ])
+        expected_sub = ct.combine_tf([
+            [ss2tf(-1 + ss_siso), ss2tf(ss_siso)],
+            [ss2tf(ss_siso), ss2tf(-1 + ss_siso)],
+        ])
+        for op, expected in [
+            (StateSpace.__add__, expected_add),
+            (StateSpace.__radd__, expected_add),
+            (StateSpace.__sub__, expected_sub),
+            (StateSpace.__rsub__, -expected_sub),
+        ]:
+            result = op(ss_siso, np.eye(2))
+            assert_tf_close_coeff(
+                expected.minreal(),
+                ss2tf(result).minreal(),
+            )
+
+    @slycotonly
+    @pytest.mark.parametrize(
+        "left, right, expected",
+        [
+            (
+                TransferFunction([2], [1, 0]),
+                TransferFunction(
+                    [
+                        [[2], [1]],
+                        [[-1], [4]],
+                    ],
+                    [
+                        [[10, 1], [20, 1]],
+                        [[20, 1], [30, 1]],
+                    ],
+                ),
+                TransferFunction(
+                    [
+                        [[4], [2]],
+                        [[-2], [8]],
+                    ],
+                    [
+                        [[10, 1, 0], [20, 1, 0]],
+                        [[20, 1, 0], [30, 1, 0]],
+                    ],
+                ),
+            ),
+            (
+                TransferFunction(
+                    [
+                        [[2], [1]],
+                        [[-1], [4]],
+                    ],
+                    [
+                        [[10, 1], [20, 1]],
+                        [[20, 1], [30, 1]],
+                    ],
+                ),
+                TransferFunction([2], [1, 0]),
+                TransferFunction(
+                    [
+                        [[4], [2]],
+                        [[-2], [8]],
+                    ],
+                    [
+                        [[10, 1, 0], [20, 1, 0]],
+                        [[20, 1, 0], [30, 1, 0]],
+                    ],
+                ),
+            ),
+            (
+                TransferFunction([2], [1, 0]),
+                np.eye(3),
+                TransferFunction(
+                    [
+                        [[2], [0], [0]],
+                        [[0], [2], [0]],
+                        [[0], [0], [2]],
+                    ],
+                    [
+                        [[1, 0], [1], [1]],
+                        [[1], [1, 0], [1]],
+                        [[1], [1], [1, 0]],
+                    ],
+                ),
+            ),
+        ]
+    )
+    def test_mul_mimo_siso(self, left, right, expected):
+        result = tf2ss(left).__mul__(right)
+        assert_tf_close_coeff(
+            expected.minreal(),
+            ss2tf(result).minreal(),
+        )
+
+    @slycotonly
+    @pytest.mark.parametrize(
+        "left, right, expected",
+        [
+            (
+                TransferFunction([2], [1, 0]),
+                TransferFunction(
+                    [
+                        [[2], [1]],
+                        [[-1], [4]],
+                    ],
+                    [
+                        [[10, 1], [20, 1]],
+                        [[20, 1], [30, 1]],
+                    ],
+                ),
+                TransferFunction(
+                    [
+                        [[4], [2]],
+                        [[-2], [8]],
+                    ],
+                    [
+                        [[10, 1, 0], [20, 1, 0]],
+                        [[20, 1, 0], [30, 1, 0]],
+                    ],
+                ),
+            ),
+            (
+                TransferFunction(
+                    [
+                        [[2], [1]],
+                        [[-1], [4]],
+                    ],
+                    [
+                        [[10, 1], [20, 1]],
+                        [[20, 1], [30, 1]],
+                    ],
+                ),
+                TransferFunction([2], [1, 0]),
+                TransferFunction(
+                    [
+                        [[4], [2]],
+                        [[-2], [8]],
+                    ],
+                    [
+                        [[10, 1, 0], [20, 1, 0]],
+                        [[20, 1, 0], [30, 1, 0]],
+                    ],
+                ),
+            ),
+            (
+                np.eye(3),
+                TransferFunction([2], [1, 0]),
+                TransferFunction(
+                    [
+                        [[2], [0], [0]],
+                        [[0], [2], [0]],
+                        [[0], [0], [2]],
+                    ],
+                    [
+                        [[1, 0], [1], [1]],
+                        [[1], [1, 0], [1]],
+                        [[1], [1], [1, 0]],
+                    ],
+                ),
+            ),
+        ]
+    )
+    def test_rmul_mimo_siso(self, left, right, expected):
+        result = tf2ss(right).__rmul__(left)
+        assert_tf_close_coeff(
+            expected.minreal(),
+            ss2tf(result).minreal(),
+        )
+
+    @slycotonly
+    @pytest.mark.parametrize("power", [0, 1, 3, -3])
+    @pytest.mark.parametrize("sysname", ["sys222", "sys322"])
+    def test_pow(self, request, sysname, power):
+        """Test state space powers."""
+        sys = request.getfixturevalue(sysname)
+        result = sys**power
+        if power == 0:
+             expected = StateSpace([], [], [], np.eye(sys.ninputs), dt=0)
+        else:
+            sign = 1 if power > 0 else -1
+            expected = sys**sign
+            for i in range(1,abs(power)):
+                expected *= sys**sign
+        np.testing.assert_allclose(expected.A, result.A)
+        np.testing.assert_allclose(expected.B, result.B)
+        np.testing.assert_allclose(expected.C, result.C)
+        np.testing.assert_allclose(expected.D, result.D)
+
+    @slycotonly
+    @pytest.mark.parametrize("order", ["left", "right"])
+    @pytest.mark.parametrize("sysname", ["sys121", "sys222", "sys322"])
+    def test_pow_inv(self, request, sysname, order):
+        """Check for identity when multiplying by inverse.
+
+        This holds approximately true for a few steps but is very
+        unstable due to numerical precision. Don't assume this in
+        real life. For testing purposes only!
+        """
+        sys = request.getfixturevalue(sysname)
+        if order == "left":
+            combined = sys**-1 * sys
+        else:
+            combined = sys * sys**-1
+        combined = combined.minreal()
+        np.testing.assert_allclose(combined.dcgain(), np.eye(sys.ninputs),
+                                   atol=1e-7)
+        T = np.linspace(0., 0.3, 100)
+        U = np.random.rand(sys.ninputs, len(T))
+        R = combined.forced_response(T=T, U=U, squeeze=False)
+        # Check that the output is the same as the input
+        np.testing.assert_allclose(R.outputs, U)
+
+    @slycotonly
+    def test_truediv(self, sys222, sys322):
+        """Test state space truediv"""
+        for sys in [sys222, sys322]:
+            # Divide by self
+            result = (sys.__truediv__(sys)).minreal()
+            expected = StateSpace([], [], [], np.eye(2), dt=0)
+            assert_tf_close_coeff(
+                ss2tf(expected).minreal(),
+                ss2tf(result).minreal(),
+            )
+            # Divide by TF
+            result = sys.__truediv__(TransferFunction.s)
+            expected = ss2tf(sys) / TransferFunction.s
+            assert_tf_close_coeff(
+                expected.minreal(),
+                ss2tf(result).minreal(),
+            )
+
+    @slycotonly
+    def test_rtruediv(self, sys222, sys322):
+        """Test state space rtruediv"""
+        for sys in [sys222, sys322]:
+            result = (sys.__rtruediv__(sys)).minreal()
+            expected = StateSpace([], [], [], np.eye(2), dt=0)
+            assert_tf_close_coeff(
+                ss2tf(expected).minreal(),
+                ss2tf(result).minreal(),
+            )
+            # Divide TF by SS
+            result = sys.__rtruediv__(TransferFunction.s)
+            expected = TransferFunction.s / sys
+            assert_tf_close_coeff(
+                expected.minreal(),
+                result.minreal(),
+            )
+        # Divide array by SS
+        sys = tf2ss(TransferFunction([1, 2], [2, 1]))
+        result = sys.__rtruediv__(np.eye(2))
+        expected = TransferFunction([2, 1], [1, 2]) * np.eye(2)
+        assert_tf_close_coeff(
+            expected.minreal(),
+            ss2tf(result).minreal(),
+        )
+
     @pytest.mark.parametrize("k", [2, -3.141, np.float32(2.718), np.array([[4.321], [5.678]])])
     def test_truediv_ss_scalar(self, sys322, k):
         """Divide SS by scalar."""
@@ -364,8 +689,6 @@ class TestStateSpace:
         with pytest.raises(AttributeError):
             sys.evalfr(omega)
 
-
-    @slycotonly
     def test_freq_resp(self):
         """Evaluate the frequency response at multiple frequencies."""
 
@@ -473,18 +796,22 @@ class TestStateSpace:
         with pytest.raises(IOError):
             sys1[0]
 
-    @pytest.mark.parametrize("outdx, inpdx", 
-                             [(0, 1),
-                              (slice(0, 1, 1), 1),
-                              (0, slice(1, 2, 1)),
-                              (slice(0, 1, 1), slice(1, 2, 1)),
-                              (slice(None, None, -1), 1),
-                              (0, slice(None, None, -1)),
-                              (slice(None, 2, None), 1),
-                              (slice(None, None, 1), slice(None, None, 2)),
-                              (0, slice(1, 2, 1)),
-                              (slice(0, 1, 1), slice(1, 2, 1))])
-    def test_array_access_ss(self, outdx, inpdx):
+    @pytest.mark.parametrize(
+        "outdx, inpdx",
+        [(0, 1),
+         (slice(0, 1, 1), 1),
+         (0, slice(1, 2, 1)),
+         (slice(0, 1, 1), slice(1, 2, 1)),
+         (slice(None, None, -1), 1),
+         (0, slice(None, None, -1)),
+         (slice(None, 2, None), 1),
+         (slice(None, None, 1), slice(None, None, 2)),
+         (0, slice(1, 2, 1)),
+         (slice(0, 1, 1), slice(1, 2, 1)),
+         # ([0, 1], [0]),         # lists of indices
+         ])
+    @pytest.mark.parametrize("named", [False, True])
+    def test_array_access_ss(self, outdx, inpdx, named):
         sys1 = StateSpace(
             [[1., 2.], [3., 4.]],
             [[5., 6.], [7., 8.]],
@@ -492,20 +819,22 @@ class TestStateSpace:
             [[13., 14.], [15., 16.]], 1,
             inputs=['u0', 'u1'], outputs=['y0', 'y1'])
 
-        sys1_01 = sys1[outdx, inpdx]
-        
+        if named:
+            # Use names instead of numbers (and re-convert in statesp)
+            outnames = sys1.output_labels[outdx]
+            inpnames = sys1.input_labels[inpdx]
+            sys1_01 = sys1[outnames, inpnames]
+        else:
+            sys1_01 = sys1[outdx, inpdx]
+
         # Convert int to slice to ensure that numpy doesn't drop the dimension
         if isinstance(outdx, int): outdx = slice(outdx, outdx+1, 1)
         if isinstance(inpdx, int): inpdx = slice(inpdx, inpdx+1, 1)
-        
-        np.testing.assert_array_almost_equal(sys1_01.A,
-                                             sys1.A)
-        np.testing.assert_array_almost_equal(sys1_01.B,
-                                             sys1.B[:, inpdx])
-        np.testing.assert_array_almost_equal(sys1_01.C,
-                                             sys1.C[outdx, :])
-        np.testing.assert_array_almost_equal(sys1_01.D,
-                                             sys1.D[outdx, inpdx])
+
+        np.testing.assert_array_almost_equal(sys1_01.A, sys1.A)
+        np.testing.assert_array_almost_equal(sys1_01.B, sys1.B[:, inpdx])
+        np.testing.assert_array_almost_equal(sys1_01.C, sys1.C[outdx, :])
+        np.testing.assert_array_almost_equal(sys1_01.D, sys1.D[outdx, inpdx])
 
         assert sys1.dt == sys1_01.dt
         assert sys1_01.input_labels == sys1.input_labels[inpdx]
@@ -728,19 +1057,24 @@ class TestStateSpace:
 
     def test_repr(self, sys322):
         """Test string representation"""
-        ref322 = "\n".join(["StateSpace(array([[-3.,  4.,  2.],",
-                            "       [-1., -3.,  0.],",
-                            "       [ 2.,  5.,  3.]]), array([[ 1.,  4.],",
-                            "       [-3., -3.],",
-                            "       [-2.,  1.]]), array([[ 4.,  2., -3.],",
-                            "       [ 1.,  4.,  3.]]), array([[-2.,  4.],",
-                            "       [ 0.,  1.]]){dt})"])
-        assert repr(sys322) == ref322.format(dt='')
+        ref322 = """StateSpace(
+array([[-3.,  4.,  2.],
+       [-1., -3.,  0.],
+       [ 2.,  5.,  3.]]),
+array([[ 1.,  4.],
+       [-3., -3.],
+       [-2.,  1.]]),
+array([[ 4.,  2., -3.],
+       [ 1.,  4.,  3.]]),
+array([[-2.,  4.],
+       [ 0.,  1.]]),
+name='sys322'{dt}, states=3, outputs=2, inputs=2)"""
+        assert ct.iosys_repr(sys322, format='eval') == ref322.format(dt='')
         sysd = StateSpace(sys322.A, sys322.B,
                           sys322.C, sys322.D, 0.4)
-        assert repr(sysd), ref322.format(dt=" == 0.4")
+        assert ct.iosys_repr(sysd, format='eval'), ref322.format(dt=",\ndt=0.4")
         array = np.array  # noqa
-        sysd2 = eval(repr(sysd))
+        sysd2 = eval(ct.iosys_repr(sysd, format='eval'))
         np.testing.assert_allclose(sysd.A, sysd2.A)
         np.testing.assert_allclose(sysd.B, sysd2.B)
         np.testing.assert_allclose(sysd.C, sysd2.C)
@@ -749,31 +1083,31 @@ class TestStateSpace:
     def test_str(self, sys322):
         """Test that printing the system works"""
         tsys = sys322
-        tref = ("<StateSpace>: sys322\n"
-                "Inputs (2): ['u[0]', 'u[1]']\n"
-                "Outputs (2): ['y[0]', 'y[1]']\n"
-                "States (3): ['x[0]', 'x[1]', 'x[2]']\n"
-                "\n"
-                "A = [[-3.  4.  2.]\n"
-                "     [-1. -3.  0.]\n"
-                "     [ 2.  5.  3.]]\n"
-                "\n"
-                "B = [[ 1.  4.]\n"
-                "     [-3. -3.]\n"
-                "     [-2.  1.]]\n"
-                "\n"
-                "C = [[ 4.  2. -3.]\n"
-                "     [ 1.  4.  3.]]\n"
-                "\n"
-                "D = [[-2.  4.]\n"
-                "     [ 0.  1.]]\n")
-        assert str(tsys) == tref
+        tref = """<StateSpace>: sys322
+Inputs (2): ['u[0]', 'u[1]']
+Outputs (2): ['y[0]', 'y[1]']
+States (3): ['x[0]', 'x[1]', 'x[2]']{dt}
+
+A = [[-3.  4.  2.]
+     [-1. -3.  0.]
+     [ 2.  5.  3.]]
+
+B = [[ 1.  4.]
+     [-3. -3.]
+     [-2.  1.]]
+
+C = [[ 4.  2. -3.]
+     [ 1.  4.  3.]]
+
+D = [[-2.  4.]
+     [ 0.  1.]]"""
+        assert str(tsys) == tref.format(dt='')
         tsysdtunspec = StateSpace(
             tsys.A, tsys.B, tsys.C, tsys.D, True, name=tsys.name)
-        assert str(tsysdtunspec) == tref + "\ndt = True\n"
+        assert str(tsysdtunspec) == tref.format(dt="\ndt = True")
         sysdt1 = StateSpace(
             tsys.A, tsys.B, tsys.C, tsys.D, 1., name=tsys.name)
-        assert str(sysdt1) == tref + "\ndt = {}\n".format(1.)
+        assert str(sysdt1) == tref.format(dt="\ndt = 1.0")
 
     def test_pole_static(self):
         """Regression: poles() of static gain is empty array."""
@@ -1042,7 +1376,7 @@ class TestStateSpaceConfig:
                 "{} is {} but expected {}".format(k, defaults[k], v)
 
 
-# test data for test_latex_repr below
+# test data for test_html_repr below
 LTX_G1 = ([[np.pi, 1e100], [-1.23456789, 5e-23]],
           [[0], [1]],
           [[987654321, 0.001234]],
@@ -1054,23 +1388,23 @@ LTX_G2 = ([],
           [[1.2345, -2e-200], [-1, 0]])
 
 LTX_G1_REF = {
-    'p3_p' : '$$\n\\left(\\begin{array}{rllrll|rll}\n3.&\\hspace{-1em}14&\\hspace{-1em}\\phantom{\\cdot}&1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{100}&0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n-1.&\\hspace{-1em}23&\\hspace{-1em}\\phantom{\\cdot}&5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-23}&1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\hline\n9.&\\hspace{-1em}88&\\hspace{-1em}\\cdot10^{8}&0.&\\hspace{-1em}00123&\\hspace{-1em}\\phantom{\\cdot}&5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n$$',
+    'p3_p': "&lt;StateSpace sys: ['u[0]'] -&gt; ['y[0]']{dt}&gt;\n$$\n\\left[\\begin{{array}}{{rllrll|rll}}\n3.&\\hspace{{-1em}}14&\\hspace{{-1em}}\\phantom{{\\cdot}}&1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{100}}&0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n-1.&\\hspace{{-1em}}23&\\hspace{{-1em}}\\phantom{{\\cdot}}&5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-23}}&1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\hline\n9.&\\hspace{{-1em}}88&\\hspace{{-1em}}\\cdot10^{{8}}&0.&\\hspace{{-1em}}00123&\\hspace{{-1em}}\\phantom{{\\cdot}}&5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n$$",
 
-    'p5_p' : '$$\n\\left(\\begin{array}{rllrll|rll}\n3.&\\hspace{-1em}1416&\\hspace{-1em}\\phantom{\\cdot}&1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{100}&0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n-1.&\\hspace{-1em}2346&\\hspace{-1em}\\phantom{\\cdot}&5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-23}&1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\hline\n9.&\\hspace{-1em}8765&\\hspace{-1em}\\cdot10^{8}&0.&\\hspace{-1em}001234&\\hspace{-1em}\\phantom{\\cdot}&5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n$$',
+    'p5_p': "&lt;StateSpace sys: ['u[0]'] -&gt; ['y[0]']{dt}&gt;\n$$\n\\left[\\begin{{array}}{{rllrll|rll}}\n3.&\\hspace{{-1em}}1416&\\hspace{{-1em}}\\phantom{{\\cdot}}&1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{100}}&0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n-1.&\\hspace{{-1em}}2346&\\hspace{{-1em}}\\phantom{{\\cdot}}&5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-23}}&1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\hline\n9.&\\hspace{{-1em}}8765&\\hspace{{-1em}}\\cdot10^{{8}}&0.&\\hspace{{-1em}}001234&\\hspace{{-1em}}\\phantom{{\\cdot}}&5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n$$",
 
-    'p3_s' : '$$\n\\begin{array}{ll}\nA = \\left(\\begin{array}{rllrll}\n3.&\\hspace{-1em}14&\\hspace{-1em}\\phantom{\\cdot}&1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{100}\\\\\n-1.&\\hspace{-1em}23&\\hspace{-1em}\\phantom{\\cdot}&5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-23}\\\\\n\\end{array}\\right)\n&\nB = \\left(\\begin{array}{rll}\n0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n\\\\\nC = \\left(\\begin{array}{rllrll}\n9.&\\hspace{-1em}88&\\hspace{-1em}\\cdot10^{8}&0.&\\hspace{-1em}00123&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n&\nD = \\left(\\begin{array}{rll}\n5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n\\end{array}\n$$',
+    'p3_s': "&lt;StateSpace sys: ['u[0]'] -&gt; ['y[0]']{dt}&gt;\n$$\n\\begin{{array}}{{ll}}\nA = \\left[\\begin{{array}}{{rllrll}}\n3.&\\hspace{{-1em}}14&\\hspace{{-1em}}\\phantom{{\\cdot}}&1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{100}}\\\\\n-1.&\\hspace{{-1em}}23&\\hspace{{-1em}}\\phantom{{\\cdot}}&5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-23}}\\\\\n\\end{{array}}\\right]\n&\nB = \\left[\\begin{{array}}{{rll}}\n0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n\\\\\nC = \\left[\\begin{{array}}{{rllrll}}\n9.&\\hspace{{-1em}}88&\\hspace{{-1em}}\\cdot10^{{8}}&0.&\\hspace{{-1em}}00123&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n&\nD = \\left[\\begin{{array}}{{rll}}\n5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n\\end{{array}}\n$$",
 
-    'p5_s' : '$$\n\\begin{array}{ll}\nA = \\left(\\begin{array}{rllrll}\n3.&\\hspace{-1em}1416&\\hspace{-1em}\\phantom{\\cdot}&1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{100}\\\\\n-1.&\\hspace{-1em}2346&\\hspace{-1em}\\phantom{\\cdot}&5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-23}\\\\\n\\end{array}\\right)\n&\nB = \\left(\\begin{array}{rll}\n0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n\\\\\nC = \\left(\\begin{array}{rllrll}\n9.&\\hspace{-1em}8765&\\hspace{-1em}\\cdot10^{8}&0.&\\hspace{-1em}001234&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n&\nD = \\left(\\begin{array}{rll}\n5\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n\\end{array}\n$$',
+    'p5_s': "&lt;StateSpace sys: ['u[0]'] -&gt; ['y[0]']{dt}&gt;\n$$\n\\begin{{array}}{{ll}}\nA = \\left[\\begin{{array}}{{rllrll}}\n3.&\\hspace{{-1em}}1416&\\hspace{{-1em}}\\phantom{{\\cdot}}&1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{100}}\\\\\n-1.&\\hspace{{-1em}}2346&\\hspace{{-1em}}\\phantom{{\\cdot}}&5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-23}}\\\\\n\\end{{array}}\\right]\n&\nB = \\left[\\begin{{array}}{{rll}}\n0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n\\\\\nC = \\left[\\begin{{array}}{{rllrll}}\n9.&\\hspace{{-1em}}8765&\\hspace{{-1em}}\\cdot10^{{8}}&0.&\\hspace{{-1em}}001234&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n&\nD = \\left[\\begin{{array}}{{rll}}\n5\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n\\end{{array}}\n$$",
 }
 
 LTX_G2_REF = {
-    'p3_p' : '$$\n\\left(\\begin{array}{rllrll}\n1.&\\hspace{-1em}23&\\hspace{-1em}\\phantom{\\cdot}&-2\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-200}\\\\\n-1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}&0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n$$',
+    'p3_p': "&lt;StateSpace sys: ['u[0]', 'u[1]'] -&gt; ['y[0]', 'y[1]']{dt}&gt;\n$$\n\\left[\\begin{{array}}{{rllrll}}\n1.&\\hspace{{-1em}}23&\\hspace{{-1em}}\\phantom{{\\cdot}}&-2\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-200}}\\\\\n-1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}&0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n$$",
 
-    'p5_p' : '$$\n\\left(\\begin{array}{rllrll}\n1.&\\hspace{-1em}2345&\\hspace{-1em}\\phantom{\\cdot}&-2\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-200}\\\\\n-1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}&0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n$$',
+    'p5_p': "&lt;StateSpace sys: ['u[0]', 'u[1]'] -&gt; ['y[0]', 'y[1]']{dt}&gt;\n$$\n\\left[\\begin{{array}}{{rllrll}}\n1.&\\hspace{{-1em}}2345&\\hspace{{-1em}}\\phantom{{\\cdot}}&-2\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-200}}\\\\\n-1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}&0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n$$",
 
-    'p3_s' : '$$\n\\begin{array}{ll}\nD = \\left(\\begin{array}{rllrll}\n1.&\\hspace{-1em}23&\\hspace{-1em}\\phantom{\\cdot}&-2\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-200}\\\\\n-1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}&0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n\\end{array}\n$$',
+    'p3_s': "&lt;StateSpace sys: ['u[0]', 'u[1]'] -&gt; ['y[0]', 'y[1]']{dt}&gt;\n$$\n\\begin{{array}}{{ll}}\nD = \\left[\\begin{{array}}{{rllrll}}\n1.&\\hspace{{-1em}}23&\\hspace{{-1em}}\\phantom{{\\cdot}}&-2\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-200}}\\\\\n-1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}&0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n\\end{{array}}\n$$",
 
-    'p5_s' : '$$\n\\begin{array}{ll}\nD = \\left(\\begin{array}{rllrll}\n1.&\\hspace{-1em}2345&\\hspace{-1em}\\phantom{\\cdot}&-2\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\cdot10^{-200}\\\\\n-1\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}&0\\phantom{.}&\\hspace{-1em}&\\hspace{-1em}\\phantom{\\cdot}\\\\\n\\end{array}\\right)\n\\end{array}\n$$',
+    'p5_s': "&lt;StateSpace sys: ['u[0]', 'u[1]'] -&gt; ['y[0]', 'y[1]']{dt}&gt;\n$$\n\\begin{{array}}{{ll}}\nD = \\left[\\begin{{array}}{{rllrll}}\n1.&\\hspace{{-1em}}2345&\\hspace{{-1em}}\\phantom{{\\cdot}}&-2\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\cdot10^{{-200}}\\\\\n-1\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}&0\\phantom{{.}}&\\hspace{{-1em}}&\\hspace{{-1em}}\\phantom{{\\cdot}}\\\\\n\\end{{array}}\\right]\n\\end{{array}}\n$$",
 }
 
 refkey_n = {None: 'p3', '.3g': 'p3', '.5g': 'p5'}
@@ -1081,19 +1415,19 @@ refkey_r = {None: 'p', 'partitioned': 'p', 'separate': 's'}
                           (LTX_G2, LTX_G2_REF)])
 @pytest.mark.parametrize("dt, dtref",
                          [(0, ""),
-                          (None, ""),
-                          (True, r"~,~dt=~\mathrm{{True}}"),
-                          (0.1, r"~,~dt={dt:{fmt}}")])
+                          (None, ", dt=None"),
+                          (True, ", dt=True"),
+                          (0.1, ", dt={dt:{fmt}}")])
 @pytest.mark.parametrize("repr_type", [None, "partitioned", "separate"])
 @pytest.mark.parametrize("num_format", [None, ".3g", ".5g"])
-def test_latex_repr(gmats, ref, dt, dtref, repr_type, num_format, editsdefaults):
-    """Test `._latex_repr_` with different config values
+def test_html_repr(gmats, ref, dt, dtref, repr_type, num_format, editsdefaults):
+    """Test `._html_repr_` with different config values
 
     This is a 'gold image' test, so if you change behaviour,
     you'll need to regenerate the reference results.
     Try something like:
         control.reset_defaults()
-        print(f'p3_p : {g1._repr_latex_()!r}')
+        print(f'p3_p : {g1._repr_html_()!r}')
     """
     from control import set_defaults
     if num_format is not None:
@@ -1102,11 +1436,12 @@ def test_latex_repr(gmats, ref, dt, dtref, repr_type, num_format, editsdefaults)
     if repr_type is not None:
         set_defaults('statesp', latex_repr_type=repr_type)
 
-    g = StateSpace(*(gmats+(dt,)))
+    g = StateSpace(*(gmats + (dt,)), name='sys')
     refkey = "{}_{}".format(refkey_n[num_format], refkey_r[repr_type])
-    dt_latex = dtref.format(dt=dt, fmt=defaults['statesp.latex_num_format'])
-    ref_latex = ref[refkey][:-3] + dt_latex + ref[refkey][-3:]
-    assert g._repr_latex_() == ref_latex
+    dt_html = dtref.format(dt=dt, fmt=defaults['statesp.latex_num_format'])
+    ref_html = ref[refkey].format(dt=dt_html)
+    assert g._repr_html_() == ref_html
+    assert g._repr_html_() == g._repr_markdown_()
 
 
 @pytest.mark.parametrize(
@@ -1129,8 +1464,8 @@ def test_xferfcn_ndarray_precedence(op, tf, arr):
     assert isinstance(result, ct.StateSpace)
 
 
-def test_latex_repr_testsize(editsdefaults):
-    # _repr_latex_ returns None when size > maxsize
+def test_html_repr_testsize(editsdefaults):
+    # _repr_html_ returns None when size > maxsize
     from control import set_defaults
 
     maxsize = defaults['statesp.latex_maxsize']
@@ -1142,23 +1477,23 @@ def test_latex_repr_testsize(editsdefaults):
     assert ninputs > 0
 
     g = rss(nstates, ninputs, noutputs)
-    assert isinstance(g._repr_latex_(), str)
+    assert isinstance(g._repr_html_(), str)
 
     set_defaults('statesp', latex_maxsize=maxsize - 1)
-    assert g._repr_latex_() is None
+    assert g._repr_html_() is None
 
     set_defaults('statesp', latex_maxsize=-1)
-    assert g._repr_latex_() is None
+    assert g._repr_html_() is None
 
     gstatic = ss([], [], [], 1)
-    assert gstatic._repr_latex_() is None
+    assert gstatic._repr_html_() is None
 
 
 class TestLinfnorm:
     # these are simple tests; we assume ab13dd is correct
     # python-control specific behaviour is:
-    #   - checking for continuous- and discrete-time
-    #   - scaling fpeak for discrete-time
+    #   - checking for continuous and discrete time
+    #   - scaling fpeak for discrete time
     #   - handling static gains
 
     # the underdamped gpeak and fpeak are found from
@@ -1180,6 +1515,7 @@ class TestLinfnorm:
         return ct.c2d(systype(*sysargs), dt), refgpeak, reffpeak
 
     @slycotonly
+    @pytest.mark.usefixtures('ignore_future_warning')
     def test_linfnorm_ct_siso(self, ct_siso):
         sys, refgpeak, reffpeak = ct_siso
         gpeak, fpeak = linfnorm(sys)
@@ -1187,6 +1523,7 @@ class TestLinfnorm:
         np.testing.assert_allclose(fpeak, reffpeak)
 
     @slycotonly
+    @pytest.mark.usefixtures('ignore_future_warning')
     def test_linfnorm_dt_siso(self, dt_siso):
         sys, refgpeak, reffpeak = dt_siso
         gpeak, fpeak = linfnorm(sys)
@@ -1195,6 +1532,7 @@ class TestLinfnorm:
         np.testing.assert_allclose(fpeak, reffpeak)
 
     @slycotonly
+    @pytest.mark.usefixtures('ignore_future_warning')
     def test_linfnorm_ct_mimo(self, ct_siso):
         siso, refgpeak, reffpeak = ct_siso
         sys = ct.append(siso, siso)
@@ -1274,3 +1612,46 @@ def test_tf2ss_mimo():
     else:
         with pytest.raises(ct.ControlMIMONotImplemented):
             sys_ss = ct.ss(sys_tf)
+
+def test_convenience_aliases():
+    sys = ct.StateSpace(1, 1, 1, 1)
+
+    # Make sure the functions can be used as member function: i.e. they
+    # support an instance of StateSpace as the first argument and that
+    # they at least return the correct type
+    assert isinstance(sys.to_ss(), StateSpace)
+    assert isinstance(sys.to_tf(), TransferFunction)
+    assert isinstance(sys.bode_plot(), ct.ControlPlot)
+    assert isinstance(sys.nyquist_plot(), ct.ControlPlot)
+    assert isinstance(sys.nichols_plot(), ct.ControlPlot)
+    assert isinstance(sys.forced_response([0, 1], [1, 1]),
+                      (ct.TimeResponseData, ct.TimeResponseList))
+    assert isinstance(sys.impulse_response(),
+                      (ct.TimeResponseData, ct.TimeResponseList))
+    assert isinstance(sys.step_response(),
+                      (ct.TimeResponseData, ct.TimeResponseList))
+    assert isinstance(sys.initial_response(X0=1),
+                      (ct.TimeResponseData, ct.TimeResponseList))
+
+    # Make sure that unrecognized keywords for response functions are caught
+    for method in [LTI.impulse_response, LTI.initial_response,
+                   LTI.step_response]:
+        with pytest.raises(TypeError, match="unrecognized keyword"):
+            method(sys, unknown=True)
+    with pytest.raises(TypeError, match="unrecognized keyword"):
+        LTI.forced_response(sys, [0, 1], [1, 1], unknown=True)
+
+
+# Test LinearICSystem __call__
+def test_linearic_call():
+    import cmath
+
+    sys1 = ct.rss(2, 1, 1, strictly_proper=True, name='sys1')
+    sys2 = ct.rss(2, 1, 1, strictly_proper=True, name='sys2')
+
+    sys_ic = ct.interconnect(
+        [sys1, sys2], connections=['sys1.u', 'sys2.y'],
+        inplist='sys2.u', outlist='sys1.y')
+
+    for s in [0, 1, 1j]:
+        assert cmath.isclose(sys_ic(s), (sys1 * sys2)(s))

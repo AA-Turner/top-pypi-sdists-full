@@ -14,19 +14,22 @@ class BaseSession:
         """Initialize an instance of the BaseSession class."""
         self.model_name = model_name
 
-        device_type = ort.get_device()
-        if (
-            device_type == "GPU"
-            and "CUDAExecutionProvider" in ort.get_available_providers()
-        ):
-            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        elif (
-            device_type[0:3] == "GPU"
-            and "ROCMExecutionProvider" in ort.get_available_providers()
-        ):
-            providers = ["ROCMExecutionProvider", "CPUExecutionProvider"]
+        if "providers" in kwargs and isinstance(kwargs["providers"], list):
+            providers = kwargs.pop("providers")
         else:
-            providers = ["CPUExecutionProvider"]
+            device_type = ort.get_device()
+            if (
+                device_type == "GPU"
+                and "CUDAExecutionProvider" in ort.get_available_providers()
+            ):
+                providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            elif (
+                device_type[0:3] == "GPU"
+                and "ROCMExecutionProvider" in ort.get_available_providers()
+            ):
+                providers = ["ROCMExecutionProvider", "CPUExecutionProvider"]
+            else:
+                providers = ["CPUExecutionProvider"]
 
         self.inner_session = ort.InferenceSession(
             str(self.__class__.download_models(*args, **kwargs)),

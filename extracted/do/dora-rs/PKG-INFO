@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: dora-rs
+Version: 0.3.12
+Requires-Dist: pyarrow
+Summary: `dora` goal is to be a low latency, composable, and distributed data flow.
+License: MIT
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/dora-rs/dora/
+
+This crate corresponds to the Node API for Dora.
+
+## Building
+
+To build the Python module for development:
+
+```bash
+uv venv --seed -p 3.11
+uv pip install -e .
+```
+
+## Type hinting
+
+Type hinting requires to run a second step
+
+```bash
+python generate_stubs.py dora dora/__init__.pyi
+maturin develop
+```
+

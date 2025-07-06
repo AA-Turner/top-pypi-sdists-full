@@ -1,0 +1,24 @@
+[tool.black]
+target-version = ["py37"]
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    "*.egg",
+    ".*",
+    "_darcs",
+    "build",
+    "CVS",
+    "dist",
+    "node_modules",
+    "venv",
+    "{arch}",
+    "downloaded",
+    "data",
+]
+
+[tool.setuptools_scm]
+write_to = "Lib/glyphsLib/_version.py"
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.0"]
+build-backend = "setuptools.build_meta"

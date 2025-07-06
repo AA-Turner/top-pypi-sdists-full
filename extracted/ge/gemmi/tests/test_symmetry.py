@@ -114,13 +114,6 @@ class TestSymmetry(unittest.TestCase):
             calculated = gemmi.parse_triplet_part(single)
             self.assertEqual(calculated, row)
 
-    def test_make_triplet_part(self):
-        self.assertEqual(gemmi.make_triplet_part([0, 0, 0], 1),
-                         '1/%d' % gemmi.Op.DEN)
-        for single, row in CANONICAL_SINGLES.items():
-            calculated = gemmi.make_triplet_part(row[:3], row[3])
-            self.assertEqual(calculated, single)
-
     def test_triplet_roundtrip(self):
         singles = list(CANONICAL_SINGLES.keys())
         for i in range(4):
@@ -136,11 +129,14 @@ class TestSymmetry(unittest.TestCase):
 
     def test_triplet_style(self):
         op = gemmi.parse_triplet('A,-B , C')
+        self.assertEqual(op.triplet(), 'a,-b,c')
         self.assertEqual(op.triplet('x'), 'x,-y,z')
         self.assertEqual(op.triplet('a'), 'a,-b,c')
-        self.assertEqual(op.triplet('h'), 'h,-k,l')
         self.assertEqual(op.triplet('X'), 'X,-Y,Z')
         self.assertEqual(op.triplet('A'), 'A,-B,C')
+        op = gemmi.parse_triplet('H,-k , L')
+        self.assertEqual(op.triplet(), 'h,-k,l')
+        self.assertEqual(op.triplet('h'), 'h,-k,l')
         self.assertEqual(op.triplet('H'), 'H,-K,L')
 
     def test_combine(self):
@@ -173,7 +169,7 @@ class TestSymmetry(unittest.TestCase):
         op = gemmi.Op('1/2*x+1/2*y,-1/2*x+1/2*y,z')
         self.assertEqual(op.inverse().triplet(), 'x-y,x+y,z')
         # check also alternative writing
-        op2 = gemmi.Op('x/2+y/2,-a/2+k/2,z')
+        op2 = gemmi.parse_triplet('a/2+b/2,-A/2+b/2,C', notation='a')
         self.assertEqual(op, op2)
 
     def test_rot_type(self):

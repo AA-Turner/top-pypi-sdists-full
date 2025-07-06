@@ -23,11 +23,15 @@ DATACONTRACT_TYPES = [
     "timestamp_tz",
     "timestamp_ntz",
     "date",
+    "time",
     "array",
-    "bytes",
+    "map",
     "object",
     "record",
     "struct",
+    "bytes",
+    "variant",
+    "json",
     "null",
 ]
 
@@ -36,6 +40,48 @@ class Contact(pyd.BaseModel):
     name: str | None = None
     url: str | None = None
     email: str | None = None
+
+    model_config = pyd.ConfigDict(
+        extra="allow",
+    )
+
+
+class Policy(pyd.BaseModel):
+    type: str | None = None
+    description: str | None = None
+    url: str | None = None
+
+    model_config = pyd.ConfigDict(
+        extra="allow",
+    )
+
+
+class Transformation(pyd.BaseModel):
+    type: str | None = None
+    subtype: str | None = None
+    description: str | None = None
+    masking: bool | None = None
+
+    model_config = pyd.ConfigDict(
+        extra="allow",
+    )
+
+
+class InputField(pyd.BaseModel):
+    namespace: str | None = None
+    name: str | None = None
+    field: str | None = None
+    transformations: List[Transformation] | None = None
+
+    model_config = pyd.ConfigDict(
+        extra="allow",
+    )
+
+
+class Lineage(pyd.BaseModel):
+    inputFields: List[InputField] | None = None
+    transformationDescription: str | None = None
+    transformationType: str | None = None
 
     model_config = pyd.ConfigDict(
         extra="allow",
@@ -84,6 +130,7 @@ class Server(pyd.BaseModel):
 class Terms(pyd.BaseModel):
     usage: str | None = None
     limitations: str | None = None
+    policies: List[Policy] | None = None
     billing: str | None = None
     noticePeriod: str | None = None
     description: str | None = None
@@ -181,6 +228,7 @@ class Field(pyd.BaseModel):
     )
     examples: List[Any] | None = None
     quality: List[Quality] | None = []
+    lineage: Lineage | None = None
     config: Dict[str, Any] | None = None
 
     model_config = pyd.ConfigDict(
@@ -197,6 +245,7 @@ class Model(pyd.BaseModel):
     quality: List[Quality] | None = []
     primaryKey: List[str] | None = []
     examples: List[Any] | None = None
+    additionalFields: bool | None = None
     config: Dict[str, Any] = None
     tags: List[str] | None = None
 

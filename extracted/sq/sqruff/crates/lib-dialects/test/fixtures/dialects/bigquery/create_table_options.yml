@@ -1,0 +1,87 @@
+file:
+- statement:
+  - create_table_statement:
+    - keyword: CREATE
+    - keyword: TABLE
+    - table_reference:
+      - naked_identifier: table_1
+    - options_segment:
+      - keyword: OPTIONS
+      - bracketed:
+        - start_bracket: (
+        - parameter: expiration_timestamp
+        - comparison_operator:
+          - raw_comparison_operator: =
+        - function:
+          - function_name:
+            - function_name_identifier: TIMESTAMP_ADD
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - function:
+                - function_name:
+                  - function_name_identifier: CURRENT_TIMESTAMP
+                - bracketed:
+                  - start_bracket: (
+                  - end_bracket: )
+            - comma: ','
+            - expression:
+              - interval_expression:
+                - keyword: INTERVAL
+                - expression:
+                  - numeric_literal: '24'
+                - date_part: HOUR
+            - end_bracket: )
+        - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_table_statement:
+    - keyword: CREATE
+    - keyword: TABLE
+    - table_reference:
+      - naked_identifier: table_1
+    - options_segment:
+      - keyword: OPTIONS
+      - bracketed:
+        - start_bracket: (
+        - parameter: expiration_timestamp
+        - comparison_operator:
+          - raw_comparison_operator: =
+        - function:
+          - function_name:
+            - function_name_identifier: TIMESTAMP
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - quoted_literal: '"2023-01-01 00:00:00 UTC"'
+            - end_bracket: )
+        - end_bracket: )
+- statement_terminator: ;
+- statement:
+  - create_table_statement:
+    - keyword: CREATE
+    - keyword: TABLE
+    - table_reference:
+      - naked_identifier: table_1
+    - options_segment:
+      - keyword: OPTIONS
+      - bracketed:
+        - start_bracket: (
+        - parameter: description
+        - comparison_operator:
+          - raw_comparison_operator: =
+        - quoted_literal: '"Test mixed options"'
+        - comma: ','
+        - parameter: expiration_timestamp
+        - comparison_operator:
+          - raw_comparison_operator: =
+        - function:
+          - function_name:
+            - function_name_identifier: TIMESTAMP
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - quoted_literal: '"2023-01-01 00:00:00 UTC"'
+            - end_bracket: )
+        - end_bracket: )
+- statement_terminator: ;

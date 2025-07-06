@@ -1,1 +1,0 @@
-# nw-gold-plus is the sample sourcedb - see get_abs_db_url()

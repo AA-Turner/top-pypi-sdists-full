@@ -1,0 +1,264 @@
+from plone.base.interfaces import IFilterSchema
+from plone.registry.interfaces import IRegistry
+from Products.PortalTransforms.testing import (
+    PRODUCTS_PORTALTRANSFORMS_INTEGRATION_TESTING,
+)
+from Products.PortalTransforms.tests.utils import html5entity
+from zope.component import getUtility
+
+import unittest
+
+
+class TestXSSFilter(unittest.TestCase):
+    layer = PRODUCTS_PORTALTRANSFORMS_INTEGRATION_TESTING
+
+    def setUp(self):
+        self.portal = self.layer["portal"]
+        self.request = self.layer["request"]
+        self.pt = self.portal.portal_transforms
+        registry = getUtility(IRegistry)
+        self.settings = registry.forInterface(IFilterSchema, prefix="plone")
+        self.settings.custom_attributes.append("style")
+
+    def tearDown(self):
+        self.settings.custom_attributes.remove("style")
+
+    def doConvert(self, data_in):
+        html = self.pt.convertTo("text/x-html-safe", data_in, mimetype="text/html")
+        return html.getData()
+
+    def doTest(self, data_in, data_out):
+        result = self.doConvert(data_in)
+        self.assertEqual(data_out, result)
+
+    def test_1(self):
+        data_in = """<html><body><img src="javascript:Alert('XSS');" /></body></html>"""  # noqa
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_2(self):
+        data_in = """<img src="javascript:Alert('XSS');" />"""
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_3(self):
+        data_in = """<html><body><IMG SRC=&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;&#97;&#108;&#101;&#114;&#116;&#40;&#39;&#88;&#83;&#83;&#39;&#41;></body></html>"""  # noqa
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_4(self):
+        data_in = """<IMG SRC=&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;&#97;&#108;&#101;&#114;&#116;&#40;&#39;&#88;&#83;&#83;&#39;&#41;>"""  # noqa
+        data_out = "<img>"
+
+        self.doTest(data_in, data_out)
+
+    def test_5(self):
+        data_in = """<img src="jav
+        asc
+        ript:Alert('XSS');" />"""
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_6(self):
+        data_in = """<img src="jav asc ript:Alert('XSS');"/>"""
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_7(self):
+        data_in = """<a href=&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;&#97;&#108;&#101;&#114;&#116;&#40;&#39;&#88;&#83;&#83;&#39;&#41;>test med a-tag</a>"""  # noqa
+        data_out = """<a>test med a-tag</a>"""
+        self.doTest(data_in, data_out)
+
+    def test_8(self):
+        data_in = """<div style="background:url(jav asc ript:Alert('XSS')">test</div>"""  # noqa
+        data_out = """<div>test</div>"""
+        self.doTest(data_in, data_out)
+
+    def test_9(self):
+        data_in = """<div style="background:url(jav
+        asc
+        ript:
+        Alert('XSS')">test</div>"""
+        data_out = """<div>test</div>"""
+        self.doTest(data_in, data_out)
+
+    def test_10(self):
+        data_in = """<div style="background:url(&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;&#97;&#108;&#101;&#114;&#116;&#40;&#39;&#88;&#83;&#83;&#39;&#41;">test</div>"""  # noqa
+        data_out = """<div>test</div>"""
+        self.doTest(data_in, data_out)
+
+    def test_11(self):
+        data_in = """<div style="background:url(v b  sc  ript:msgbox('XSS')">test</div>"""  # noqa
+        data_out = "<div>test</div>"
+        self.doTest(data_in, data_out)
+
+    def test_12(self):
+        data_in = """<img src="vbscript:msgbox('XSS')"/>"""
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_13(self):
+        data_in = """<img src="vb
+        sc
+        ript:msgbox('XSS')"/>"""
+        data_out = "<img>"
+        self.doTest(data_in, data_out)
+
+    def test_14(self):
+        data_in = """<a href="vbscript:Alert('XSS')">test</a>"""
+        data_out = "<a>test</a>"
+        self.doTest(data_in, data_out)
+
+    def test_15(self):
+        data_in = """<div STYLE="width: expression(window.location='http://www.dr.dk';);">div</div>"""  # noqa
+        data_out = "<div>div</div>"
+        self.doTest(data_in, data_out)
+
+    def test_16(self):
+        data_in = """<div STYLE="width: ex pre ss   io n(window.location='http://www.dr.dk';);">div</div>"""  # noqa
+        data_out = """<div>div</div>"""
+        self.doTest(data_in, data_out)
+
+    def test_17(self):
+        data_in = """<div STYLE="width: ex
+        pre
+        ss
+        io
+        n(window.location='http://www.dr.dk';);">div</div>"""
+        data_out = """<div>div</div>"""
+        self.doTest(data_in, data_out)
+
+    def test_18(self):
+        data_in = """<div style="width: 14px;">div</div>"""
+        data_out = data_in
+        self.doTest(data_in, data_out)
+
+    def test_19(self):
+        data_in = """<a href="http://www.headnet.dk">headnet</a>"""
+        data_out = data_in
+        self.doTest(data_in, data_out)
+
+    def test_20(self):
+        data_in = '<img src="http://www.headnet.dk/log.jpg">'
+        data_out = data_in
+        self.doTest(data_in, data_out)
+
+    def test_21(self):
+        data_in = """<mustapha name="mustap" tlf="11 11 11 11" address="unknown">bla bla bla</mustapha>"""  # noqa
+        data_out = "bla bla bla"
+        self.doTest(data_in, data_out)
+
+    def test_22(self):
+        data_in = '<<frame></frame>script>alert("XSS");<<frame></frame>/script>'  # noqa
+        data_out = '&lt;script&gt;alert("XSS");&lt;/script&gt;'
+        self.doTest(data_in, data_out)
+
+    def test_23(self):
+        data_in = """<a href="javascript&amp;#0:alert('1');">click me</a>"""
+        data_out = "<a>click me</a>"
+        self.doTest(data_in, data_out)
+
+    def test_24(self):
+        data_in = """<a href="data:text/html;base64,PHNjcmlwdD5hbGVydCgidGVzdCIpOzwvc2NyaXB0Pg==">click me</a>"""  # noqa
+        data_out = "<a>click me</a>"
+        self.doTest(data_in, data_out)
+
+    def test_25(self):
+        data_in = """<![<a href="javascript:alert('1');">click me</a>"""
+        # Conversion used to result in 'click me'.
+        # With lxml 3.9+, on Linux (not Mac), the result is different:
+        # '&lt;![<a>click me</a>'
+        # The important point is that the javascript is not included.
+        result = self.doConvert(data_in)
+        self.assertNotIn("javascript", result)
+        self.assertNotIn("alert", result)
+
+    def test_26(self):
+        data_in = (
+            """<a style="width: expression/**/(alert('xss'))">click me</a>"""  # noqa
+        )
+        data_out = """<a>click me</a>"""
+        self.doTest(data_in, data_out)
+
+    def test_27(self):
+        data_in = """<a href=javascript&colon;alert(1)>click me</a>"""
+        data_out = "<a>click me</a>"
+        self.doTest(data_in, data_out)
+
+    def test_28(self):
+        data_in = """<a x="d&#00065;ta&colon&#59;image/svg+xml;charset=utf-8;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxzY3JpcHQ%2BYWxlcnQoMSk8L3NjcmlwdD48L3N2Zz4NCg==" style="-o-link:attr(x);-o-link-source:current">hey</a>"""  # noqa
+        data_out = (
+            """<a style="-o-link:attr(x);-o-link-source:current">hey</a>"""  # noqa
+        )
+        self.doTest(data_in, data_out)
+
+    def test_29(self):
+        data_in = """<meta name="Description" content="0;url=data&colon;,xss" HTTP-EQUIV="refresh">"""  # noqa
+        data_out = ""
+        self.doTest(data_in, data_out)
+
+    def test_30(self):
+        data_in = """<meta name="Description" content="0;url=javascript&colon;alert(1)" HTTP-EQUIV="refresh">"""  # noqa
+        data_out = ""
+        self.doTest(data_in, data_out)
+
+    def test_31(self):
+        data_in = (
+            r"""<div style="width: expression\28write(1)\29;">aasddsa</div>"""  # noqa
+        )
+        data_out = "<div>aasddsa</div>"
+        self.doTest(data_in, data_out)
+
+    def test_32(self):
+        data_in = (
+            r"""<div style="width: expr\65 ss/*???*/ion(URL=0);">hey</div>"""  # noqa
+        )
+        data_out = "<div>hey</div>"
+        self.doTest(data_in, data_out)
+
+    def test_33(self):
+        data_in = r"""<a href="java&Tab;scr&NewLine;ipt:alert(1)">asd</a>"""
+        data_out = "<a>asd</a>"
+        self.doTest(data_in, data_out)
+
+    def test_34(self):
+        data_in = r"""<a href="javasc&baz;ript:alert(1)">asdf</a>"""
+        data_out = "<a>asdf</a>"
+        self.doTest(data_in, data_out)
+
+    def test_35(self):
+        data_in = r"""<![CDATA[><script>alert(1);</script>]]>"""
+        # Conversion used to result in ']]&gt;'.
+        # With lxml 3.9+, on Linux (not Mac), the result is different:
+        # '&lt;![CDATA[&gt;]]&gt;'
+        # The important point is that the javascript is not included.
+        result = self.doConvert(data_in)
+        self.assertNotIn("script", result)
+        self.assertNotIn("alert", result)
+
+    def test_36(self):
+        data_in = r"""Normal text&mdash;whew."""
+        data_out = "Normal text{}whew.".format(html5entity("mdash;"))
+        self.doTest(data_in, data_out)
+
+    def test_37(self):
+        data_in = r"""Normal text&amp;mdash;whew."""
+        data_out = "Normal text&amp;mdash;whew."
+        self.doTest(data_in, data_out)
+
+    def test_38(self):
+        data_in = (
+            """<p><a href="http://T\\foo\\20111015\\bar.msg">FOO</a></p>"""  # noqa
+        )
+        data_out = """<p><a href="http://T%5Cfoo%5C20111015%5Cbar.msg">FOO</a></p>"""
+        # When we were still using lxml.xml, converting data_in gave data_in as anwer.
+        # Then we switched to lxml.html, which caused the backslashes to be converted
+        # into '%5C'.  And now when we upgrade from lxml 4 to 5, data_in is again
+        # unchanged after converting.  So let's accept both.
+        result = self.doConvert(data_in)
+        self.assertIn(result, (data_in, data_out))
+
+    def test_39(self):
+        data_in = """<a href="&#42;&Ascr;\xa9"></a>"""
+        data_out = '<a href="*&amp;Ascr;%C2%A9"></a>'
+        self.doTest(data_in, data_out)

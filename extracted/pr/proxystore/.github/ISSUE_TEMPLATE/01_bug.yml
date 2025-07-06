@@ -1,0 +1,58 @@
+name: Bug Report
+description: Report errors or unexpected results.
+labels: ["bug"]
+assignees:
+  - gpauloski
+body:
+  - type: textarea
+    id: freeform
+    attributes:
+      label: Describe the problem.
+      description: >
+        Please describe the issue encounters, what you expected to happen,
+        and steps to reproduce the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: install
+    attributes:
+      label: How did you install ProxyStore?
+      description: >
+        E.g., install via pip, install from source, etc. **Note:** this will
+        be rendered as console text automatically.
+      placeholder: |
+        $ pip install ProxyStore
+        Collecting ProxyStore
+        ...
+        Successfully installed ProxyStore...
+      render: console
+    validations:
+      required: true
+
+  - type: input
+    id: proxystore-version
+    attributes:
+      label: ProxyStore Version
+      description: >
+        Package version if installed via Pip or commit ID if installed
+        from source.
+      placeholder: "v0.3.1"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      placeholder: "3.10"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS and Platform
+      placeholder: "x86 Linux, ARM MacOS, etc."
+    validations:
+      required: true

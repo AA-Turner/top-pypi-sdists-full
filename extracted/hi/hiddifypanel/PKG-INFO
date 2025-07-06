@@ -1,0 +1,137 @@
+Metadata-Version: 2.1
+Name: hiddifypanel
+Version: 10.80.11
+Summary: hiddifypanel multi proxy panel
+Home-page: https://hiddify.com
+License: LICENSE.md
+Keywords: proxy,panel,multi
+Author: hiddify
+Requires-Python: >=3.10,<4.0
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: ansi2html (==1.9.2)
+Requires-Dist: apiflask[async] (>=2.2.1,<3.0.0)
+Requires-Dist: asgiref (>=3.8.1,<4.0.0)
+Requires-Dist: babel (==2.16.0)
+Requires-Dist: bjoern (==3.2.2)
+Requires-Dist: bleach (==6.2.0)
+Requires-Dist: bootstrap-flask (==2.4.1)
+Requires-Dist: cachecontrol[filecache] (<0.15.0)
+Requires-Dist: celery (>=5.4.0,<6.0.0)
+Requires-Dist: click (==8.1.7)
+Requires-Dist: cloudflare (==3.1.0)
+Requires-Dist: cryptography (<42)
+Requires-Dist: dynaconf (>=3.2.6,<4.0.0)
+Requires-Dist: fastenumplus (==1.4.0)
+Requires-Dist: flask (==3.0.3)
+Requires-Dist: flask-admin (==1.6.1)
+Requires-Dist: flask-adminlte3 (==1.0.9)
+Requires-Dist: flask-apispec (==0.11.4)
+Requires-Dist: flask-babel (==4.0.0)
+Requires-Dist: flask-classful (==0.16.0)
+Requires-Dist: flask-login (==0.6.3)
+Requires-Dist: flask-restful (==0.3.10)
+Requires-Dist: flask-session (==0.8.0)
+Requires-Dist: flask-sqlalchemy (==3.1.1)
+Requires-Dist: flask-wtf (==1.2.2)
+Requires-Dist: json5 (>=0.9.28,<0.10.0)
+Requires-Dist: loguru (==0.7.2)
+Requires-Dist: markupsafe (==3.0.2)
+Requires-Dist: maxminddb (==2.6.2)
+Requires-Dist: mysqlclient (==2.2.5)
+Requires-Dist: netifaces (==0.11.0)
+Requires-Dist: ping3 (==4.0.8)
+Requires-Dist: protobuf (>=5.26.1,<6.0.0)
+Requires-Dist: psutil (==6.1.0)
+Requires-Dist: pydantic (==2.9.2)
+Requires-Dist: pymysql (==1.1.1)
+Requires-Dist: pytelegrambotapi (==4.23.0)
+Requires-Dist: python-dateutil (==2.9.0.post0)
+Requires-Dist: python-dotenv (==1.0.1)
+Requires-Dist: python-redis-cache (==4.0.1)
+Requires-Dist: python-slugify (==8.0.4)
+Requires-Dist: pyyaml (==6.0.2)
+Requires-Dist: redis (==5.2.0)
+Requires-Dist: requests (==2.32.3)
+Requires-Dist: sonora (>=0.2.3,<0.3.0)
+Requires-Dist: sqlalchemy-serializer (>=1.4.22,<2.0.0)
+Requires-Dist: sqlalchemy-utils (==0.41.2)
+Requires-Dist: sqlalchemy[asyncio] (>=2.0.29,<3.0.0)
+Requires-Dist: strenum (==0.4.15)
+Requires-Dist: user-agents (==2.2.0)
+Requires-Dist: werkzeug (==3.0.6)
+Requires-Dist: wtforms (==3.1.2)
+Requires-Dist: xtlsapi (==3.3.0)
+Project-URL: Documentation, https://hiddify.com/manager
+Project-URL: Repository, https://github.com/hiddify/hiddify-manager/
+Description-Content-Type: text/markdown
+
+# hiddifypanel 
+
+ hiddifypanel to create multi proxy using xray mtproxy and others
+
+## 🌎 Translations
+
+<div align=center>
+    
+[![inlang status badge](https://inlang.com/badge?url=github.com/hiddify/hiddifypanel)](https://inlang.com/editor/github.com/hiddify/hiddifypanel?ref=badge)
+</div>
+
+Improve existing languages or add new ones by manually editing the JSON files located in `/assets/translations` or by using the [Inlang online editor](https://inlang.com/editor/github.com/hiddify/hiddifypanel).
+
+# How to use it
+Please visit https://github.com/hiddify/hiddify-manager/wiki for the installation.
+
+# Source Code: https://github.com/hiddify/HiddifyPanel/
+<!--
+## Installation
+
+From source:
+
+```bash
+git clone https://github.com/hiddify/HiddifyPanel hiddifypanel
+cd hiddifypanel
+make install
+```
+
+From pypi:
+
+```bash
+pip install hiddifypanel
+```
+
+## Executing
+
+This application has a CLI interface that extends the Flask CLI.
+
+Just run:
+
+```bash
+$ hiddifypanel
+```
+
+or
+
+```bash
+$ python -m hiddifypanel
+```
+
+To see the help message and usage instructions.
+
+## First run
+
+```bash
+hiddifypanel init-db   # run once
+echo localhost:9000/$(hiddifypanel admin-path)
+hiddifypanel run
+```
+
+
+> **Note**: You can also use `flask run` to run the application.
+
+-->
+

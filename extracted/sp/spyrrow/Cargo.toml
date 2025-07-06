@@ -1,0 +1,18 @@
+[package]
+name = "spyrrow"
+version = "0.6.0"
+edition = "2024"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "spyrrow"
+crate-type = ["cdylib"]
+
+[dependencies]
+jagua-rs = { git = "https://github.com/JeroenGar/jagua-rs.git", rev="6e47329e4fd8dfe014428bd9045db132d26d35c9", features = ["spp"], default-features = false}
+pyo3 = "0.24.0"
+rand = { version = "0.9.0", features = ["small_rng"] }
+serde = {version = "1.0.219", features = ["derive"]}
+serde_json = "1.0.140"
+sparrow = { git = "https://github.com/JeroenGar/sparrow.git",rev="7f069e9d146f5599d7ba69a47ab4e8097c56e54f",features = ["only_final_svg"], default-features = false}

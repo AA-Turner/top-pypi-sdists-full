@@ -45,11 +45,12 @@ fields_description = {
     'quality_level': {
         'description': 'Signal strong level.',
         'unit': 'dBm',
+        'alert': True,
     },
 }
 
 
-class PluginModel(GlancesPluginModel):
+class WifiPlugin(GlancesPluginModel):
     """Glances Wifi plugin.
 
     Get stats of the current Wifi hotspots.

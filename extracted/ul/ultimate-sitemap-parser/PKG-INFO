@@ -1,0 +1,109 @@
+Metadata-Version: 2.3
+Name: ultimate-sitemap-parser
+Version: 1.4.0
+Summary: A performant library for parsing and crawling sitemaps
+License: GPL-3.0-or-later
+Keywords: sitemap,crawler,indexing,xml,rss,atom,google news
+Author: Linas Valiukas
+Author-email: linas@media.mit.edu
+Maintainer: Freddy Heppell
+Maintainer-email: f.heppell@sheffield.ac.uk
+Requires-Python: >=3.9
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
+Classifier: Topic :: Text Processing :: Indexing
+Classifier: Topic :: Text Processing :: Markup :: XML
+Requires-Dist: python-dateutil (>=2.7,<3.0.0)
+Requires-Dist: requests (>=2.2.1,<3.0.0)
+Project-URL: Documentation, https://ultimate-sitemap-parser.readthedocs.io/
+Project-URL: Homepage, https://ultimate-sitemap-parser.readthedocs.io/
+Project-URL: Repository, https://github.com/GateNLP/ultimate-sitemap-parser
+Description-Content-Type: text/x-rst
+
+Ultimate Sitemap Parser
+-----------------------
+
+.. image:: https://img.shields.io/pypi/pyversions/ultimate-sitemap-parser
+   :alt: PyPI - Python Version
+   :target: https://github.com/GateNLP/ultimate-sitemap-parser
+
+.. image:: https://img.shields.io/pypi/v/ultimate-sitemap-parser
+   :alt: PyPI - Version
+   :target: https://pypi.org/project/ultimate-sitemap-parser/
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/ultimate-sitemap-parser
+   :alt: Conda Version
+   :target: https://anaconda.org/conda-forge/ultimate-sitemap-parser
+
+.. image:: https://img.shields.io/pepy/dt/ultimate-sitemap-parser
+   :target: https://pepy.tech/project/ultimate-sitemap-parser
+   :alt: Pepy Total Downloads
+
+
+**Ultimate Sitemap Parser (USP) is a performant and robust Python library for parsing and crawling sitemaps.**
+
+
+Features
+========
+
+- Supports all sitemap formats:
+
+  - `XML sitemaps <https://www.sitemaps.org/protocol.html#xmlTagDefinitions>`_
+  - `Google News sitemaps <https://developers.google.com/search/docs/crawling-indexing/sitemaps/news-sitemap>`_ and `Image sitemaps <https://developers.google.com/search/docs/advanced/sitemaps/image-sitemaps>`_
+  - `plain text sitemaps <https://www.sitemaps.org/protocol.html#otherformats>`_
+  - `RSS 2.0 / Atom 0.3 / Atom 1.0 sitemaps <https://www.sitemaps.org/protocol.html#otherformats>`_
+  - `Sitemaps linked from robots.txt <https://developers.google.com/search/reference/robots_txt#sitemap>`_
+
+- Field-tested with ~1 million URLs as part of the `Media Cloud project <https://mediacloud.org/>`_
+- Error-tolerant with more common sitemap bugs
+- Tries to find sitemaps not listed in ``robots.txt``
+- Uses fast and memory efficient Expat XML parsing
+- Doesn't consume much memory even with massive sitemap hierarchies
+- Provides a generated sitemap tree as easy to use object tree
+- Supports using a custom web client
+- Uses a small number of actively maintained third-party modules
+- Reasonably tested
+
+
+Installation
+============
+
+.. code:: sh
+
+    pip install ultimate-sitemap-parser
+
+or using Anaconda:
+
+.. code:: sh
+
+    conda install -c conda-forge ultimate-sitemap-parser
+
+
+Usage
+=====
+
+.. code:: python
+
+    from usp.tree import sitemap_tree_for_homepage
+
+    tree = sitemap_tree_for_homepage('https://www.example.org/')
+
+    for page in tree.all_pages():
+        print(page.url)
+
+``sitemap_tree_for_homepage()`` will return a tree of ``AbstractSitemap`` subclass objects that represent the sitemap
+hierarchy found on the website; see a `reference of AbstractSitemap subclasses <https://ultimate-sitemap-parser.readthedocs.io/en/latest/reference/api/usp.objects.sitemap.html>`_. `AbstractSitemap.all_pages()` returns a generator to efficiently iterate over pages without loading the entire tree into memory.
+
+For more examples and details, see the `documentation <https://ultimate-sitemap-parser.readthedocs.io/en/latest/>`_.
+

@@ -94,7 +94,7 @@ items_history_list = [
 ]
 
 
-class PluginModel(GlancesPluginModel):
+class PercpuPlugin(GlancesPluginModel):
     """Glances per-CPU plugin.
 
     'stats' is a list of dictionaries that contain the utilization percentages
@@ -144,15 +144,15 @@ class PluginModel(GlancesPluginModel):
         base = ['user', 'system']
 
         if LINUX:
-            extension = ['iowait', 'idle', 'irq', 'nice', 'steal', 'guest']
+            base += ['iowait', 'idle', 'irq', 'nice', 'steal', 'guest']
         elif MACOS:
-            extension = ['idle', 'nice']
+            base += ['idle', 'nice']
         elif BSD:
-            extension = ['idle', 'irq', 'nice']
+            base += ['idle', 'irq', 'nice']
         elif WINDOWS:
-            extension = ['dpc', 'interrupt']
+            base += ['dpc', 'interrupt']
 
-        return base + extension
+        return base
 
     def maybe_build_string_msg(self, header, return_):
         if self.is_disabled('quicklook'):

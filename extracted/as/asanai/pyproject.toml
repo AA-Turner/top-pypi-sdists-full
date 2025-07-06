@@ -1,0 +1,17 @@
+[project]
+name = "asanAI"
+description = "Tools to help with the scripts created by asanAI"
+authors = [
+  {email = "norman.koch@tu-dresden.de"},
+  {name = "Norman Koch"}
+]
+version = "285"
+
+readme = "README.md"
+dynamic = ["dependencies"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

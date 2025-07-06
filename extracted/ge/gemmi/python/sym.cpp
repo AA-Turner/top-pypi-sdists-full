@@ -34,7 +34,10 @@ void add_symmetry(nb::module_& m) {
     .def_rw("rot", &Op::rot, "3x3 integer matrix.")
     .def_rw("tran", &Op::tran,
        "Numerators (integers) of the translation vector. Denominator DEN=24.")
-    .def("triplet", &Op::triplet, nb::arg("style")='x')
+    .def("is_hkl", &Op::is_hkl)
+    .def("as_hkl", &Op::as_hkl)
+    .def("as_xyz", &Op::as_xyz)
+    .def("triplet", &Op::triplet, nb::arg("style")=' ')
     .def("inverse", &Op::inverse, "Returns inverted operator.")
     .def("wrap", &Op::wrap, "Wrap the translation part to [0,1)")
     .def("translated", &Op::translated, nb::arg("a"), "Adds a to tran")
@@ -81,13 +84,12 @@ void add_symmetry(nb::module_& m) {
         return "<gemmi.Op(\"" + self.triplet() + "\")>";
     });
 
-  m.def("parse_triplet", &parse_triplet, nb::arg("triplet"),
+  m.def("parse_triplet", &parse_triplet, nb::arg("triplet"), nb::arg("notation")=' ',
         "Parse coordinate triplet into gemmi.Op.");
-  m.def("parse_triplet_part", [](const std::string& s) { return parse_triplet_part(s); },
-        "Parse one of the three parts of a triplet.");
-  m.def("make_triplet_part", &make_triplet_part,
-        nb::arg("xyz"), nb::arg("w"), nb::arg("style")='x',
-        "Make one of the three parts of a triplet.");
+  m.def("parse_triplet_part", [](const std::string& s) {
+      char notation = ' ';
+      return parse_triplet_part(s, notation);
+  });
 
   nb::class_<GroupOps>(m, "GroupOps")
     .def("__init__", [](GroupOps* p, const std::vector<Op>& ops) {

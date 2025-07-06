@@ -1,1 +1,0 @@
-from .body_euler import DynamicsRigidBody3DBodyEuler

@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "scikit-build-core ~=0.11.1",
+    "scikit-build-core",
     "nanobind >=2.4",
     "typing-extensions >=4.0; python_version < '3.11'"
 ]
@@ -64,6 +64,7 @@ sdist.include = [
   "third_party/zlib/*",
   "tests/*",
   "tools/gemmi-config.cmake.in",
+  "constraints.txt",  # This won't fail if the file doesn't exist
   "!__pycache__",
   "!*.pyc"
 ]

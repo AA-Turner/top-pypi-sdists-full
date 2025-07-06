@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: neuro-config-client
+Version: 25.7.0
+Summary: Internal client for Neu.ro config service
+Home-page: https://github.com/neuro-inc/neuro-config-client
+License: Apache 2
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.7
+Requires-Dist: tzdata
+Dynamic: license-file
+
+# neuro-config-client
+Configuration Client for Neu.ro platform

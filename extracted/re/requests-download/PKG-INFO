@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: requests_download
+Version: 0.1.2
+Summary: Download files using requests and save them to a target path
+Home-page: https://www.github.com/takluyver/requests_download
+Author: Thomas Kluyver
+Author-email: thomas@kluyver.me.uk

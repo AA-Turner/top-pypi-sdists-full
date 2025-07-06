@@ -89,7 +89,7 @@ def get_node_colors_by_attr(
     stop: float = 1,
     na_color: str = "none",
     equal_size: bool = False,
-) -> pd.Series:  # type: ignore[type-arg]
+) -> pd.Series:  # type: ignore[type-arg,unused-ignore]  # needed for python<=3.9
     """
     Return colors based on nodes' numerical attribute values.
 
@@ -133,7 +133,7 @@ def get_edge_colors_by_attr(
     stop: float = 1,
     na_color: str = "none",
     equal_size: bool = False,
-) -> pd.Series:  # type: ignore[type-arg]
+) -> pd.Series:  # type: ignore[type-arg,unused-ignore]  # needed for python<=3.9
     """
     Return colors based on edges' numerical attribute values.
 
@@ -260,7 +260,7 @@ def plot_graph(  # noqa: PLR0913
     if max_node_size > 0:
         # scatter plot the nodes' x/y coordinates
         gdf_nodes = convert.graph_to_gdfs(G, edges=False, node_geometry=False)[["x", "y"]]
-        ax.scatter(  # type: ignore[union-attr]
+        ax.scatter(
             x=gdf_nodes["x"],
             y=gdf_nodes["y"],
             s=node_size,
@@ -282,7 +282,7 @@ def plot_graph(  # noqa: PLR0913
         padding = 0.02  # pad 2% to not cut off peripheral nodes' circles
 
     # configure axes appearance, save/show figure as specified, and return
-    ax = _config_ax(ax, G.graph["crs"], bbox, padding)  # type: ignore[arg-type]
+    ax = _config_ax(ax, G.graph["crs"], bbox, padding)
     fig, ax = _save_and_show(
         fig=fig,
         ax=ax,
@@ -653,7 +653,7 @@ def plot_footprints(  # noqa: PLR0913
         bbox = tuple(gdf.total_bounds)
 
     # configure axes appearance, save/show figure as specified, and return
-    ax = _config_ax(ax, gdf.crs, bbox, 0)  # type: ignore[arg-type]
+    ax = _config_ax(ax, gdf.crs, bbox, 0)
     fig, ax = _save_and_show(
         fig=fig,
         ax=ax,
@@ -808,14 +808,14 @@ def plot_orientation(  # noqa: PLR0913
 
 
 def _get_colors_by_value(
-    vals: pd.Series,  # type: ignore[type-arg]
+    vals: pd.Series,  # type: ignore[type-arg,unused-ignore]  # needed for python<=3.9
     num_bins: int | None,
     cmap: str,
     start: float,
     stop: float,
     na_color: str,
     equal_size: bool,  # noqa: FBT001
-) -> pd.Series:  # type: ignore[type-arg]
+) -> pd.Series:  # type: ignore[type-arg,unused-ignore]  # needed for python<=3.9
     """
     Map colors to the values in a Series of node/edge attribute values.
 
@@ -860,7 +860,7 @@ def _get_colors_by_value(
         # linearly map a color to each attribute value
         normalizer = colors.Normalize(full_min, full_max)
         scalar_mapper = cm.ScalarMappable(normalizer, colormaps[cmap])
-        color_series = vals.map(scalar_mapper.to_rgba).map(colors.to_hex)  # type: ignore[arg-type,unused-ignore]  # needed for python<3.10
+        color_series = vals.map(scalar_mapper.to_rgba).map(colors.to_hex)  # type: ignore[arg-type,unused-ignore]  # needed for python<=3.9
         color_series.loc[pd.isna(vals)] = na_color
 
     else:

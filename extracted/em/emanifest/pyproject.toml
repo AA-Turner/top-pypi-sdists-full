@@ -1,0 +1,42 @@
+[project]
+name = "emanifest"
+version = "4.1.3"
+description = "An API utility wrapper for accessing the e-Manifest hazardous waste tracking system maintained by the US Environmental Protection Agency"
+readme = "README.md"
+authors = [
+    { name = "William Nicholas ", email = "nicholas.william@epa.gov" },
+    { name = "David Graham", email = "graham.david@epa.gov" },
+]
+maintainers = [
+    { name = "William Nicholas", email = "nicholas.william@epa.gov" },
+    { name = "David Graham", email = "graham.david@epa.gov" },
+    { name = "Scott Christian", email = "christian.scott@epa.gov" },
+]
+
+license = { text = "CCO 1.0" }
+requires-python = ">=3.10"
+dependencies = [
+    "requests<=2.27.0",
+    "requests-toolbelt<=1.0.0",
+]
+
+[project.urls]
+issues = "https://github.com/USEPA/e-Manifest/issues"
+documentation = "https://github.com/USEPA/e-Manifest/emanifest-py"
+homepage = "https://github.com/USEPA/e-Manifest"
+repository = "https://github.com/USEPA/e-Manifest"
+
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 99
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 99
+select = ["F", "E", "W", "Q", "I001"]

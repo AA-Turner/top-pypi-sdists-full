@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: cnvrgv2
+Version: 1.1.8
+Summary: Python SDK library for using cnvrg
+Author: Cnvrg
+Author-email: support@cnvrg.io
+Requires-Dist: attrs~=22.1
+Requires-Dist: azure-core~=1.24
+Requires-Dist: boto3~=1.19
+Requires-Dist: botocore~=1.22
+Requires-Dist: cachetools~=4.2
+Requires-Dist: certifi~=2022.6
+Requires-Dist: cffi~=1.15
+Requires-Dist: chardet~=3.0
+Requires-Dist: click~=8.0
+Requires-Dist: cryptography~=37.0
+Requires-Dist: idna~=2.10
+Requires-Dist: importlib-metadata~=4.8
+Requires-Dist: iniconfig~=1.1
+Requires-Dist: isodate~=0.6
+Requires-Dist: jmespath~=0.10
+Requires-Dist: msrest~=0.7
+Requires-Dist: oauthlib~=3.2
+Requires-Dist: packaging~=21.3
+Requires-Dist: pathspec~=0.9
+Requires-Dist: pluggy~=1.0
+Requires-Dist: prettytable~=2.5
+Requires-Dist: progress~=1.5
+Requires-Dist: protobuf~=3.19
+Requires-Dist: py~=1.11
+Requires-Dist: pyaml~=21.10
+Requires-Dist: pyasn1~=0.4
+Requires-Dist: pyasn1-modules~=0.2
+Requires-Dist: pycparser~=2.21
+Requires-Dist: pycryptodome~=3.14
+Requires-Dist: pyparsing~=3.0
+Requires-Dist: pytest~=7.0
+Requires-Dist: pytest-mock~=3.6
+Requires-Dist: python-dateutil~=2.8
+Requires-Dist: pytz~=2022.2
+Requires-Dist: PyYAML~=6.0
+Requires-Dist: requests~=2.23
+Requires-Dist: requests-oauthlib~=1.3
+Requires-Dist: rsa~=4.9
+Requires-Dist: s3transfer~=0.5
+Requires-Dist: six~=1.16
+Requires-Dist: tomli~=1.2
+Requires-Dist: typing_extensions~=4.1
+Requires-Dist: urllib3~=1.25
+Requires-Dist: wcwidth~=0.2
+Requires-Dist: zipp~=3.6
+Requires-Dist: psutil~=5.9
+Requires-Dist: python-dotenv~=0.20.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Provides-Extra: azure
+Requires-Dist: azure-core>=1.10.0; extra == "azure"
+Requires-Dist: azure-storage-blob>=12.10.0; extra == "azure"
+Provides-Extra: google
+Requires-Dist: google-api-core>=1.23.0; extra == "google"
+Requires-Dist: google-cloud-core>=1.4.4; extra == "google"
+Requires-Dist: google-cloud-storage>=1.32.0; extra == "google"
+Requires-Dist: google-auth>=1.23.0; extra == "google"
+Requires-Dist: google-crc32c>=1.0.0; extra == "google"
+Requires-Dist: google-resumable-media>=1.1.0; extra == "google"
+Requires-Dist: googleapis-common-protos>=1.52.0; extra == "google"
+Provides-Extra: python3-6
+Requires-Dist: boto3==1.19.12; extra == "python3-6"
+Requires-Dist: botocore==1.22.12; extra == "python3-6"

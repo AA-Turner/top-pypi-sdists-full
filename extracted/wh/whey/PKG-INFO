@@ -1,0 +1,235 @@
+Metadata-Version: 2.1
+Name: whey
+Version: 0.1.1
+Summary: A simple Python wheel builder for simple projects.
+Home-page: https://github.com/repo-helper/whey
+Author: Dominic Davis-Foster
+Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
+License: Copyright (c) 2021 Dominic Davis-Foster
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+        IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+        DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+        OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+        OR OTHER DEALINGS IN THE SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/repo-helper/whey
+Project-URL: Issue Tracker, https://github.com/repo-helper/whey/issues
+Project-URL: Source Code, https://github.com/repo-helper/whey
+Project-URL: Documentation, https://whey.readthedocs.io/en/latest
+Keywords: build,distribution,packaging,pep517,pep621,sdist,wheel
+Platform: Windows
+Platform: macOS
+Platform: Linux
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Archiving :: Packaging
+Classifier: Typing :: Typed
+Requires-Python: >=3.6.1
+Description-Content-Type: text/x-rst
+Provides-Extra: readme
+Provides-Extra: editable
+Provides-Extra: all
+License-File: LICENSE
+
+#####
+whey
+#####
+
+.. start short_desc
+
+**A simple Python wheel builder for simple projects.**
+
+.. end short_desc
+
+
+``whey``:
+
+* supports `PEP 621 <https://www.python.org/dev/peps/pep-0621/>`_ metadata.
+* can be used as a `PEP 517 <https://www.python.org/dev/peps/pep-0517/>`_ build backend.
+* creates `PEP 427 <https://www.python.org/dev/peps/pep-0427/>`_ `wheels <https://realpython.com/python-wheels/>`_.
+* handles type hint files
+  (`py.typed <https://www.python.org/dev/peps/pep-0561/>`_ and ``*.pyi`` stubs).
+* is distributed under the `MIT License <https://choosealicense.com/licenses/mit/>`_.
+* `is the liquid remaining after milk has been curdled and strained <https://en.wikipedia.org/wiki/Whey>`_.
+  It is a byproduct of the manufacture of cheese and has several commercial uses.
+
+
+See `the documentation`_ for configuration_ and usage_ information.
+
+.. _the documentation: https://whey.readthedocs.io/en/latest/
+.. _configuration: https://whey.readthedocs.io/en/latest/configuration.html
+.. _usage: https://whey.readthedocs.io/en/latest/configuration.html
+
+.. start shields
+
+.. list-table::
+	:stub-columns: 1
+	:widths: 10 90
+
+	* - Docs
+	  - |docs| |docs_check|
+	* - Tests
+	  - |actions_linux| |actions_windows| |actions_macos| |coveralls|
+	* - PyPI
+	  - |pypi-version| |supported-versions| |supported-implementations| |wheel|
+	* - Anaconda
+	  - |conda-version| |conda-platform|
+	* - Activity
+	  - |commits-latest| |commits-since| |maintained| |pypi-downloads|
+	* - QA
+	  - |codefactor| |actions_flake8| |actions_mypy|
+	* - Other
+	  - |license| |language| |requires|
+
+.. |docs| image:: https://img.shields.io/readthedocs/whey/latest?logo=read-the-docs
+	:target: https://whey.readthedocs.io/en/latest
+	:alt: Documentation Build Status
+
+.. |docs_check| image:: https://github.com/repo-helper/whey/workflows/Docs%20Check/badge.svg
+	:target: https://github.com/repo-helper/whey/actions?query=workflow%3A%22Docs+Check%22
+	:alt: Docs Check Status
+
+.. |actions_linux| image:: https://github.com/repo-helper/whey/workflows/Linux/badge.svg
+	:target: https://github.com/repo-helper/whey/actions?query=workflow%3A%22Linux%22
+	:alt: Linux Test Status
+
+.. |actions_windows| image:: https://github.com/repo-helper/whey/workflows/Windows/badge.svg
+	:target: https://github.com/repo-helper/whey/actions?query=workflow%3A%22Windows%22
+	:alt: Windows Test Status
+
+.. |actions_macos| image:: https://github.com/repo-helper/whey/workflows/macOS/badge.svg
+	:target: https://github.com/repo-helper/whey/actions?query=workflow%3A%22macOS%22
+	:alt: macOS Test Status
+
+.. |actions_flake8| image:: https://github.com/repo-helper/whey/workflows/Flake8/badge.svg
+	:target: https://github.com/repo-helper/whey/actions?query=workflow%3A%22Flake8%22
+	:alt: Flake8 Status
+
+.. |actions_mypy| image:: https://github.com/repo-helper/whey/workflows/mypy/badge.svg
+	:target: https://github.com/repo-helper/whey/actions?query=workflow%3A%22mypy%22
+	:alt: mypy status
+
+.. |requires| image:: https://dependency-dash.repo-helper.uk/github/repo-helper/whey/badge.svg
+	:target: https://dependency-dash.repo-helper.uk/github/repo-helper/whey/
+	:alt: Requirements Status
+
+.. |coveralls| image:: https://img.shields.io/coveralls/github/repo-helper/whey/master?logo=coveralls
+	:target: https://coveralls.io/github/repo-helper/whey?branch=master
+	:alt: Coverage
+
+.. |codefactor| image:: https://img.shields.io/codefactor/grade/github/repo-helper/whey?logo=codefactor
+	:target: https://www.codefactor.io/repository/github/repo-helper/whey
+	:alt: CodeFactor Grade
+
+.. |pypi-version| image:: https://img.shields.io/pypi/v/whey
+	:target: https://pypi.org/project/whey/
+	:alt: PyPI - Package Version
+
+.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/whey?logo=python&logoColor=white
+	:target: https://pypi.org/project/whey/
+	:alt: PyPI - Supported Python Versions
+
+.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/whey
+	:target: https://pypi.org/project/whey/
+	:alt: PyPI - Supported Implementations
+
+.. |wheel| image:: https://img.shields.io/pypi/wheel/whey
+	:target: https://pypi.org/project/whey/
+	:alt: PyPI - Wheel
+
+.. |conda-version| image:: https://img.shields.io/conda/v/conda-forge/whey?logo=anaconda
+	:target: https://anaconda.org/conda-forge/whey
+	:alt: Conda - Package Version
+
+.. |conda-platform| image:: https://img.shields.io/conda/pn/conda-forge/whey?label=conda%7Cplatform
+	:target: https://anaconda.org/conda-forge/whey
+	:alt: Conda - Platform
+
+.. |license| image:: https://img.shields.io/github/license/repo-helper/whey
+	:target: https://github.com/repo-helper/whey/blob/master/LICENSE
+	:alt: License
+
+.. |language| image:: https://img.shields.io/github/languages/top/repo-helper/whey
+	:alt: GitHub top language
+
+.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/whey/v0.1.1
+	:target: https://github.com/repo-helper/whey/pulse
+	:alt: GitHub commits since tagged version
+
+.. |commits-latest| image:: https://img.shields.io/github/last-commit/repo-helper/whey
+	:target: https://github.com/repo-helper/whey/commit/master
+	:alt: GitHub last commit
+
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2024
+	:alt: Maintenance
+
+.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/whey
+	:target: https://pypi.org/project/whey/
+	:alt: PyPI - Downloads
+
+.. end shields
+
+Installation
+--------------
+
+.. start installation
+
+``whey`` can be installed from PyPI or Anaconda.
+
+To install with ``pip``:
+
+.. code-block:: bash
+
+	$ python -m pip install whey
+
+To install with ``conda``:
+
+.. code-block:: bash
+
+	$ conda install -c conda-forge whey
+
+.. end installation
+
+``whey`` also has an optional README validation feature, which checks the README will render correctly on PyPI.
+This requires that the ``readme`` extra is installed:
+
+.. code-block:: bash
+
+	$ python -m pip install whey[readme]
+
+and in ``pyproject.toml``:
+
+.. code-block:: TOML
+
+	[build-system]
+	requires = [ "whey[readme]",]
+	build-backend = "whey"

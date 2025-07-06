@@ -6,9 +6,13 @@ until the API is stable.
 
 import enum
 import logging
+from collections.abc import Callable
 from functools import cached_property
 
 from roborock.containers import HomeDataDevice, HomeDataProduct, UserData
+from roborock.roborock_message import RoborockMessage
+
+from .mqtt_channel import MqttChannel
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,11 +33,25 @@ class DeviceVersion(enum.StrEnum):
 class RoborockDevice:
     """Unified Roborock device class with automatic connection setup."""
 
-    def __init__(self, user_data: UserData, device_info: HomeDataDevice, product_info: HomeDataProduct) -> None:
-        """Initialize the RoborockDevice with device info, user data, and capabilities."""
+    def __init__(
+        self,
+        user_data: UserData,
+        device_info: HomeDataDevice,
+        product_info: HomeDataProduct,
+        mqtt_channel: MqttChannel,
+    ) -> None:
+        """Initialize the RoborockDevice.
+
+        The device takes ownership of the MQTT channel for communication with the device.
+        Use `connect()` to establish the connection, which will set up the MQTT channel
+        for receiving messages from the device. Use `close()` to unsubscribe from the MQTT
+        channel.
+        """
         self._user_data = user_data
         self._device_info = device_info
         self._product_info = product_info
+        self._mqtt_channel = mqtt_channel
+        self._unsub: Callable[[], None] | None = None
 
     @property
     def duid(self) -> str:
@@ -63,3 +81,28 @@ class RoborockDevice:
             self._device_info.name,
         )
         return DeviceVersion.UNKNOWN
+
+    async def connect(self) -> None:
+        """Connect to the device using MQTT.
+
+        This method will set up the MQTT channel for communication with the device.
+        """
+        if self._unsub:
+            raise ValueError("Already connected to the device")
+        self._unsub = await self._mqtt_channel.subscribe(self._on_mqtt_message)
+
+    async def close(self) -> None:
+        """Close the MQTT connection to the device.
+
+        This method will unsubscribe from the MQTT channel and clean up resources.
+        """
+        if self._unsub:
+            self._unsub()
+            self._unsub = None
+
+    def _on_mqtt_message(self, message: RoborockMessage) -> None:
+        """Handle incoming MQTT messages from the device.
+
+        This method should be overridden in subclasses to handle specific device messages.
+        """
+        _LOGGER.debug("Received message from device %s: %s", self.duid, message)

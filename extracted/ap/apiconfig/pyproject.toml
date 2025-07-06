@@ -1,0 +1,82 @@
+[tool.poetry]
+name = "apiconfig"
+version = "0.3.3"
+description = "api config library"
+authors = ["Leikaab <nordavindltd@gmail.com>"]
+license = "LGPL-3.0-or-later"
+readme = "README.md"
+homepage = "https://github.com/Leikaab/apiconfig"
+repository = "https://github.com/Leikaab/apiconfig"
+documentation = "https://leikaab.github.io/apiconfig/"
+keywords = ["api", "config", "apiauth"]
+classifiers = [
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    ]
+include = [
+    "apiconfig/**/*.pyi",
+    "apiconfig/py.typed"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+pytest-cov = "*"
+pytest-xdist = "^3.5.0"
+isort = "^6.0.1"
+requests-mock = "^1.12.1"
+autopep8 = "*"
+black = "*"
+yapf = "*"
+bandit = "*"
+flake8 = "*"
+flake8-docstrings = "*"
+mypy = "*"
+pycodestyle = "*"
+pydocstyle = "*"
+pylint = "*"
+pydantic = "*"
+pre-commit = "*"
+types-requests = "*"
+ipython = "*"
+ipykernel = "*"
+autoflake = "^2.3.1"
+types-PyYAML = "*"
+python-dotenv = "^1.1.0"
+bravado-core = "^6.1.1"
+httpx = "^0.28.1"
+pytest_httpserver = "*"
+tox = "*"
+crudclient = "0.7.1"
+pytest-asyncio = "^1.0.0"
+pyright = "*"
+types-werkzeug = "^1.0.9"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.0"
+sphinx-rtd-theme = "^3.0"
+myst-parser = "^4.0"
+sphinx-autodoc-typehints = "^3.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 150
+skip-string-normalization = false
+exclude = '''(?x)( \.venv | \.tox | \.eggs | \.git | \.hg | \.mypy_cache | \.pytest_cache | build | dist )'''
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/Leikaab/apiconfig/issues"
+"Documentation" = "https://leikaab.github.io/apiconfig/"
+
+[tool.isort]
+profile = "black"
+skip = [".tox", ".venv"]

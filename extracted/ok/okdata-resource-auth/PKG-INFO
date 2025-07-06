@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: okdata-resource-auth
+Version: 0.1.4
+Summary: Dataplatform resource authorizer
+Home-page: https://github.com/oslokommune/okdata-resource-auth
+Author: Oslo Origo
+Author-email: dataplattform@oslo.kommune.no
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
+
+# okdata-resource-auth
+
+
+Client library for authorizing logged-in users against Keycloak resources and scopes.
+
+## Setup
+
+```sh
+git clone git@github.com:oslokommune/okdata-resource-auth.git
+python3 -m venv .venv
+source .venv/bin/activate
+make init
+make test
+```
+
+## Publish
+
+```sh
+make clean test         # Test
+make bump-patch build   # Bump version and build
+make publish            # Publish module to PyPI
+git push --tags         # Push version bump commit and generated tag
+```
+
+

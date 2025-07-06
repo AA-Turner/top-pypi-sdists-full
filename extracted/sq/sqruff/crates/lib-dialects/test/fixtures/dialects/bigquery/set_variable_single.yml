@@ -1,0 +1,22 @@
+file:
+- statement:
+  - set_segment:
+    - keyword: set
+    - naked_identifier: var1
+    - comparison_operator:
+      - raw_comparison_operator: =
+    - numeric_literal: '5'
+- statement_terminator: ;
+- statement:
+  - set_segment:
+    - keyword: set
+    - naked_identifier: var1
+    - comparison_operator:
+      - raw_comparison_operator: =
+    - array_literal:
+      - start_square_bracket: '['
+      - quoted_literal: '''one'''
+      - comma: ','
+      - quoted_literal: '''two'''
+      - end_square_bracket: ']'
+- statement_terminator: ;

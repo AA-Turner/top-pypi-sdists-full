@@ -1,21 +1,25 @@
 # iosys.py - I/O system class and helper functions
 # RMM, 13 Mar 2022
-#
-# This file implements the InputOutputSystem class, which is used as a
-# parent class for StateSpace, TransferFunction, NonlinearIOSystem, LTI,
-# FrequencyResponseData, InterconnectedSystem and other similar classes
-# that allow naming of signals.
+
+"""I/O system class and helper functions.
+
+This module implements the `InputOutputSystem` class, which is used as a
+parent class for `LTI`, `StateSpace`, `TransferFunction`,
+`NonlinearIOSystem`, class:`FrequencyResponseData`, `InterconnectedSystem`
+and other similar classes that allow naming of signals.
+
+"""
 
 import re
 from copy import deepcopy
-from warnings import warn
 
 import numpy as np
 
 from . import config
+from .exception import ControlIndexError
 
-__all__ = ['InputOutputSystem', 'issiso', 'timebase', 'common_timebase',
-           'isdtime', 'isctime']
+__all__ = ['InputOutputSystem', 'NamedSignal', 'issiso', 'timebase',
+           'common_timebase', 'isdtime', 'isctime', 'iosys_repr']
 
 # Define module default parameter values
 _iosys_defaults = {
@@ -30,25 +34,125 @@ _iosys_defaults = {
     'iosys.indexed_system_name_suffix': '$indexed',
     'iosys.converted_system_name_prefix': '',
     'iosys.converted_system_name_suffix': '$converted',
+    'iosys.repr_format': 'eval',
+    'iosys.repr_show_count': True,
 }
 
 
-class InputOutputSystem(object):
-    """A class for representing input/output systems.
+# Named signal class
+class NamedSignal(np.ndarray):
+    """Named signal with label-based access.
 
-    The InputOutputSystem class allows (possibly nonlinear) input/output
+    This class modifies the `numpy.ndarray` class and allows signals to
+    be accessed using the signal name in addition to indices and slices.
+
+    Signals can be either a 2D array, index by signal and time, or a 3D
+    array, indexed by signal, trace, and time.
+
+    Attributes
+    ----------
+    signal_labels : list of str
+        Label names for each of the signal elements in the signal.
+    trace_labels : list of str, optional
+        Label names for each of the traces in the signal (if multi-trace).
+
+    Examples
+    --------
+    >>> sys = ct.rss(
+    ...     states=['p1', 'p2', 'p3'], inputs=['u1', 'u2'], outputs=['y'])
+    >>> resp = ct.step_response(sys)
+    >>> resp.states['p1', 'u1']  # Step response from u1 to p1
+    NamedSignal(...)
+
+    """
+    def __new__(cls, input_array, signal_labels=None, trace_labels=None):
+        # See https://numpy.org/doc/stable/user/basics.subclassing.html
+        obj = np.asarray(input_array).view(cls)     # Cast to our class type
+        obj.signal_labels = signal_labels           # Save signal labels
+        obj.trace_labels = trace_labels             # Save trace labels
+        obj.data_shape = input_array.shape          # Save data shape
+        return obj                                  # Return new object
+
+    def __array_finalize__(self, obj):
+        # See https://numpy.org/doc/stable/user/basics.subclassing.html
+        if obj is None:
+            return
+        self.signal_labels = getattr(obj, 'signal_labels', None)
+        self.trace_labels = getattr(obj, 'trace_labels', None)
+        self.data_shape = getattr(obj, 'data_shape', None)
+
+    def _parse_key(self, key, labels=None, level=0):
+        if labels is None:
+            labels = self.signal_labels
+        try:
+            if isinstance(key, str):
+                key = labels.index(item := key)
+                if level == 0 and len(self.data_shape) < 2:
+                    # This is the only signal => use it
+                    return ()
+            elif isinstance(key, list):
+                keylist = []
+                for item in key:        # use for loop to save item for error
+                    keylist.append(
+                        self._parse_key(item, labels=labels, level=level+1))
+                if level == 0 and key != keylist and len(self.data_shape) < 2:
+                    raise ControlIndexError
+                key = keylist
+            elif isinstance(key, tuple) and len(key) > 0:
+                keylist = []
+                keylist.append(
+                    self._parse_key(
+                        item := key[0], labels=self.signal_labels,
+                        level=level+1))
+                if len(key) > 1:
+                    keylist.append(
+                        self._parse_key(
+                            item := key[1], labels=self.trace_labels,
+                            level=level+1))
+                if level == 0 and key[:len(keylist)] != tuple(keylist) \
+                   and len(keylist) > len(self.data_shape) - 1:
+                    raise ControlIndexError
+                for i in range(2, len(key)):
+                    keylist.append(key[i])      # pass on remaining elements
+                key = tuple(keylist)
+        except ValueError:
+            raise ValueError(f"unknown signal name '{item}'")
+        except ControlIndexError:
+            raise ControlIndexError(
+                "signal name(s) not valid for squeezed data")
+
+        return key
+
+    def __getitem__(self, key):
+        return super().__getitem__(self._parse_key(key))
+
+    def __repr__(self):
+        out = "NamedSignal(\n"
+        out += repr(np.array(self))             # NamedSignal -> array
+        if self.signal_labels is not None:
+            out += f",\nsignal_labels={self.signal_labels}"
+        if self.trace_labels is not None:
+            out += f",\ntrace_labels={self.trace_labels}"
+        out += ")"
+        return out
+
+
+class InputOutputSystem():
+    """Base class for input/output systems.
+
+    The `InputOutputSystem` class allows (possibly nonlinear) input/output
     systems to be represented in Python.  It is used as a parent class for
     a set of subclasses that are used to implement specific structures and
     operations for different types of input/output dynamical systems.
 
-    The timebase for the system, dt, is used to specify whether the system
+    The timebase for the system, `dt`, is used to specify whether the system
     is operating in continuous or discrete time. It can have the following
     values:
 
-      * dt = None       No timebase specified
-      * dt = 0          Continuous time system
-      * dt > 0          Discrete time system with sampling time dt
-      * dt = True       Discrete time system with unspecified sampling time
+      * `dt` = None: No timebase specified
+      * `dt` = 0: Continuous time system
+      * `dt` > 0: Discrete time system with sampling time dt
+      * `dt` = True: Discrete time system with unspecified sampling time
 
     Parameters
     ----------
@@ -58,14 +162,14 @@ class InputOutputSystem(object):
         integer count is specified, the names of the signal will be of the
         form 's[i]' (where 's' is given by the `input_prefix` parameter and
         has default value 'u').  If this parameter is not given or given as
-        `None`, the relevant quantity will be determined when possible
+        None, the relevant quantity will be determined when possible
         based on other information provided to functions using the system.
     outputs : int, list of str, or None
         Description of the system outputs.  Same format as `inputs`, with
-        the prefix given by output_prefix (defaults to 'y').
+        the prefix given by `output_prefix` (defaults to 'y').
     states : int, list of str, or None
         Description of the system states.  Same format as `inputs`, with
-        the prefix given by state_prefix (defaults to 'x').
+        the prefix given by `state_prefix` (defaults to 'x').
     dt : None, True or float, optional
         System timebase. 0 (default) indicates continuous time, True
         indicates discrete time with unspecified sampling time, positive
@@ -73,7 +177,7 @@ class InputOutputSystem(object):
         unspecified timebase (either continuous or discrete time).
     name : string, optional
         System name (used for specifying signals). If unspecified, a generic
-        name <sys[id]> is generated with a unique integer id.
+        name 'sys[id]' is generated with a unique integer id.
     params : dict, optional
         Parameter values for the system.  Passed to the evaluation functions
         for the system as default values, overriding internal defaults.
@@ -81,20 +185,14 @@ class InputOutputSystem(object):
     Attributes
     ----------
     ninputs, noutputs, nstates : int
-        Number of input, output and state variables
+        Number of input, output, and state variables.
     input_index, output_index, state_index : dict
-        Dictionary of signal names for the inputs, outputs and states and the
-        index of the corresponding array
-    dt : None, True or float
-        System timebase. 0 (default) indicates continuous time, True indicates
-        discrete time with unspecified sampling time, positive number is
-        discrete time with specified sampling time, None indicates unspecified
-        timebase (either continuous or discrete time).
-    params : dict, optional
-        Parameter values for the systems.  Passed to the evaluation functions
-        for the system as default values, overriding internal defaults.
-    name : string, optional
-        System name (used for specifying signals)
+        Dictionary of signal names for the inputs, outputs, and states and
+        the index of the corresponding array.
+    input_labels, output_labels, state_labels : list of str
+        List of signal names for inputs, outputs, and states.
+    shape : tuple
+        2-tuple of I/O system dimension, (noutputs, ninputs).
 
     Other Parameters
     ----------------
@@ -104,9 +202,11 @@ class InputOutputSystem(object):
         Set the prefix for output signals.  Default = 'y'.
     state_prefix : string, optional
         Set the prefix for state signals.  Default = 'x'.
+    repr_format : str
+        String representation format.  See `control.iosys_repr`.
 
     """
-    # Allow NDarray * IOSystem to give IOSystem._rmul_() priority
+    # Allow ndarray * IOSystem to give IOSystem._rmul_() priority
     # https://docs.scipy.org/doc/numpy/reference/arrays.classes.html
     __array_priority__ = 20
 
@@ -125,12 +225,14 @@ class InputOutputSystem(object):
         # Process timebase: if not given use default, but allow None as value
         self.dt = _process_dt_keyword(kwargs)
 
+        self._repr_format = kwargs.pop('repr_format', None)
+
         # Make sure there were no other keywords
         if kwargs:
             raise TypeError("unrecognized keywords: ", str(kwargs))
 
     # Keep track of the keywords that we recognize
-    kwargs_list = [
+    _kwargs_list = [
         'name', 'inputs', 'outputs', 'states', 'input_prefix',
         'output_prefix', 'state_prefix', 'dt']
 
@@ -179,18 +281,135 @@ class InputOutputSystem(object):
     #: :meta hide-value:
     nstates = None
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}:{self.name}:' + \
-            f'{list(self.input_labels)}->{list(self.output_labels)}>'
+    #: System timebase.
+    #:
+    #: :meta hide-value:
+    dt = None
+
+    #
+    # System representation
+    #
 
     def __str__(self):
         """String representation of an input/output object"""
-        str = f"<{self.__class__.__name__}>: {self.name}\n"
-        str += f"Inputs ({self.ninputs}): {self.input_labels}\n"
-        str += f"Outputs ({self.noutputs}): {self.output_labels}\n"
+        out = f"<{self.__class__.__name__}>: {self.name}"
+        out += f"\nInputs ({self.ninputs}): {self.input_labels}"
+        out += f"\nOutputs ({self.noutputs}): {self.output_labels}"
         if self.nstates is not None:
-            str += f"States ({self.nstates}): {self.state_labels}"
-        return str
+            out += f"\nStates ({self.nstates}): {self.state_labels}"
+        out += self._dt_repr(separator="\n", space=" ")
+        return out
+
+    def __repr__(self):
+        return iosys_repr(self, format=self.repr_format)
+
+    def _repr_info_(self, html=False):
+        out = f"<{self.__class__.__name__} {self.name}: " + \
+            f"{list(self.input_labels)} -> {list(self.output_labels)}"
+        out += self._dt_repr(separator=", ", space="") + ">"
+
+        if html:
+            # Replace symbols that might be interpreted by HTML processing
+            # TODO: replace -> with right arrow (later)
+            escape_chars = {
+                '$': r'\$',
+                '<': '&lt;',
+                '>': '&gt;',
+            }
+            return "".join([c if c not in escape_chars else
+                            escape_chars[c] for c in out])
+        else:
+            return out
+
+    def _repr_eval_(self):
+        # Defaults to _repr_info_; override in subclasses
+        return self._repr_info_()
+
+    def _repr_latex_(self):
+        # Defaults to using __repr__; override in subclasses
+        return None
+
+    def _repr_html_(self):
+        # Defaults to using __repr__; override in subclasses
+        return None
+
+    def _repr_markdown_(self):
+        return self._repr_html_()
+
+    @property
+    def repr_format(self):
+        """String representation format.
+
+        Format used in creating the representation for the system:
+
+          * 'info' : <IOSystemType sysname: [inputs] -> [outputs]>
+          * 'eval' : system specific, loadable representation
+          * 'latex' : HTML/LaTeX representation of the object
+
+        The default representation for an input/output is set to 'eval'.
+        This value can be changed for an individual system by setting the
+        `repr_format` parameter when the system is created or by setting
+        the `repr_format` property after system creation.  Set
+        `config.defaults['iosys.repr_format']` to change for all I/O systems
+        or use the `repr_format` parameter/attribute for a single system.
+
+        """
+        return self._repr_format if self._repr_format is not None \
+            else config.defaults['iosys.repr_format']
+
+    @repr_format.setter
+    def repr_format(self, value):
+        self._repr_format = value
+
+    def _label_repr(self, show_count=None):
+        show_count = config._get_param(
+            'iosys', 'repr_show_count', show_count, True)
+        out, count = "", 0
+
+        # Include the system name if not generic
+        if not self._generic_name_check():
+            name_spec = f"name='{self.name}'"
+            count += len(name_spec)
+            out += name_spec
+
+        # Include the state, output, and input names if not generic
+        for sig_name, sig_default, sig_labels in zip(
+                ['states', 'outputs', 'inputs'],
+                ['x', 'y', 'u'],        # TODO: replace with defaults
+                [self.state_labels, self.output_labels, self.input_labels]):
+            if sig_name == 'states' and self.nstates is None:
+                continue
+
+            # Check if the signal labels are generic
+            if any([re.match(r'^' + sig_default + r'\[\d*\]$', label) is None
+                    for label in sig_labels]):
+                spec = f"{sig_name}={sig_labels}"
+            elif show_count:
+                spec = f"{sig_name}={len(sig_labels)}"
+            else:
+                spec = ""
+
+            # Append the specification string to the output, with wrapping
+            if count == 0:
+                count = len(spec)       # no system name => suppress comma
+            elif count + len(spec) > 72:
+                # TODO: check to make sure a single line is enough (minor)
+                out += ",\n"
+                count = len(spec)
+            elif len(spec) > 0:
+                out += ", "
+                count += len(spec) + 2
+            out += spec
+
+        return out
+
+    def _dt_repr(self, separator="\n", space=""):
+        if config.defaults['control.default_dt'] != self.dt:
+            return "{separator}dt{space}={space}{dt}".format(
+                separator=separator, space=space,
+                dt='None' if self.dt is None else self.dt)
+        else:
+            return ""
 
     # Find a list of signals by name, index, or pattern
     def _find_signals(self, name_list, sigdict):
@@ -229,13 +448,8 @@ class InputOutputSystem(object):
         """copy the signal and system name of sys. Name is given as a keyword
         in case a specific name (e.g. append 'linearized') is desired. """
         # Figure out the system name and assign it
-        if prefix == "" and prefix_suffix_name is not None:
-            prefix = config.defaults[
-                'iosys.' + prefix_suffix_name + '_system_name_prefix']
-        if suffix == "" and prefix_suffix_name is not None:
-            suffix = config.defaults[
-                'iosys.' + prefix_suffix_name + '_system_name_suffix']
-        self.name = prefix + sys.name + suffix
+        self.name = _extended_system_name(
+            sys.name, prefix, suffix, prefix_suffix_name)
 
         # Name the inputs, outputs, and states
         self.input_index = sys.input_index.copy()
@@ -245,15 +459,30 @@ class InputOutputSystem(object):
             self.state_index = sys.state_index.copy()
 
     def copy(self, name=None, use_prefix_suffix=True):
-        """Make a copy of an input/output system
+        """Make a copy of an input/output system.
 
         A copy of the system is made, with a new name.  The `name` keyword
         can be used to specify a specific name for the system.  If no name
         is given and `use_prefix_suffix` is True, the name is constructed
-        by prepending config.defaults['iosys.duplicate_system_name_prefix']
-        and appending config.defaults['iosys.duplicate_system_name_suffix'].
-        Otherwise, a generic system name of the form `sys[<id>]` is used,
-        where `<id>` is based on an internal counter.
+        by prepending `config.defaults['iosys.duplicate_system_name_prefix']`
+        and appending `config.defaults['iosys.duplicate_system_name_suffix']`.
+        Otherwise, a generic system name of the form 'sys[<id>]' is used,
+        where '<id>' is based on an internal counter.
+
+        Parameters
+        ----------
+        name : str, optional
+            Name of the newly created system.
+
+        use_prefix_suffix : bool, optional
+            If True and `name` is None, set the name of the new system
+            to the name of the original system with prefix
+            `config.defaults['duplicate_system_name_prefix']` and
+            suffix `config.defaults['duplicate_system_name_suffix']`.
+
+        Returns
+        -------
+        `InputOutputSystem`
 
         """
         # Create a copy of the system
@@ -278,29 +507,58 @@ class InputOutputSystem(object):
             Description of the system inputs.  This can be given as an integer
             count or as a list of strings that name the individual signals.
             If an integer count is specified, the names of the signal will be
-            of the form `u[i]` (where the prefix `u` can be changed using the
+            of the form 'u[i]' (where the prefix 'u' can be changed using the
             optional prefix parameter).
         prefix : string, optional
             If `inputs` is an integer, create the names of the states using
             the given prefix (default = 'u').  The names of the input will be
-            of the form `prefix[i]`.
+            of the form 'prefix[i]'.
 
         """
         self.ninputs, self.input_index = \
             _process_signal_list(inputs, prefix=prefix)
 
     def find_input(self, name):
-        """Find the index for an input given its name (`None` if not found)"""
+        """Find the index for an input given its name (None if not found).
+
+        Parameters
+        ----------
+        name : str
+            Signal name for the desired input.
+
+        Returns
+        -------
+        int
+            Index of the named input.
+
+        """
         return self.input_index.get(name, None)
 
     def find_inputs(self, name_list):
-        """Return list of indices matching input spec (`None` if not found)"""
+        """Return list of indices matching input spec (None if not found).
+
+        Parameters
+        ----------
+        name_list : str or list of str
+            List of signal specifications for the desired inputs.  A
+            signal can be described by its name or by a slice-like
+            description of the form 'start:end` where 'start' and
+            'end' are signal names.  If either is omitted, it is taken
+            as the first or last signal, respectively.
+
+        Returns
+        -------
+        list of int
+            List of indices for the specified inputs.
+
+        """
         return self._find_signals(name_list, self.input_index)
 
     # Property for getting and setting list of input signals
     input_labels = property(
         lambda self: list(self.input_index.keys()),     # getter
-        set_inputs)                                     # setter
+        set_inputs,                                     # setter
+        doc="List of labels for the input signals.")
 
     def set_outputs(self, outputs, prefix='y'):
         """Set the number/names of the system outputs.
@@ -308,32 +566,61 @@ class InputOutputSystem(object):
         Parameters
         ----------
         outputs : int, list of str, or None
-            Description of the system outputs.  This can be given as an integer
-            count or as a list of strings that name the individual signals.
-            If an integer count is specified, the names of the signal will be
-            of the form `u[i]` (where the prefix `u` can be changed using the
-            optional prefix parameter).
+            Description of the system outputs.  This can be given as an
+            integer count or as a list of strings that name the individual
+            signals.  If an integer count is specified, the names of the
+            signal will be of the form 'y[i]' (where the prefix 'y' can be
+            changed using the optional prefix parameter).
         prefix : string, optional
             If `outputs` is an integer, create the names of the states using
             the given prefix (default = 'y').  The names of the input will be
-            of the form `prefix[i]`.
+            of the form 'prefix[i]'.
 
         """
         self.noutputs, self.output_index = \
             _process_signal_list(outputs, prefix=prefix)
 
     def find_output(self, name):
-        """Find the index for an output given its name (`None` if not found)"""
+        """Find the index for a output given its name (None if not found).
+
+        Parameters
+        ----------
+        name : str
+            Signal name for the desired output.
+
+        Returns
+        -------
+        int
+            Index of the named output.
+
+        """
         return self.output_index.get(name, None)
 
     def find_outputs(self, name_list):
-        """Return list of indices matching output spec (`None` if not found)"""
+        """Return list of indices matching output spec (None if not found).
+
+        Parameters
+        ----------
+        name_list : str or list of str
+            List of signal specifications for the desired outputs.  A
+            signal can be described by its name or by a slice-like
+            description of the form 'start:end` where 'start' and
+            'end' are signal names.  If either is omitted, it is taken
+            as the first or last signal, respectively.
+
+        Returns
+        -------
+        list of int
+            List of indices for the specified outputs.
+
+        """
         return self._find_signals(name_list, self.output_index)
 
     # Property for getting and setting list of output signals
     output_labels = property(
         lambda self: list(self.output_index.keys()),     # getter
-        set_outputs)                                     # setter
+        set_outputs,                                     # setter
+        doc="List of labels for the output signals.")
 
     def set_states(self, states, prefix='x'):
         """Set the number/names of the system states.
@@ -344,29 +631,63 @@ class InputOutputSystem(object):
             Description of the system states.  This can be given as an integer
             count or as a list of strings that name the individual signals.
             If an integer count is specified, the names of the signal will be
-            of the form `u[i]` (where the prefix `u` can be changed using the
+            of the form 'x[i]' (where the prefix 'x' can be changed using the
             optional prefix parameter).
         prefix : string, optional
             If `states` is an integer, create the names of the states using
             the given prefix (default = 'x').  The names of the input will be
-            of the form `prefix[i]`.
+            of the form 'prefix[i]'.
 
         """
         self.nstates, self.state_index = \
             _process_signal_list(states, prefix=prefix, allow_dot=True)
 
     def find_state(self, name):
-        """Find the index for a state given its name (`None` if not found)"""
+        """Find the index for a state given its name (None if not found).
+
+        Parameters
+        ----------
+        name : str
+            Signal name for the desired state.
+
+        Returns
+        -------
+        int
+            Index of the named state.
+
+        """
         return self.state_index.get(name, None)
 
     def find_states(self, name_list):
-        """Return list of indices matching state spec (`None` if not found)"""
+        """Return list of indices matching state spec (None if not found).
+
+        Parameters
+        ----------
+        name_list : str or list of str
+            List of signal specifications for the desired states.  A
+            signal can be described by its name or by a slice-like
+            description of the form 'start:end` where 'start' and
+            'end' are signal names.  If either is omitted, it is taken
+            as the first or last signal, respectively.
+
+        Returns
+        -------
+        list of int
+            List of indices for the specified states..
+
+        """
         return self._find_signals(name_list, self.state_index)
 
     # Property for getting and setting list of state signals
     state_labels = property(
         lambda self: list(self.state_index.keys()),     # getter
-        set_states)                                     # setter
+        set_states,                                     # setter
+        doc="List of labels for the state signals.")
+
+    @property
+    def shape(self):
+        """2-tuple of I/O system dimension, (noutputs, ninputs)."""
+        return (self.noutputs, self.ninputs)
 
     # TODO: add dict as a means to selective change names?  [GH #1019]
     def update_names(self, **kwargs):
@@ -381,11 +702,17 @@ class InputOutputSystem(object):
         inputs : list of str, int, or None, optional
             List of strings that name the individual input signals.  If
             given as an integer or None, signal names default to the form
-            `u[i]`.  See :class:`InputOutputSystem` for more information.
+            'u[i]'.  See `InputOutputSystem` for more information.
         outputs : list of str, int, or None, optional
-            Description of output signals; defaults to `y[i]`.
+            Description of output signals; defaults to 'y[i]'.
         states : int, list of str, int, or None, optional
-            Description of system states; defaults to `x[i]`.
+            Description of system states; defaults to 'x[i]'.
+        input_prefix : string, optional
+            Set the prefix for input signals.  Default = 'u'.
+        output_prefix : string, optional
+            Set the prefix for output signals.  Default = 'y'.
+        state_prefix : string, optional
+            Set the prefix for state signals.  Default = 'x'.
 
         """
         self.name = kwargs.pop('name', self.name)
@@ -419,11 +746,10 @@ class InputOutputSystem(object):
 
         Parameters
         ----------
-        sys : Named I/O system
-            System to be checked
         strict : bool, optional
             If strict is True, make sure that timebase is not None.  Default
             is False.
+
         """
         # If no timebase is given, answer depends on strict flag
         if self.dt is None:
@@ -432,7 +758,7 @@ class InputOutputSystem(object):
 
     def isdtime(self, strict=False):
         """
-        Check to see if a system is a discrete-time system
+        Check to see if a system is a discrete-time system.
 
         Parameters
         ----------
@@ -452,10 +778,6 @@ class InputOutputSystem(object):
         """Check to see if a system is single input, single output."""
         return self.ninputs == 1 and self.noutputs == 1
 
-    def _isstatic(self):
-        """Check to see if a system is a static system (no states)"""
-        return self.nstates == 0
-
 
 # Test to see if a system is SISO
 def issiso(sys, strict=False):
@@ -465,9 +787,9 @@ def issiso(sys, strict=False):
     Parameters
     ----------
     sys : I/O or LTI system
-        System to be checked
+        System to be checked.
     strict : bool (default = False)
-        If strict is True, do not treat scalars as SISO
+        If strict is True, do not treat scalars as SISO.
     """
     if isinstance(sys, (int, float, complex, np.number)) and not strict:
         return True
@@ -484,20 +806,20 @@ def timebase(sys, strict=True):
     dt = timebase(sys)
 
     returns the timebase for a system 'sys'.  If the strict option is
-    set to `True`, dt = True will be returned as 1.
+    set to True, `dt` = True will be returned as 1.
 
     Parameters
     ----------
-    sys : InputOutputSystem or float
+    sys : `InputOutputSystem` or float
         System whose timebase is to be determined.
     strict : bool, optional
-        Whether to implement strict checking.  If set to `True` (default),
-        a float will always be returned (dt = `True` will be returned as 1).
+        Whether to implement strict checking.  If set to True (default),
+        a float will always be returned (`dt` = True will be returned as 1).
 
     Returns
     -------
     dt : timebase
-        Timebase for the system (0 = continuous time, `None` = unspecified).
+        Timebase for the system (0 = continuous time, None = unspecified).
 
     """
     # System needs to be either a constant or an I/O or LTI system
@@ -506,7 +828,7 @@ def timebase(sys, strict=True):
     elif not isinstance(sys, InputOutputSystem):
         raise ValueError("Timebase not defined")
 
-    # Return the sample time, with converstion to float if strict is false
+    # Return the sample time, with conversion to float if strict is false
     if sys.dt == None:
         return None
     elif strict:
@@ -516,12 +838,13 @@ def timebase(sys, strict=True):
 
 def common_timebase(dt1, dt2):
     """
-    Find the common timebase when interconnecting systems
+    Find the common timebase when interconnecting systems.
 
     Parameters
     ----------
-    dt1, dt2 : number or system with a 'dt' attribute (e.g. TransferFunction
-        or StateSpace system)
+    dt1, dt2 : `InputOutputSystem` or float
+        Number or system with a 'dt' attribute (e.g. `TransferFunction`
+        or `StateSpace` system).
 
     Returns
     -------
@@ -532,13 +855,14 @@ def common_timebase(dt1, dt2):
     Raises
     ------
     ValueError
-        when no compatible time base can be found
+        When no compatible time base can be found.
+
     """
     # explanation:
     # if either dt is None, they are compatible with anything
     # if either dt is True (discrete with unspecified time base),
     #   use the timebase of the other, if it is also discrete
-    # otherwise both dts must be equal
+    # otherwise both dt's must be equal
     if hasattr(dt1, 'dt'):
         dt1 = dt1.dt
     if hasattr(dt2, 'dt'):
@@ -563,10 +887,10 @@ def common_timebase(dt1, dt2):
     else:
         raise ValueError("Systems have incompatible timebases")
 
-# Check to see if a system is a discrete time system
+# Check to see if a system is a discrete-time system
 def isdtime(sys=None, strict=False, dt=None):
     """
-    Check to see if a system is a discrete time system.
+    Check to see if a system is a discrete-time system.
 
     Parameters
     ----------
@@ -595,7 +919,7 @@ def isdtime(sys=None, strict=False, dt=None):
         return sys.isdtime(strict)
 
 
-# Check to see if a system is a continuous time system
+# Check to see if a system is a continuous-time system
 def isctime(sys=None, dt=None, strict=False):
     """
     Check to see if a system is a continuous-time system.
@@ -627,15 +951,56 @@ def isctime(sys=None, dt=None, strict=False):
         return sys.isctime(strict)
 
 
+def iosys_repr(sys, format=None):
+    """Return representation of an I/O system.
+
+    Parameters
+    ----------
+    sys : `InputOutputSystem`
+        System for which the representation is generated.
+    format : str
+        Format to use in creating the representation:
+
+          * 'info' : <IOSystemType sysname: [inputs] -> [outputs]>
+          * 'eval' : system specific, loadable representation
+          * 'latex' : HTML/LaTeX representation of the object
+
+    Returns
+    -------
+    str
+        String representing the input/output system.
+
+    Notes
+    -----
+    By default, the representation for an input/output is set to 'eval'.
+    Set `config.defaults['iosys.repr_format']` to change for all I/O systems
+    or use the `repr_format` parameter for a single system.
+
+    Jupyter will automatically use the 'latex' representation for I/O
+    systems, when available.
+
+    """
+    format = config.defaults['iosys.repr_format'] if format is None else format
+    match format:
+        case 'info':
+            return sys._repr_info_()
+        case 'eval':
+            return sys._repr_eval_()
+        case 'latex':
+            return sys._repr_html_()
+        case _:
+            raise ValueError(f"format '{format}' unknown")
+
+
 # Utility function to parse iosys keywords
 def _process_iosys_keywords(
         keywords={}, defaults={}, static=False, end=False):
     """Process iosys specification.
 
     This function processes the standard keywords used in initializing an
-    I/O system.  It first looks in the `keyword` dictionary to see if a
-    value is specified.  If not, the `default` dictionary is used.  The
-    `default` dictionary can also be set to an InputOutputSystem object,
+    I/O system.  It first looks in the `keywords` dictionary to see if a
+    value is specified.  If not, the `defaults` dictionary is used.  The
+    `defaults` dictionary can also be set to an `InputOutputSystem` object,
     which is useful for copy constructors that change system/signal names.
 
     If `end` is True, then generate an error if there are any remaining
@@ -965,3 +1330,42 @@ def _parse_spec(syslist, spec, signame, dictname=None):
             ValueError(f"signal index '{index}' is out of range")
 
     return system_index, signal_indices, gain
+
+
+#
+# Utility function for processing subsystem indices
+#
+# This function processes an index specification (int, list, or slice) and
+# returns a index specification that can be used to create a subsystem
+#
+def _process_subsys_index(idx, sys_labels, slice_to_list=False):
+    if not isinstance(idx, (slice, list, int)):
+        raise TypeError("system indices must be integers, slices, or lists")
+
+    # Convert singleton lists to integers for proper slicing (below)
+    if isinstance(idx, (list, tuple)) and len(idx) == 1:
+        idx = idx[0]
+
+    # Convert int to slice so that numpy doesn't drop dimension
+    if isinstance(idx, int):
+        idx = slice(idx, idx+1, 1)
+
+    # Get label names (taking care of possibility that we were passed a list)
+    labels = [sys_labels[i] for i in idx] if isinstance(idx, list) \
+        else sys_labels[idx]
+
+    if slice_to_list and isinstance(idx, slice):
+        idx = range(len(sys_labels))[idx]
+
+    return idx, labels
+
+
+# Create an extended system name
+def _extended_system_name(name, prefix="", suffix="", prefix_suffix_name=None):
+    if prefix == "" and prefix_suffix_name is not None:
+        prefix = config.defaults[
+            'iosys.' + prefix_suffix_name + '_system_name_prefix']
+    if suffix == "" and prefix_suffix_name is not None:
+        suffix = config.defaults[
+            'iosys.' + prefix_suffix_name + '_system_name_suffix']
+    return prefix + name + suffix

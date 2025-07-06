@@ -1,0 +1,51 @@
+[project]
+name = "intctl"
+version = "1.0.0"
+description = "INTELLITHING Bootstrap CLI for provisioning cloud resources"
+authors = [{ name="INTELLITHING Ltd", email="hello@intellithing.tech" }]
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" } 
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "typer[all]",
+    "python-dotenv",
+    "pyyaml",
+    "rich",
+    "requests",
+    "google-api-python-client",         # GCP service APIs (if needed)
+    "google-auth",                      # Auth flow support
+    "google-auth-httplib2",
+    "google-cloud-secret-manager",     # For managing GCP secrets
+    "kubernetes",                       # Kubernetes Python client
+    "setuptools",       # Needed for packaging/install
+    "tqdm",
+    "cloud-sql-python-connector>=1.18.0",
+    "asyncpg",
+    "nest_asyncio",
+    "prompt_toolkit",
+    "requests",
+    "jwt",
+    "python-dotenv",
+    "build",
+
+]
+
+[project.scripts]
+intctl = "intctl.cli:app"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["intctl", "intctl.*"]
+
+
+

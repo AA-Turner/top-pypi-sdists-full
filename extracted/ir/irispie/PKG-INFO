@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: irispie
+Version: 0.64.0
+Summary: Macroeconomic modeling package
+Project-URL: Homepage, https://github.com/iris-solutions-team/irispie
+Project-URL: Documentation, https://iris-solutions-team.github.io/irispie-pages
+Project-URL: Bug Tracker, https://github.com/iris-solutions-team/irispie/issues
+Author-email: Jaromir Benes <jaromir.benes@gmail.com>
+License-File: LICENCE
+Keywords: dsge,economics,forecasting,macroeconomics,modeling,simulation
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Requires-Dist: daqp>=0.6.0
+Requires-Dist: dill>=0.3.8
+Requires-Dist: documark>=0.4.0
+Requires-Dist: jinja2>=3.1.4
+Requires-Dist: neqs>=0.8.0
+Requires-Dist: numpy>=2.1
+Requires-Dist: pandas>=2.1.2
+Requires-Dist: parsimonious>=0.10
+Requires-Dist: plotly>=5.23
+Requires-Dist: prettytable>=3.10
+Requires-Dist: python-dateutil>=2.9.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: scipy>=1.14.1
+Description-Content-Type: text/markdown
+
+# Iris Pie
+
+Macroeconomic modeling package for Python
+
+
+## Project URLs
+
+Homepage: [`https://github.com/iris-solutions-team/irispie`](https://github.com/iris-solutions-team/irispie)
+
+Documentation: [`https://iris-solutions-team.github.io/irispie-pages`](https://iris-solutions-team.github.io/irispie-pages)
+
+Bug Tracker: [`https://github.com/iris-solutions-team/irispie/issues`](https://github.com/iris-solutions-team/irispie/issues)
+
+

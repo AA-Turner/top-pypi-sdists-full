@@ -1,0 +1,44 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - function:
+          - function_name:
+            - function_name_identifier: AVG
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - column_reference:
+                - naked_identifier: col
+            - end_bracket: )
+          - over_clause:
+            - keyword: OVER
+            - bracketed:
+              - start_bracket: (
+              - window_specification:
+                - naked_identifier: win
+              - end_bracket: )
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: table
+    - named_window:
+      - keyword: WINDOW
+      - named_window_expression:
+        - naked_identifier: win
+        - keyword: AS
+        - bracketed:
+          - start_bracket: (
+          - window_specification:
+            - partitionby_clause:
+              - keyword: PARTITION
+              - keyword: BY
+              - expression:
+                - column_reference:
+                  - naked_identifier: date
+          - end_bracket: )

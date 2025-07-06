@@ -1,0 +1,422 @@
+#-------------------------------------------------------------------------------
+# Copyright (C) 2018-2021 Maximilian Stahlberg
+#
+# This file is part of PICOS Release Scripts.
+#
+# PICOS Release Scripts are free software: you can redistribute them and/or
+# modify them under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# PICOS Release Scripts are distributed in the hope that they will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#-------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# Dependency catalog:
+# - python-setuptools is a missing dependency of python-coverage.
+# - python-wheel is a missing optional dependency of pip.
+# - glpk and swig are build dependencies of swiglpk (via pip) whenever a new
+#   Python version was released and no swiglpk wheels are available yet.
+# - python-rich, python-setuptools-scm, and python-wheel are missing
+#   dependencies of twine.
+# ------------------------------------------------------------------------------
+
+# TODO: Use specialized images where applicable.
+default:
+  image: archlinux:base-devel
+
+stages:
+  - test
+  - prepare
+  - deploy
+
+# ------------------------------------------------------------------------------
+# Stage 'test'
+# ------------------------------------------------------------------------------
+
+# Run production tests with CPLEX Community Edition.
+# NOTE: Community Edition is limited to 1000 variables and 1000 constraints.
+# NOTE: CPLEX 20.10 is not available for Python 3.9.
+test_cplex:
+  stage: test
+  image: python:3.8
+  before_script:
+    - pip install coverage cplex cvxopt numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s cplex -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with CVXOPT.
+test_cvxopt:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s cvxopt -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with ECOS.
+test_ecos:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt ecos numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s ecos -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with GLPK.
+test_glpk:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt numpy swiglpk
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s glpk -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with Gurobi (legacy interface).
+# NOTE: The image comes with a limited license for small problems. This is not
+#       sufficient for all tests, those that cannot be solved are skipped.
+# NOTE: Dualized tests are skipped due to precision related failures, see
+#       https://gitlab.com/picos-api/picos/-/issues/283.
+test_gurobi_legacy:
+  stage: test
+  image: gurobi/python
+  before_script:
+    - pip install coverage cvxopt numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s gurobi -o gurobi_matint=False
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with Gurobi (matrix interface).
+# NOTE: See above.
+# NOTE: SciPy is an optional dependcy of Gurobi that PICOS requires.
+test_gurobi_matrix:
+  stage: test
+  image: gurobi/python
+  before_script:
+    - pip install coverage cvxopt numpy scipy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s gurobi -o gurobi_matint=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with MOSEK (Optimizer).
+# NOTE: The public server is limited to 1000 variables and 1000 constraints.
+# TODO: Use concurrent testing as this yields a significant speedup.
+#       Unfortunately, test.py currently uses concurrencytest which forks and
+#       this confuses coverage.py.
+test_mosek:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt mosek numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s mosek -o
+      'mosek_server="http://solve.mosek.com:30080"'
+      'mosek_server="http://solve.mosek.com:30080";dualize=True'
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with MOSEK (Fusion).
+# NOTE: See also MOSEK (Optimizer).
+test_mskfsn:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt mosek numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s mskfsn -o
+      'mosek_server="http://solve.mosek.com:30080"'
+      'mosek_server="http://solve.mosek.com:30080";dualize=True'
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with OSQP.
+test_osqp:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt osqp
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s osqp -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with QICS.
+test_qics:
+  stage: test
+  image: python:3.9
+  before_script:
+    - pip install coverage cvxopt qics
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s qics -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run production tests with SCIP.
+test_scip:
+  stage: test
+  image: scipoptsuite/scipoptsuite:7.0.2
+  before_script:
+    - pip install coverage cvxopt numpy
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -p -vv -s scip -o _ dualize=True
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Run doctests.
+# FIXME: Due to #211, not all doctests are run here.
+doctests:
+  stage: test
+  before_script:
+    - >
+      pacman -Syu --noconfirm
+      python-coverage python-cvxopt python-networkx python-numpy
+      python-setuptools
+  script:
+    - >
+      coverage run -p --source picos
+      ./test.py -u -vv
+  artifacts:
+    paths:
+      - .coverage.*
+
+# Detect do-not-commit-this comments left in the code.
+leftovers:
+  stage: test
+  script:
+    - (! grep -qr XXX picos tests)
+
+# Check limited PEP 8 and PEP 257 compliance.
+style:
+  stage: test
+  image: python
+  before_script:
+    - pip install ruff
+  script:
+    - >
+      ruff check
+      --select D,E
+      --ignore D105,D203,D213,D401,E221,E226,E271,E272,E501,E702,E741
+      picos tests
+  allow_failure: true
+
+# Check line lengths.
+linelength:
+  stage: test
+  script:
+    - (! find picos tests -name '*.py' -print0|xargs -0 grep '^.\{81,\}$')
+  allow_failure: true
+
+# ------------------------------------------------------------------------------
+# Stage 'prepare'
+# ------------------------------------------------------------------------------
+
+# Merge and report test coverage.
+coverage:
+  stage: prepare
+  needs:
+    - test_cplex
+    - test_cvxopt
+    - test_ecos
+    - test_glpk
+    - test_gurobi_legacy
+    - test_gurobi_matrix
+    - test_mosek
+    - test_mskfsn
+    - test_osqp
+    - test_qics
+    - test_scip
+    - doctests
+  dependencies:
+    - test_cplex
+    - test_cvxopt
+    - test_ecos
+    - test_glpk
+    - test_gurobi_legacy
+    - test_gurobi_matrix
+    - test_mosek
+    - test_mskfsn
+    - test_osqp
+    - test_qics
+    - test_scip
+    - doctests
+  before_script:
+    - pacman -Syu --noconfirm python-coverage
+  script:
+    - coverage combine
+    - coverage report --precision=2
+    - coverage xml
+    - coverage html --precision=2
+  coverage: '/^TOTAL.+?(\d+\.\d+\%)$/'
+  artifacts:
+    paths:
+      - htmlcov
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+# Create and test a source distribution.
+sdist:
+  stage: prepare
+  dependencies: []
+  before_script:
+    - >
+      pacman -Syu --noconfirm
+      git python-cvxopt python-numpy python-rich python-setuptools-scm
+      python-wheel twine
+  script:
+    - ./setup.py sdist
+    - cd dist
+    - twine check picos-*.tar.gz  # Check if upload would succeed.
+    - mkdir test
+    - tar xf picos-*.tar.gz -C test
+    - cd test/picos-*
+    - python -c "import picos"  # Check if import would succeed.
+  artifacts:
+    paths:
+      - dist/picos-*.tar.gz
+
+# Create and test conda packages.
+conda:
+  stage: prepare
+  image: conda/miniconda3
+  dependencies: []
+  before_script:
+    - conda init bash
+  script:
+    - ./conda/release.sh build
+  artifacts:
+    paths:
+      - conda/build
+
+# Build the documentation in HTML and PDF format.
+documentation:
+  stage: prepare
+  dependencies: []
+  before_script:
+    - >
+      pacman -Syu --noconfirm
+      git glpk graphviz python-cvxopt python-matplotlib python-networkx
+      python-numpy python-pillow python-pip python-scipy python-wheel swig
+      texlive
+    # HACK: Fix bullet lists.
+    - pip install docutils==0.16 sphinx==5.3.0 standard-imghdr --break-system-packages
+    - pip install autoapi picos-sphinx-theme swiglpk --break-system-packages
+    - pip install qics --break-system-packages    # For QREP doctests
+  script:
+    # Run doctests to catch any Sphinx-specific setups not covered by test.py.
+    - sphinx-build -b doctest doc doctest
+    # HACK: Run doctest twice to catch autoapi output.
+    - sphinx-build -b doctest doc doctest
+    # Build HTML documentation.
+    - sphinx-build -W -b html doc html
+    # Build PDF documentation.
+    - sphinx-build -W -b latex doc latex
+    - make -C latex
+    # HACK: Work around autoapi using relative paths to math images.
+    - ln -rs html/_* html/api/
+  artifacts:
+    paths:
+      - html
+      - latex/picos.pdf
+
+# ------------------------------------------------------------------------------
+# Stage 'deploy'
+# ------------------------------------------------------------------------------
+
+# Upload package to PyPI.
+
+pypi:
+  stage: deploy
+  dependencies:
+    - sdist
+  before_script:
+    - >
+      pacman -Syu --noconfirm
+      python-rich python-setuptools-scm python-wheel twine
+  script:
+    - cd dist
+    - twine upload picos-*.tar.gz
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+# Upload package to Anaconda.
+anaconda:
+  stage: deploy
+  image: conda/miniconda3
+  dependencies:
+    - conda
+  before_script:
+    - conda init bash
+  script:
+    - ./conda/release.sh upload
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+# Publish the online documentation.
+pages:
+  stage: deploy
+  dependencies:
+    - coverage
+    - documentation
+  script:
+    - mkdir public
+    - mv -v html/* public
+    - mv -v latex/picos.pdf public
+    - mv -v htmlcov public/coverage
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+# vi:ts=2:et:ai

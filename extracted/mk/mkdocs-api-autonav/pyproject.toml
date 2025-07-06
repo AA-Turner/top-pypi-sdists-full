@@ -1,0 +1,124 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://hatch.pypa.io/latest/config/metadata/
+[tool.hatch.version]
+source = "vcs"
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "mkdocs-api-autonav"
+dynamic = ["version"]
+description = "Autogenerate API docs with mkdocstrings, including nav"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Talley Lambert", email = "talley.lambert@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = ["mkdocs>=1.6", "mkdocstrings-python>=1.11.0", "pyyaml >=5"]
+
+[project.entry-points."mkdocs.plugins"]
+api-autonav = "mkdocs_api_autonav.plugin:AutoAPIPlugin"
+
+[project.urls]
+homepage = "https://github.com/tlambert03/mkdocs-api-autonav"
+repository = "https://github.com/tlambert03/mkdocs-api-autonav"
+
+[dependency-groups]
+dev = [
+    "ipython>=8.18.1",
+    "mkdocs-awesome-nav>=3.1.1 ; python_full_version >= '3.10'",
+    "mypy>=1.14.1",
+    "pdbpp>=0.10.3; sys_platform == 'darwin'",
+    "pre-commit-uv>=4.1.0",
+    "pyright>=1.1.393",
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "rich>=13.9.4",
+    "ruff>=0.9.3",
+    "types-pyyaml>=6.0.12.20250516",
+]
+
+# https://docs.astral.sh/ruff
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+src = ["src"]
+
+# https://docs.astral.sh/ruff/rules
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "D401", # First line should be in imperative mood (remove to opt in)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = false # default is false
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+files = "src/**/"
+strict = true
+disallow_any_generics = false
+disallow_subclassing_any = false
+show_error_codes = true
+pretty = true
+
+# https://docs.pytest.org/
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+# https://coverage.readthedocs.io/
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "\\.\\.\\.",
+    "raise NotImplementedError()",
+    "pass",
+]
+
+[tool.coverage.run]
+source = ["mkdocs_api_autonav"]
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.9"
+venv = ".venv"

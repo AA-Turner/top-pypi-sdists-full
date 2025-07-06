@@ -1,0 +1,142 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'rocm-docs-core'
+version = "1.21.1"
+authors=[
+  {name="Lauren Wrubleski", email="Lauren.Wrubleski@amd.com"}
+]
+description ='Core utilities for all ROCm documentation on RTD'
+readme="README.md"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+dependencies = [
+  "GitPython>=3.1.30",
+  "PyGithub>=1.58.1",
+  "sphinx>=5.3.0",
+  "breathe>=4.34.0",
+  "myst-nb>=1.1.2",
+  "pydata-sphinx-theme==0.16.1",
+  "sphinx-book-theme>=1.0.1",
+  "sphinx-copybutton>=0.5.1",
+  "sphinx-design>=0.3.0",
+  "sphinx_external_toc>=0.3.1",
+  "sphinx-notfound-page>=0.8.3",
+  "pyyaml>=6.0",
+  "fastjsonschema>=2.16"
+]
+requires-python = ">=3.10"
+
+[project.urls]
+repository="https://github.com/ROCm/rocm-docs-core"
+documentation="https://rocm.docs.amd.com"
+
+[project.optional-dependencies]
+api_reference = [
+  "doxysphinx>=3.3.2"
+]
+development = [
+  "black>=22.1",
+  "build>=0.10.0",
+  "commitizen>=2.42",
+  "isort>=5.12.0",
+  "mypy>=1.3.0",
+  "pip-tools>=6.13.0",
+  "pre-commit>=3.3.2",
+  "pytest>=7.4.2",
+  "ruff>=0.0.269",
+  "sphinxcontrib.doxylink>=1.12.2"
+]
+
+[project.entry-points."sphinx.html_themes"]
+rocm_docs_theme = "rocm_docs.theme"
+
+[tool.setuptools.packages.find]
+where=["src"]
+
+[tool.setuptools.package-data]
+rocm_docs = ["data/**/*", "rocm_docs_theme/**/*", "py.typed"]
+
+[tool.black]
+target-version = ["py310"]
+line-length = 80
+color = true
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "1.21.1"
+version_files = ["pyproject.toml:^version", "docs/conf.py:^(version|release)"]
+tag_format = "v$version"
+annotated_tag = true
+
+[tool.isort]
+# https://github.com/timothycrosley/isort/
+py_version = "310"
+line_length = 80
+
+known_typing = ["typing", "types", "typing_extensions", "mypy", "mypy_extensions"]
+sections = ["FUTURE", "TYPING", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+include_trailing_comma = true
+profile = "black"
+multi_line_output = 3
+indent = 4
+color_output = true
+
+[tool.mypy]
+allow_redefinition = false
+check_untyped_defs = true
+color_output = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+exclude = ["^docs", "^tests/(sites|templates)"]
+implicit_reexport = false
+pretty = true
+python_version = "3.10"
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+show_traceback = true
+strict_equality = true
+strict_optional = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.ruff]
+lint.select = ["ARG","C4","D","E","F","FA","N","PT","RET","RUF","SIM","UP","W"]
+lint.ignore = ["E501", "D203", "D213", "D4"]
+target-version = "py310"
+exclude = ["tests/sites", "tests/templates"]
+line-length = 80
+
+[tool.ruff.lint.per-file-ignores]
+"src/**/*" = ["PT"]
+"tests/conftest.py" = ["F401", "F403"]
+"tests/test_*.py" = ["D"]
+
+[tool.pytest.ini_options]
+markers = [
+    "for_all_folders: perform multiple calls based on test folders",
+    "template_folder: use the folder as a template to copy data over it",
+    "meta_invert_fixture: invert the meaning of the fixture for testing"
+]
+addopts = ["--doctest-modules", "--ignore=tests/sites"]
+filterwarnings = """
+ignore::DeprecationWarning
+default::DeprecationWarning:rocm_docs
+default::PendingDeprecationWarning:rocm_docs
+ignore::PendingDeprecationWarning
+default::DeprecationWarning:tests
+default::DeprecationWarning:rocm_docs
+"""

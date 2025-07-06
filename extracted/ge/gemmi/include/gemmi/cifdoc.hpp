@@ -9,7 +9,6 @@
 #include "atox.hpp"  // for string_to_int
 #include "fail.hpp"  // for fail
 #include "util.hpp"  // for starts_with, to_lower, cat
-#include <cassert>
 #include <cstddef>   // for size_t
 #include <cstring>   // for memchr
 #include <algorithm> // for move, find_if, all_of, min, rotate
@@ -1156,6 +1155,19 @@ inline void check_for_duplicates(const Document& d) {
         if (!ok)
           cif_fail(d.source, block, item, "duplicate save_" + item.frame.name);
       }
+    }
+  }
+}
+
+// Empty loop is not a valid CIF syntax, but we parse it to accommodate
+// some broken CIF files. Only check_level>=2 shows an error.
+inline void check_empty_loops(const cif::Block& block, const std::string& source) {
+  for (const cif::Item& item : block.items) {
+    if (item.type == cif::ItemType::Loop) {
+      if (item.loop.values.empty() && !item.loop.tags.empty())
+        cif_fail(source, block, item, "empty loop with " + item.loop.tags[0]);
+    } else if (item.type == cif::ItemType::Frame) {
+      check_empty_loops(item.frame, source);
     }
   }
 }

@@ -39,6 +39,7 @@ fields_description = {
     'load': {
         'description': 'LOAD percent usage',
         'unit': 'percent',
+        'alert': True,
     },
     'cpu_log_core': {
         'description': 'Number of logical CPU core',
@@ -72,7 +73,7 @@ items_history_list = [
 ]
 
 
-class PluginModel(GlancesPluginModel):
+class QuicklookPlugin(GlancesPluginModel):
     """Glances quicklook plugin.
 
     'stats' is a dictionary.
@@ -157,10 +158,6 @@ class PluginModel(GlancesPluginModel):
         for key in self.stats_list:
             if key in self.stats:
                 self.views[key]['decoration'] = self.get_alert(self.stats[key], header=key)
-
-        # Alert for LOAD
-        if 'load' in self.stats:
-            self.views['load']['decoration'] = self.get_alert(self.stats['load'], header='load')
 
         # Define the list of stats to display
         self.views['list'] = self.stats_list

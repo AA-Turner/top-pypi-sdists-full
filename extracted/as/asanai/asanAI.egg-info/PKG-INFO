@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: asanAI
+Version: 285
+Summary: Tools to help with the scripts created by asanAI
+Home-page: https://asanai.scads.ai/
+Author: Norman Koch
+Author-email: norman.koch@tu-dresden.de
+Platform: Linux
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: protobuf
+Requires-Dist: beartype
+Requires-Dist: scikit-image
+Requires-Dist: numpy
+Requires-Dist: opencv-python
+Requires-Dist: rich
+Requires-Dist: psutil
+Requires-Dist: keras
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: platform
+
+# What is this?
+
+[![Release Workflow](https://github.com/NormanTUD/asanAI_python/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/NormanTUD/asanAI_python/actions/workflows/release.yml)
+
+The idea here is that this allows a generalized way of doing ML stuff from asanAI from within modules.

@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: gridmeter
+Version: 1.1.0
+Summary: Tools for stratified sampling for comparison groups
+Home-page: http://github.com/recurve-methods/comparison_groups
+Author: Recurve Analytics, Inc
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: off-dataflow

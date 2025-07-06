@@ -1,21 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: ansible-pygments
-Version: 0.1.1
+Version: 0.1.2
 Summary: Tools for building the Ansible Distribution
-Home-page: https://github.com/ansible-community/ansible-pygments
 License: BSD-2-Clause
 Author: Felix Fontein
 Author-email: felix@fontein.de
-Requires-Python: >=3.6.0,<4.0.0
+Requires-Python: >=3.9.0
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: pygments (>=2.4.0)
 Project-URL: Bug tracker, https://github.com/ansible-community/ansible-pygments/issues
 Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html
@@ -25,10 +24,11 @@ Project-URL: Mailing lists, https://docs.ansible.com/ansible/latest/community/co
 Project-URL: Repository, https://github.com/ansible-community/ansible-pygments
 Description-Content-Type: text/markdown
 
-# [Pygments] lexer and style Ansible snippets
+[![🧪 GitHub Actions CI/CD workflow tests badge]][GHA workflow runs list]
+[![pre-commit.ci status badge]][pre-commit.ci results page]
+[![Codecov badge]][Codecov coverage page]
 
-[![GitHub Actions CI/CD workflow](https://github.com/ansible-community/ansible-pygments/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ansible-community/ansible-pygments/actions/workflows/ci-cd.yml)
-[![Codecov badge](https://img.shields.io/codecov/c/github/ansible-community/ansible-pygments)](https://codecov.io/gh/ansible-community/ansible-pygments)
+# [Pygments] lexer and style Ansible snippets
 
 This project provides a [Pygments] lexer that is able to handle
 [Ansible] output. It may be used anywhere Pygments is integrated.
@@ -65,6 +65,20 @@ shown above.
 ```python
 pygments_style = 'ansible'
 ```
+
+[Codecov badge]:
+https://img.shields.io/codecov/c/github/ansible-community/ansible-pygments
+[Codecov coverage page]:
+https://codecov.io/gh/ansible-community/ansible-pygments
+
+[🧪 GitHub Actions CI/CD workflow tests badge]:
+https://github.com/ansible-community/ansible-pygments/actions/workflows/ci-cd.yml/badge.svg?branch=main&event=push
+[GHA workflow runs list]: https://github.com/ansible-community/ansible-pygments/actions/workflows/ci-cd.yml?query=branch%3Amain
+
+[pre-commit.ci results page]:
+https://results.pre-commit.ci/latest/github/ansible-community/ansible-pygments/main
+[pre-commit.ci status badge]:
+https://results.pre-commit.ci/badge/github/ansible-community/ansible-pygments/main.svg
 
 [Ansible]: https://www.ansible.com/?utm_medium=github-or-pypi&utm_source=ansible-pygments--readme
 [Pygments]: https://pygments.org

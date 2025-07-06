@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include <nanobind/operators.h>
+#include <nanobind/make_iterator.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>  // for expand_one_letter_sequence
@@ -65,6 +66,15 @@ void add_elem(nb::module_& m) {
     .def("calculate_density_iso", &C4322::Coef::calculate_density_iso,
          nb::arg("r2"), nb::arg("B"))
     ;
+  using CustomCoef = CustomCoef<double>;
+  m.def("set_custom_form_factors", [](const std::vector<decltype(CustomCoef::Coef::coefs)>& pp) {
+      CustomCoef::data.clear();
+      CustomCoef::Coef item;
+      for (const auto& p : pp) {
+        item.set_coefs(p);
+        CustomCoef::data.push_back(item);
+      }
+  });
 
   // neutron92.hpp
   using Neutron92 = gemmi::Neutron92<double>;
@@ -127,7 +137,8 @@ void add_elem(nb::module_& m) {
     .value("ELS", ResidueKind::ELS);
 
   nb::class_<ResidueInfo>(m, "ResidueInfo")
-    .def_ro("kind", &ResidueInfo::kind)
+    .def_ro("name", &ResidueInfo::name)
+    .def_rw("kind", &ResidueInfo::kind)
     .def_ro("one_letter_code", &ResidueInfo::one_letter_code)
     .def_ro("hydrogen_count", &ResidueInfo::hydrogen_count)
     .def_ro("weight", &ResidueInfo::weight)
@@ -139,9 +150,17 @@ void add_elem(nb::module_& m) {
     .def("is_amino_acid", &ResidueInfo::is_amino_acid);
 
   m.def("find_tabulated_residue", &find_tabulated_residue, nb::arg("name"),
+        nb::rv_policy::reference,
         "Find chemical component information in the internal table.");
+  m.def("find_tabulated_residue_idx", &find_tabulated_residue_idx, nb::arg("name"));
   m.def("expand_one_letter", &expand_one_letter);
   m.def("expand_one_letter_sequence", &expand_one_letter_sequence);
+  nb::handle mod = m;
+  m.def("resinfo_table", [mod]() {
+      ResidueInfo* start = &gemmi::get_residue_info(0);
+      return nb::make_iterator<nb::rv_policy::reference>(mod, "spacegroup_iterator",
+                                                         start, start+362);
+  });
 }
 
 void add_xds(nb::module_& m) {

@@ -1,0 +1,225 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8", "wheel", "cython"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rosettasciio"
+description = "Reading and writing scientific file formats"
+requires-python = ">=3.9"
+readme = "README.md"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+  "dask[array] >=2022.9.2", # aligned with hyperspy for convenience
+  "python-dateutil",
+  "numpy >=1.20",
+  "pint >=0.8",
+  # python-box API changed on major release
+  # and compatibility needs to be checked
+  "python-box >=6,<8,!=7.3.1",
+  "pyyaml",
+]
+dynamic = ["version"]
+keywords = [
+    "electron microscopy",
+    "hyperspy",
+    "input/output",
+    "io",
+    "microscopy",
+    "scientific data formats",
+    "spectroscopy",
+    "numpy",
+    "python",
+    "scipy",
+    "asw",
+    "blo",
+    "bcf",
+    "de5",
+    "dens",
+    "dm3",
+    "dm4",
+    "eds",
+    "elid",
+    "emd",
+    "emi",
+    "hdf5",
+    "hspy",
+    "img",
+    "itex",
+    "map",
+    "mib",
+    "mrc",
+    "mrcz",
+    "msa",
+    "nxs",
+    "prz",
+    "pts",
+    "rpl",
+    "ser",
+    "spc",
+    "sur",
+    "spx",
+    "tvf",
+    "tvips",
+    "unf",
+    "usid",
+    "wdf",
+    "zspy",
+]
+
+[project.urls]
+"Homepage" = "https://hyperspy.org/rosettasciio"
+"Bug Reports" = "https://github.com/hyperspy/rosettasciio/issues"
+"Source" = "https://github.com/hyperspy/rosettasciio"
+
+[project.license]
+file = "COPYING.txt"
+
+[project.optional-dependencies]
+arina = ["h5py>=2.3", "hdf5plugin"]
+blockfile = ["scikit-image>=0.18"]
+eds-stream = ["sparse"]
+hdf5 = ["h5py>=2.3"]
+image = ["imageio>=2.16"]
+mrcz = ["mrcz>=0.3.6"]
+scalebar_export = ["matplotlib-scalebar", "matplotlib>=3.6"]
+speed = ["numba>=0.53"]
+tiff = ["tifffile>=2022.7.28", "imagecodecs"]
+usid = ["pyUSID>=0.0.11"]
+zspy = ["zarr>=2,<3", "msgpack"]
+tests = [
+  "filelock",
+  "pooch",
+  "pytest>=3.6",
+  "pytest-xdist",
+  "pytest-rerunfailures",
+  "pytest-cov",
+  "setuptools_scm",
+]
+doc = [
+  "numpydoc",
+  "pooch",
+  "pydata-sphinx-theme>=0.13",
+  "setuptools_scm",
+  "sphinx",
+  "sphinx-favicon",
+  "sphinxcontrib-towncrier",
+  "sphinx-copybutton",
+  # unpin when sphinxcontrib-towncrier supports towncrier >=24
+  "towncrier<24",
+  "sphinx_design",
+]
+all = [
+  "rosettasciio[blockfile]",
+  "rosettasciio[eds-stream]",
+  "rosettasciio[hdf5]",
+  "rosettasciio[arina]",
+  "rosettasciio[mrcz]",
+  "rosettasciio[scalebar_export]",
+  "rosettasciio[speed]",
+  "rosettasciio[tiff]",
+  "rosettasciio[usid]",
+  "rosettasciio[zspy]",
+]
+dev = [
+  "ruff",
+  "rosettasciio[doc]",
+  "rosettasciio[all]",
+  "rosettasciio[tests]"
+]
+
+[tool.cibuildwheel]
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp313t-*"]
+enable = ["cpython-freethreading"]
+# No need to build wheels for pypy because the pure python wheels can be used
+# PyPy documentation recommends no to build the C extension
+skip = ["pp*", "*-musllinux*", "*win32", "*-manylinux_i686"]
+test-command = "pytest --pyargs rsciio"
+test-extras = ["tests"]
+
+[tool.pytest.ini_options]
+# Note we may need to use `-n 2` argument for pytest-xdist on CI
+# due to https://github.com/pytest-dev/pytest-xdist/issues/9.
+#  "-ra",  # Display summary: "all except passes"
+#  "--numprocesses auto --dist loadfile", # for pytest-xdist
+addopts = "-ra --numprocesses auto --dist loadfile"
+minversion = "6.0"
+testpaths = [
+  "rsciio/tests",
+]
+
+[tool.setuptools.packages.find]
+where = ["."] # default
+include = ["rsciio*"]
+# Excluding rsciio.tests.data folder is done in MANIFEST.in
+# because setuptools doesn't support it in pyproject.toml
+
+[tool.setuptools.package-data]
+"rsciio" = ["*test_compilers.c", "*.yaml", "*registry.txt"]
+
+[tool.setuptools_scm]
+# Presence enables setuptools_scm, the version will be determine at build time from git
+# The version will be updated by the `prepare_release.py` script
+fallback_version = "0.10.dev0"
+
+[tool.towncrier]
+directory = "upcoming_changes/"
+filename = "CHANGES.rst"
+issue_format = "`#{issue} <https://github.com/hyperspy/rosettasciio/issues/{issue}>`_"
+title_format = "{version} ({project_date})"
+package = "rsciio"
+type = [
+    { directory = "new", name = "New features", showcontent = true },
+    { directory = "enhancements", name = "Enhancements", showcontent = true },
+    { directory = "bugfix", name = "Bug Fixes", showcontent = true },
+    { directory = "api", name = "API changes", showcontent = true },
+    { directory = "deprecation", name = "Deprecations", showcontent = true },
+    { directory = "doc", name = "Improved Documentation", showcontent = true },
+    { directory = "maintenance", name = "Maintenance", showcontent = true },
+]
+
+[tool.coverage.run]
+branch = true
+source = ["rsciio"]
+omit = [
+  "prepare_release.py",
+  "rsciio/tests/*",
+  "setup.py",
+  "update_registry.py"
+]
+
+[tool.coverage.report]
+precision = 2
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I001",
+    # flake8-print
+    "T20",
+]
+exclude = [
+    "examples",
+    ]
+# Rely on the formatter to define line-length
+# and avoid conflicting lint rules
+# https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+extend-ignore = ["E501"]

@@ -36,15 +36,58 @@ EMPTY_NOTICE = "⚛️ [QPU EMPTY RETURN NOTICE]:"
 # ───────────────────────────────────────────────────────────────────────────────
 # Functions to load environment variables
 # ───────────────────────────────────────────────────────────────────────────────
+# def _load_environment():
+#     load_dotenv()
+#     path = find_dotenv(usecwd=True)
+#     if path:
+#         load_dotenv(path, override=True)
+#     else:
+#         home = Path.home() / '.env'
+#         if home.is_file():
+#             load_dotenv(home, override=True)
+
 def _load_environment():
-    load_dotenv()
+    """Load environment variables from various .env patterns."""
+    load_dotenv()  # First: try default behavior (may pick up .env automatically)
+    
+    # 1️⃣ Try standard dotenv search in CWD and parent folders
     path = find_dotenv(usecwd=True)
-    if path:
+    if path and Path(path).is_file():
         load_dotenv(path, override=True)
-    else:
-        home = Path.home() / '.env'
-        if home.is_file():
-            load_dotenv(home, override=True)
+        return
+
+    # 2️⃣ Look for any *.env file in the current working directory
+    cwd = Path.cwd()
+    any_env_files = list(cwd.glob("*.env"))
+    if any_env_files:
+        first_match = any_env_files[0]
+        load_dotenv(first_match, override=True)
+        return
+
+    # 3️⃣ Look for explicit .env in CWD
+    dot_env = cwd / ".env"
+    if dot_env.is_file():
+        load_dotenv(dot_env, override=True)
+        return
+
+    # 4️⃣ Look for default.env in CWD
+    default_env = cwd / "default.env"
+    if default_env.is_file():
+        load_dotenv(default_env, override=True)
+        return
+
+    # 5️⃣ Finally, fallback to $HOME/.env
+    home_env = Path.home() / ".env"
+    if home_env.is_file():
+        load_dotenv(home_env, override=True)
+        return
+
+    # 🚨 If nothing found, raise an error
+    raise FileNotFoundError(
+        "No environment file found for quantum backend connectivity! "
+        "Checked: find_dotenv, *.env, .env, default.env in CWD, and $HOME/.env"
+    )
+
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Functions to check jupyter notebook::
@@ -421,6 +464,28 @@ def get_qpu_processor_type(backend_name: str) -> dict:
 # Class to connect to Qiskit Runtime Service
 # ───────────────────────────────────────────────────────────────────────────────
 class QConnectorV2:
+    """
+    QConnectorV2 is a class that connects to the IBM Quantum Qiskit Runtime Service
+    and retrieves the least busy QPU backend based on the user's plan.
+    It provides information about the backend, including its name, version, and operational status.
+
+    Usage:
+    >>> from qiskit_connector import QConnectorV2
+    >>> backend = QConnectorV2() as connector:
+    >>> print(backend.name)  # Prints the name of the least busy QPU backend
+    >>> print(backend.version)  # Prints the version of the backend
+    >>> print(backend.num_qubits)  # Prints the number of qubits in the backend
+    >>> print(backend.operational)  # Prints whether the backend is operational or not
+    >>> print(backend.processor_type)  # Prints the processor type information of the backend
+    >>> processor_info = get_qpu_processor_type(backend.name)  # Retrieves processor type
+    >>> print(processor_info)  # Prints the processor type information 
+    >>> For Open Plan:
+            >>> sampler = Sampler(mode=backend)            # Open Plan does not support session
+    >>> For Paid Plan:   
+            >>> with Session(backend=backend) as session:   # Paid Plan supports session
+                    sampler = Sampler(session=session)
+                    estimator = Estimator(session=session)         
+    """
     def __new__(cls):
         key,name,human = _get_plan()
         _load_environment()
@@ -481,6 +546,15 @@ class QConnectorV2:
 # Class to get the Qiskit Runtime Service plan
 # ───────────────────────────────────────────────────────────────────────────────
 class QPlanV2:
+    """ QPlanV2 is a class that retrieves the current plan information
+    from environment variables and provides a human-readable tag for the plan.                                                              
+    It is used to determine the type of plan the user is subscribed to, such as Open Plan, Pay-as-you-go Plan, Flex Plan, Premium Plan, or Dedicated Plan.          
+
+    Usage:
+    >>> from qiskit_connector import QPlanV2 as plan
+    >>> current = plan()  # Retrieves the current plan information
+    >>> print(current)    # Prints the human-readable plan (Openn Plan or Paid Plan)
+    """
     def __new__(cls):
         _,_,human = _get_plan()
         return human

@@ -18,7 +18,7 @@ from urllib.parse import urljoin
 
 from glances import __apiversion__, __version__
 from glances.events_list import glances_events
-from glances.globals import json_dumps
+from glances.globals import json_dumps, weak_lru_cache
 from glances.logger import logger
 from glances.password import GlancesPassword
 from glances.processes import glances_processes
@@ -141,6 +141,12 @@ class GlancesRestfulApi:
         self.TEMPLATE_PATH = os.path.join(webui_root_path, 'static/templates')
         self._templates = Jinja2Templates(directory=self.TEMPLATE_PATH)
 
+        # FastAPI Enable GZIP compression
+        # https://fastapi.tiangolo.com/advanced/middleware/
+        # Should be done before other middlewares to avoid
+        # LocalProtocolError("Too much data for declared Content-Length")
+        self._app.add_middleware(GZipMiddleware, minimum_size=1000)
+
         # FastAPI Enable CORS
         # https://fastapi.tiangolo.com/tutorial/cors/
         self._app.add_middleware(
@@ -151,10 +157,6 @@ class GlancesRestfulApi:
             allow_methods=config.get_list_value('outputs', 'cors_methods', default=["*"]),
             allow_headers=config.get_list_value('outputs', 'cors_headers', default=["*"]),
         )
-
-        # FastAPI Enable GZIP compression
-        # https://fastapi.tiangolo.com/advanced/middleware/
-        self._app.add_middleware(GZipMiddleware, minimum_size=1000)
 
         # FastAPI Define routes
         self._app.include_router(self._router())
@@ -196,7 +198,7 @@ class GlancesRestfulApi:
     def authentication(self, creds: Annotated[HTTPBasicCredentials, Depends(security)]):
         """Check if a username/password combination is valid."""
         if creds.username == self.args.username:
-            # check_password and get_hash are (lru) cached to optimize the requests
+            # check_password
             if self._password.check_password(self.args.password, self._password.get_hash(creds.password)):
                 return creds.username
 
@@ -217,7 +219,7 @@ class GlancesRestfulApi:
         # ==========================
 
         # HEAD
-        router.add_api_route(f'{base_path}/status', self._api_status, methods=['HEAD', 'GET'])
+        router.add_api_route(f'{base_path}/status', self._api_status, methods=['HEAD'])
 
         # POST
         router.add_api_route(f'{base_path}/events/clear/warning', self._events_clear_warning, methods=['POST'])
@@ -230,6 +232,7 @@ class GlancesRestfulApi:
         )
 
         # GET
+        router.add_api_route(f'{base_path}/status', self._api_status, methods=['GET'])
         route_mapping = {
             f'{base_path}/config': self._api_config,
             f'{base_path}/config/{{section}}': self._api_config_section,
@@ -264,7 +267,7 @@ class GlancesRestfulApi:
             router.add_api_route(path, endpoint)
 
         # Browser WEBUI
-        if self.args.browser:
+        if hasattr(self.args, 'browser') and self.args.browser:
             # Template for the root browser.html file
             router.add_api_route('/browser', self._browser, response_class=HTMLResponse)
 
@@ -453,6 +456,7 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(self.servers_list.get_servers_list() if self.servers_list else [])
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_all(self):
         """Glances API RESTful implementation.
 
@@ -474,12 +478,14 @@ class GlancesRestfulApi:
 
         try:
             # Get the RAW value of the stat ID
+            # TODO in #3211: use getAllExportsAsDict instead but break UI for uptime, processlist, others ?
             statval = self.stats.getAllAsDict()
         except Exception as e:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Cannot get stats ({str(e)})")
 
         return GlancesJSONResponse(statval)
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_all_limits(self):
         """Glances API RESTful implementation.
 
@@ -496,6 +502,7 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(limits)
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_all_views(self):
         """Glances API RESTful implementation.
 
@@ -512,6 +519,7 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(limits)
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api(self, plugin: str):
         """Glances API RESTful implementation.
 
@@ -541,6 +549,7 @@ class GlancesRestfulApi:
             status.HTTP_400_BAD_REQUEST, f"Unknown plugin {plugin} (available plugins: {self.plugins_list})"
         )
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_top(self, plugin: str, nb: int = 0):
         """Glances API RESTful implementation.
 
@@ -558,17 +567,17 @@ class GlancesRestfulApi:
 
         try:
             # Get the RAW value of the stat ID
+            # TODO in #3211: use get_export instead but break API
             statval = self.stats.get_plugin(plugin).get_raw()
         except Exception as e:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Cannot get plugin {plugin} ({str(e)})")
-
-        print(statval)
 
         if isinstance(statval, list):
             statval = statval[:nb]
 
         return GlancesJSONResponse(statval)
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_history(self, plugin: str, nb: int = 0):
         """Glances API RESTful implementation.
 
@@ -591,6 +600,7 @@ class GlancesRestfulApi:
 
         return statval
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_limits(self, plugin: str):
         """Glances API RESTful implementation.
 
@@ -603,12 +613,13 @@ class GlancesRestfulApi:
 
         try:
             # Get the RAW value of the stat limits
-            ret = self.stats.get_plugin(plugin).limits
+            ret = self.stats.get_plugin(plugin).get_limits()
         except Exception as e:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Cannot get limits for plugin {plugin} ({str(e)})")
 
         return GlancesJSONResponse(ret)
 
+    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_views(self, plugin: str):
         """Glances API RESTful implementation.
 
@@ -645,6 +656,7 @@ class GlancesRestfulApi:
 
         try:
             # Get the RAW value of the stat views
+            # TODO in #3211: use a non existing (to be created) get_export_item instead but break API
             ret = self.stats.get_plugin(plugin).get_raw_stats_item(item)
         except Exception as e:
             raise HTTPException(
@@ -669,6 +681,7 @@ class GlancesRestfulApi:
 
         try:
             # Get the RAW value of the stat views
+            # TODO in #3211: use a non existing (to be created) get_export_key instead but break API
             ret = self.stats.get_plugin(plugin).get_raw_stats_key(item, key)
         except Exception as e:
             raise HTTPException(
@@ -801,6 +814,7 @@ class GlancesRestfulApi:
 
         try:
             # Get the RAW value
+            # TODO in #3211: use a non existing (to be created) get_export_item_value instead but break API
             ret = self.stats.get_plugin(plugin).get_raw_stats_value(item, value)
         except Exception as e:
             raise HTTPException(

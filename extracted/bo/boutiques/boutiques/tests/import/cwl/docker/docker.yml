@@ -1,4 +1,0 @@
----
-src:
-    class: File
-    path: ./test_temp/hello.js

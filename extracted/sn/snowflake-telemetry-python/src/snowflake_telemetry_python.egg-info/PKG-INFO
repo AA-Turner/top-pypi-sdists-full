@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: snowflake-telemetry-python
+Version: 0.7.0
+Summary: Snowflake Telemetry for Python
+Home-page: https://www.snowflake.com/
+Author: Snowflake, Inc
+Author-email: support@snowflake.com
+Project-URL: Homepage, https://www.snowflake.com/
+Project-URL: Changelog, https://github.com/snowflakedb/snowflake-telemetry-python/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://docs.snowflake.com/en/developer-guide/logging-tracing/tracing-python
+Project-URL: Issues, https://github.com/snowflakedb/snowflake-telemetry-python/issues
+Project-URL: Repository, https://github.com/snowflakedb/snowflake-telemetry-python/
+Keywords: Snowflake db database cloud analytics warehouse
+Classifier: Development Status :: 1 - Planning
+Classifier: Environment :: Console
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: SQL
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+License-File: LICENSE.txt
+License-File: NOTICE.txt
+Requires-Dist: opentelemetry-api==1.26.0
+Requires-Dist: opentelemetry-sdk==1.26.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
+
+This package provides a set of telemetry APIs for developers building on the Snowflake platform.
+
+Documentation is available at: https://docs.snowflake.com/en/developer-guide/logging-tracing/tracing-python
+
+Source code is also available at: https://github.com/snowflakedb/snowflake-telemetry-python

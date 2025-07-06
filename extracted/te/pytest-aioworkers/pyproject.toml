@@ -1,0 +1,206 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-aioworkers"
+dynamic = ["version"]
+description = "A plugin to test aioworkers project with pytest"
+readme = "README.rst"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [
+    { name = "Alexander Malev", email = "malev@somedev.ru" },
+]
+keywords = [
+    "aioworkers",
+    "pytest",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AsyncIO",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "aioworkers>=0.22",
+    "pytest>=8.3.4",
+]
+[project.optional-dependencies]
+asyncio = [
+    "pytest-asyncio",
+]
+aiohttp = [
+    "pytest-aiohttp",
+]
+dev-test = [
+    "aioworkers==0.28.0",
+    "coverage[toml]==7.6.10",
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.0",
+    "pytest-timeout==2.3.1",
+    "pytest-mock==3.14.0",
+    "pyyaml==6.0.2",
+]
+dev-lint = [
+    "ruff==0.8.4",
+    "mypy==1.14.0",
+]
+
+[project.entry-points.pytest11]
+aioworkers = "pytest_aioworkers.plugin"
+
+[project.urls]
+GitHub = "https://github.com/aioworkers/pytest-aioworkers"
+Homepage = "https://github.com/aioworkers/pytest-aioworkers"
+Documentation = "https://github.com/aioworkers/pytest-aioworkers#readme"
+Issues = "https://github.com/aioworkers/pytest-aioworkers/issues"
+Source = "https://github.com/aioworkers/pytest-aioworkers"
+
+[tool.hatch.version]
+path = "pytest_aioworkers/__init__.py"
+
+[tool.hatch.build]
+include = [
+    "/pytest_aioworkers",
+]
+
+[tool.hatch.envs.default]
+features = [
+    "dev-test",
+]
+[tool.hatch.envs.default.scripts]
+cov = [
+    "coverage run -m pytest",
+    "coverage report",
+]
+
+[tool.hatch.envs.cov]
+detached = true
+dependencies = [
+    "coverage[toml]",
+]
+[tool.hatch.envs.cov.scripts]
+cov = "coverage run --append -m pytest_aioworkers.utils"
+
+[[tool.hatch.envs.all.matrix]]
+python = [
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = [
+    "pytest_aioworkers",
+    "tests",
+]
+addopts = [
+    "--doctest-modules",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = false
+source = [
+    "pytest_aioworkers",
+    "tests",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = [
+  # pycodestyle
+  "E",
+  # Pyflakes
+  "F",
+  # pyupgrade
+  # "UP",
+  # flake8-bugbear
+  "B",
+  # flake8-simplify
+  # "SIM",
+  # isort
+  "I",
+]
+extend-ignore = [
+    "E501",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+follow_imports = "silent"
+strict_optional = true
+warn_redundant_casts = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+]
+ignore_missing_imports = true
+
+[tool.hatch.envs.lint]
+python = "3.9"
+features = [
+    "dev-lint",
+]
+[tool.hatch.envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:pytest_aioworkers tests}"
+style = [
+    "ruff check {args:pytest_aioworkers tests}",
+    "ruff format --check --diff {args:pytest_aioworkers tests}",
+]
+fmt = [
+    "ruff check --fix {args:pytest_aioworkers tests}",
+    "ruff format {args:pytest_aioworkers tests}",
+    "style",
+]
+all = [
+    "style",
+    "typing",
+]
+
+[tool.hatch.envs.template]
+detached = true
+dependencies = [
+    "scaraplate",
+]
+[tool.hatch.envs.template.scripts]
+update = [
+    "scaraplate rollup --no-input {args:../cookiecutter-aioworkers-plugin} ."
+]
+clone = [
+    "git clone https://github.com/aioworkers/cookiecutter-aioworkers-plugin {args:../cookiecutter-aioworkers-plugin}"
+]

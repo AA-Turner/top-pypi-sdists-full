@@ -8,7 +8,6 @@ operations on input/output objects.  Separate unit tests should be
 created for that purpose.
 """
 
-import re
 from copy import copy
 import warnings
 
@@ -34,8 +33,8 @@ def test_named_ss():
     assert sys.input_labels == ['u[0]', 'u[1]']
     assert sys.output_labels == ['y[0]', 'y[1]']
     assert sys.state_labels == ['x[0]', 'x[1]']
-    assert ct.InputOutputSystem.__repr__(sys) == \
-        "<StateSpace:sys[0]:['u[0]', 'u[1]']->['y[0]', 'y[1]']>"
+    assert ct.iosys_repr(sys, format='info') == \
+        "<StateSpace sys[0]: ['u[0]', 'u[1]'] -> ['y[0]', 'y[1]']>"
 
     # Pass the names as arguments
     sys = ct.ss(
@@ -46,8 +45,8 @@ def test_named_ss():
     assert sys.input_labels == ['u1', 'u2']
     assert sys.output_labels == ['y1', 'y2']
     assert sys.state_labels == ['x1', 'x2']
-    assert ct.InputOutputSystem.__repr__(sys) == \
-        "<StateSpace:system:['u1', 'u2']->['y1', 'y2']>"
+    assert ct.iosys_repr(sys, format='info') == \
+        "<StateSpace system: ['u1', 'u2'] -> ['y1', 'y2']>"
 
     # Do the same with rss
     sys = ct.rss(['x1', 'x2', 'x3'], ['y1', 'y2'], 'u1', name='random')
@@ -56,8 +55,8 @@ def test_named_ss():
     assert sys.input_labels == ['u1']
     assert sys.output_labels == ['y1', 'y2']
     assert sys.state_labels == ['x1', 'x2', 'x3']
-    assert ct.InputOutputSystem.__repr__(sys) == \
-        "<StateSpace:random:['u1']->['y1', 'y2']>"
+    assert ct.iosys_repr(sys, format='info') == \
+        "<StateSpace random: ['u1'] -> ['y1', 'y2']>"
 
 
 # List of classes that are expected
@@ -285,7 +284,7 @@ def test_duplicate_sysname():
         # strip out matrix warnings
         warnings.filterwarnings("ignore", "the matrix subclass",
                                 category=PendingDeprecationWarning)
-        res = sys * sys
+        sys * sys
 
     # Generate a warning if the system is named
     sys = ct.rss(4, 1, 1)
@@ -293,7 +292,7 @@ def test_duplicate_sysname():
         sys.updfcn, sys.outfcn, inputs=sys.ninputs, outputs=sys.noutputs,
         states=sys.nstates, name='sys')
     with pytest.warns(UserWarning, match="duplicate object found"):
-        res = sys * sys
+        sys * sys
 
 
 # Finding signals
@@ -332,10 +331,10 @@ def test_find_signals():
 # Invalid signal names
 def test_invalid_signal_names():
     with pytest.raises(ValueError, match="invalid signal name"):
-        sys = ct.rss(4, inputs="input.signal", outputs=1)
+        ct.rss(4, inputs="input.signal", outputs=1)
 
     with pytest.raises(ValueError, match="invalid system name"):
-        sys = ct.rss(4, inputs=1, outputs=1, name="system.subsys")
+        ct.rss(4, inputs=1, outputs=1, name="system.subsys")
 
 
 # Negative system spect
@@ -363,3 +362,20 @@ def test_negative_system_spec():
     np.testing.assert_allclose(negfbk_negsig.B, negfbk_negsys.B)
     np.testing.assert_allclose(negfbk_negsig.C, negfbk_negsys.C)
     np.testing.assert_allclose(negfbk_negsig.D, negfbk_negsys.D)
+
+
+# Named signal representations
+def test_named_signal_repr():
+    sys = ct.rss(
+        states=2, inputs=['u1', 'u2'], outputs=['y1', 'y2'],
+        state_prefix='xi')
+    resp = sys.step_response(np.linspace(0, 1, 3))
+
+    for signal in ['inputs', 'outputs', 'states']:
+        sig_orig = getattr(resp, signal)
+        sig_eval = eval(repr(sig_orig),
+                        None,
+                        {'array': np.array,
+                         'NamedSignal': ct.NamedSignal})
+        assert sig_eval.signal_labels == sig_orig.signal_labels
+        assert sig_eval.trace_labels == sig_orig.trace_labels

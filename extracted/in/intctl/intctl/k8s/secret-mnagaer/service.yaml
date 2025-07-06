@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata: 
+  name: secret-manager-deployment
+  namespace: intellithing
+  labels:
+    app: secret-manager
+    proxy-managed: "true"
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 80
+  selector:
+    app: secret-manager
+  type: ClusterIP

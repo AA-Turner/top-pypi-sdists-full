@@ -33,7 +33,7 @@ fields_description = {
 }
 
 
-class PluginModel(GlancesPluginModel):
+class IrqPlugin(GlancesPluginModel):
     """Glances IRQ plugin.
 
     stats is a list
@@ -79,11 +79,6 @@ class PluginModel(GlancesPluginModel):
         self.stats = stats
 
         return self.stats
-
-    def update_views(self):
-        """Update stats views."""
-        # Call the father's method
-        super().update_views()
 
     def msg_curse(self, args=None, max_width=None):
         """Return the dict to display in the curse interface."""

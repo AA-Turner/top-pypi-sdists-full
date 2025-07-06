@@ -1,0 +1,53 @@
+name: Run tests
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - pyproject.toml
+      - Cargo.toml
+      - python/**/*.py
+      - src/**/*.rs
+      - tests/**/*.py
+
+  pull_request:
+    paths:
+      - pyproject.toml
+      - Cargo.toml
+      - python/**/*.py
+      - src/**/*.rs
+      - tests/**/*.py
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run_tests:
+    # Skip the entire job for fork PRs
+    if: ${{ !(github.event.pull_request.head.repo.fork) }}
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    timeout-minutes: 3
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.9", "3.13"]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: extractions/setup-just@v3
+
+      - name: Run pre-commit
+        run: just run-pre-commits
+
+      - name: Run tests
+        run: just test

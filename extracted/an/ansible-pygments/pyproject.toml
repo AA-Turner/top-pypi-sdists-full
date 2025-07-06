@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "ansible-pygments"
-version = "0.1.1"
+version = "0.1.2"
 description = "Tools for building the Ansible Distribution"
 authors = ["Felix Fontein <felix@fontein.de>"]
 license = "BSD-2-Clause"
@@ -35,23 +35,38 @@ Ansible = "ansible_pygments.styles:AnsibleStyle"
 ansible = "ansible_pygments.styles:AnsibleStyle"
 
 [tool.poetry.dependencies]
-python = "^3.6.0"
+python = ">= 3.9.0"
 # Pygments 2.4.0 includes bugfixes for YAML and YAML+Jinja lexers
 pygments = ">= 2.4.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 codecov = "*"
 flake8 = ">= 3.8.0"
 pylint = "*"
 pytest = "*"
 pytest-cov = "*"
+# The following is needed for unit tests to pass
+pygments = ">= 2.11.0"
 
 [tool.isort]
 balanced_wrapping = true
 include_trailing_comma = true
 indent = 4
+known_first_party = 'ansible_pygments'
+known_framework = 'pygments'
+known_testing = ['pytest', 'unittest']
 # Should be: 80 - 1
 line_length = 79
 # https://github.com/timothycrosley/isort#multi-line-output-modes
 multi_line_output = 5
+no_lines_before = 'LOCALFOLDER'
+sections = [
+    'FUTURE',
+    'STDLIB',
+    'FRAMEWORK',
+    'TESTING',
+    'THIRDPARTY',
+    'FIRSTPARTY',
+    'LOCALFOLDER',
+]
 use_parentheses = true

@@ -1,0 +1,190 @@
+Metadata-Version: 2.4
+Name: aiida-core
+Version: 2.7.0
+Summary: AiiDA is a workflow manager for computational science with a strong focus on provenance, performance and extensibility.
+Keywords: aiida,workflows
+Author-email: The AiiDA team <developers@aiida.net>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AiiDA
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE.txt
+Requires-Dist: alembic~=1.2
+Requires-Dist: archive-path~=0.4.2
+Requires-Dist: asyncssh~=2.19.0
+Requires-Dist: circus~=0.19.0
+Requires-Dist: click-spinner~=0.1.8
+Requires-Dist: click~=8.1.0
+Requires-Dist: disk-objectstore~=1.3.0
+Requires-Dist: docstring-parser
+Requires-Dist: get-annotations~=0.1;python_version<"3.10"
+Requires-Dist: graphviz~=0.19
+Requires-Dist: plumpy~=0.25.0
+Requires-Dist: ipython>=7
+Requires-Dist: jedi<0.19
+Requires-Dist: jinja2~=3.0
+Requires-Dist: kiwipy[rmq]~=0.8.4
+Requires-Dist: importlib-metadata~=6.0
+Requires-Dist: numpy~=1.21
+Requires-Dist: paramiko~=3.0
+Requires-Dist: pgsu~=0.3.0
+Requires-Dist: psutil~=5.6
+Requires-Dist: psycopg[binary]~=3.0
+Requires-Dist: pydantic~=2.4
+Requires-Dist: pytz~=2021.1
+Requires-Dist: pyyaml~=6.0
+Requires-Dist: requests~=2.0
+Requires-Dist: sqlalchemy~=2.0
+Requires-Dist: tabulate>=0.8.0,<0.10.0
+Requires-Dist: tqdm~=4.45
+Requires-Dist: typing-extensions~=4.0;python_version<"3.10"
+Requires-Dist: upf_to_json~=0.9.2
+Requires-Dist: wrapt~=1.11
+Requires-Dist: chardet~=5.2.0;platform_system=="Windows"
+Requires-Dist: PyCifRW~=4.4 ; extra == "atomic-tools"
+Requires-Dist: ase~=3.18 ; extra == "atomic-tools"
+Requires-Dist: matplotlib~=3.3,>=3.3.4 ; extra == "atomic-tools"
+Requires-Dist: pymatgen>=2022.1.20 ; extra == "atomic-tools"
+Requires-Dist: pymysql~=0.9.3 ; extra == "atomic-tools"
+Requires-Dist: seekpath~=1.9,>=1.9.3 ; extra == "atomic-tools"
+Requires-Dist: spglib>=1.14,<3.0 ; extra == "atomic-tools"
+Requires-Dist: bpython~=0.18.0 ; extra == "bpython"
+Requires-Dist: pydata-sphinx-theme~=0.15.1 ; extra == "docs"
+Requires-Dist: sphinx~=7.2.0 ; extra == "docs"
+Requires-Dist: sphinx-copybutton~=0.5.0 ; extra == "docs"
+Requires-Dist: sphinx-design~=0.5.0 ; extra == "docs"
+Requires-Dist: sphinx-notfound-page~=1.0 ; extra == "docs"
+Requires-Dist: sphinxext-rediraffe~=0.2.4 ; extra == "docs"
+Requires-Dist: sphinx-sqlalchemy~=0.2.0 ; extra == "docs"
+Requires-Dist: sphinx-intl~=2.1.0 ; extra == "docs"
+Requires-Dist: myst-nb~=1.0.0 ; extra == "docs"
+Requires-Dist: jupyter-client~=8.0 ; extra == "notebook"
+Requires-Dist: jupyter~=1.0 ; extra == "notebook"
+Requires-Dist: notebook~=6.1,>=6.1.5 ; extra == "notebook"
+Requires-Dist: aiida-core[atomic-tools, rest, tests, tui] ; extra == "pre-commit"
+Requires-Dist: mypy~=1.13.0 ; extra == "pre-commit"
+Requires-Dist: packaging~=23.0 ; extra == "pre-commit"
+Requires-Dist: pre-commit~=3.5 ; extra == "pre-commit"
+Requires-Dist: sqlalchemy[mypy]~=2.0 ; extra == "pre-commit"
+Requires-Dist: tomli ; extra == "pre-commit"
+Requires-Dist: types-PyYAML ; extra == "pre-commit"
+Requires-Dist: flask-cors~=3.0 ; extra == "rest"
+Requires-Dist: flask-restful~=0.3.7 ; extra == "rest"
+Requires-Dist: flask~=2.2 ; extra == "rest"
+Requires-Dist: pyparsing~=3.0 ; extra == "rest"
+Requires-Dist: python-memcached~=1.59 ; extra == "rest"
+Requires-Dist: seekpath~=1.9,>=1.9.3 ; extra == "rest"
+Requires-Dist: gssapi~=1.6 ; extra == "ssh-kerberos"
+Requires-Dist: pyasn1~=0.4.8 ; extra == "ssh-kerberos"
+Requires-Dist: aiida-export-migration-tests==0.9.0 ; extra == "tests"
+Requires-Dist: pg8000~=1.13 ; extra == "tests"
+Requires-Dist: pgtest~=1.3,>=1.3.1 ; extra == "tests"
+Requires-Dist: pytest~=7.0 ; extra == "tests"
+Requires-Dist: pytest-asyncio~=0.12,<0.17 ; extra == "tests"
+Requires-Dist: pytest-timeout~=2.0 ; extra == "tests"
+Requires-Dist: pytest-cov~=4.1 ; extra == "tests"
+Requires-Dist: pytest-rerunfailures~=12.0 ; extra == "tests"
+Requires-Dist: pytest-benchmark~=4.0 ; extra == "tests"
+Requires-Dist: pytest-regressions~=2.2 ; extra == "tests"
+Requires-Dist: pytest-xdist~=3.6 ; extra == "tests"
+Requires-Dist: pympler~=1.0 ; extra == "tests"
+Requires-Dist: coverage~=7.0 ; extra == "tests"
+Requires-Dist: sphinx~=7.2.0 ; extra == "tests"
+Requires-Dist: docutils~=0.20 ; extra == "tests"
+Requires-Dist: trogon ; extra == "tui"
+Project-URL: Changelog, https://github.com/aiidateam/aiida-core/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://aiida.readthedocs.io
+Project-URL: Home, http://www.aiida.net/
+Project-URL: Source, https://github.com/aiidateam/aiida-core
+Provides-Extra: atomic-tools
+Provides-Extra: bpython
+Provides-Extra: docs
+Provides-Extra: notebook
+Provides-Extra: pre-commit
+Provides-Extra: rest
+Provides-Extra: ssh-kerberos
+Provides-Extra: tests
+Provides-Extra: tui
+
+# <img src="https://raw.githubusercontent.com/aiidateam/aiida-core/main/docs/source/images/aiida-logo.svg" alt="AiiDA" width="200"/>
+
+AiiDA (www.aiida.net) is a workflow manager for computational science with a strong focus on provenance, performance and extensibility.
+
+|    | |
+|-----|----------------------------------------------------------------------------|
+|Latest release| [![PyPI version](https://badge.fury.io/py/aiida-core.svg)](https://badge.fury.io/py/aiida-core) [![conda-forge](https://img.shields.io/conda/vn/conda-forge/aiida-core.svg?style=flat)](https://anaconda.org/conda-forge/aiida-core) [![PyPI pyversions](https://img.shields.io/pypi/pyversions/aiida-core.svg)](https://pypi.python.org/pypi/aiida-core/) |
+|Getting help| [![Docs status](https://readthedocs.org/projects/aiida-core/badge)](http://aiida-core.readthedocs.io/) [![Discourse status](https://img.shields.io/discourse/status?server=https%3A%2F%2Faiida.discourse.group%2F)](https://aiida.discourse.group/)
+|Build status| [![Build Status](https://github.com/aiidateam/aiida-core/actions/workflows/ci-code.yml/badge.svg)](https://github.com/aiidateam/aiida-core/actions) [![Coverage Status](https://codecov.io/gh/aiidateam/aiida-core/branch/main/graph/badge.svg)](https://codecov.io/gh/aiidateam/aiida-core) [Benchmarks](https://aiidateam.github.io/aiida-core/dev/bench/ubuntu-22.04/psql_dos/) |
+|Activity| [![PyPI-downloads](https://img.shields.io/pypi/dm/aiida-core.svg?style=flat)](https://pypistats.org/packages/aiida-core) [![Commit Activity](https://img.shields.io/github/commit-activity/m/aiidateam/aiida-core.svg)](https://github.com/aiidateam/aiida-core/pulse)
+|Community|  [![Discourse](https://img.shields.io/discourse/topics?server=https%3A%2F%2Faiida.discourse.group%2F&logo=discourse)](https://aiida.discourse.group/) [![Affiliated with NumFOCUS](https://img.shields.io/badge/NumFOCUS-affiliated%20project-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org/sponsored-projects/affiliated-projects) [![Twitter](https://img.shields.io/twitter/follow/aiidateam.svg?style=social&label=Follow)](https://twitter.com/aiidateam)
+
+
+## Features
+
+ -   **Workflows:** Write complex, auto-documenting workflows in
+     python, linked to arbitrary executables on local and remote
+     computers. The event-based workflow engine supports tens of
+     thousands of processes per hour with full checkpointing.
+ -   **Data provenance:** Automatically track inputs, outputs & metadata
+     of all calculations in a provenance graph for full
+     reproducibility. Perform fast queries on graphs containing
+     millions of nodes.
+ -   **HPC interface:** Move your calculations to a different computer
+     by changing one line of code. AiiDA is compatible with schedulers
+     like [SLURM](https://slurm.schedmd.com), [PBS
+     Pro](https://www.pbspro.org/),
+     [torque](http://www.adaptivecomputing.com/products/torque/),
+     [SGE](http://gridscheduler.sourceforge.net/) or
+     [LSF](https://www.ibm.com/support/knowledgecenter/SSETD4/product_welcome_platform_lsf.html)
+     out of the box.
+ -   **Plugin interface:** Extend AiiDA with [plugins](https://aiidateam.github.io/aiida-registry/) for new simulation codes (input generation & parsing), data types, schedulers, transport modes and more.
+ -   **Open Science:** Export subsets of your provenance graph and share them with peers or make them available online for everyone
+     on the [Materials Cloud](https://www.materialscloud.org).
+ -   **Open source:** AiiDA is released under the [MIT open source license](LICENSE.txt)
+
+## Installation
+
+Please see AiiDA's [documentation](https://aiida-core.readthedocs.io/en/latest/).
+
+## How to contribute [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![GitHub issues by-label](https://img.shields.io/github/issues/aiidateam/aiida-core/good%20first%20issue)](https://github.com/aiidateam/aiida-core/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+
+The AiiDA team appreciates help from a wide range of different backgrounds.
+Small improvements of the documentation or minor bug fixes are always welcome.
+
+Please see the [Contributor wiki](https://github.com/aiidateam/aiida-core/wiki) on how to get started.
+
+## Frequently Asked Questions
+
+If you are experiencing problems with your AiiDA installation, please refer to the [FAQ page of the documentation](https://aiida-core.readthedocs.io/en/latest/howto/faq.html).
+For any other questions, discussion and requests for support, please visit the [Discourse server](https://aiida.discourse.group/).
+
+## How to cite
+
+If you use AiiDA in your research, please consider citing the following publications:
+
+ * S. P. Huber *et al.*, *AiiDA 1.0, a scalable computational infrastructure for automated reproducible workflows and data provenance*, Scientific Data **7**, 300 (2020); DOI: [10.1038/s41597-020-00638-4](https://doi.org/10.1038/s41597-020-00638-4)
+ * M. Uhrin *et al.*, *Workflows in AiiDA: Engineering a high-throughput, event-based engine for robust and modular computational workflows*, Computational Materials Science **187**, 110086 (2021); DOI: [10.1016/j.commatsci.2020.110086](https://doi.org/10.1016/j.commatsci.2020.110086)
+
+If the ADES concepts are referenced, please also cite:
+
+* Giovanni Pizzi, Andrea Cepellotti, Riccardo Sabatini, Nicola Marzari,and Boris Kozinsky, *AiiDA: automated interactive infrastructure and database for computational science*, Computational Materials Science **111**, 218-230 (2016); DOI: [10.1016/j.commatsci.2015.09.013](https://doi.org/10.1016/j.commatsci.2015.09.013)
+
+## License
+
+AiiDA is distributed under the MIT open source license (see [`LICENSE.txt`](LICENSE.txt)).
+For a list of other open source components included in AiiDA, see [`open_source_licenses.txt`](open_source_licenses.txt).
+
+## Acknowledgements
+
+AiiDA is a [NumFOCUS Affiliated Project](https://www.numfocus.org) and supported by the [MARVEL National Centre of Competence in Research](http://www.marvel-nccr.ch), the [MaX European Centre of Excellence](http://www.max-centre.eu) and by a number of other supporting projects, partners and institutions, whose complete list is available on the [AiiDA website acknowledgements page](http://www.aiida.net/acknowledgements/).
+

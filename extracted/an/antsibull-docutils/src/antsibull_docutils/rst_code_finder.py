@@ -273,7 +273,7 @@ def _parse_document(
     publisher = Publisher(source_class=StringInput)
     publisher.set_components("standalone", "restructuredtext", "pseudoxml")
     override = {
-        "root_prefix": root_prefix,
+        "root_prefix": str(root_prefix),
         "input_encoding": "utf-8",
         "file_insertion_enabled": False,
         "raw_enabled": False,
@@ -282,7 +282,7 @@ def _parse_document(
         "warning_stream": io.StringIO(),
     }
     publisher.process_programmatic_settings(None, override, None)
-    publisher.set_source(content, path)
+    publisher.set_source(content, str(path))
 
     # Parse the document
     try:

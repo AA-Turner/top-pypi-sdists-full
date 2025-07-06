@@ -1,0 +1,11 @@
+VALID_ACCEPT = ["application/x-parquet", "text/csv", "application/json"]
+
+CLOUD_RESOURCE_PREFIX = "ag-cloudpredictor"
+
+LOCAL_MODE = "local"
+LOCAL_MODE_GPU = "local_gpu"
+MODEL_ARTIFACT_NAME = "model.tar.gz"
+
+TRUST_RELATIONSHIP_ACCOUNT_PLACE_HOLDER = "ACCOUNT"
+POLICY_ACCOUNT_PLACE_HOLDER = "ACCOUNT"
+POLICY_BUCKET_PLACE_HOLDER = "CLOUD_BUCKET"

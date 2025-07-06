@@ -1,0 +1,20 @@
+contributors:
+- David Březina
+name: Omani Arabic
+orthographies:
+- autonym: عماني
+  auxiliary: <arb>
+  base: <arb>
+  currency: <default>
+  design_requirements: <arb>
+  marks: <arb>
+  numerals: <default>
+  punctuation: <arb>
+  script: Arabic
+  status: primary
+sources:
+- Omani Arabic. (2024, April 2). In *Wikipedia*. https://en.wikipedia.org/wiki/Omani_Arabic?oldid=1216954333
+speakers: 1055000
+speakers_date: 1995-1996
+status: living
+validity: draft

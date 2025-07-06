@@ -476,18 +476,32 @@ def folder_size(path, errno=0):
         return ret_size, ret_err
 
 
-def weak_lru_cache(maxsize=128, typed=False):
+def _get_ttl_hash(ttl):
+    """A simple (dummy) function to return a hash based on the current second.
+    TODO: Implement a real TTL mechanism.
+    """
+    if ttl is None:
+        return 0
+    now = datetime.now()
+    return now.second
+
+
+def weak_lru_cache(maxsize=1, typed=False, ttl=None):
     """LRU Cache decorator that keeps a weak reference to self
+
+    Warning: When used in a class, the class should implement __eq__(self, other) and __hash__(self) methods
+
     Source: https://stackoverflow.com/a/55990799"""
 
     def wrapper(func):
         @functools.lru_cache(maxsize, typed)
-        def _func(_self, *args, **kwargs):
+        def _func(_self, *args, ttl_hash=None, **kwargs):
+            del ttl_hash  # Unused parameter, but kept for compatibility
             return func(_self(), *args, **kwargs)
 
         @functools.wraps(func)
         def inner(self, *args, **kwargs):
-            return _func(weakref.ref(self), *args, **kwargs)
+            return _func(weakref.ref(self), *args, ttl_hash=_get_ttl_hash(ttl), **kwargs)
 
         return inner
 
@@ -496,7 +510,7 @@ def weak_lru_cache(maxsize=128, typed=False):
 
 def namedtuple_to_dict(data):
     """Convert a namedtuple to a dict, using the _asdict() method embedded in PsUtil stats."""
-    return {k: (v._asdict() if hasattr(v, '_asdict') else v) for k, v in data.items()}
+    return {k: (v._asdict() if hasattr(v, '_asdict') else v) for k, v in list(data.items())}
 
 
 def list_of_namedtuple_to_list_of_dict(data):
@@ -508,3 +522,12 @@ def replace_special_chars(input_string, by=' '):
     """Replace some special char by another in the input_string
     Return: the string with the chars replaced"""
     return input_string.replace('\r\n', by).replace('\n', by).replace('\t', by)
+
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    """Return a text in a natural/human readable format."""
+    return [atoi(c) for c in re.split(r'(\d+)', text)]

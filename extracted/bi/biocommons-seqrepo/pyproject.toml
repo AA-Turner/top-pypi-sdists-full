@@ -1,0 +1,139 @@
+[project]
+name = "biocommons.seqrepo"
+authors = [
+    { name = "biocommons contributors", email = "biocommons-dev@googlegroups.com" },
+]
+description = "Non-redundant, compressed, journalled, file-based storage for biological sequences"
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+dependencies = [
+    "bioutils > 0.4",
+    "coloredlogs ~= 15.0",
+    "ipython ~= 8.4",
+    "pysam ~= 0.22",
+    "requests ~= 2.31",
+    "tqdm ~= 4.66",
+    "typing_extensions",
+    "yoyo-migrations ~= 9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "bandit ~= 1.7",
+    "build ~= 0.8",
+    "flake8 ~= 4.0",
+    "ipython ~= 8.4",
+    "isort ~= 5.10",
+    "mypy-extensions ~= 1.0",
+    "pre-commit ~= 3.4",
+    "pylint ~= 2.14",
+    "pyright~=1.1",
+    "requests_html ~= 0.10",
+    "ruff == 0.4.4",
+]
+tests = [
+    "tox ~= 3.25",
+    "pytest-cov ~= 4.1",
+    "pytest-optional-tests",
+    "pytest ~= 7.1",
+    "vcrpy",
+]
+docs = ["mkdocs"]
+
+[project.scripts]
+seqrepo = "biocommons.seqrepo.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/biocommons/biocommons.seqrepo"
+"Bug Tracker" = "https://github.com/biocommons/biocommons.seqrepo/issues"
+
+[build-system]
+requires = ["setuptools ~= 69.0", "setuptools_scm[toml] ~= 8.0"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["__pycache__", "*.pyc"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"biocommons.seqrepo.fastadir" = ["_data/migrations/*"]
+"biocommons.seqrepo.seqaliasdb" = ["_data/migrations/*"]
+
+
+[tool.setuptools_scm]
+
+
+# https://docs.pytest.org/en/6.2.x/customize.html#pyproject-toml
+[tool.pytest.ini_options]
+addopts = "-s -v -x --strict-markers -m 'not extra' --doctest-modules --cov=src"
+doctest_optionflags = [
+    "ALLOW_BYTES",
+    "ALLOW_UNICODE",
+    "ELLIPSIS",
+    "IGNORE_EXCEPTION_DETAIL",
+    "NORMALIZE_WHITESPACE",
+]
+markers = [
+    "network: tests that require network connectivity",
+    "slow: slow tests that should be run infrequently",
+    "vcr: tests with cached data",
+]
+
+
+[tool.coverage.run]
+branch = true
+source = ["biocommons.seqrepo"]
+omit = ["*_test.py", "*/test/*", "*/tests/*"]
+
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if __name__ == .__main__.:",
+]
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests"]
+
+[tool.pyright]
+include = ["src", "tests"]
+
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = "R0913"
+
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 100

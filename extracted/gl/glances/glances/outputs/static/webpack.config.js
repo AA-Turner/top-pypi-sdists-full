@@ -1,4 +1,4 @@
-/* eslint-disable */
+
 const webpack = require('webpack');
 const path = require("path");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
@@ -52,7 +52,8 @@ module.exports = (_, env) => {
         plugins: [
             new webpack.DefinePlugin({
                 __VUE_OPTIONS_API__: true,
-                __VUE_PROD_DEVTOOLS__: false
+                __VUE_PROD_DEVTOOLS__: false,
+                __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false
             }),
             new CopyWebpackPlugin({
                 patterns: [
@@ -67,14 +68,18 @@ module.exports = (_, env) => {
             new VueLoaderPlugin()
         ].filter(Boolean),
         devServer: {
+            client: {
+                overlay: false
+            },
             host: '0.0.0.0',
             port: PORT,
             hot: true,
-            proxy: {
-                '/api': {
+            proxy: [
+                {
+                    context: ['/api'],
                     target: 'http://0.0.0.0:61208'
                 }
-            }
+            ]
         }
 
     };

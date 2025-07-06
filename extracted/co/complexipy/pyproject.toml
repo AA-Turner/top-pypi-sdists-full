@@ -1,0 +1,53 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "complexipy"
+keywords = [
+    "cognitive",
+    "complexity",
+    "cognitive complexity",
+    "quality",
+    "quality assurance",
+    "testing",
+    "libraries",
+    "performance",
+    "sonar",
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries",
+]
+dynamic = ["version"]
+
+dependencies = ["typer>=0.12.5"]
+
+[project.scripts]
+complexipy = "complexipy.main:app"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "complexipy._complexipy"
+
+[dependency-groups]
+dev = [
+    "maturin>=1.8.3",
+ "mkdocs-material>=9.6.12",
+ "pre-commit>=3.5.0",
+ "pytest>=8.3.5",
+]

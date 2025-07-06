@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: sqlalchemy-pagination
+Version: 0.0.2
+Summary: A small utility to paginate SqlAlchemy queries.
+Home-page: https://github.com/wizeline/sqlalchemy-pagination
+Author: Wizeline
+Author-email: engineering@wizeline.com
+License: UNKNOWN
+Description: UNKNOWN
+Keywords: sqlalchemy,pagination,paginate
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Provides-Extra: dev
