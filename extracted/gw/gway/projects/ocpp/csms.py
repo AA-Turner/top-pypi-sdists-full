@@ -7,17 +7,24 @@ import time
 import uuid
 import traceback
 import asyncio
-from datetime import datetime
+import html
+from datetime import datetime, timedelta
 from fastapi import WebSocket, WebSocketDisconnect
 from bottle import request, redirect, HTTPError
 from typing import Dict, Optional
 from gway import gw
+# Avoid relative import issues when loaded as a standalone project
+ocpp_data = gw.load_py_file(
+    os.path.join(os.path.dirname(__file__), "data.py"),
+    "ocpp.data",
+)
 
 _csms_loop: Optional[asyncio.AbstractEventLoop] = None
 _transactions: Dict[str, dict] = {}           # charger_id → latest transaction
 _active_cons: Dict[str, WebSocket] = {}      # charger_id → live WebSocket
 _latest_heartbeat: Dict[str, str] = {}  # charger_id → ISO8601 UTC time string
 _abnormal_status: Dict[str, dict] = {}  # charger_id → {"status": ..., "errorCode": ..., "info": ...}
+_msg_log: Dict[str, list] = {}          # charger_id → ["< msg", "> msg", ...]
 
 def authorize_balance(**record):
     """
@@ -43,7 +50,23 @@ def setup_app(*,
 
     oapp = app
     from fastapi import FastAPI as _FastAPI
-    if (_is_new_app := not (app := gw.unwrap_one(app, _FastAPI))):
+    match app:
+        case _FastAPI() as f:
+            app = f
+            _is_new_app = False
+        case list() | tuple() as seq:
+            app = next((x for x in seq if isinstance(x, _FastAPI)), None)
+            _is_new_app = app is None
+        case None:
+            _is_new_app = True
+        case _ if isinstance(app, _FastAPI):
+            _is_new_app = False
+        case _ if hasattr(app, "__iter__") and not isinstance(app, (str, bytes, bytearray)):
+            app = next((x for x in app if isinstance(x, _FastAPI)), None)
+            _is_new_app = app is None
+        case _:
+            _is_new_app = app is None or not isinstance(app, _FastAPI)
+    if _is_new_app:
         app = _FastAPI()
 
     validator = None
@@ -87,6 +110,7 @@ def setup_app(*,
             while True:
                 raw = await websocket.receive_text()
                 gw.info(f"[OCPP:{charger_id}] → {raw}")
+                _msg_log.setdefault(charger_id, []).append(f"> {raw}")
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
@@ -129,6 +153,20 @@ def setup_app(*,
                             "transactionId": transaction_id,
                             "MeterValues": []
                         }
+                        cp_ts = None
+                        if payload.get("timestamp"):
+                            try:
+                                cp_ts = int(datetime.fromisoformat(payload["timestamp"].rstrip("Z")).timestamp())
+                            except Exception:
+                                cp_ts = None
+                        gw.ocpp.data.record_transaction_start(
+                            charger_id,
+                            transaction_id,
+                            now,
+                            id_tag=payload.get("idTag"),
+                            meter_start=payload.get("meterStart"),
+                            charger_timestamp=cp_ts,
+                        )
                         response_payload = {
                             "transactionId": transaction_id,
                             "idTagInfo": {"status": "Accepted"}
@@ -172,6 +210,15 @@ def setup_app(*,
                                             "measurand": measurand,
                                             "context": sv.get("context", ""),
                                         })
+                                        gw.ocpp.data.record_meter_value(
+                                            charger_id,
+                                            tx.get("transactionId"),
+                                            ts_epoch,
+                                            measurand,
+                                            fval,
+                                            "kWh" if unit == "Wh" else unit,
+                                            sv.get("context", ""),
+                                        )
                                     except Exception:
                                         continue
                                 tx["MeterValues"].append({
@@ -202,6 +249,21 @@ def setup_app(*,
                                 "reason": 4,
                                 "reasonStr": "Local",
                             })
+                            cp_stop = None
+                            if payload.get("timestamp"):
+                                try:
+                                    cp_stop = int(datetime.fromisoformat(payload["timestamp"].rstrip("Z")).timestamp())
+                                except Exception:
+                                    cp_stop = None
+                            gw.ocpp.data.record_transaction_stop(
+                                charger_id,
+                                tx.get("transactionId"),
+                                now,
+                                meter_stop=payload.get("meterStop"),
+                                reason="Local",
+                                charger_timestamp=cp_stop,
+                            )
+                            archive_transaction(charger_id, tx)
                             if location:
                                 file_path = gw.resource(
                                     "work", "etron", "records", location,
@@ -225,6 +287,7 @@ def setup_app(*,
                                 "timestamp": datetime.utcnow().isoformat() + "Z"
                             }
                             gw.warn(f"[OCPP] Abnormal status for {charger_id}: {status}/{error_code} - {info}")
+                            gw.ocpp.data.record_error(charger_id, status, error_code, info)
                         else:
                             if charger_id in _abnormal_status:
                                 gw.info(f"[OCPP] Status normalized for {charger_id}: {status}/{error_code}")
@@ -299,7 +362,31 @@ def get_charger_state(cid, tx, ws_live, raw_hb):
 
 ...
 
-def _render_charger_card(cid, tx, state, raw_hb):
+def _render_card_controls(cid):
+    return f'''
+            <form method="post" action="" class="charger-action-form">
+              <input type="hidden" name="charger_id" value="{cid}">
+              <select name="action" id="action-{cid}" aria-label="Action">
+                <option value="remote_stop">Stop</option>
+                <option value="reset_soft">Soft Reset</option>
+                <option value="reset_hard">Hard Reset</option>
+                <option value="disconnect">Disconnect</option>
+              </select>
+              <div class="charger-actions-btns">
+                <button type="submit" name="do" value="send">Send</button>
+                <a href="/ocpp/csms/energy-graph?charger_id={cid}" class="graph-btn" target="_blank">Graph</a>
+              </div>
+            </form>
+    '''
+
+def _render_card_link(cid):
+    return (
+        '<div class="charger-actions-btns">'
+        f'<a href="/ocpp/csms/charger-detail?charger_id={cid}" class="graph-btn">Details</a>'
+        '</div>'
+    )
+
+def _render_charger_card(cid, tx, state, raw_hb, *, show_controls=True):
     """
     Render a charger card with the right status stripe (state: "online", "available", "error", "unknown").
     """
@@ -324,9 +411,11 @@ def _render_charger_card(cid, tx, state, raw_hb):
 
     last_updated = tx.get("last_updated", raw_hb or "") if tx else (raw_hb or "")
 
+    controls_html = _render_card_controls(cid) if show_controls else _render_card_link(cid)
+    details_html = ''
+
     return f'''
     <div class="charger-card {status_class}" id="charger-{cid}">
-      <input type="hidden" name="charger_id" value="{cid}">
       <input type="hidden" name="last_updated" value="{last_updated}">
       <table class="charger-layout">
         <tr>
@@ -359,25 +448,11 @@ def _render_charger_card(cid, tx, state, raw_hb):
             </table>
           </td>
           <td class="charger-actions-td">
-            <form method="post" action="" class="charger-action-form">
-              <select name="action" id="action-{cid}" aria-label="Action">
-                <option value="remote_stop">Stop</option>
-                <option value="reset_soft">Soft Reset</option>
-                <option value="reset_hard">Hard Reset</option>
-                <option value="disconnect">Disconnect</option>
-              </select>
-              <div class="charger-actions-btns">
-                <button type="submit" name="do" value="send">Send</button>
-                <button type="button" class="details-btn" data-target="details-{cid}">Details</button>
-                <a href="/ocpp/graph/{cid}" class="graph-btn" target="_blank">Graph</a>
-              </div>
-            </form>
+            {controls_html}
           </td>
         </tr>
       </table>
-      <div id="details-{cid}" class="charger-details-panel hidden">
-        <pre>{json.dumps(tx or {}, indent=2)}</pre>
-      </div>
+      {details_html}
     </div>
     '''
 
@@ -387,18 +462,27 @@ def view_charger_status(*, action=None, charger_id=None, **_):
     Renders <div id="charger-list" data-gw-render="charger_list" data-gw-refresh="5">
     so the client can periodically refresh the list via render.js.
     """
+    msg = ""
     if request.method == "POST":
         action = request.forms.get("action")
         charger_id = request.forms.get("charger_id")
         if action and charger_id:
             try:
                 dispatch_action(charger_id, action)
+                msg = f"Action {action} sent"
             except Exception as e:
                 gw.error(f"Failed to dispatch action {action} to {charger_id}: {e}")
-            return redirect(request.fullpath or "/ocpp/charger-status")
+                msg = f"Error: {e}"
 
     all_chargers = set(_active_cons) | set(_transactions)
-    html = ["<h1>OCPP Status Dashboard</h1>"]
+    html = [
+        '<link rel="stylesheet" href="/static/ocpp/csms/charger_status.css">',
+        '<script src="/static/render.js"></script>',
+        '<script src="/static/ocpp/csms/charger_status.js"></script>',
+        "<h1>OCPP Status Dashboard</h1>"
+    ]
+    if msg:
+        html.append(f'<p class="error">{msg}</p>')
 
     # Abnormal status warning
     if _abnormal_status:
@@ -429,7 +513,7 @@ def view_charger_status(*, action=None, charger_id=None, **_):
             tx = _transactions.get(cid)
             raw_hb = _latest_heartbeat.get(cid)
             state = get_charger_state(cid, tx, ws_live, raw_hb)
-            html.append(_render_charger_card(cid, tx, state, raw_hb))
+            html.append(_render_charger_card(cid, tx, state, raw_hb, show_controls=False))
     html.append('</div>')
 
     ws_url = gw.web.build_ws_url()
@@ -465,8 +549,146 @@ def render_charger_list(**kwargs):
             tx = _transactions.get(cid)
             raw_hb = _latest_heartbeat.get(cid)
             state = get_charger_state(cid, tx, ws_live, raw_hb)
-            html.append(_render_charger_card(cid, tx, state, raw_hb))
+            html.append(_render_charger_card(cid, tx, state, raw_hb, show_controls=False))
     return "\n".join(html)
+
+def view_charger_detail(*, charger_id=None, **_):
+    """Detail view for a single charger with live log."""
+    if not charger_id:
+        return redirect("/ocpp/csms/charger-status")
+    if (
+        charger_id not in _active_cons
+        and charger_id not in _transactions
+        and charger_id not in _latest_heartbeat
+    ):
+        return redirect("/ocpp/csms/charger-status")
+
+    msg = ""
+    if request.method == "POST":
+        action = request.forms.get("action")
+        if action:
+            try:
+                dispatch_action(charger_id, action)
+                msg = f"Action {action} sent"
+            except Exception as e:
+                gw.error(f"Failed to dispatch action {action} to {charger_id}: {e}")
+                msg = f"Error: {e}"
+
+    ws_live = charger_id in _active_cons
+    tx = _transactions.get(charger_id)
+    raw_hb = _latest_heartbeat.get(charger_id)
+    state = get_charger_state(charger_id, tx, ws_live, raw_hb)
+    now = datetime.utcnow()
+    since_default = (now - timedelta(days=1)).date().isoformat()
+    until_default = now.date().isoformat()
+    since = request.query.get('since') or since_default
+    until = request.query.get('until') or until_default
+
+    html = [
+        '<link rel="stylesheet" href="/static/ocpp/csms/charger_status.css">',
+        '<script src="/static/render.js"></script>',
+        f'<h1><a href="/ocpp/csms/charger-status">All Chargers</a> / {charger_id} Details</h1>'
+    ]
+    if msg:
+        html.append(f'<p class="error">{msg}</p>')
+
+    html.append(
+        f'<div id="charger-info" data-gw-render="charger_info" data-gw-refresh="5" data-charger-id="{charger_id}">' +
+        _render_charger_card(charger_id, tx, state, raw_hb) +
+        '</div>'
+    )
+
+    html.append(
+        f'''<form id="tx-range" method="get" style="margin:1em 0;">
+            <input type="hidden" name="charger_id" value="{charger_id}">
+            <label>From: <input type="date" name="since" value="{since}"></label>
+            <label>To: <input type="date" name="until" value="{until}"></label>
+            <button type="submit">Apply</button>
+        </form>'''
+    )
+
+    html.append(
+        f'<div id="charger-transactions" data-gw-render="charger_transactions" '
+        f'data-charger-id="{charger_id}" data-since="{since}" data-until="{until}">' +
+        render_charger_transactions(charger_id=charger_id, since=since, until=until) +
+        '</div>'
+    )
+
+    html.append(
+        f'<div id="charger-log" data-gw-render="charger_log" data-gw-refresh="2" data-charger-id="{charger_id}">' +
+        render_charger_log(charger_id=charger_id) +
+        '</div>'
+    )
+
+    return "".join(html)
+
+def render_charger_info(*, charger_id=None, chargerId=None, **_):
+    cid = charger_id or chargerId
+    if not cid:
+        return ""
+    tx = _transactions.get(cid)
+    raw_hb = _latest_heartbeat.get(cid)
+    state = get_charger_state(cid, tx, cid in _active_cons, raw_hb)
+    return _render_charger_card(cid, tx, state, raw_hb)
+
+def render_charger_log(*, charger_id=None, chargerId=None, **_):
+    cid = charger_id or chargerId
+    if not cid:
+        return ""
+    lines = _msg_log.get(cid, [])[-50:]
+    esc = lambda s: html.escape(s)
+    return '<pre>' + '\n'.join(esc(line) for line in lines) + '</pre>'
+
+def render_charger_transactions(*, charger_id=None, chargerId=None, since=None, until=None, **_):
+    cid = charger_id or chargerId
+    if not cid:
+        return ""
+    since = since or request.forms.get('since') or request.query.get('since')
+    until = until or request.forms.get('until') or request.query.get('until')
+
+    def to_epoch(date_str):
+        if not date_str:
+            return None
+        try:
+            dt = datetime.fromisoformat(date_str)
+            if len(date_str) == 10:
+                return int(dt.timestamp())
+            return int(dt.timestamp())
+        except Exception:
+            return None
+
+    start_ts = to_epoch(since)
+    end_ts = to_epoch(until)
+    rows = list(
+        ocpp_data.iter_transactions(
+            cid,
+            start=start_ts,
+            end=end_ts,
+            sort="start_time",
+            order="desc",
+            limit=50,
+        )
+    )
+
+    def fmt(ts):
+        if not ts:
+            return "-"
+        try:
+            return datetime.utcfromtimestamp(int(ts)).isoformat() + "Z"
+        except Exception:
+            return str(ts)
+
+    html = [
+        '<table class="ocpp-details">',
+        '<tr><th>ID</th><th>Start</th><th>Stop</th><th>Meter Δ(kWh)</th><th>Reason</th></tr>'
+    ]
+    for r in rows:
+        delta = (r[5] or 0) - (r[4] or 0)
+        html.append(
+            f"<tr><td>{r[1]}</td><td>{fmt(r[2])}</td><td>{fmt(r[3])}</td><td>{round(delta/1000.0,3)}</td><td>{r[6] or ''}</td></tr>"
+        )
+    html.append('</table>')
+    return '\n'.join(html)
 
 ...
 
@@ -480,15 +702,18 @@ def dispatch_action(charger_id: str, action: str):
     msg_id = str(uuid.uuid4())
 
     # Compose and send the appropriate OCPP message for the requested action
+    msg_text = None
     if action == "remote_stop":
         tx = _transactions.get(charger_id)
         if not tx:
             raise HTTPError(404, "No transaction to stop")
-        coro = ws.send_text(json.dumps([2, msg_id, "RemoteStopTransaction",
-                                        {"transactionId": tx["transactionId"]}]))
+        msg_text = json.dumps([2, msg_id, "RemoteStopTransaction",
+                               {"transactionId": tx["transactionId"]}])
+        coro = ws.send_text(msg_text)
     elif action.startswith("reset_"):
         _, mode = action.split("_", 1)
-        coro = ws.send_text(json.dumps([2, msg_id, "Reset", {"type": mode.capitalize()}]))
+        msg_text = json.dumps([2, msg_id, "Reset", {"type": mode.capitalize()}])
+        coro = ws.send_text(msg_text)
     elif action == "disconnect":
         coro = ws.close(code=1000, reason="Admin disconnect")
     else:
@@ -498,6 +723,9 @@ def dispatch_action(charger_id: str, action: str):
         _csms_loop.call_soon_threadsafe(lambda: _csms_loop.create_task(coro))
     else:
         gw.warn("No CSMS event loop; action not sent")
+
+    if msg_text:
+        _msg_log.setdefault(charger_id, []).append(f"< {msg_text}")
 
     return {"status": "requested", "messageId": msg_id}
 
@@ -582,12 +810,29 @@ def archive_energy(charger_id, transaction_id, meter_values):
         json.dump(meter_values, f, indent=2)
     return file_path
 
+def archive_transaction(charger_id, tx):
+    """Write a transaction record as JSON in work/ocpp/records."""
+    try:
+        connector = tx.get("connectorId", 0)
+        txn_id = tx.get("transactionId")
+        if txn_id is None:
+            return None
+        base = gw.resource("work", "ocpp", "records", charger_id)
+        os.makedirs(base, exist_ok=True)
+        file_path = os.path.join(base, f"{connector}_{txn_id}.dat")
+        with open(file_path, "w") as f:
+            json.dump(tx, f, indent=2)
+        return file_path
+    except Exception:
+        gw.exception("Failed to archive transaction")
+        return None
+
 def view_energy_graph(*, charger_id=None, date=None, **_):
     """
     Render a page with a graph for a charger's session by date.
     """
     import glob
-    html = ['<link rel="stylesheet" href="/static/styles/charger_status.css">']
+    html = ['<link rel="stylesheet" href="/static/ocpp/csms/charger_status.css">']
     html.append('<h1>Charger Transaction Graph</h1>')
 
     # Form for charger/date selector

@@ -723,7 +723,7 @@ class Tomography(Experiment):
                 except Exception as e:
                     print(f"Erreur de parsing sur la ligne : {line}\n{e}")
 
-        progress_bar = trange(1,len(patternList), desc="Generating system matrix")
+        progress_bar = trange(1,len(patternList), desc="Generating acoustic fields", unit="field")
 
         for i in progress_bar:
             memory = psutil.virtual_memory()

@@ -105,6 +105,18 @@ def test_import_source():
     bt.Gene.import_source(organism="saccharomyces cerevisiae")
     assert bt.Gene.filter(organism__name="saccharomyces cerevisiae").exists()
 
+    # import organism data without 'parents' column (should not crash with KeyError)
+    bt.Organism.import_source()
+    assert bt.Organism.filter().count() > 0
+
+    # test that string sources raise TypeError
+    with pytest.raises(TypeError):
+        bt.CellLine.import_source(source="depmap")
+
+    # test that ICD Source does not crash
+    source = bt.Disease.add_source(source="icd", version="icd-11-2023")
+    bt.Disease.import_source(source=source)
+
     # import source with public df having extra columns than model fields
     bt.CellLine.import_source(source=bt.Source.get(name="depmap", version="2024-Q2"))
     assert bt.CellLine.filter(source__name="depmap").count() == 1959
@@ -225,3 +237,13 @@ def test_import_source_update_records():
     record_wo_artifact = bt.CellType.get(ontology_id="CL:0000409")
     assert record_wo_artifact.source == source2
     assert record_wo_artifact.name != record_wo_artifact_name
+
+
+def test_import_source_no_prefix_filter():
+    efo_public = bt.base.ExperimentalFactor(version="3.78.0")
+    efo_ontology_df = efo_public.to_pronto().to_df(include_id_prefixes=None)
+    assert efo_ontology_df.shape[0] == 66971
+    assert efo_ontology_df.index.str.startswith("EFO:").sum() == 18229
+    source = bt.ExperimentalFactor.add_source(source="efo", df=efo_ontology_df)
+    bt.ExperimentalFactor.import_source(source=source)
+    assert bt.ExperimentalFactor.filter().count() == 66971

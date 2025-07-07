@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from anndata import AnnData
 from pandas import DataFrame
@@ -12,14 +12,15 @@ from lamindb.core._compat import (
 from lamindb.core.types import ScverseDataStructures
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
 SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
 
 
-def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
+def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
+        assert not isinstance(format, dict)  # noqa: S101
         if format is not None:
             # should be `.h5ad`, `.`zarr`, or `.anndata.zarr`
             if format not in {"h5ad", "zarr", "anndata.zarr"}:
@@ -32,8 +33,12 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
         return ".h5ad"
 
     if isinstance(dmem, DataFrame):
-        if format == ".csv":
-            return ".csv"
+        if isinstance(format, str):
+            if format == ".csv":
+                return ".csv"
+        elif isinstance(format, dict):
+            if format.get("suffix") == ".csv":
+                return ".csv"
         return ".parquet"
 
     if with_package_obj(
@@ -68,7 +73,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
         raise NotImplementedError
 
 
-def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
+def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> None:
     """Writes the passed in memory data to disk to a specified path."""
     if isinstance(dmem, AnnData):
         suffix = PurePosixPath(filepath).suffix
@@ -83,9 +88,9 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
 
     if isinstance(dmem, DataFrame):
         if filepath.suffix == ".csv":
-            dmem.to_csv(filepath)
+            dmem.to_csv(filepath, **kwargs)
             return
-        dmem.to_parquet(filepath)
+        dmem.to_parquet(filepath, **kwargs)
         return
 
     if with_package_obj(dmem, "MuData", "mudata", lambda obj: obj.write(filepath))[0]:

@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
-import pandera.pandas as pa
+import pandera.pandas as pandera
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
@@ -38,7 +38,12 @@ from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
 )
-from lamindb.models.feature import parse_cat_dtype, parse_dtype
+from lamindb.models.feature import (
+    parse_cat_dtype,
+    parse_dtype,
+    parse_filter_string,
+    resolve_relation_filters,
+)
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -276,7 +281,6 @@ class SlotsCurator(Curator):
     Args:
         dataset: The dataset to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-
     """
 
     def __init__(
@@ -324,23 +328,25 @@ class SlotsCurator(Curator):
         if self._artifact is None:
             type_mapping = [
                 (
-                    lambda data: data_is_scversedatastructure(data, "AnnData"),
+                    lambda dataset: data_is_scversedatastructure(dataset, "AnnData"),
                     Artifact.from_anndata,
                 ),
                 (
-                    lambda data: data_is_scversedatastructure(data, "MuData"),
+                    lambda dataset: data_is_scversedatastructure(dataset, "MuData"),
                     Artifact.from_mudata,
                 ),
                 (
-                    lambda data: data_is_scversedatastructure(data, "SpatialData"),
+                    lambda dataset: data_is_scversedatastructure(
+                        dataset, "SpatialData"
+                    ),
                     Artifact.from_spatialdata,
                 ),
                 (data_is_soma_experiment, Artifact.from_tiledbsoma),
             ]
 
-            for type_check, factory in type_mapping:
+            for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
-                    self._artifact = factory(  # type: ignore
+                    self._artifact = af_constructor(  # type: ignore
                         self._dataset,
                         key=key,
                         description=description,
@@ -373,9 +379,8 @@ def is_list_of_type(value, expected_type):
 def check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
-    Supports both standard dtype checking and mixed list/single values for
-    the same type. For example, a column with expected_type 'float' would
-    also accept a mix of float values and lists of floats.
+    Supports both standard dtype checking and mixed list/single values for the same type.
+    For example, a column with expected_type 'float' would also accept a mix of float values and lists of floats.
 
     Args:
         expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
@@ -394,6 +399,8 @@ def check_dtype(expected_type) -> Callable:
             return True
         elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
             return True
+        elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
+            return True
 
         # if we're here, it might be a mixed column with object dtype
         # need to check each value individually
@@ -406,8 +413,10 @@ def check_dtype(expected_type) -> Callable:
             elif expected_type_member == "num":
                 # for numeric, accept either int or float
                 return series.apply(lambda x: is_list_of_type(x, (int, float))).all()
-            elif expected_type_member == "str" or expected_type_member.startswith(
-                "cat["
+            elif (
+                expected_type_member == "str"
+                or expected_type_member == "path"
+                or expected_type_member.startswith("cat[")
             ):
                 return series.apply(lambda x: is_list_of_type(x, str)).all()
 
@@ -490,9 +499,12 @@ class DataFrameCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype in {"int", "float", "num"} or feature.dtype.startswith(
-                    "list"
-                ):
+                if feature.dtype in {
+                    "int",
+                    "float",
+                    "num",
+                    "path",
+                } or feature.dtype.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -501,9 +513,9 @@ class DataFrameCurator(Curator):
                         )
                     else:
                         dtype = None
-                    pandera_columns[feature.name] = pa.Column(
+                    pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
-                        checks=pa.Check(
+                        checks=pandera.Check(
                             check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
@@ -518,7 +530,7 @@ class DataFrameCurator(Curator):
                         if not feature.dtype.startswith("cat")
                         else "category"
                     )
-                    pandera_columns[feature.name] = pa.Column(
+                    pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
@@ -533,24 +545,26 @@ class DataFrameCurator(Curator):
             if schema._index_feature_uid is not None:
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
-                index = pa.Index(
+                index = pandera.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
                     else str
                 )
             else:
                 index = None
-            self._pandera_schema = pa.DataFrameSchema(
+            self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
                 index=index,
             )
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
-            columns_names=pandera_columns.keys(),
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -621,10 +635,10 @@ class DataFrameCurator(Curator):
         if self._schema.n > 0:
             try:
                 # first validate through pandera
-                self._pandera_schema.validate(self._dataset)
+                self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
-            except pa.errors.SchemaError as err:
+            except (pandera.errors.SchemaError, pandera.errors.SchemaErrors) as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
@@ -904,7 +918,7 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class TiledbsomaExperimentCurator(SlotsCurator):
-    """Curator for `TileDB-SOMA`.
+    """Curator for `tiledbsoma.Experiment`.
 
     Args:
         dataset: The `tiledbsoma.Experiment` object.
@@ -933,7 +947,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
 
         for slot, slot_schema in schema.slots.items():
             if slot.startswith("ms:"):
-                ms, modality_slot = slot.split(":")
+                _, modality_slot = slot.split(":")
                 schema_dataset = (
                     self._dataset.ms[modality_slot.removesuffix(".T")]
                     .var.read()
@@ -943,21 +957,12 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                 )
 
                 self._slots[slot] = DataFrameCurator(
-                    (
-                        schema_dataset.T
-                        if modality_slot == "var.T"
-                        or (
-                            # backward compat
-                            modality_slot == "var"
-                            and schema.slots[slot].itype not in {None, "Feature"}
-                        )
-                        else schema_dataset
-                    ),
+                    (schema_dataset.T if modality_slot == "var.T" else schema_dataset),
                     slot_schema,
                 )
             else:
                 # global Experiment obs slot
-                _ms, modality_slot = None, slot
+                modality_slot = slot
                 schema_dataset = (
                     self._dataset.obs.read()
                     .concat()
@@ -969,16 +974,8 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     slot_schema,
                 )
 
-            if modality_slot == "var" and schema.slots[slot].itype not in {
-                None,
-                "Feature",
-            }:
-                logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                )
-
             _assign_var_fields_categoricals_multimodal(
-                modality=slot,  # not using "ms" here as it would always be the same for all modalities
+                modality=slot,  # not passing `measurement` here because it's a constant. The slot has the actual modality
                 slot_type=modality_slot,
                 slot=slot,
                 slot_schema=slot_schema,
@@ -1020,6 +1017,13 @@ class CatVector:
         self.feature = feature
         self.records = None
         self._maximal_set = maximal_set
+
+        self._all_filters = {"source": self._source, "organism": self._organism}
+        if self._subtype_str and "=" in self._subtype_str:
+            self._all_filters.update(
+                resolve_relation_filters(parse_filter_string(self._subtype_str), self)  # type: ignore
+            )
+
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
         else:
@@ -1049,7 +1053,7 @@ class CatVector:
         # should probably add a setting `at_least_one_validated`
         result = True
         if len(self.values) > 0 and len(self.values) == len(self._non_validated):
-            result = False
+            logger.warning(f"no values were validated for {self._key}!")
         # len(self._non_validated) != 0
         #     if maximal_set is True, return False
         #     if maximal_set is False, return True
@@ -1116,9 +1120,15 @@ class CatVector:
         registry = self._field.field.model
         field_name = self._field.field.name
         model_field = registry.__get_name_with_module__()
-        filter_kwargs = get_current_filter_kwargs(
-            registry, {"organism": self._organism, "source": self._source}
-        )
+        filter_kwargs = get_current_filter_kwargs(registry, self._all_filters)
+
+        valid_from_values_kwargs = {}
+        for key, value in filter_kwargs.items():
+            if key in {"field", "organism", "source", "mute"}:
+                valid_from_values_kwargs[key] = value
+            elif hasattr(registry, key) and "__" not in key:
+                valid_from_values_kwargs[key] = value
+
         values = [
             i
             for i in self.values
@@ -1133,13 +1143,13 @@ class CatVector:
         str_values = _flatten_unique(values)
 
         # inspect the default instance and save validated records from public
-        if (
-            self._subtype_str != "" and "__" not in self._subtype_str
-        ):  # not for general filter expressions
+        if self._subtype_str != "" and "=" not in self._subtype_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
-            self._subtype_query_set = getattr(
-                registry.get(name=self._subtype_str), related_name
-            ).all()
+            type_record = registry.get(name=self._subtype_str)
+            if registry.__name__ == "Record":
+                self._subtype_query_set = type_record.query_children()
+            else:
+                self._subtype_query_set = getattr(type_record, related_name).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
@@ -1149,11 +1159,14 @@ class CatVector:
                 values_array[~validated_mask],
             )
             records = registry.from_values(
-                validated_labels, field=self._field, **filter_kwargs, mute=True
+                validated_labels,
+                field=self._field,
+                **valid_from_values_kwargs,
+                mute=True,
             )
         else:
             existing_and_public_records = registry.from_values(
-                str_values, field=self._field, **filter_kwargs, mute=True
+                str_values, field=self._field, **valid_from_values_kwargs, mute=True
             )
             existing_and_public_labels = [
                 getattr(r, field_name) for r in existing_and_public_records
@@ -1236,16 +1249,25 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        kwargs_current = get_current_filter_kwargs(
-            registry, {"organism": self._organism, "source": self._source}
-        )
+        kwargs_current = get_current_filter_kwargs(registry, self._all_filters)
+
+        valid_inspect_kwargs = {}
+        for key, value in kwargs_current.items():
+            if key in {"field", "organism", "source", "mute", "from_source"}:
+                valid_inspect_kwargs[key] = value
+            elif hasattr(registry, key) and "__" not in key:
+                valid_inspect_kwargs[key] = value
 
         # inspect values from the default instance, excluding public
         registry_or_queryset = registry
         if self._subtype_query_set is not None:
             registry_or_queryset = self._subtype_query_set
         inspect_result = registry_or_queryset.inspect(
-            values, field=self._field, mute=True, from_source=False, **kwargs_current
+            values,
+            field=self._field,
+            mute=True,
+            from_source=False,
+            **valid_inspect_kwargs,
         )
         non_validated = inspect_result.non_validated
         syn_mapper = inspect_result.synonyms_mapper
@@ -1257,7 +1279,7 @@ class CatVector:
                 non_validated,
                 field=self._field,
                 mute=True,
-                **kwargs_current,
+                **valid_inspect_kwargs,
             )
             values_validated += [getattr(r, field_name) for r in public_records]
 
@@ -1309,10 +1331,6 @@ class CatVector:
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
 
-        # always register new Features if they are columns
-        if self._key == "columns" and self._field == Feature.name:
-            self.add_new()
-
     def standardize(self) -> None:
         """Standardize the vector."""
         registry = self._field.field.model
@@ -1363,7 +1381,6 @@ class DataFrameCatManager:
         self,
         df: pd.DataFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
-        columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | None = None,
         sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
@@ -1387,29 +1404,19 @@ class DataFrameCatManager:
         self._slot = slot
         self._maximal_set = maximal_set
 
-        if columns_names is None:
-            columns_names = []
-        if columns_field == Feature.name:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=columns_names,
-                field=columns_field,
-                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
+        self._cat_vectors["columns"] = CatVector(
+            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
+            values_setter=lambda new_values: setattr(
+                self._dataset, "columns", pd.Index(new_values)
             )
-        else:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
-                values_setter=lambda new_values: setattr(
-                    self._dataset, "columns", pd.Index(new_values)
-                ),
-                field=columns_field,
-                key="columns",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
-            )
+            if isinstance(self._dataset, pd.DataFrame)
+            else None,
+            field=columns_field,
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+            source=self._sources.get("columns"),
+            cat_manager=self,
+            maximal_set=self._maximal_set,
+        )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
                 0
@@ -1533,25 +1540,19 @@ class DataFrameCatManager:
             self._cat_vectors[key].add_new(**kwargs)
 
 
-def get_current_filter_kwargs(registry: type[SQLRecord], kwargs: dict) -> dict:
+def get_current_filter_kwargs(
+    registry: type[SQLRecord], kwargs: dict[str, SQLRecord]
+) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     db = registry.filter().db
-    source = kwargs.get("source")
-    organism = kwargs.get("organism")
     filter_kwargs = kwargs.copy()
 
-    if isinstance(organism, SQLRecord) and organism._state.db != "default":
-        if db is None or db == "default":
-            organism_default = copy.copy(organism)
-            # save the organism record in the default database
-            organism_default.save()
-            filter_kwargs["organism"] = organism_default
-    if isinstance(source, SQLRecord) and source._state.db != "default":
-        if db is None or db == "default":
-            source_default = copy.copy(source)
-            # save the source record in the default database
-            source_default.save()
-            filter_kwargs["source"] = source_default
+    for key, value in kwargs.items():
+        if isinstance(value, SQLRecord) and value._state.db != "default":
+            if db is None or db == "default":
+                value_default = copy.copy(value)
+                value_default.save()
+                filter_kwargs[key] = value_default
 
     return filter_kwargs
 

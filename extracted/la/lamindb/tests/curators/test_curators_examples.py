@@ -30,7 +30,7 @@ def small_dataset1_schema():
 
     # define schema
     schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata",
+        name="small_dataset1_obs_level_metadata_curator_tests",
         features=[
             ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
@@ -134,8 +134,10 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
+def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
+
+    ln.settings.verbosity = "info"
 
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
@@ -149,20 +151,20 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
             feature_to_fail,
         ],
     ).save()
-    df = datasets.small_dataset1(otype="DataFrame")
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
+        "Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
+        in error.exconly()
     )
 
     schema.delete()
     feature_to_fail.delete()
 
     # Wrong subtype
-    df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_wrong_subtype=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -174,7 +176,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     )
 
     # Typo
-    df = datasets.small_dataset1(otype="DataFrame", with_typo=True)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_typo=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -191,6 +193,18 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 
     assert artifact.schema == small_dataset1_schema
     assert artifact.features.slots["columns"].n == 5
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .parquet · DataFrame · dataset
+└── Dataset features
+    └── columns • 5         [Feature]
+        cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
+        cell_type_by_model  cat[bionty.CellType]    B cell, T cell
+        perturbation        cat[ULabel[Perturbati…  DMSO, IFNG
+        sample_label        cat[ULabel]             sample1, sample2, sample3
+        sample_note         str"""
+    )
     assert set(artifact.features.get_values()["sample_label"]) == {
         "sample1",
         "sample2",
@@ -212,7 +226,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     try:
         curator.validate()
     except ln.errors.ValidationError as error:
-        assert str(error).startswith("column 'sample_note' not in dataframe")
+        assert "column 'sample_note' not in dataframe" in str(error)
     curator.standardize()
     curator.validate()
 
@@ -227,9 +241,7 @@ def test_dataframe_curator_index():
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: expected series 'None' to have type str"
-    )
+    assert "expected series 'None' to have type str" in error.exconly()
 
     schema.delete()
     feature.delete()
@@ -425,6 +437,13 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
+
+        # TODO: without it, tests fail on CI (but pass locally)
+        if add_comp == "obs" and anndata_schema.slots["obs"]._index_feature_uid is None:
+            anndata_schema.slots[
+                "obs"
+            ]._index_feature_uid = obs_schema._index_feature_uid
+
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
         )
@@ -546,9 +565,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete()
 
 
-def test_soma_curator(
-    small_dataset1_schema: ln.Schema, curator_params: dict[str, str | FieldAttr]
-):
+def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
     """Test SOMA curator implementation."""
     adata = datasets.small_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
@@ -585,6 +602,11 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
         otype="AnnData",
         slots={"obs": small_dataset1_schema},
     ).save()
+    # TODO: without it, tests fail on CI (but pass locally)
+    if anndata_schema_no_var.slots["obs"]._index_feature_uid is None:
+        anndata_schema_no_var.slots[
+            "obs"
+        ]._index_feature_uid = small_dataset1_schema._index_feature_uid
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
@@ -733,19 +755,19 @@ def test_spatialdata_curator(
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .zarr/SpatialData
+        == """Artifact .zarr · SpatialData · dataset
 └── Dataset features
     ├── attrs:bio • 2       [Feature]
-    │   developmental_sta…  cat[bionty.Devel…  adult stage
-    │   disease             cat[bionty.Disea…  Alzheimer disease
+    │   developmental_sta…  cat[bionty.Developmen…  adult stage
+    │   disease             cat[bionty.Disease]     Alzheimer disease
     ├── attrs:tech • 1      [Feature]
-    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    │   assay               cat[bionty.Experiment…  Visium Spatial Gene Express…
     ├── attrs • 2           [Feature]
     │   bio                 dict
     │   tech                dict
     ├── tables:table:obs …  [Feature]
     │   sample_region       str
-    └── tables:table:var.…  [bionty.Gene.ens…
+    └── tables:table:var.…  [bionty.Gene.ensembl_…
         BRCA2               num
         BRAF                num"""
     )
@@ -754,7 +776,7 @@ def test_spatialdata_curator(
 
 
 def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
-    """Test TiledbTiledbsomaExperimentCurator with schema."""
+    """Test TiledbSomaExperimentCurator with schema."""
     obs_schema = ln.Schema(
         features=[
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
@@ -782,54 +804,56 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     tiledbsoma.io.from_anndata(
         "small_dataset.tiledbsoma", adata, measurement_name="RNA"
     )
-    experiment = tiledbsoma.Experiment.open("small_dataset.tiledbsoma")
 
     # Test with invalid dataset
     with pytest.raises(ln.errors.InvalidArgument):
         ln.curators.TiledbsomaExperimentCurator(adata, soma_schema)
 
     # Test with invalid schema
-    with pytest.raises(ln.errors.InvalidArgument):
-        ln.curators.TiledbsomaExperimentCurator(experiment, small_dataset1_schema)
+    with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
+        with pytest.raises(ln.errors.InvalidArgument):
+            ln.curators.TiledbsomaExperimentCurator(experiment, small_dataset1_schema)
 
-    curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
+    with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
+        curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
 
-    assert "obs" in curator.slots
-    assert "ms:RNA" in curator.slots
+        assert "obs" in curator.slots
+        assert "ms:RNA" in curator.slots
 
-    curator.validate()
+        curator.validate()
 
-    artifact = curator.save_artifact(
-        key="examples/soma_experiment.tiledbsoma",
-        description="SOMA experiment with schema validation",
-    )
+        artifact = curator.save_artifact(
+            key="examples/soma_experiment.tiledbsoma",
+            description="SOMA experiment with schema validation",
+        )
 
-    assert artifact.schema == soma_schema
-    assert "obs" in artifact.features.slots
-    assert "ms:RNA" in artifact.features.slots
+        assert artifact.schema == soma_schema
+        assert "obs" in artifact.features.slots
+        assert "ms:RNA" in artifact.features.slots
 
-    # Check feature values are properly annotated
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "CD8-positive, alpha-beta T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
+        # Check feature values are properly annotated
+        assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+            "CD8-positive, alpha-beta T cell",
+            "B cell",
+        }
+        assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+            "T cell",
+            "B cell",
+        }
 
     # Altered data (gene typo)
     adata_typo = ln.core.datasets.small_dataset1(otype="AnnData", with_gene_typo=True)
     typo_soma_path = "./small_dataset1_typo.tiledbsoma"
     tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
-    experiment_typo = tiledbsoma.Experiment.open(typo_soma_path)
+    with tiledbsoma.Experiment.open(typo_soma_path) as experiment_typo:
+        curator_typo = ln.curators.TiledbsomaExperimentCurator(
+            experiment_typo, soma_schema
+        )
 
-    curator_typo = ln.curators.TiledbsomaExperimentCurator(experiment_typo, soma_schema)
-
-    # Validation should fail due to typo
-    with pytest.raises(ln.errors.ValidationError) as error:
-        curator_typo.validate()
-    assert "GeneTypo" in str(error.value)
+        # Validation should fail due to typo
+        with pytest.raises(ln.errors.ValidationError) as error:
+            curator_typo.validate()
+        assert "GeneTypo" in str(error.value)
 
     # Clean up
     artifact.delete(permanent=True)

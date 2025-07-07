@@ -7,36 +7,34 @@ import time
 import uuid
 import warnings
 from collections.abc import Coroutine
-from functools import cached_property
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
     Generic,
     Iterable,
     Literal,
     Tuple,
     TypeVar,
-    cast,
-    get_type_hints,
 )
 
 import imageio.v3 as iio
 import numpy as np
-from typing_extensions import Protocol
+from typing_extensions import Protocol, override
 
-from . import _messages
+from ._assignable_props_api import AssignablePropsBase
 from ._icons import svg_from_icon
 from ._icons_enum import IconName
 from ._messages import (
     GuiBaseProps,
     GuiButtonGroupProps,
+    GuiButtonProps,
     GuiCheckboxProps,
     GuiCloseModalMessage,
     GuiDropdownProps,
     GuiFolderProps,
+    GuiHtmlProps,
     GuiImageProps,
     GuiMarkdownProps,
     GuiMultiSliderProps,
@@ -50,6 +48,7 @@ from ._messages import (
     GuiTabGroupProps,
     GuiTextProps,
     GuiUpdateMessage,
+    GuiUplotProps,
     GuiVector2Props,
     GuiVector3Props,
 )
@@ -113,53 +112,12 @@ class _GuiHandleState(Generic[T]):
     removed: bool = False
 
 
-class _OverridableGuiPropApi:
-    """Mixin that allows reading/assigning properties defined in each scene node message."""
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name == "_impl":
-            return object.__setattr__(self, name, value)
-
-        # If it's a property with a setter, use the setter
-        prop = getattr(self.__class__, name, None)
-        if isinstance(prop, property) and prop.fset is not None:
-            prop.fset(self, value)
-            return
-
-        # Otherwise, look for the field in the general props struct.
-        handle = cast(_GuiInputHandle, self)
-        # Get the value of the T TypeVar.
-        if name in self._prop_hints:
-            if getattr(handle._impl.props, name) == value:
-                # Do nothing. Assumes equality is defined for the prop value.
-                return
-            setattr(handle._impl.props, name, value)
-            handle._impl.gui_api._websock_interface.queue_message(
-                _messages.GuiUpdateMessage(handle._impl.uuid, {name: value})
-            )
-        else:
-            return object.__setattr__(self, name, value)
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self._prop_hints:
-            return getattr(self._impl.props, name)
-        else:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{name}'"
-            )
-
-    @cached_property
-    def _prop_hints(self) -> Dict[str, Any]:
-        return get_type_hints(type(self._impl.props))
-
-
-class _GuiHandle(
-    Generic[T],
-    _OverridableGuiPropApi if not TYPE_CHECKING else object,
-):
-    # Let's shove private implementation details in here...
-    def __init__(self, _impl: _GuiHandleState[T]) -> None:
-        self._impl = _impl
+# Not exported for now because some GUI handles don't currently inhert from
+# `_GuiHandle`: notably `GuiModalHandle` and `GuiTabHandle`. These would fail
+# isinstance checks, which would be confusing!
+class _GuiHandle(Generic[T], AssignablePropsBase[_GuiHandleState]):
+    def __init__(self, impl: _GuiHandleState[T]) -> None:
+        super().__init__(impl=impl)
         parent = self._impl.gui_api._container_handle_from_uuid[
             self._impl.parent_container_id
         ]
@@ -167,6 +125,12 @@ class _GuiHandle(
 
         if isinstance(self, _GuiInputHandle):
             self._impl.gui_api._gui_input_handle_from_uuid[self._impl.uuid] = self
+
+    @override
+    def _queue_update(self, name: str, value: Any) -> None:
+        self._impl.gui_api._websock_interface.queue_message(
+            GuiUpdateMessage(self._impl.uuid, {name: value})
+        )
 
     def remove(self) -> None:
         """Permanently remove this GUI element from the visualizer."""
@@ -397,7 +361,7 @@ class GuiEvent(Generic[TGuiHandle]):
     """GUI element that was affected."""
 
 
-class GuiButtonHandle(_GuiInputHandle[bool]):
+class GuiButtonHandle(_GuiInputHandle[bool], GuiButtonProps):
     """Handle for a button input in our visualizer.
 
     .. attribute:: value
@@ -534,7 +498,7 @@ class GuiTabGroupHandle(_GuiHandle[None], GuiTabGroupProps):
     """Handle for a tab group. Call :meth:`add_tab()` to add a tab."""
 
     def __init__(self, _impl: _GuiHandleState[None]) -> None:
-        super().__init__(_impl=_impl)
+        super().__init__(impl=_impl)
         self._tab_handles: list[GuiTabHandle] = []
 
     def add_tab(self, label: str, icon: IconName | None = None) -> GuiTabHandle:
@@ -648,11 +612,11 @@ class GuiTabHandle:
         self._parent._impl.gui_api._container_handle_from_uuid.pop(self._id)
 
 
-class GuiFolderHandle(_GuiHandle, GuiFolderProps):
+class GuiFolderHandle(_GuiHandle[None], GuiFolderProps):
     """Use as a context to place GUI elements into a folder."""
 
     def __init__(self, _impl: _GuiHandleState[None]) -> None:
-        super().__init__(_impl=_impl)
+        super().__init__(impl=_impl)
         self._impl.gui_api._container_handle_from_uuid[self._impl.uuid] = self
         self._children = {}
         parent = self._impl.gui_api._container_handle_from_uuid[
@@ -780,7 +744,7 @@ class GuiMarkdownHandle(_GuiHandle[None], GuiMarkdownProps):
     """Handling for updating and removing markdown elements."""
 
     def __init__(self, _impl: _GuiHandleState, _content: str, _image_root: Path | None):
-        super().__init__(_impl=_impl)
+        super().__init__(impl=_impl)
         self._content = _content
         self._image_root = _image_root
 
@@ -796,11 +760,15 @@ class GuiMarkdownHandle(_GuiHandle[None], GuiMarkdownProps):
         self._markdown = _parse_markdown(content, self._image_root)
 
 
+class GuiHtmlHandle(_GuiHandle[None], GuiHtmlProps):
+    """Handling for updating and removing HTML elements."""
+
+
 class GuiPlotlyHandle(_GuiHandle[None], GuiPlotlyProps):
     """Handle for updating and removing Plotly figures."""
 
     def __init__(self, _impl: _GuiHandleState, _figure: go.Figure):
-        super().__init__(_impl=_impl)
+        super().__init__(impl=_impl)
         self._figure = _figure
 
     @property
@@ -818,6 +786,12 @@ class GuiPlotlyHandle(_GuiHandle[None], GuiPlotlyProps):
         self._plotly_json_str = json_str
 
 
+class GuiUplotHandle(_GuiHandle[None], GuiUplotProps):
+    """Handle for updating and removing Uplot figures."""
+
+    pass
+
+
 class GuiImageHandle(_GuiHandle[None], GuiImageProps):
     """Handle for updating and removing images."""
 
@@ -827,7 +801,7 @@ class GuiImageHandle(_GuiHandle[None], GuiImageProps):
         _image: np.ndarray,
         _jpeg_quality: int | None,
     ):
-        super().__init__(_impl=_impl)
+        super().__init__(impl=_impl)
         self._image = _image
         self._jpeg_quality = _jpeg_quality
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cloudfoundry_client
-Version: 1.38.5
+Version: 1.38.6
 Summary: A client library for CloudFoundry
 Keywords: cloudfoundry,cf
 Author: Benjamin Einaudi

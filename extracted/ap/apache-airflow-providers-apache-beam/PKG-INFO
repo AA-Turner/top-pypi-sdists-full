@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-apache-beam
-Version: 6.1.1
+Version: 6.1.2
 Summary: Provider package apache-airflow-providers-apache-beam for Apache Airflow
 Keywords: airflow-provider,apache.beam,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -15,20 +15,19 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
 Requires-Dist: apache-beam>=2.60.0
-Requires-Dist: pyarrow>=14.0.1
+Requires-Dist: pyarrow>=16.1.0
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: apache-airflow-providers-common-compat ; extra == "common-compat"
 Requires-Dist: apache-beam[gcp]>=2.60.0 ; extra == "google"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -61,7 +60,7 @@ Provides-Extra: google
 
 Package ``apache-airflow-providers-apache-beam``
 
-Release: ``6.1.1``
+Release: ``6.1.2``
 
 
 `Apache Beam <https://beam.apache.org/>`__.
@@ -74,7 +73,7 @@ This is a provider package for ``apache.beam`` provider. All classes for this pr
 are in ``airflow.providers.apache.beam`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.2/>`_.
 
 Installation
 ------------
@@ -83,7 +82,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-apache-beam``
 
-The package supports the following python versions: 3.9,3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12
 
 Requirements
 ------------
@@ -93,7 +92,7 @@ PIP package         Version required
 ==================  ==================
 ``apache-airflow``  ``>=2.10.0``
 ``apache-beam``     ``>=2.60.0``
-``pyarrow``         ``>=14.0.1``
+``pyarrow``         ``>=16.1.0``
 ``numpy``           ``>=1.26.0``
 ==================  ==================
 
@@ -118,5 +117,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.1.2/changelog.html>`_.
 

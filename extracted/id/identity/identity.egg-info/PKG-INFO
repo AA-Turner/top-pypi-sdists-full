@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: identity
-Version: 0.10.0
+Version: 0.11.0
 Summary: This is an authentication/authorization library, currently optimized for web apps. It provides some higher level APIs built on top of Microsoft's MSAL Python.
 Home-page: https://github.com/rayluo/identity
 Author: Ray Luo

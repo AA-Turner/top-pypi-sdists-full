@@ -1,5 +1,4 @@
 use memmap2::Mmap;
-use pyo3::exceptions::PyRuntimeError;
 use pyo3::{PyErr, PyResult, pyclass, pymethods};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -25,18 +24,18 @@ impl Display for HgMmapError {
         match self {
             HgMmapError::InvalidHeader => write!(f, "Invalid header"),
             HgMmapError::InvalidVersion => write!(f, "Invalid version"),
-            HgMmapError::InvalidRootCategory(id) => write!(f, "Invalid root category: {}", id),
-            HgMmapError::MemoryMapError(err) => write!(f, "Memory map error: {}", err),
-            HgMmapError::Utf16ConversionError(err) => write!(f, "UTF-16 conversion error: {}", err),
+            HgMmapError::InvalidRootCategory(id) => write!(f, "Invalid root category: {id}"),
+            HgMmapError::MemoryMapError(err) => write!(f, "Memory map error: {err}"),
+            HgMmapError::Utf16ConversionError(err) => write!(f, "UTF-16 conversion error: {err}"),
             HgMmapError::NotInitialized => write!(f, "Not initialized"),
             HgMmapError::IndexOutOfRange => write!(f, "Index out of range"),
             HgMmapError::GuidCreationError(err) => {
-                write!(f, "GUID creation error: {}", err)
+                write!(f, "GUID creation error: {err}")
             }
             HgMmapError::RefEnumeratorIndexOutOfRange => {
                 write!(f, "RefEnumerator index out of range")
             }
-            HgMmapError::SerializationError(err) => write!(f, "Serialization error: {}", err),
+            HgMmapError::SerializationError(err) => write!(f, "Serialization error: {err}"),
         }
     }
 }
@@ -477,13 +476,11 @@ impl ManifestDataBinary {
     }
 
     pub fn init_binary(&mut self, file_path: &str) -> PyResult<bool> {
-        self.init_binary_inner(file_path).map_err(|e| {
-            PyErr::new::<PyRuntimeError, _>(format!("Failed to initialize binary: {}", e))
-        })
+        Ok(self.init_binary_impl(file_path)?)
     }
 
     pub fn save_to_json_file(&self, output_path: &str) -> PyResult<bool> {
-        Ok(self.save_to_json_file_inner(output_path)?)
+        Ok(self.save_to_json_file_impl(output_path)?)
     }
 }
 
@@ -492,7 +489,7 @@ impl ManifestDataBinary {
     const HEAD2: u32 = 4059231220;
     const _VERSION: &'static str = "1.0.1";
 
-    fn init_binary_inner(&mut self, file_path: &str) -> Result<bool, HgMmapError> {
+    fn init_binary_impl(&mut self, file_path: &str) -> Result<bool, HgMmapError> {
         let file = File::open(file_path).map_err(HgMmapError::MemoryMapError)?;
         let mmap = unsafe { Mmap::map(&file).map_err(HgMmapError::MemoryMapError)? };
 
@@ -612,12 +609,12 @@ impl ManifestDataBinary {
         Ok(true)
     }
 
-    fn save_to_json_file_inner(&self, output_path: &str) -> Result<bool, HgMmapError> {
+    fn save_to_json_file_impl(&self, output_path: &str) -> Result<bool, HgMmapError> {
         let manifest_data = self.to_manifest_data()?;
         let file = File::create(output_path).map_err(HgMmapError::MemoryMapError)?;
         let mut writer = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut writer, &manifest_data).map_err(|e| {
-            HgMmapError::SerializationError(format!("Failed to serialize JSON: {}", e))
+            HgMmapError::SerializationError(format!("Failed to serialize JSON: {e}"))
         })?;
         writer.flush().map_err(HgMmapError::MemoryMapError)?;
         Ok(true)
@@ -706,9 +703,8 @@ impl ManifestDataBinary {
     #[allow(dead_code)]
     fn to_json(&self) -> Result<String, HgMmapError> {
         let manifest_data = self.to_manifest_data()?;
-        serde_json::to_string(&manifest_data).map_err(|e| {
-            HgMmapError::SerializationError(format!("Failed to serialize JSON: {}", e))
-        })
+        serde_json::to_string(&manifest_data)
+            .map_err(|e| HgMmapError::SerializationError(format!("Failed to serialize JSON: {e}")))
     }
 }
 
@@ -722,13 +718,13 @@ mod tests {
 
         let file_path = "manifest.hgmmap";
 
-        match manifest.init_binary_inner(file_path) {
+        match manifest.init_binary_impl(file_path) {
             Ok(true) => {
                 println!("Successfully loaded manifest binary");
                 println!("Hash: {}", manifest.hash);
 
                 manifest
-                    .save_to_json_file_inner("manifest.hgmmap.json")
+                    .save_to_json_file_impl("manifest.hgmmap.json")
                     .unwrap();
                 println!("Manifest data saved to manifest.hgmmap.json");
             }
@@ -736,7 +732,7 @@ mod tests {
                 println!("Failed to load manifest binary");
             }
             Err(e) => {
-                println!("Error loading manifest binary: {}", e);
+                println!("Error loading manifest binary: {e}");
             }
         }
 

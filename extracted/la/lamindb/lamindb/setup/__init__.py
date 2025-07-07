@@ -7,7 +7,8 @@ from lamindb_setup import (
     settings,
 )
 
-from . import core
+from . import core, errors, types
+from ._switch import switch  # noqa: F401
 
 del connect  # we have this at the root level, hence, we don't want it here
 __doc__ = _lamindb_setup.__doc__.replace("lamindb_setup", "lamindb.setup")

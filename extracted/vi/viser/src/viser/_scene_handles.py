@@ -4,7 +4,6 @@ import copy
 import dataclasses
 import warnings
 from collections.abc import Coroutine
-from functools import cached_property
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -19,10 +18,11 @@ from typing import (
 )
 
 import numpy as np
-import numpy.typing as onpt
-from typing_extensions import Self, get_type_hints
+import numpy.typing as npt
+from typing_extensions import Self, deprecated, override
 
 from . import _messages
+from ._assignable_props_api import AssignablePropsBase
 from .infra._infra import WebsockClientConnection, WebsockServer
 
 if TYPE_CHECKING:
@@ -30,75 +30,6 @@ if TYPE_CHECKING:
     from ._scene_api import SceneApi
     from ._viser import ClientHandle
     from .infra import ClientId
-
-
-def colors_to_uint8(colors: np.ndarray) -> onpt.NDArray[np.uint8]:
-    """Convert intensity values to uint8. We assume the range [0,1] for floats, and
-    [0,255] for integers. Accepts any shape."""
-    if colors.dtype != np.uint8:
-        if np.issubdtype(colors.dtype, np.floating):
-            colors = np.clip(colors * 255.0, 0, 255).astype(np.uint8)
-        if np.issubdtype(colors.dtype, np.integer):
-            colors = np.clip(colors, 0, 255).astype(np.uint8)
-    return colors
-
-
-class _OverridableScenePropApi:
-    """Mixin that allows reading/assigning properties defined in each scene node message."""
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name == "_impl":
-            return object.__setattr__(self, name, value)
-
-        handle = cast(SceneNodeHandle, self)
-        # Get the value of the T TypeVar.
-        if name in self._prop_hints:
-            # Help the user with some casting...
-            hint = self._prop_hints[name]
-            if hint == onpt.NDArray[np.float32]:
-                value = value.astype(np.float32)
-            elif hint == onpt.NDArray[np.float16]:
-                value = value.astype(np.float16)
-            elif hint == onpt.NDArray[np.uint8] and "color" in name:
-                value = colors_to_uint8(value)
-
-            current_value = getattr(handle._impl.props, name)
-
-            # Do nothing if the value hasn't changed.
-            if isinstance(current_value, np.ndarray):
-                if current_value.data == value.data:
-                    return
-            elif current_value == value:
-                return
-
-            # Update the value.
-            if isinstance(value, np.ndarray):
-                assert value.dtype == current_value.dtype
-                if value.shape == current_value.shape:
-                    current_value[:] = value
-                else:
-                    setattr(handle._impl.props, name, value.copy())
-            else:
-                # Non-array properties should be immutable, so no need to copy.
-                setattr(handle._impl.props, name, value)
-
-            handle._impl.api._websock_interface.queue_message(
-                _messages.SceneNodeUpdateMessage(handle.name, {name: value})
-            )
-        else:
-            return object.__setattr__(self, name, value)
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self._prop_hints:
-            return getattr(self._impl.props, name)
-        else:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{name}'"
-            )
-
-    @cached_property
-    def _prop_hints(self) -> Dict[str, Any]:
-        return get_type_hints(type(self._impl.props))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -121,8 +52,13 @@ class ScenePointerEvent:
     For a box selection, this includes the min- and max- corners of the box."""
 
     @property
+    @deprecated("The `event` property is deprecated. Use `event_type` instead.")
     def event(self):
-        """Deprecated. Use `event_type` instead."""
+        """Deprecated. Use `event_type` instead.
+
+        .. deprecated::
+            The `event` property is deprecated. Use `event_type` instead.
+        """
         return self.event_type
 
 
@@ -154,11 +90,14 @@ class _SceneNodeMessage(Protocol):
     props: Any
 
 
-class SceneNodeHandle:
+class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
     """Handle base class for interacting with scene nodes."""
 
-    def __init__(self, impl: _SceneNodeHandleState) -> None:
-        self._impl = impl
+    @override
+    def _queue_update(self, name: str, value: Any) -> None:
+        self._impl.api._websock_interface.queue_message(
+            _messages.SceneNodeUpdateMessage(self._impl.name, {name: value})
+        )
 
     @property
     def name(self) -> str:
@@ -194,7 +133,7 @@ class SceneNodeHandle:
         return out
 
     @property
-    def wxyz(self) -> np.ndarray:
+    def wxyz(self) -> npt.NDArray[np.float32]:
         """Orientation of the scene node. This is the quaternion representation of the R
         in `p_parent = [R | t] p_local`. Synchronized to clients automatically when assigned.
         """
@@ -214,7 +153,7 @@ class SceneNodeHandle:
         )
 
     @property
-    def position(self) -> np.ndarray:
+    def position(self) -> npt.NDArray[np.float32]:
         """Position of the scene node. This is equivalent to the t in
         `p_parent = [R | t] p_local`. Synchronized to clients automatically when assigned.
         """
@@ -284,6 +223,18 @@ class SceneNodePointerEvent(Generic[TSceneNodeHandle]):
     """Instance ID of the clicked object, if applicable. Currently this is `None` for all objects except for the output of :meth:`SceneApi.add_batched_axes()`."""
 
 
+@dataclasses.dataclass(frozen=True)
+class TransformControlsEvent:
+    """Event passed to callbacks for transform control updates."""
+
+    client: ClientHandle | None
+    """Client that triggered this event."""
+    client_id: int | None
+    """ID of client that triggered this event."""
+    target: TransformControlsHandle
+    """Transform controls handle that was affected."""
+
+
 NoneOrCoroutine = TypeVar("NoneOrCoroutine", None, Coroutine)
 
 
@@ -351,7 +302,6 @@ class _ClickableSceneNodeHandle(SceneNodeHandle):
 class CameraFrustumHandle(
     _ClickableSceneNodeHandle,
     _messages.CameraFrustumProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for camera frustums."""
 
@@ -415,7 +365,6 @@ class CameraFrustumHandle(
 class DirectionalLightHandle(
     SceneNodeHandle,
     _messages.DirectionalLightProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for directional lights."""
 
@@ -423,7 +372,6 @@ class DirectionalLightHandle(
 class AmbientLightHandle(
     SceneNodeHandle,
     _messages.AmbientLightProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for ambient lights."""
 
@@ -431,7 +379,6 @@ class AmbientLightHandle(
 class HemisphereLightHandle(
     SceneNodeHandle,
     _messages.HemisphereLightProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for hemisphere lights."""
 
@@ -439,7 +386,6 @@ class HemisphereLightHandle(
 class PointLightHandle(
     SceneNodeHandle,
     _messages.PointLightProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for point lights."""
 
@@ -447,7 +393,6 @@ class PointLightHandle(
 class RectAreaLightHandle(
     SceneNodeHandle,
     _messages.RectAreaLightProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for rectangular area lights."""
 
@@ -455,7 +400,6 @@ class RectAreaLightHandle(
 class SpotLightHandle(
     SceneNodeHandle,
     _messages.SpotLightProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for spot lights."""
 
@@ -463,15 +407,27 @@ class SpotLightHandle(
 class PointCloudHandle(
     SceneNodeHandle,
     _messages.PointCloudProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for point clouds. Does not support click events."""
+
+    @override
+    def _cast_array_dtypes(
+        self,
+        prop_hints: Dict[str, Any],
+        prop_name: str,
+        value: np.ndarray,
+    ) -> np.ndarray:
+        """Casts assigned `points` based on the current value of `precision`."""
+        if prop_name == "points":
+            return value.astype(
+                {"float16": np.float16, "float32": np.float32}[self.precision]
+            )
+        return super()._cast_array_dtypes(prop_hints, prop_name, value)
 
 
 class BatchedAxesHandle(
     _ClickableSceneNodeHandle,
     _messages.BatchedAxesProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for batched coordinate frames."""
 
@@ -479,7 +435,6 @@ class BatchedAxesHandle(
 class FrameHandle(
     _ClickableSceneNodeHandle,
     _messages.FrameProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for coordinate frames."""
 
@@ -487,15 +442,41 @@ class FrameHandle(
 class MeshHandle(
     _ClickableSceneNodeHandle,
     _messages.MeshProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for mesh objects."""
+
+
+class BoxHandle(
+    _ClickableSceneNodeHandle,
+    _messages.BoxProps,
+):
+    """Handle for box objects."""
+
+
+class IcosphereHandle(
+    _ClickableSceneNodeHandle,
+    _messages.IcosphereProps,
+):
+    """Handle for icosphere objects."""
+
+
+class BatchedMeshHandle(
+    _ClickableSceneNodeHandle,
+    _messages.BatchedMeshesProps,
+):
+    """Handle for batched mesh objects."""
+
+
+class BatchedGlbHandle(
+    _ClickableSceneNodeHandle,
+    _messages.BatchedGlbProps,
+):
+    """Handle for batched GLB objects."""
 
 
 class GaussianSplatHandle(
     _ClickableSceneNodeHandle,
     _messages.GaussianSplatsProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for Gaussian splatting objects.
 
@@ -506,7 +487,6 @@ class GaussianSplatHandle(
 class MeshSkinnedHandle(
     _ClickableSceneNodeHandle,
     _messages.SkinnedMeshProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for skinned mesh objects."""
 
@@ -533,7 +513,7 @@ class MeshSkinnedBoneHandle:
     _impl: BoneState
 
     @property
-    def wxyz(self) -> np.ndarray:
+    def wxyz(self) -> npt.NDArray[np.float32]:
         """Orientation of the bone. This is the quaternion representation of the R
         in `p_parent = [R | t] p_local`. Synchronized to clients automatically when assigned.
         """
@@ -555,7 +535,7 @@ class MeshSkinnedBoneHandle:
         )
 
     @property
-    def position(self) -> np.ndarray:
+    def position(self) -> npt.NDArray[np.float32]:
         """Position of the bone. This is equivalent to the t in
         `p_parent = [R | t] p_local`. Synchronized to clients automatically when assigned.
         """
@@ -580,7 +560,6 @@ class MeshSkinnedBoneHandle:
 class GridHandle(
     SceneNodeHandle,
     _messages.GridProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for grid objects."""
 
@@ -588,7 +567,6 @@ class GridHandle(
 class LineSegmentsHandle(
     SceneNodeHandle,
     _messages.LineSegmentsProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for line segments objects."""
 
@@ -596,23 +574,75 @@ class LineSegmentsHandle(
 class SplineCatmullRomHandle(
     SceneNodeHandle,
     _messages.CatmullRomSplineProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for Catmull-Rom splines."""
+
+    @property
+    @deprecated("The 'positions' property is deprecated. Use 'points' instead.")
+    def positions(self) -> tuple[tuple[float, float, float], ...]:
+        """Get the spline positions. Deprecated: use 'points' instead.
+
+        .. deprecated::
+            "The 'positions' tuple property is deprecated. Use the 'points' numpy array instead.",
+        """
+        import warnings
+
+        warnings.warn(
+            "The 'positions' tuple property is deprecated. Use the 'points' numpy array instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return tuple(tuple(x) for x in self.points.tolist())  # type: ignore
+
+    @positions.setter
+    @deprecated("The 'positions' property is deprecated. Use 'points' instead.")
+    def positions(self, positions: tuple[tuple[float, float, float], ...]) -> None:
+        import warnings
+
+        warnings.warn(
+            "The 'positions' tuple property is deprecated. Use the 'points' numpy array instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.points = np.asarray(positions)
 
 
 class SplineCubicBezierHandle(
     SceneNodeHandle,
     _messages.CubicBezierSplineProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for cubic Bezier splines."""
+
+    @property
+    @deprecated(
+        "The 'positions' tuple property is deprecated. Use 'points' numpy array instead."
+    )
+    def positions(self) -> tuple[tuple[float, float, float], ...]:
+        """Get the spline positions. Deprecated: use 'points' instead.
+
+        .. deprecated::
+            The 'positions' tuple property is deprecated. Use the 'points' numpy array instead.
+        """
+        return tuple(tuple(p) for p in self.points.tolist())  # type: ignore
+
+    @positions.setter
+    @deprecated(
+        "The 'positions' tuple property is deprecated. Use the 'points' numpy array instead."
+    )
+    def positions(self, positions: tuple[tuple[float, float, float], ...]) -> None:
+        import warnings
+
+        warnings.warn(
+            "The 'positions' tuple property is deprecated. Use the 'points' numpy array instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.points = np.asarray(positions)
 
 
 class GlbHandle(
     _ClickableSceneNodeHandle,
     _messages.GlbProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for GLB objects."""
 
@@ -620,7 +650,6 @@ class GlbHandle(
 class ImageHandle(
     _ClickableSceneNodeHandle,
     _messages.ImageProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for 2D images, rendered in 3D."""
 
@@ -648,7 +677,6 @@ class ImageHandle(
 class LabelHandle(
     SceneNodeHandle,
     _messages.LabelProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for 2D label objects. Does not support click events."""
 
@@ -656,14 +684,19 @@ class LabelHandle(
 @dataclasses.dataclass
 class _TransformControlsState:
     last_updated: float
-    update_cb: list[Callable[[TransformControlsHandle], None | Coroutine]]
+    update_cb: list[Callable[[TransformControlsEvent], None | Coroutine]]
+    drag_start_cb: list[Callable[[TransformControlsEvent], None | Coroutine]] = (
+        dataclasses.field(default_factory=list)
+    )
+    drag_end_cb: list[Callable[[TransformControlsEvent], None | Coroutine]] = (
+        dataclasses.field(default_factory=list)
+    )
     sync_cb: None | Callable[[ClientId, TransformControlsHandle], None] = None
 
 
 class TransformControlsHandle(
-    _ClickableSceneNodeHandle,
+    SceneNodeHandle,
     _messages.TransformControlsProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Handle for interacting with transform control gizmos."""
 
@@ -676,8 +709,8 @@ class TransformControlsHandle(
         return self._impl_aux.last_updated
 
     def on_update(
-        self, func: Callable[[TransformControlsHandle], NoneOrCoroutine]
-    ) -> Callable[[TransformControlsHandle], NoneOrCoroutine]:
+        self, func: Callable[[TransformControlsEvent], NoneOrCoroutine]
+    ) -> Callable[[TransformControlsEvent], NoneOrCoroutine]:
         """Attach a callback for when the gizmo is moved.
 
         The callback can be either a standard function or an async function:
@@ -704,6 +737,64 @@ class TransformControlsHandle(
                 cb for cb in self._impl_aux.update_cb if cb != callback
             ]
 
+    def on_drag_start(
+        self, func: Callable[[TransformControlsEvent], NoneOrCoroutine]
+    ) -> Callable[[TransformControlsEvent], NoneOrCoroutine]:
+        """Attach a callback for when dragging starts ("mouse down").
+
+        The callback can be either a standard function or an async function:
+        - Standard functions (def) will be executed in a threadpool.
+        - Async functions (async def) will be executed in the event loop.
+
+        Using async functions can be useful for reducing race conditions.
+        """
+        self._impl_aux.drag_start_cb.append(func)
+        return func
+
+    def on_drag_end(
+        self, func: Callable[[TransformControlsEvent], NoneOrCoroutine]
+    ) -> Callable[[TransformControlsEvent], NoneOrCoroutine]:
+        """Attach a callback for when dragging end ("mouse up").
+
+        The callback can be either a standard function or an async function:
+        - Standard functions (def) will be executed in a threadpool.
+        - Async functions (async def) will be executed in the event loop.
+
+        Using async functions can be useful for reducing race conditions.
+        """
+        self._impl_aux.drag_end_cb.append(func)
+        return func
+
+    def remove_drag_start_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove drag start callbacks from the transform controls.
+
+        Args:
+            callback: Either "all" to remove all callbacks, or a specific callback function to remove.
+        """
+        if callback == "all":
+            self._impl_aux.drag_start_cb.clear()
+        else:
+            self._impl_aux.drag_start_cb = [
+                cb for cb in self._impl_aux.drag_start_cb if cb != callback
+            ]
+
+    def remove_drag_end_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove drag end callbacks from the transform controls.
+
+        Args:
+            callback: Either "all" to remove all callbacks, or a specific callback function to remove.
+        """
+        if callback == "all":
+            self._impl_aux.drag_end_cb.clear()
+        else:
+            self._impl_aux.drag_end_cb = [
+                cb for cb in self._impl_aux.drag_end_cb if cb != callback
+            ]
+
     def remove(self) -> None:
         """Remove the node from the scene."""
         self._impl.api._handle_from_transform_controls_name.pop(self.name)
@@ -713,7 +804,6 @@ class TransformControlsHandle(
 class Gui3dContainerHandle(
     SceneNodeHandle,
     _messages.Gui3DProps,
-    _OverridableScenePropApi if not TYPE_CHECKING else object,
 ):
     """Use as a context to place GUI elements into a 3D GUI container."""
 

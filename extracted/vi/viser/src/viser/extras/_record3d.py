@@ -12,12 +12,6 @@ import numpy.typing as npt
 import skimage.transform
 from scipy.spatial.transform import Rotation
 
-try:
-    import liblzfse
-except ImportError:
-    print("liblzfse is missing. Please install with `pip install liblzfse`.")
-    sys.exit(1)
-
 
 class Record3dLoader:
     """Helper for loading frames for Record3D captures."""
@@ -59,6 +53,14 @@ class Record3dLoader:
         return len(self.rgb_paths)
 
     def get_frame(self, index: int) -> Record3dFrame:
+        # `pyliblzfse` can be hard to install on some Windows systems and is
+        # only needed for Record3D, so we don't do a global import.
+        try:
+            import liblzfse
+        except ImportError:
+            print("liblzfse is missing. Please install with `pip install pyliblzfse`.")
+            sys.exit(1)
+
         # Read conf.
         conf: np.ndarray = np.frombuffer(
             liblzfse.decompress(self.conf_paths[index].read_bytes()), dtype=np.uint8
@@ -126,7 +128,7 @@ class Record3dFrame:
         homo_grid = np.pad(grid[mask], np.array([[0, 0], [0, 1]]), constant_values=1)
         local_dirs = np.einsum("ij,bj->bi", np.linalg.inv(K), homo_grid)
         dirs = np.einsum("ij,bj->bi", T_world_camera[:3, :3], local_dirs)
-        points = (T_world_camera[:, -1] + dirs * depth[mask, None]).astype(np.float32)
+        points = (T_world_camera[:, -1] + dirs * depth[mask, None]).astype(np.float32)  # type: ignore
         point_colors = rgb[mask]
 
         return points, point_colors

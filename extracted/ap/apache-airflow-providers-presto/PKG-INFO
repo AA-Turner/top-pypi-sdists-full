@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-presto
-Version: 5.9.0
+Version: 5.9.1
 Summary: Provider package apache-airflow-providers-presto for Apache Airflow
 Keywords: airflow-provider,presto,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,8 +24,8 @@ Requires-Dist: apache-airflow-providers-common-sql>=1.26.0
 Requires-Dist: presto-python-client>=0.8.4
 Requires-Dist: apache-airflow-providers-google ; extra == "google"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -58,7 +57,7 @@ Provides-Extra: google
 
 Package ``apache-airflow-providers-presto``
 
-Release: ``5.9.0``
+Release: ``5.9.1``
 
 
 `Presto <https://prestodb.io/>`__
@@ -71,7 +70,7 @@ This is a provider package for ``presto`` provider. All classes for this provide
 are in ``airflow.providers.presto`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.1/>`_.
 
 Installation
 ------------
@@ -80,7 +79,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-presto``
 
-The package supports the following python versions: 3.9,3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12
 
 Requirements
 ------------
@@ -114,5 +113,5 @@ Dependent package                                                               
 ============================================================================================================  ==============
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.9.1/changelog.html>`_.
 

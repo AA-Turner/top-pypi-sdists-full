@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bionty
-Version: 1.5.0
+Version: 1.6.0
 Summary: Basic biological entities, coupled to public ontologies [`source <https://github.com/laminlabs/bionty/blob/main/bionty/models.py>`__].
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14

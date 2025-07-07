@@ -141,18 +141,30 @@ class VehicleMonitoringUseCase(BaseProcessor):
             filtered.append(detections[best_idx])
             used[best_idx] = True
         return filtered
+
     def _update_vehicle_tracking_state(self, detections: list):
         """
         Track unique vehicle track_ids per category for total count after tracking.
+        Applies canonical ID merging to avoid duplicate counting when the underlying
+        tracker loses an object temporarily and assigns a new ID.
         """
-        self._vehicle_total_track_ids = getattr(self, '_vehicle_total_track_ids', {cat: set() for cat in self.vehicle_categories})
+        # Lazily initialise storage dicts
+        if not hasattr(self, "_vehicle_total_track_ids"):
+            self._vehicle_total_track_ids = {cat: set() for cat in self.vehicle_categories}
         self._vehicle_current_frame_track_ids = {cat: set() for cat in self.vehicle_categories}
+
         for det in detections:
-            cat = det.get('category')
-            track_id = det.get('track_id')
-            if cat in self.vehicle_categories and track_id is not None:
-                self._vehicle_total_track_ids[cat].add(track_id)
-                self._vehicle_current_frame_track_ids[cat].add(track_id)
+            cat = det.get("category")
+            raw_track_id = det.get("track_id")
+            if cat not in self.vehicle_categories or raw_track_id is None:
+                continue
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            # Propagate canonical ID back to detection so downstream logic uses it
+            det["track_id"] = canonical_id
+
+            self._vehicle_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._vehicle_current_frame_track_ids[cat].add(canonical_id)
 
     def get_total_vehicle_counts(self):
         """
@@ -178,6 +190,19 @@ class VehicleMonitoringUseCase(BaseProcessor):
         # Initialize tracking state variables
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+
+        # ------------------------------------------------------------------ #
+        # Canonical tracking aliasing to avoid duplicate counts              #
+        # ------------------------------------------------------------------ #
+        # Maps raw tracker-generated IDs to stable canonical IDs that persist
+        # even if the underlying tracker re-assigns a new ID after a short
+        # interruption. This mirrors the logic used in people_counting to
+        # provide accurate unique counting.
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        # Tunable parameters – adjust if necessary for specific scenarios
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same vehicle
+        self._track_merge_time_window: float = 7.0    # seconds within which to merge
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
@@ -323,15 +348,13 @@ class VehicleMonitoringUseCase(BaseProcessor):
     def reset_vehicle_tracking(self) -> None:
         """
         Reset vehicle tracking state (total counts, track IDs, etc.).
-        
-        This should be called when:
-        - Starting a completely new tracking session
-        - Switching to a different video/stream
-        - Manual reset requested by user
         """
         self._vehicle_total_track_ids = {cat: set() for cat in self.vehicle_categories}
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        # Also clear canonical tracking structures
+        self._track_aliases.clear()
+        self._canonical_tracks.clear()
         self.logger.info("Vehicle Monitoring tracking state reset")
     
     def reset_all_tracking(self) -> None:
@@ -627,5 +650,99 @@ class VehicleMonitoringUseCase(BaseProcessor):
         if alerts:
             lines.append(f"{len(alerts)} alert(s)")
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------ #
+    # Canonical ID helpers                                               #
+    # ------------------------------------------------------------------ #
+    def _compute_iou(self, box1: Any, box2: Any) -> float:
+        """Compute IoU between two bounding boxes which may be dicts or lists.
+        Falls back to 0 when insufficient data is available."""
+        # Helper to convert bbox (dict or list) to [x1, y1, x2, y2]
+        def _bbox_to_list(bbox):
+            if bbox is None:
+                return []
+            if isinstance(bbox, list):
+                return bbox[:4] if len(bbox) >= 4 else []
+            if isinstance(bbox, dict):
+                if "xmin" in bbox:
+                    return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
+                if "x1" in bbox:
+                    return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
+                # Fallback: first four numeric values
+                values = [v for v in bbox.values() if isinstance(v, (int, float))]
+                return values[:4] if len(values) >= 4 else []
+            return []
+
+        l1 = _bbox_to_list(box1)
+        l2 = _bbox_to_list(box2)
+        if len(l1) < 4 or len(l2) < 4:
+            return 0.0
+        x1_min, y1_min, x1_max, y1_max = l1
+        x2_min, y2_min, x2_max, y2_max = l2
+
+        # Ensure correct order
+        x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
+        y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
+        x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
+        y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
+
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+
+        inter_w = max(0.0, inter_x_max - inter_x_min)
+        inter_h = max(0.0, inter_y_max - inter_y_min)
+        inter_area = inter_w * inter_h
+
+        area1 = (x1_max - x1_min) * (y1_max - y1_min)
+        area2 = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = area1 + area2 - inter_area
+
+        return (inter_area / union_area) if union_area > 0 else 0.0
+
+    def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        """Return a stable canonical ID for a raw tracker ID, merging fragmented
+        tracks when IoU and temporal constraints indicate they represent the
+        same physical vehicle."""
+        if raw_id is None or bbox is None:
+            # Nothing to merge
+            return raw_id
+
+        now = time.time()
+
+        # Fast path – raw_id already mapped
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+
+        # Attempt to merge with an existing canonical track
+        for canonical_id, info in self._canonical_tracks.items():
+            # Only consider recently updated tracks
+            if now - info["last_update"] > self._track_merge_time_window:
+                continue
+            iou = self._compute_iou(bbox, info["last_bbox"])
+            if iou >= self._track_merge_iou_threshold:
+                # Merge
+                self._track_aliases[raw_id] = canonical_id
+                info["last_bbox"] = bbox
+                info["last_update"] = now
+                info["raw_ids"].add(raw_id)
+                return canonical_id
+
+        # No match – register new canonical track
+        canonical_id = raw_id
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+        }
+        return canonical_id
 
 

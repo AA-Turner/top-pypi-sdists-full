@@ -41,7 +41,7 @@ from .sqlrecord import (
     record_repr,
     IsLink,
 )
-from .core import Storage
+from .storage import Storage
 from .transform import Transform
 from .run import Run, TracksRun, TracksUpdates, current_run, User
 from .feature import Feature, FeatureValue
@@ -73,10 +73,11 @@ from .project import (
     SchemaProject,
     ArtifactReference,
     CollectionReference,
-    SheetProject,
     RunProject,
     RecordProject,
     PersonProject,
+    RecordPerson,
+    RecordReference,
 )
 from .run import RunFeatureValue
 from .schema import (
@@ -89,12 +90,12 @@ from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 
 from .record import (
     Record,
-    Sheet,
     RecordJson,
     RecordRecord,
     RecordULabel,
     RecordRun,
     RecordArtifact,
+    ArtifactRecord,
 )
 
 

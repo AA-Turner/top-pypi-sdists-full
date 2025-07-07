@@ -9,12 +9,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Iterable, Optional, Sequence, Tuple
 
 from rich.console import RenderableType
+from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
 from typing_extensions import Literal
 
 from textual._text_area_theme import TextAreaTheme
 from textual._tree_sitter import TREE_SITTER, get_language
+from textual.cache import LRUCache
 from textual.color import Color
 from textual.document._document import (
     Document,
@@ -374,6 +376,9 @@ TextArea {
     compact: reactive[bool] = reactive(False, toggle_class="-textual-compact")
     """Enable compact display?"""
 
+    highlight_cursor_line: reactive[bool] = reactive(True)
+    """Highlight the line under the cursor?"""
+
     _cursor_visible: Reactive[bool] = reactive(False, repaint=False, init=False)
     """Indicates where the cursor is in the blink cycle. If it's currently
     not visible due to blinking, this is False."""
@@ -427,6 +432,7 @@ TextArea {
         disabled: bool = False,
         tooltip: RenderableType | None = None,
         compact: bool = False,
+        highlight_cursor_line: bool = True,
     ) -> None:
         """Construct a new `TextArea`.
 
@@ -446,6 +452,7 @@ TextArea {
             disabled: True if the widget is disabled.
             tooltip: Optional tooltip.
             compact: Enable compact style (without borders).
+            highlight_cursor_line: Highlight the line under the cursor.
         """
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
 
@@ -504,6 +511,9 @@ TextArea {
         self.set_reactive(TextArea.read_only, read_only)
         self.set_reactive(TextArea.show_line_numbers, show_line_numbers)
         self.set_reactive(TextArea.line_number_start, line_number_start)
+        self.set_reactive(TextArea.highlight_cursor_line, highlight_cursor_line)
+
+        self._line_cache: LRUCache[tuple, Strip] = LRUCache(1024)
 
         self._set_document(text, language)
 
@@ -541,6 +551,7 @@ TextArea {
         disabled: bool = False,
         tooltip: RenderableType | None = None,
         compact: bool = False,
+        highlight_cursor_line: bool = True,
     ) -> TextArea:
         """Construct a new `TextArea` with sensible defaults for editing code.
 
@@ -561,6 +572,7 @@ TextArea {
             disabled: True if the widget is disabled.
             tooltip: Optional tooltip
             compact: Enable compact style (without borders).
+            highlight_cursor_line: Highlight the line under the cursor.
         """
         return cls(
             text,
@@ -578,6 +590,7 @@ TextArea {
             disabled=disabled,
             tooltip=tooltip,
             compact=compact,
+            highlight_cursor_line=highlight_cursor_line,
         )
 
     @staticmethod
@@ -600,6 +613,9 @@ TextArea {
             highlight_query = ""
 
         return highlight_query
+
+    def notify_style_update(self) -> None:
+        self._line_cache.clear()
 
     def check_consume_key(self, key: str, character: str | None = None) -> bool:
         """Check if the widget may consume the given key.
@@ -624,6 +640,7 @@ TextArea {
 
     def _build_highlight_map(self) -> None:
         """Query the tree for ranges to highlights, and update the internal highlights mapping."""
+        self._line_cache.clear()
         highlights = self._highlights
         highlights.clear()
         if not self._highlight_query:
@@ -1026,6 +1043,7 @@ TextArea {
 
     def _rewrap_and_refresh_virtual_size(self) -> None:
         self.wrapped_document.wrap(self.wrap_width, tab_width=self.indent_width)
+        self._line_cache.clear()
         self._refresh_size()
 
     @property
@@ -1096,7 +1114,13 @@ TextArea {
             A `rich.Text` object containing the requested line.
         """
         line_string = self.document.get_line(line_index)
-        return Text(line_string, end="")
+        return Text(line_string, end="", no_wrap=True)
+
+    def render_lines(self, crop: Region) -> list[Strip]:
+        theme = self._theme
+        if theme:
+            theme.apply_css(self)
+        return super().render_lines(crop)
 
     def render_line(self, y: int) -> Strip:
         """Render a single line of the TextArea. Called by Textual.
@@ -1107,9 +1131,50 @@ TextArea {
         Returns:
             A rendered line.
         """
+        scroll_x, scroll_y = self.scroll_offset
+        absolute_y = scroll_y + y
+        selection = self.selection
+        cache_key = (
+            self.size,
+            scroll_x,
+            absolute_y,
+            (
+                selection
+                if selection.contains_line(absolute_y)
+                else selection.end[0] == absolute_y
+            ),
+            (
+                selection.end
+                if (
+                    self._cursor_visible
+                    and self.cursor_blink
+                    and absolute_y == selection.end[0]
+                )
+                else None
+            ),
+            self.theme,
+            self._matching_bracket_location,
+            self.match_cursor_bracket,
+            self.soft_wrap,
+            self.show_line_numbers,
+            self.read_only,
+        )
+        if (cached_line := self._line_cache.get(cache_key)) is not None:
+            return cached_line
+        line = self._render_line(y)
+        self._line_cache[cache_key] = line
+        return line
+
+    def _render_line(self, y: int) -> Strip:
+        """Render a single line of the TextArea. Called by Textual.
+
+        Args:
+            y: Y Coordinate of line relative to the widget region.
+
+        Returns:
+            A rendered line.
+        """
         theme = self._theme
-        if theme:
-            theme.apply_css(self)
 
         wrapped_document = self.wrapped_document
         scroll_x, scroll_y = self.scroll_offset
@@ -1149,7 +1214,11 @@ TextArea {
         selection_bottom_row, selection_bottom_column = selection_bottom
 
         cursor_line_style = theme.cursor_line_style if theme else None
-        if cursor_line_style and cursor_row == line_index:
+        if (
+            cursor_line_style
+            and cursor_row == line_index
+            and self.highlight_cursor_line
+        ):
             line.stylize(cursor_line_style)
 
         # Selection styling
@@ -1160,7 +1229,8 @@ TextArea {
             if selection_style:
                 if line_character_count == 0 and line_index != cursor_row:
                     # A simple highlight to show empty lines are included in the selection
-                    line = Text("▌", end="", style=Style(color=selection_style.bgcolor))
+                    line.plain = "▌"
+                    line.stylize(Style(color=selection_style.bgcolor))
                 else:
                     if line_index == selection_top_row == selection_bottom_row:
                         # Selection within a single line
@@ -1209,6 +1279,7 @@ TextArea {
                 self.has_focus
                 and not self.cursor_blink
                 or (self.cursor_blink and self._cursor_visible)
+                and not self.read_only
             )
             if draw_matched_brackets:
                 matching_bracket_style = theme.bracket_matching_style if theme else None
@@ -1241,7 +1312,7 @@ TextArea {
         # Build the gutter text for this line
         gutter_width = self.gutter_width
         if self.show_line_numbers:
-            if cursor_row == line_index:
+            if cursor_row == line_index and self.highlight_cursor_line:
                 gutter_style = theme.cursor_line_gutter_style
             else:
                 gutter_style = theme.gutter_style
@@ -1250,13 +1321,11 @@ TextArea {
             gutter_content = (
                 str(line_index + self.line_number_start) if section_offset == 0 else ""
             )
-            gutter = Text(
-                f"{gutter_content:>{gutter_width_no_margin}}  ",
-                style=gutter_style or "",
-                end="",
-            )
+            gutter = [
+                Segment(f"{gutter_content:>{gutter_width_no_margin}}  ", gutter_style)
+            ]
         else:
-            gutter = Text("", end="")
+            gutter = []
 
         # TODO: Lets not apply the division each time through render_line.
         #  We should cache sections with the edit counts.
@@ -1291,28 +1360,21 @@ TextArea {
             else max(virtual_width, self.region.size.width)
         )
         target_width = base_width - self.gutter_width
-        console = self.app.console
-        gutter_segments = console.render(gutter)
-
-        text_segments = list(
-            console.render(line, console.options.update_width(target_width))
-        )
-
-        gutter_strip = Strip(gutter_segments, cell_length=gutter_width)
-        text_strip = Strip(text_segments)
 
         # Crop the line to show only the visible part (some may be scrolled out of view)
+        console = self.app.console
+        text_strip = Strip(line.render(console), cell_length=line.cell_len)
         if not self.soft_wrap:
             text_strip = text_strip.crop(scroll_x, scroll_x + virtual_width)
 
         # Stylize the line the cursor is currently on.
-        if cursor_row == line_index:
+        if cursor_row == line_index and self.highlight_cursor_line:
             line_style = cursor_line_style
         else:
             line_style = theme.base_style if theme else None
 
         text_strip = text_strip.extend_cell_length(target_width, line_style)
-        strip = Strip.join([gutter_strip, text_strip]).simplify()
+        strip = Strip.join([Strip(gutter, cell_length=gutter_width), text_strip])
 
         return strip.apply_style(
             theme.base_style
@@ -1632,7 +1694,7 @@ TextArea {
         # Capture the mouse so that if the cursor moves outside the
         # TextArea widget while selecting, the widget still scrolls.
         self.capture_mouse()
-        self._pause_blink(visible=True)
+        self._pause_blink(visible=False)
         self.history.checkpoint()
 
     async def _on_mouse_move(self, event: events.MouseMove) -> None:

@@ -4,6 +4,7 @@ import asyncio
 import dataclasses
 import io
 import mimetypes
+import os
 import threading
 import time
 import warnings
@@ -19,52 +20,17 @@ import rich
 from rich import box, style
 from rich.panel import Panel
 from rich.table import Table
-from typing_extensions import Literal
+from typing_extensions import Literal, deprecated
 
 from . import _client_autobuild, _messages, infra
 from . import transforms as tf
-from ._gui_api import Color, GuiApi, _make_uuid
+from ._backwards_compat_shims import DeprecatedAttributeShim
+from ._gui_api import GuiApi, LiteralColor, _make_uuid
 from ._notification_handle import NotificationHandle, _NotificationHandleState
 from ._scene_api import SceneApi, cast_vector
 from ._threadpool_exceptions import print_threadpool_errors
 from ._tunnel import ViserTunnel
 from .infra._infra import StateSerializer
-
-
-class _BackwardsCompatibilityShim:
-    """Shims for backward compatibility with viser API from version
-    `<=0.1.30`."""
-
-    def __getattr__(self, name: str) -> Any:
-        fixed_name = {
-            # Map from old method names (viser v0.1.*) to new methods names.
-            "reset_scene": "reset",
-            "set_global_scene_node_visibility": "set_global_visibility",
-            "on_scene_pointer": "on_pointer_event",
-            "on_scene_pointer_removed": "on_pointer_callback_removed",
-            "remove_scene_pointer_callback": "remove_pointer_callback",
-            "add_mesh": "add_mesh_simple",
-        }.get(name, name)
-        if hasattr(self.scene, fixed_name):
-            warnings.warn(
-                f"{type(self).__name__}.{name} has been deprecated, use {type(self).__name__}.scene.{fixed_name} instead. Alternatively, pin to `viser<0.2.0`.",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            return object.__getattribute__(self.scene, fixed_name)
-
-        fixed_name = name.replace("add_gui_", "add_").replace("set_gui_", "set_")
-        if hasattr(self.gui, fixed_name):
-            warnings.warn(
-                f"{type(self).__name__}.{name} has been deprecated, use {type(self).__name__}.gui.{fixed_name} instead. Alternatively, pin to `viser<0.2.0`.",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            return object.__getattribute__(self.gui, fixed_name)
-
-        raise AttributeError(
-            f"'{type(self).__name__}' object has no attribute '{name}'"
-        )
 
 
 @dataclasses.dataclass
@@ -75,7 +41,8 @@ class _CameraHandleState:
     wxyz: npt.NDArray[np.float64]
     position: npt.NDArray[np.float64]
     fov: float
-    aspect: float
+    image_height: int
+    image_width: int
     near: float
     far: float
     look_at: npt.NDArray[np.float64]
@@ -94,7 +61,8 @@ class CameraHandle:
             wxyz=np.zeros(4),
             position=np.zeros(3),
             fov=0.0,
-            aspect=0.0,
+            image_height=0,
+            image_width=0,
             near=0.01,
             far=1000.0,
             look_at=np.zeros(3),
@@ -166,8 +134,7 @@ class CameraHandle:
 
     @position.setter
     def position(self, position: tuple[float, float, float] | np.ndarray) -> None:
-        position_array = np.asarray(position)
-
+        position_array = np.asarray(position).astype(np.float64)
         if np.allclose(position_array, self._state.position):
             return
         offset = position_array - np.array(self.position)  # type: ignore
@@ -247,7 +214,19 @@ class CameraHandle:
     def aspect(self) -> float:
         """Canvas width divided by height. Not assignable."""
         assert self._state.update_timestamp != 0.0
-        return self._state.aspect
+        return float(self._state.image_width) / self._state.image_height
+
+    @property
+    def image_height(self) -> int:
+        """Image height in pixels. Not assignable."""
+        assert self._state.update_timestamp != 0.0
+        return self._state.image_height
+
+    @property
+    def image_width(self) -> int:
+        """Image width in pixels. Not assignable."""
+        assert self._state.update_timestamp != 0.0
+        return self._state.image_width
 
     @property
     def update_timestamp(self) -> float:
@@ -262,7 +241,7 @@ class CameraHandle:
 
     @look_at.setter
     def look_at(self, look_at: tuple[float, float, float] | np.ndarray) -> None:
-        look_at_array = np.asarray(look_at)
+        look_at_array = np.asarray(look_at).astype(np.float64)
         if np.allclose(self._state.look_at, look_at_array):
             return
         self._state.look_at = look_at_array
@@ -330,10 +309,10 @@ class CameraHandle:
 NoneOrCoroutine = TypeVar("NoneOrCoroutine", None, Coroutine)
 
 
-# Don't inherit from _BackwardsCompatibilityShim during type checking, because
+# Don't inherit from RenamedAttributeCompatShim during type checking, because
 # this will unnecessarily suppress type errors. (from the overriding of
 # __getattr__).
-class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
+class ClientHandle(DeprecatedAttributeShim if not TYPE_CHECKING else object):
     """A handle is created for each client that connects to a server. Handles can be
     used to communicate with just one client, as well as for reading and writing of
     camera state.
@@ -385,7 +364,11 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
         return self._websock_connection.atomic()
 
     def send_file_download(
-        self, filename: str, content: bytes, chunk_size: int = 1024 * 1024
+        self,
+        filename: str,
+        content: bytes,
+        chunk_size: int = 1024 * 1024,
+        save_immediately: bool = False,
     ) -> None:
         """Send a file for a client or clients to download.
 
@@ -393,6 +376,9 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
             filename: Name of the file to send. Used to infer MIME type.
             content: Content of the file.
             chunk_size: Number of bytes to send at a time.
+            save_immediately: Whether to save the file immediately. If `False`,
+                a link to the file will be shown as a notification. Being able to
+                right click the link and choose "Save as..." can be useful.
         """
         mime_type = mimetypes.guess_type(filename, strict=False)[0]
         if mime_type is None:
@@ -405,8 +391,8 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
 
         uuid = _make_uuid()
         self._websock_connection.queue_message(
-            _messages.FileTransferStart(
-                source_component_uuid=None,
+            _messages.FileTransferStartDownload(
+                save_immediately=save_immediately,
                 transfer_uuid=uuid,
                 filename=filename,
                 mime_type=mime_type,
@@ -419,20 +405,51 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
                 _messages.FileTransferPart(
                     None,
                     transfer_uuid=uuid,
-                    part=i,
+                    part_index=i,
                     content=part,
                 )
             )
             self.flush()
 
+    @overload
     def add_notification(
         self,
         title: str,
         body: str,
+        *,
+        loading: bool = False,
+        with_close_button: bool = True,
+        auto_close_seconds: float | None = None,
+        color: LiteralColor | tuple[int, int, int] | None = None,
+    ) -> NotificationHandle: ...
+
+    @overload
+    @deprecated(
+        "The `auto_close` argument has been deprecated. Use `auto_close_seconds` instead."
+    )
+    def add_notification(
+        self,
+        title: str,
+        body: str,
+        *,
         loading: bool = False,
         with_close_button: bool = True,
         auto_close: int | Literal[False] = False,
-        color: Color | None = None,
+        color: LiteralColor | tuple[int, int, int] | None = None,
+    ) -> NotificationHandle: ...
+
+    def add_notification(
+        self,
+        title: str,
+        body: str,
+        *,
+        loading: bool = False,
+        with_close_button: bool = True,
+        # In seconds: current API.
+        auto_close_seconds: float | None = None,
+        # In milliseconds: deprecated.
+        auto_close: int | Literal[False] = False,
+        color: LiteralColor | tuple[int, int, int] | None = None,
     ) -> NotificationHandle:
         """Add a notification to the client's interface.
 
@@ -440,17 +457,27 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
         top left corner of the client's viewer. Notifications are useful for
         providing alerts or status updates to users.
 
+        .. deprecated::
+            The `auto_close` argument is deprecated. Use `auto_close_seconds` instead.
+
         Args:
             title: Title to display on the notification.
             body: Message to display on the notification body.
             loading: Whether the notification shows loading icon.
             with_close_button: Whether the notification can be manually closed.
-            auto_close: Time in ms before the notification automatically closes;
-                        otherwise False such that the notification never closes on its own.
+            auto_close_seconds: Time before the notification automatically
+                closes; None if the notification does not close on its own.
 
         Returns:
             A handle that can be used to interact with the GUI element.
         """
+        if auto_close is not False:
+            warnings.warn(
+                "The `auto_close` (milliseconds) argument has been deprecated. Use `auto_close_seconds` instead.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            auto_close_seconds = auto_close / 1000.0
         handle = NotificationHandle(
             _NotificationHandleState(
                 websock_interface=self._websock_connection,
@@ -460,7 +487,7 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
                     body=body,
                     loading=loading,
                     with_close_button=with_close_button,
-                    auto_close=auto_close,
+                    auto_close_seconds=auto_close_seconds,
                     color=color,
                 ),
             )
@@ -560,7 +587,7 @@ class ClientHandle(_BackwardsCompatibilityShim if not TYPE_CHECKING else object)
         return out
 
 
-class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
+class ViserServer(DeprecatedAttributeShim if not TYPE_CHECKING else object):
     """:class:`ViserServer` is the main class for working with viser. On
     instantiation, it (a) launches a thread with a web server and (b) provides
     a high-level API for interactive 3D visualization.
@@ -592,6 +619,16 @@ class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
         verbose: bool = True,
         **_deprecated_kwargs,
     ):
+        # Check for port override environment variable
+        port_override = os.environ.get("_VISER_PORT_OVERRIDE")
+        if port_override is not None:
+            try:
+                port = int(port_override)
+            except ValueError:
+                warnings.warn(
+                    f"Invalid _VISER_PORT_OVERRIDE value: {port_override}. Using default port {port}."
+                )
+
         # Create server.
         server = infra.WebsockServer(
             host=host,
@@ -639,7 +676,8 @@ class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
                     np.array(message.wxyz),
                     np.array(message.position),
                     fov=message.fov,
-                    aspect=message.aspect,
+                    image_height=message.image_height,
+                    image_width=message.image_width,
                     near=message.near,
                     far=message.far,
                     look_at=np.array(message.look_at),
@@ -753,6 +791,7 @@ class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
             self.request_share_url()
 
         self.scene.reset()
+        self.scene.set_up_direction("+z")
         self.gui.reset()
         self.gui.set_panel_label(label)
 
@@ -977,7 +1016,11 @@ class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
         return self._websock_server.atomic()
 
     def send_file_download(
-        self, filename: str, content: bytes, chunk_size: int = 1024 * 1024
+        self,
+        filename: str,
+        content: bytes,
+        chunk_size: int = 1024 * 1024,
+        save_immediately: bool = False,
     ) -> None:
         """Send a file for a client or clients to download.
 
@@ -985,9 +1028,12 @@ class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
             filename: Name of the file to send. Used to infer MIME type.
             content: Content of the file.
             chunk_size: Number of bytes to send at a time.
+            save_immediately: Whether to save the file immediately. If `False`,
+                a link to the file will be shown as a notification. Being able to
+                right click the link and choose "Save as..." can be useful.
         """
         for client in self.get_clients().values():
-            client.send_file_download(filename, content, chunk_size)
+            client.send_file_download(filename, content, chunk_size, save_immediately)
 
     def get_event_loop(self) -> asyncio.AbstractEventLoop:
         """Get the asyncio event loop used by the Viser background thread. This
@@ -996,10 +1042,9 @@ class ViserServer(_BackwardsCompatibilityShim if not TYPE_CHECKING else object):
 
     def sleep_forever(self) -> None:
         """Equivalent to:
-        ```
+
         while True:
             time.sleep(3600)
-        ```
         """
         while True:
             time.sleep(3600)

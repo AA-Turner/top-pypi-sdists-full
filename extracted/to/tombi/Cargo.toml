@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.4.17"  # We use git tags for versioning. This is just a placeholder.
+version = "0.4.21"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"
@@ -92,7 +92,7 @@ tombi-json-syntax = { path = "crates/tombi-json-syntax" }
 tombi-json-value = { path = "crates/tombi-json-value" }
 tombi-lexer = { path = "crates/tombi-lexer" }
 tombi-linter = { path = "crates/tombi-linter" }
-tombi-lsp = { path = "crates/tombi-lsp" }
+tombi-lsp = { default-features = false, path = "crates/tombi-lsp" }
 tombi-parser = { path = "crates/tombi-parser" }
 tombi-rg-tree = { path = "crates/tombi-rg-tree" }
 tombi-schema-store = { default-features = false, path = "crates/tombi-schema-store" }

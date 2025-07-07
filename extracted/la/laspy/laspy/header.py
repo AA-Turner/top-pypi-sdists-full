@@ -3,6 +3,7 @@ import io
 import logging
 import struct
 import typing
+from copy import deepcopy
 from datetime import date, timedelta
 from typing import BinaryIO, Iterable, List, NamedTuple, Optional, Union
 from uuid import UUID
@@ -232,7 +233,7 @@ class LasHeader:
 
         #: Number of points by return
         #: for las <= 1.2 only the first 5 elements matters
-        self.number_of_points_by_return: np.ndarray = np.zeros(15, dtype=np.uint32)
+        self.number_of_points_by_return: np.ndarray = np.zeros(15, dtype=np.uint64)
 
         #: The VLRS
         self._vlrs: VLRList = VLRList()
@@ -473,7 +474,13 @@ class LasHeader:
         self.start_of_first_evlr = 0
         self.number_of_evlrs = 0
         self.point_count = 0
-        self.number_of_points_by_return = np.zeros(15, dtype=np.uint32)
+        self.number_of_points_by_return = np.zeros(15, dtype=np.uint64)
+
+        try:
+            eb_vlr = self.vlrs.get("ExtraBytesVlr")[0]
+            eb_vlr.partial_reset()
+        except IndexError:
+            pass
 
     def update(self, points: PackedPointRecord) -> None:
         self.partial_reset()
@@ -519,6 +526,11 @@ class LasHeader:
             self.number_of_points_by_return[return_number - 1] += count
         self.point_count += len(points)
 
+        # grow extra bytes
+        vlrs = self.vlrs.get("ExtraBytesVlr")
+        if vlrs:
+            vlrs[0].grow(points)
+
     def set_compressed(self, state: bool) -> None:
         self.are_points_compressed = state
 
@@ -527,6 +539,9 @@ class LasHeader:
             return np.iinfo(np.uint32).max
         else:
             return np.iinfo(np.uint64).max
+
+    def copy(self):
+        return deepcopy(self)
 
     @classmethod
     def read_from(
@@ -932,21 +947,19 @@ class LasHeader:
             dtype = extra_dimension.dtype
             assert dtype is not None
 
+            if extra_dimension.num_elements > 3 and dtype.base == np.uint8:
+                data_type = (0, extra_dimension.num_elements)
+            else:
+                data_type = extradims.get_id_for_extra_dim_type(dtype)
+
             eb_struct = ExtraBytesStruct(
                 name=extra_dimension.name.encode(),
                 description=extra_dimension.description.encode(),
+                data_type=data_type,
+                scale=extra_dimension.scales,
+                offset=extra_dimension.offsets,
+                no_data=extra_dimension.no_data,
             )
-
-            if extra_dimension.num_elements > 3 and dtype.base == np.uint8:
-                type_id = 0
-                eb_struct.options = extra_dimension.num_elements
-            else:
-                type_id = extradims.get_id_for_extra_dim_type(dtype)
-
-            eb_struct.data_type = type_id
-            eb_struct.scale = extra_dimension.scales
-            eb_struct.offset = extra_dimension.offsets
-
             eb_vlr.extra_bytes_structs.append(eb_struct)
 
         self._vlrs.append(eb_vlr)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gway"
-version = "0.4.31"
+version = "0.4.39"
 description = "Software Project Infrastructure by https://www.gelectriic.com"
 requires-python = ">=3.10"
 license = "MIT"
@@ -17,6 +17,9 @@ email = "tecnologia@gelectriic.com"
 [project.readme]
 file = "README.rst"
 content-type = "text/x-rst"
+
+[project.optional-dependencies]
+dev = [ "pytest", "pytest-cov",]
 
 [project.scripts]
 gway = "gway:cli_main"

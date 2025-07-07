@@ -8,8 +8,14 @@ import imaplib
 import smtplib
 import asyncio
 import threading
+import contextlib
 from email.mime.text import MIMEText
 from email import message_from_bytes
+
+
+def _escape_imap_string(value: str) -> str:
+    """Escape backslashes and quotes for IMAP SEARCH."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def send(subject, body=None, to=None, threaded=None, **kwargs):
@@ -107,29 +113,60 @@ def search(subject_fragment, body_fragment=None):
     """
     Search emails by subject and optionally body. Use "*" to match any subject.
     """
-    EMAIL_SENDER = os.environ["MAIL_SENDER"]
-    EMAIL_PASSWORD = os.environ["MAIL_PASSWORD"]
-    IMAP_SERVER = os.environ["IMAP_SERVER"]
-    IMAP_PORT = os.environ["IMAP_PORT"]
+    EMAIL_SENDER = os.environ.get("MAIL_SENDER")
+    EMAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+    IMAP_SERVER = os.environ.get("IMAP_SERVER")
+    IMAP_PORT = os.environ.get("IMAP_PORT")
+
+    if not all([EMAIL_SENDER, EMAIL_PASSWORD, IMAP_SERVER, IMAP_PORT]):
+        raise RuntimeError(
+            "Missing email configuration: MAIL_SENDER, MAIL_PASSWORD, IMAP_SERVER, IMAP_PORT"
+        )
 
     mail = None
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
         mail.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        mail.select('inbox')
+        # Try to enable UTF-8 mode if the server supports it
+        try:
+            mail.enable('UTF8=ACCEPT')
+        except Exception:
+            pass
+        # Ensure mailbox is selected case-sensitively for broader compatibility
+        mail.select('INBOX')
 
-        search_criteria = []
+        criteria = []
         if subject_fragment and subject_fragment != "*":
-            search_criteria.append(f'(SUBJECT "{subject_fragment}")')
+            esc_subject = _escape_imap_string(subject_fragment)
+            criteria.extend(["SUBJECT", f'"{esc_subject}"'])
         if body_fragment:
-            search_criteria.append(f'(BODY "{body_fragment}")')
+            esc_body = _escape_imap_string(body_fragment)
+            criteria.extend(["BODY", f'"{esc_body}"'])
 
-        if not search_criteria:
+        if not criteria:
             gw.warning("No search criteria provided.")
             return None
 
-        combined_criteria = ' '.join(search_criteria)
-        status, data = mail.search(None, combined_criteria)
+        try:
+            if getattr(mail, 'utf8_enabled', False):
+                status, data = mail.search(None, *criteria)
+            else:
+                encoded_criteria = [
+                    c.encode('utf-8') if isinstance(c, str) else c
+                    for c in criteria
+                ]
+                try:
+                    status, data = mail.search('UTF-8', *encoded_criteria)
+                except imaplib.IMAP4.error as e:
+                    if 'bad' in str(e).lower() or 'parse' in str(e).lower():
+                        gw.warning(
+                            f"Search charset failed ({e}); retrying without charset"
+                        )
+                        status, data = mail.search(None, *encoded_criteria)
+                    else:
+                        raise
+        except imaplib.IMAP4.error as e:
+            raise
         mail_ids = data[0].split()
 
         if not mail_ids:
@@ -170,6 +207,8 @@ def search(subject_fragment, body_fragment=None):
 
     finally:
         if mail:
-            mail.close()
-            mail.logout()
+            with contextlib.suppress(imaplib.IMAP4.error):
+                mail.close()
+            with contextlib.suppress(Exception):
+                mail.logout()
 

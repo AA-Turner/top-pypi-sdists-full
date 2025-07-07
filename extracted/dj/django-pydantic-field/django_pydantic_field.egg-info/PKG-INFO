@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-pydantic-field
-Version: 0.3.12
+Version: 0.3.13
 Summary: Django JSONField with Pydantic models as a Schema
 Author-email: Savva Surenkov <savva@surenkov.space>
 License: MIT License
@@ -41,7 +41,10 @@ Classifier: Framework :: Django :: 4
 Classifier: Framework :: Django :: 4.0
 Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Pydantic
 Classifier: Framework :: Pydantic :: 1
 Classifier: Framework :: Pydantic :: 2
@@ -77,7 +80,7 @@ Requires-Dist: pytest~=7.4; extra == "dev"
 Requires-Dist: djangorestframework<4,>=3.11; extra == "dev"
 Requires-Dist: django-stubs[compatible-mypy]~=4.2; extra == "dev"
 Requires-Dist: djangorestframework-stubs[compatible-mypy]~=3.14; extra == "dev"
-Requires-Dist: pytest-django<5,>=4.5; extra == "dev"
+Requires-Dist: pytest-django<6,>=4.5; extra == "dev"
 Provides-Extra: test
 Requires-Dist: django_pydantic_field[coreapi,jsonform,openapi]; extra == "test"
 Requires-Dist: dj-database-url~=2.0; extra == "test"
@@ -88,6 +91,7 @@ Provides-Extra: ci
 Requires-Dist: psycopg[binary]<4,>=3.1; python_version >= "3.9" and extra == "ci"
 Requires-Dist: psycopg2-binary<3,>=2.7; python_version < "3.9" and extra == "ci"
 Requires-Dist: mysqlclient>=2.1; extra == "ci"
+Dynamic: license-file
 
 [![PyPI Version](https://img.shields.io/pypi/v/django-pydantic-field)](https://pypi.org/project/django-pydantic-field/)
 [![Lint and Test Package](https://github.com/surenkov/django-pydantic-field/actions/workflows/python-test.yml/badge.svg)](https://github.com/surenkov/django-pydantic-field/actions/workflows/python-test.yml)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lusid-sdk
-Version: 2.1.853
+Version: 2.1.854
 Summary: LUSID API
 Home-page: https://github.com/finbourne/lusid-sdk-python
 License: MIT
@@ -1056,6 +1056,7 @@ Class | Method | HTTP request | Description
  - [FixedSchedule](docs/FixedSchedule.md)
  - [FlexibleDeposit](docs/FlexibleDeposit.md)
  - [FlexibleLoan](docs/FlexibleLoan.md)
+ - [FlexibleRepoInterestPaymentEvent](docs/FlexibleRepoInterestPaymentEvent.md)
  - [FloatSchedule](docs/FloatSchedule.md)
  - [FloatingLeg](docs/FloatingLeg.md)
  - [FlowConventionName](docs/FlowConventionName.md)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: duckduckgo_search
-Version: 8.1.0
+Version: 8.1.1
 Summary: Search for words, documents, images, news, maps and text translation using the DuckDuckGo.com search engine.
 Author: deedy5
 License: MIT License
@@ -32,6 +32,11 @@ Requires-Dist: pytest-dependency>=0.6.0; extra == "dev"
 Requires-Dist: ruff>=0.9.2; extra == "dev"
 Dynamic: license-file
 
+# :warning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+
+New package: https://pypi.org/project/ddgs/
+___
+
 ![Python >= 3.9](https://img.shields.io/badge/python->=3.9-red.svg) [![](https://badgen.net/github/release/deedy5/duckduckgo_search)](https://github.com/deedy5/duckduckgo_search/releases) [![](https://badge.fury.io/py/duckduckgo-search.svg)](https://pypi.org/project/duckduckgo-search)
 # Duckduckgo_search<a name="TOP"></a>
 
@@ -47,10 +52,10 @@ Search for text, news, images and videos using the DuckDuckGo.com search engine.
 * [DDGS class](#ddgs-class)
 * [Proxy](#proxy)
 * [Exceptions](#exceptions)
-* [1. text() - text search](#2-text---text-search-by-duckduckgocom)
-* [2. images() - image search](#3-images---image-search-by-duckduckgocom)
-* [3. videos() - video search](#4-videos---video-search-by-duckduckgocom)
-* [4. news() - news search](#5-news---news-search-by-duckduckgocom)
+* [1. text()](#1-text)
+* [2. images()](#2-images)
+* [3. videos()](#3-videos)
+* [4. news()](#4-news)
 * [Disclaimer](#disclaimer)
 
 ## Install
@@ -243,7 +248,7 @@ Exceptions:
 
 [Go To TOP](#TOP)
 
-## 1. text() - text search by duckduckgo.com
+## 1. text()
 
 ```python
 def text(
@@ -289,7 +294,7 @@ print(results)
 
 [Go To TOP](#TOP)
 
-## 2. images() - image search by duckduckgo.com
+## 2. images()
 
 ```python
 def images(
@@ -356,7 +361,7 @@ print(images)
 
 [Go To TOP](#TOP)
 
-## 3. videos() - video search by duckduckgo.com
+## 3. videos()
 
 ```python
 def videos(
@@ -423,7 +428,7 @@ print(results)
 
 [Go To TOP](#TOP)
 
-## 4. news() - news search by duckduckgo.com
+## 4. news()
 
 ```python
 def news(

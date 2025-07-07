@@ -4,7 +4,7 @@ import os
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
@@ -35,13 +35,43 @@ VERBOSITY_TO_STR: dict[int, str] = dict(
 class Settings:
     """Settings.
 
-    Use `lamindb.settings` instead of instantiating this class yourself.
+    Please use the global `ln.settings` object instead of instantiating this class yourself.
     """
 
     def __init__(self):
         self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
         self._sync_git_repo: str | None = None
+
+    def __repr__(self) -> str:  # pragma: no cover
+        cls_name = colors.green(self.__class__.__name__)
+        verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
+        verbosity_str = verbosity_color(self.verbosity)
+
+        storage_root = self._storage_settings.root_as_str
+        storage_str = colors.italic(storage_root)
+
+        instance_str = colors.italic(self.instance_uid)
+        track_color = colors.green if self.track_run_inputs else colors.yellow
+        track_str = track_color(str(self.track_run_inputs))
+
+        lines = [
+            f"{cls_name}",
+            f"  instance: {instance_str}",
+            f"  storage: {storage_str}",
+            f"  verbosity: {verbosity_str}",
+            f"  track_run_inputs: {track_str}",
+        ]
+
+        if self.sync_git_repo:
+            repo_name = (
+                self.sync_git_repo.split("/")[-1]
+                if "/" in self.sync_git_repo
+                else self.sync_git_repo
+            )
+            lines.append(f"  sync_git_repo: {colors.italic(repo_name)}")
+
+        return "\n".join(lines)
 
     @property
     def creation(self) -> CreationSettings:
@@ -61,10 +91,15 @@ class Settings:
         """
         return annotation_settings
 
+    # note: this setting should probably be deprecated soon
+    # warnings could then be filtered with a regular warning mechanism
     track_run_inputs: bool = True
-    """Track files as input upon `.load()`, `.cache()` and `.open()`.
+    """Track run inputs (default `True`).
 
-    Requires a global run context with :func:`~lamindb.core.Context.track` was created!
+    If this setting is true, an artifact is recorded as run input upon `.load()`, `.cache()` & `.open()` provided :func:`~lamindb.track` was called in the current compute (Python, R) session.
+    If :func:`~lamindb.track` was not called, you receive a warning message upon `.load()`, `.cache()` & `.open()`.
+
+    If you switch this setting to `False`, you won't see the warning message anymore and no run inputs will be recorded.
 
     FAQ: :doc:`/faq/track-run-inputs`
     """
@@ -149,6 +184,11 @@ class Settings:
         else:
             path, kwargs = path_kwargs, {}
         set_managed_storage(path, **kwargs)
+
+    @property
+    def instance_uid(self) -> str:
+        """The `uid` of the current instance."""
+        return ln_setup.settings.instance.uid
 
     @property
     def cache_dir(self) -> UPath:

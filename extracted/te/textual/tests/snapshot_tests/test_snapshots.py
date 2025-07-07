@@ -3540,6 +3540,55 @@ def test_focus_within_transparent(snap_compare):
     assert snap_compare(FocusWithinTransparentApp(), press=["tab"])
 
 
+def test_setting_transparency(snap_compare):
+    """Check that setting a widget's background color to transparent
+    works as expected using python.
+    Regression test for https://github.com/Textualize/textual/pull/5890"""
+
+    class TransparentPythonApp(App):
+
+        CSS = """
+        Screen { 
+            background: darkblue;
+            align: center middle; 
+        }
+
+        TextArea {
+            height: 5;
+            width: 50;
+            &.-transparent { background: transparent; }
+        }
+        
+        OptionList {
+            height: 8;
+            width: 50;
+        }
+        """
+
+        def compose(self):
+
+            yield TextArea("Baseline normal TextArea, not transparent")
+            text_area2 = TextArea(
+                "This TextArea made transparent by adding a CSS class",
+                classes="-transparent",
+            )
+            yield text_area2
+            text_area3 = TextArea(
+                "This TextArea made transparent by setting style with python"
+            )
+            text_area3.styles.background = "transparent"
+            yield text_area3
+            option_list = OptionList(
+                "1) This is an OptionList\n",
+                "2) With a transparent background\n",
+                "3) Made transparent by setting style with python",
+            )
+            option_list.styles.background = "transparent"
+            yield option_list
+
+    assert snap_compare(TransparentPythonApp())
+
+
 def test_option_list_wrapping(snap_compare):
     """You should see a 40 cell wide Option list with a single line, ending in an ellipsis."""
 
@@ -4215,3 +4264,20 @@ def test_app_default_classes(snap_compare):
         """
 
     assert snap_compare(DC())
+
+
+def test_textarea_line_highlight(snap_compare):
+    """Check the highlighted line may be disabled in the TextArea.
+
+    You should see a TextArea with the text Hello\nWorld.
+
+    There should be a cursor, but the line will *not* be highlighted."""
+
+    class TextAreaLine(App):
+        def compose(self) -> ComposeResult:
+            yield TextArea("Hello\nWorld!", highlight_cursor_line=False)
+
+        def on_mount(self) -> None:
+            self.query_one(TextArea).move_cursor((0, 2))
+
+    assert snap_compare(TextAreaLine())

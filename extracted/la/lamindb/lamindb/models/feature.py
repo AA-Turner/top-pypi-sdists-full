@@ -12,6 +12,10 @@ from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string
+from lamindb_setup.errors import (
+    MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE,
+    ModuleWasntConfigured,
+)
 from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
@@ -23,7 +27,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import Dtype, FieldAttr
-from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.errors import DoesNotExist, FieldValidationError, ValidationError
 
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
@@ -43,7 +47,7 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(Dtype))
 
 
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
+def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
@@ -92,35 +96,14 @@ def parse_cat_dtype(
     assert isinstance(dtype_str, str)  # noqa: S101
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)
-    split_result = dtype_str.split("[")
-    # has sub type
-    sub_type_str = ""
-    if len(split_result) == 2:
-        registry_str = split_result[0]
-        assert "]" in split_result[1]  # noqa: S101
-        sub_type_field_split = split_result[1].split("].")
-        if len(sub_type_field_split) == 1:
-            sub_type_str = sub_type_field_split[0].strip("]")
-            field_str = ""
-        else:
-            sub_type_str = sub_type_field_split[0]
-            field_str = sub_type_field_split[1]
-    elif len(split_result) == 1:
-        registry_field_split = split_result[0].split(".")
-        if (
-            len(registry_field_split) == 2 and registry_field_split[1][0].isupper()
-        ) or len(registry_field_split) == 3:
-            # bionty.CellType or bionty.CellType.name
-            registry_str = f"{registry_field_split[0]}.{registry_field_split[1]}"
-            field_str = (
-                "" if len(registry_field_split) == 2 else registry_field_split[2]
-            )
-        else:
-            # ULabel or ULabel.name
-            registry_str = registry_field_split[0]
-            field_str = (
-                "" if len(registry_field_split) == 1 else registry_field_split[1]
-            )
+
+    # Parse the string considering nested brackets
+    parsed = parse_nested_brackets(dtype_str)
+
+    registry_str = parsed["registry"]
+    sub_type_str = parsed["subtype"]
+    field_str = parsed["field"]
+
     if not is_itype:
         if registry_str not in related_registries:
             raise ValidationError(
@@ -136,16 +119,14 @@ def parse_cat_dtype(
                 module_name_attempt, raise_import_error=False
             )
             if module_name is None:
-                raise ImportError(
-                    f"Can not parse dtype {dtype_str} because {module_name_attempt} "
-                    f"was not found.\nInstall the module with `pip install {module_name_attempt}`\n"
-                    "and also add the module to this instance via instance settings page "
-                    "under 'schema modules'."
+                raise ModuleWasntConfigured(
+                    MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format(module_name_attempt)
                 )
         else:
             module_name, class_name = "lamindb", registry_str
         module = importlib.import_module(module_name)
         registry = getattr(module, class_name)
+
     if sub_type_str != "":
         pass
         # validate that the subtype is a record in the registry with is_type = True
@@ -154,13 +135,146 @@ def parse_cat_dtype(
         # validate that field_str is an actual field of the module
     else:
         field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
-    return {
+
+    result = {
         "registry": registry,  # should be typed as CanCurate
         "registry_str": registry_str,
         "subtype_str": sub_type_str,
         "field_str": field_str,
         "field": getattr(registry, field_str),
     }
+
+    # Add nested subtype information if present
+    if parsed.get("nested_subtypes"):
+        result["nested_subtypes"] = parsed["nested_subtypes"]
+
+    return result
+
+
+def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
+    """Parse dtype string with potentially nested brackets.
+
+    Examples:
+        "A" -> {"registry": "A", "subtype": "", "field": ""}
+        "A.field" -> {"registry": "A", "subtype": "", "field": "field"}
+        "A[B]" -> {"registry": "A", "subtype": "B", "field": ""}
+        "A[B].field" -> {"registry": "A", "subtype": "B", "field": "field"}
+        "A[B[C]]" -> {"registry": "A", "subtype": "B[C]", "field": "", "nested_subtypes": ["B", "C"]}
+        "A[B[C]].field" -> {"registry": "A", "subtype": "B[C]", "field": "field", "nested_subtypes": ["B", "C"]}
+
+    Args:
+        dtype_str: The dtype string to parse
+
+    Returns:
+        Dictionary with parsed components
+    """
+    if "[" not in dtype_str:
+        # No brackets - handle simple cases like "A" or "A.field"
+        if "." in dtype_str:
+            parts = dtype_str.split(".")
+            if len(parts) == 2 and parts[1][0].isupper():
+                # bionty.CellType
+                return {"registry": dtype_str, "subtype": "", "field": ""}
+            elif len(parts) == 3:
+                # bionty.CellType.name
+                return {
+                    "registry": f"{parts[0]}.{parts[1]}",
+                    "subtype": "",
+                    "field": parts[2],
+                }
+            else:
+                # ULabel.name
+                return {"registry": parts[0], "subtype": "", "field": parts[1]}
+        else:
+            # Simple registry name
+            return {"registry": dtype_str, "subtype": "", "field": ""}
+
+    # Find the first opening bracket
+    first_bracket = dtype_str.index("[")
+    registry_part = dtype_str[:first_bracket]
+
+    # Find the matching closing bracket for the first opening bracket
+    bracket_count = 0
+    closing_bracket_pos = -1
+
+    for i in range(first_bracket, len(dtype_str)):
+        if dtype_str[i] == "[":
+            bracket_count += 1
+        elif dtype_str[i] == "]":
+            bracket_count -= 1
+            if bracket_count == 0:
+                closing_bracket_pos = i
+                break
+
+    if closing_bracket_pos == -1:
+        raise ValueError(f"Unmatched brackets in dtype string: {dtype_str}")
+
+    # Extract subtype (everything between first [ and matching ])
+    subtype_part = dtype_str[first_bracket + 1 : closing_bracket_pos]
+
+    # Check for field after the closing bracket
+    field_part = ""
+    remainder = dtype_str[closing_bracket_pos + 1 :]
+    if remainder.startswith("."):
+        field_part = remainder[1:]  # Remove the dot
+
+    result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
+
+    # If subtype contains brackets, extract nested subtypes for reference
+    if "[" in subtype_part:
+        nested_subtypes = extract_nested_subtypes(subtype_part)
+        if nested_subtypes:
+            result["nested_subtypes"] = nested_subtypes  # type: ignore
+
+    return result
+
+
+def extract_nested_subtypes(subtype_str: str) -> list[str]:
+    """Extract all nested subtype levels from a nested subtype string.
+
+    Examples:
+        "B[C]" -> ["B", "C"]
+        "B[C[D]]" -> ["B", "C", "D"]
+        "B[C[D[E]]]" -> ["B", "C", "D", "E"]
+
+    Args:
+        subtype_str: The subtype string with potential nesting
+
+    Returns:
+        List of subtype levels from outermost to innermost
+    """
+    subtypes = []
+    current = subtype_str
+
+    while "[" in current:
+        # Find the first part before the bracket
+        bracket_pos = current.index("[")
+        subtypes.append(current[:bracket_pos])
+
+        # Find the matching closing bracket
+        bracket_count = 0
+        closing_pos = -1
+
+        for i in range(bracket_pos, len(current)):
+            if current[i] == "[":
+                bracket_count += 1
+            elif current[i] == "]":
+                bracket_count -= 1
+                if bracket_count == 0:
+                    closing_pos = i
+                    break
+
+        if closing_pos == -1:
+            break
+
+        # Move to the content inside the brackets
+        current = current[bracket_pos + 1 : closing_pos]
+
+    # Add the final innermost subtype
+    if current:
+        subtypes.append(current)
+
+    return subtypes
 
 
 def serialize_dtype(
@@ -237,6 +351,7 @@ def serialize_dtype(
 
 
 def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
+    """Convert pandas ExtensionDtype to simplified string representation."""
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
@@ -256,6 +371,76 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     return dtype
 
 
+def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
+    """Parse comma-separated Django filter expressions into structured components.
+
+    Args:
+        filter_str: Comma-separated filters like 'name=value, relation__field=value'
+
+    Returns:
+        Dict mapping original filter key to (relation_name, field_name, value) tuple.
+        For direct fields: field_name is None.
+        For relations: field_name contains the lookup field.
+    """
+    filters = {}
+
+    filter_parts = [part.strip() for part in filter_str.split(",")]
+    for part in filter_parts:
+        if "=" not in part:
+            raise ValueError(f"Invalid filter expression: '{part}' (missing '=' sign)")
+
+        key, value = part.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+
+        if not key:
+            raise ValueError(f"Invalid filter expression: '{part}' (empty key)")
+        if not value:
+            raise ValueError(f"Invalid filter expression: '{part}' (empty value)")
+
+        if "__" in key:
+            relation_name, field_name = key.split("__", 1)
+            filters[key] = (relation_name, field_name, value)
+        else:
+            filters[key] = (key, None, value)
+
+    return filters
+
+
+def resolve_relation_filters(
+    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+) -> dict[str, str | SQLRecord]:
+    """Resolve relation filters actual model objects.
+
+    Args:
+        parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
+        registry: Model class to resolve relationships against
+
+    Returns:
+        Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
+    """
+    resolved = {}
+
+    for filter_key, (relation_name, field_name, value) in parsed_filters.items():
+        if field_name is not None:  # relation filter
+            if hasattr(registry, relation_name):
+                relation_field = getattr(registry, relation_name)
+                if (
+                    hasattr(relation_field, "field")
+                    and relation_field.field.is_relation
+                ):
+                    try:
+                        related_model = relation_field.field.related_model
+                        related_obj = related_model.get(**{field_name: value})
+                        resolved[relation_name] = related_obj
+                        continue
+                    except (DoesNotExist, AttributeError):
+                        pass  # Fall back to original filter
+        resolved[filter_key] = value
+
+    return resolved
+
+
 def process_init_feature_param(args, kwargs, is_param: bool = False):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
@@ -265,12 +450,22 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     is_type: bool = kwargs.pop("is_type", None)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
+    branch = kwargs.pop("branch", None)
+    branch_id = kwargs.pop("branch_id", 1)
+    space = kwargs.pop("space", None)
+    space_id = kwargs.pop("space_id", 1)
+    _skip_validation = kwargs.pop("_skip_validation", False)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
     kwargs["type"] = type_
     kwargs["is_type"] = is_type
+    kwargs["branch"] = branch
+    kwargs["branch_id"] = branch_id
+    kwargs["space"] = space
+    kwargs["space_id"] = space_id
+    kwargs["_skip_validation"] = _skip_validation
     if not is_param:
         kwargs["description"] = description
     # cast dtype
@@ -338,33 +533,40 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     Example:
 
-        A simple `"str"` feature.
+        A simple `"str"` feature.::
 
-        >>> ln.Feature(
-        ...     name="sample_note",
-        ...     dtype="str",
-        ... ).save()
+        ln.Feature(
+            name="sample_note",
+            dtype="str",
+        ).save()
 
-        A dtype `"cat[ULabel]"` can be more easily passed as below.
+        A dtype `"cat[ULabel]"` can be more easily passed as below.::
 
-        >>> ln.Feature(
-        ...     name="project",
-        ...     dtype=ln.ULabel,
-        ... ).save()
+        ln.Feature(
+            name="project",
+            dtype=ln.ULabel,
+        ).save()
 
-        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.
+        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.::
 
-        >>> ln.Feature(
-        ...     name="cell_type",
-        ...     dtype=[ln.ULabel, bt.CellType],
-        ... ).save()
+        ln.Feature(
+            name="cell_type",
+            dtype=[ln.ULabel, bt.CellType],
+        ).save()
 
-        A multivalue feature with a list of cell types.
+        A multivalue feature with a list of cell types.::
 
-        >>> ln.Feature(
-        ...     name="cell_types",
-        ...     dtype=list[bt.CellType],  # or list[str] for a list of strings
-        ... ).save()
+        ln.Feature(
+            name="cell_types",
+            dtype=list[bt.CellType],  # or list[str] for a list of strings
+        ).save()
+
+        A path feature.::
+
+        ln.Feature(
+            name="image_path",
+            dtype="path",   # will be validated as `str`
+        ).save()
 
     Hint:
 
@@ -383,7 +585,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         happened, ask yourself what the joint measurement was: a feature
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
-
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -503,7 +704,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        dtype = kwargs.get("dtype", None)
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", True)  # default value of nullable
         cat_filters = kwargs.pop("cat_filters", None)
@@ -517,6 +717,32 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
             assert "]]" not in dtype_str  # noqa: S101
+
+            # Validate filter values and SQLRecord attributes
+            for filter_key, filter_value in cat_filters.items():
+                if not filter_value or (
+                    isinstance(filter_value, str) and not filter_value.strip()
+                ):
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                # Check SQLRecord attributes for relation lookups
+                if isinstance(filter_value, SQLRecord) and "__" in filter_key:
+                    field_name = filter_key.split("__", 1)[1]
+                    if not hasattr(filter_value, field_name):
+                        raise ValidationError(
+                            f"SQLRecord {filter_value.__class__.__name__} has no attribute '{field_name}' in filter {filter_key}"
+                        )
+
+            # If a SQLRecord is passed, we access its uid to apply a standard filter
+            cat_filters = {
+                f"{key}__uid"
+                if (
+                    is_sqlrecord := isinstance(filter, SQLRecord)
+                    and hasattr(filter, "uid")
+                )
+                else key: filter.uid if is_sqlrecord else filter
+                for key, filter in cat_filters.items()
+            }
+
             fill_in = ", ".join(
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
@@ -525,7 +751,9 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if not self._state.adding:
             if not (
                 self.dtype.startswith("cat")
-                if dtype == "cat"
+                if dtype_str == "cat"
+                else dtype_str.startswith("cat")
+                if self.dtype == "cat"
                 else self.dtype == dtype_str
             ):
                 raise ValidationError(

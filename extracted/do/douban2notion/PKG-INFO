@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: douban2notion
-Version: 0.0.11
+Version: 0.0.12
 Summary: 自动将豆瓣电影和豆瓣读书同步到Notion
 Home-page: https://github.com/malinkang/weread2notion-pro
 Author: malinkang

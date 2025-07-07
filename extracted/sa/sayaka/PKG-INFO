@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sayaka
-Version: 0.5.0
+Version: 0.6.7
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

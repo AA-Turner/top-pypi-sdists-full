@@ -615,7 +615,7 @@ class AlgebraicRecon(Recon):
         fig, axs = plt.subplots(1, 3, figsize=(15, 5))  # 1 row, 3 columns
 
         # Normalization based on LAMBDA max
-        lambda_max = np.max(self.experiment.opticImage.laser.intensity)
+        lambda_max = np.max(self.experiment.OpticImage.laser.intensity)
 
         # Left: Best reconstructed image (normalized)
         im0 = axs[0].imshow(best_recon / lambda_max, 
@@ -627,7 +627,7 @@ class AlgebraicRecon(Recon):
         plt.colorbar(im0, ax=axs[0])
 
         # Middle: Ground truth (normalized)
-        im1 = axs[1].imshow(self.experiment.opticImage.laser.intensity / lambda_max, 
+        im1 = axs[1].imshow(self.experiment.OpticImage.laser.intensity / lambda_max, 
                             extent=(self.experiment.params['Xrange'][0], self.experiment.params['Xrange'][1], self.experiment.params['Zrange'][1], self.experiment.params['Zrange'][0]),
                             cmap='hot', aspect='equal', vmin=0, vmax=1)
         axs[1].set_title(r"Ground Truth ($\lambda$)")
@@ -640,7 +640,7 @@ class AlgebraicRecon(Recon):
         im2 = axs[2].imshow(lastRecon / lambda_max,
                             extent=(self.experiment.params['Xrange'][0], self.experiment.params['Xrange'][1], self.experiment.params['Zrange'][1], self.experiment.params['Zrange'][0]),
                             cmap='hot', aspect='equal', vmin=0, vmax=1)
-        axs[2].set_title(f"Last Reconstruction\nIter {self.numIterations * self.numSubsets}, MSE={np.mean((self.experiment.opticImage.laser.intensity - lastRecon) ** 2):.4f}")
+        axs[2].set_title(f"Last Reconstruction\nIter {self.numIterations * self.numSubsets}, MSE={np.mean((self.experiment.OpticImage.laser.intensity - lastRecon) ** 2):.4f}")
         axs[2].set_xlabel("x (mm)")
         axs[2].set_ylabel("z (mm)")
         plt.colorbar(im2, ax=axs[2])
@@ -771,7 +771,7 @@ class AlgebraicRecon(Recon):
         fig, axs = plt.subplots(1, 3, figsize=(15, 5))  # 1 row, 3 columns
 
         # Normalization based on LAMBDA max
-        lambda_max = np.max(self.experiment.opticImage.laser.intensity)
+        lambda_max = np.max(self.experiment.OpticImage.laser.intensity)
 
         # Left: Best reconstructed image (normalized)
         im0 = axs[0].imshow(best_recon / lambda_max, 
@@ -783,7 +783,7 @@ class AlgebraicRecon(Recon):
         plt.colorbar(im0, ax=axs[0])
 
         # Middle: Ground truth (normalized)
-        im1 = axs[1].imshow(self.experiment.opticImage.laser.intensity / lambda_max, 
+        im1 = axs[1].imshow(self.experiment.OpticImage.laser.intensity / lambda_max, 
                             extent=(self.experiment.params['Xrange'][0], self.experiment.params['Xrange'][1], self.experiment.params['Zrange'][1], self.experiment.params['Zrange'][0]),
                             cmap='hot', aspect='equal', vmin=0, vmax=1)
         axs[1].set_title(r"Ground Truth ($\lambda$)")
@@ -1016,7 +1016,13 @@ class AlgebraicRecon(Recon):
 
     def _AlgebraicReconPython(self,withTumor):
 
-        SMatrix = np.stack([ac_field.field for ac_field in self.experiment.AcousticFields], axis=-1)
+        acoustic_fields = []
+        for i in trange(len(self.experiment.AcousticFields), desc="Generating system matrix (formating acoustic fields)"):
+            ac_field = self.experiment.AcousticFields[i]
+            acoustic_fields.append(ac_field.field)
+
+        # Convertir la liste en un tableau numpy
+        SMatrix = np.stack(acoustic_fields, axis=-1)
 
         if withTumor:
             if self.experiment.AOsignal_withTumor is None:
@@ -1091,9 +1097,21 @@ class AlgebraicRecon(Recon):
         It is called by the Algebraic reconstruction process.
         """
         if self.isGPU and self.isMultiGPU:
-            return AlgebraicRecon._MLEM_GPU_multi(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
+            try:
+                return AlgebraicRecon._MLEM_GPU_multi(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
+            except:
+                try:
+                    warnings.warn("Multi-GPU MLEM failed. Falling back to single GPU MLEM.")
+                    return AlgebraicRecon._MLEM_GPU_basic(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
+                except:
+                    warnings.warn("Single GPU MLEM failed. Falling back to basic CPU MLEM.")
+                    return AlgebraicRecon._MLEM_CPU_opti(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
         if self.isGPU and not self.isMultiGPU:
-            return AlgebraicRecon._MLEM_GPU_basic(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
+            try:
+                return AlgebraicRecon._MLEM_GPU_basic(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
+            except:
+                warnings.warn("Single GPU MLEM failed. Falling back to basic CPU MLEM.")
+                return AlgebraicRecon._MLEM_CPU_opti(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
         if not self.isGPU and self.isMultiCPU:
             return AlgebraicRecon._MLEM_CPU_multi(SMatrix= SMatrix, y = y, numIteration=self.numIterations, isSavingEachIteration = self.isSavingEachIteration)
         if not self.isGPU and not self.isMultiCPU:
@@ -1581,7 +1599,14 @@ class BayesianRecon(AlgebraicRecon):
         raise NotImplementedError("CASToR Bayesian reconstruction is not implemented yet.")
 
     def _bayesianReconPython(self, withTumor):
-        SMatrix = np.stack([ac_field.field for ac_field in self.experiment.AcousticFields], axis=-1)
+
+        acoustic_fields = []
+        for i in trange(len(self.experiment.AcousticFields), desc="Generating system matrix (formating acoustic fields)"):
+            ac_field = self.experiment.AcousticFields[i]
+            acoustic_fields.append(ac_field.field)
+
+        # Convertir la liste en un tableau numpy
+        SMatrix = np.stack(acoustic_fields, axis=-1)
 
         if withTumor:
             if self.experiment.AOsignal_withTumor is None:
@@ -1892,9 +1917,17 @@ class BayesianRecon(AlgebraicRecon):
 
         if self.isGPU and self.isMultiGPU:
             warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
-            return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            try:
+                return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
         if self.isGPU and not self.isMultiGPU:
-            return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            try:
+                return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
         if not self.isGPU and self.isMultiCPU:
             warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
             return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
@@ -1905,9 +1938,17 @@ class BayesianRecon(AlgebraicRecon):
         
         if self.isGPU and self.isMultiGPU:
             warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
-            return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations ,beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            try:
+                return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations ,beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
         if self.isGPU and not self.isMultiGPU:
-            return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            try:
+                return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
         if not self.isGPU and self.isMultiCPU:
             warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
             return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)

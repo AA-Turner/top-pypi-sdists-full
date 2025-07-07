@@ -87,7 +87,7 @@ Tissue:
 Disease:
   mondo:
     all:
-      latest-version: 2024-08-06
+      latest-version: 2025-06-03
       url: http://purl.obolibrary.org/obo/mondo/releases/{version}/mondo.owl
     name: Mondo Disease Ontology
     website: https://mondo.monarchinitiative.org
@@ -123,18 +123,6 @@ Phenotype:
       url: https://github.com/obophenotype/human-phenotype-ontology/releases/download/v{version}/hp.owl
     name: Human Phenotype Ontology
     website: https://hpo.jax.org
-  mp:
-    mammalian:
-      latest-version: 2024-06-18
-      url: https://github.com/mgijax/mammalian-phenotype-ontology/releases/download/v{version}/mp.owl
-    name: Mammalian Phenotype Ontology
-    website: https://github.com/mgijax/mammalian-phenotype-ontology
-  zp:
-    zebrafish:
-      latest-version: 2024-04-18
-      url: https://github.com/obophenotype/zebrafish-phenotype-ontology/releases/download/v{version}/zp.owl
-    name: Zebrafish Phenotype Ontology
-    website: https://github.com/obophenotype/zebrafish-phenotype-ontology
   phe:
     human:
       latest-version: 1.2
@@ -190,7 +178,7 @@ DevelopmentalStage:
 Ethnicity:
   hancestro:
     human:
-      latest-version: 2025-04-01
+      latest-version: 3.0
       url: http://purl.obolibrary.org/obo/hancestro/releases/{version}/hancestro.owl
     name: Human Ancestry Ontology
     website: https://github.com/EBISPOT/hancestro

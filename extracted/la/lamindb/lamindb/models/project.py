@@ -24,7 +24,7 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
-from .record import Record, Sheet
+from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, ValidateFields
@@ -66,6 +66,10 @@ class Person(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Email of the person."""
     external: bool = BooleanField(default=True, db_index=True)
     """Whether the person is external to the organization."""
+    records: Record = models.ManyToManyField(
+        Record, through="RecordPerson", related_name="linked_people"
+    )
+    """Linked records."""
 
     @overload
     def __init__(
@@ -164,6 +168,10 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionReference", related_name="references"
     )
     """Collections associated with this reference."""
+    records: Record = models.ManyToManyField(
+        Record, through="RecordReference", related_name="linked_references"
+    )
+    """Linked records."""
 
     @overload
     def __init__(
@@ -279,13 +287,9 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     )
     """Linked schemas."""
     records: Record = models.ManyToManyField(
-        Record, through="RecordProject", related_name="projects"
+        Record, through="RecordProject", related_name="linked_projects"
     )
     """Linked records."""
-    sheets: Sheet = models.ManyToManyField(
-        Sheet, through="SheetProject", related_name="projects"
-    )
-    """Linked sheets."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
@@ -414,23 +418,36 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("schema", "project")
 
 
+class RecordPerson(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_person")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordperson")
+    value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature", "value")
+
+
+class RecordReference(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_reference")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, related_name="links_recordreference"
+    )
+    value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature", "value")
+
+
 class RecordProject(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordproject")
     value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
 
     class Meta:
-        unique_together = ("record", "feature")
-
-
-class SheetProject(BaseSQLRecord, IsLink, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    sheet: Sheet = ForeignKey(Sheet, CASCADE, related_name="links_project")
-    project: Project = ForeignKey(Project, PROTECT, related_name="links_sheet")
-
-    class Meta:
-        unique_together = ("sheet", "project")
+        unique_together = ("record", "feature", "value")
 
 
 class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):

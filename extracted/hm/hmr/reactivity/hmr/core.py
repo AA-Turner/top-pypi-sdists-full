@@ -1,4 +1,5 @@
 import sys
+from ast import get_docstring, parse
 from collections.abc import Iterable, MutableMapping, Sequence
 from contextlib import suppress
 from functools import cached_property, partial
@@ -13,9 +14,8 @@ from typing import Self
 from weakref import WeakValueDictionary
 
 from ..context import Context, new_context
-from ..helpers import DerivedMethod, DerivedProperty
+from ..helpers import DerivedMethod
 from ..primitives import BaseDerived, Derived, Signal
-from ._experimental import Dirty
 from .hooks import call_post_reload_hooks, call_pre_reload_hooks
 from .proxy import Proxy
 
@@ -61,6 +61,9 @@ class NamespaceProxy(Proxy):
                 self.module.load.dependencies.remove(signal)
 
 
+STATIC_ATTRS = frozenset(("__path__", "__dict__", "__spec__", "__name__", "__file__", "__loader__", "__package__", "__cached__"))
+
+
 class ReactiveModule(ModuleType):
     instances: WeakValueDictionary[Path, Self] = WeakValueDictionary()
 
@@ -85,10 +88,13 @@ class ReactiveModule(ModuleType):
     @partial(DerivedMethod, context=HMR_CONTEXT)
     def __load(self):
         try:
-            code = compile(self.__file.read_text("utf-8"), str(self.__file), "exec", dont_inherit=True)
+            file = self.__file
+            ast = parse(file.read_text("utf-8"), str(file))
+            code = compile(ast, str(file), "exec", dont_inherit=True)
         except SyntaxError as e:
             sys.excepthook(type(e), e, e.__traceback__)
         else:
+            self.__doc__ = get_docstring(ast)
             exec(code, self.__namespace, self.__namespace_proxy)  # https://github.com/python/cpython/issues/121306
         finally:
             load = self.__load
@@ -117,9 +123,9 @@ class ReactiveModule(ModuleType):
 
     def __getattr__(self, name: str):
         try:
-            return self.__namespace_proxy[name] if name != "__path__" else self.__namespace[name]
+            return self.__namespace_proxy[name] if name not in STATIC_ATTRS else self.__namespace[name]
         except KeyError as e:
-            if name != "__path__" and (getattr := self.__namespace_proxy.get("__getattr__")):
+            if name not in STATIC_ATTRS and (getattr := self.__namespace_proxy.get("__getattr__")):
                 return getattr(name)
             raise AttributeError(*e.args) from None
 
@@ -130,25 +136,20 @@ class ReactiveModule(ModuleType):
 
 
 class ReactiveModuleLoader(Loader):
-    def __init__(self, file: Path):
-        super().__init__()
-        self._file = file
-
     def create_module(self, spec: ModuleSpec):
-        namespace = {"__file__": str(self._file), "__spec__": spec, "__loader__": self, "__name__": spec.name}
+        assert spec.origin is not None, "This loader can only load file-backed modules"
+        path = Path(spec.origin)
+        namespace = {"__file__": spec.origin, "__spec__": spec, "__loader__": self, "__name__": spec.name, "__package__": spec.parent, "__cached__": None}
         if spec.submodule_search_locations is not None:
-            assert self._file.name == "__init__.py"
-            namespace["__path__"] = [str(self._file.parent)]
-        return ReactiveModule(self._file, namespace, spec.name)
+            namespace["__path__"] = spec.submodule_search_locations[:] = [str(path.parent)]
+        return ReactiveModule(path, namespace, spec.name)
 
     def exec_module(self, module: ModuleType):
         assert isinstance(module, ReactiveModule)
         module.load()
 
 
-@partial(Dirty, context=HMR_CONTEXT)
-def sys_path():  # TODO: Path(".") may change too
-    return [*sys.path]
+_loader = ReactiveModuleLoader()  # This is a singleton loader instance used by the finder
 
 
 class ReactiveModuleFinder(MetaPathFinder):
@@ -157,15 +158,25 @@ class ReactiveModuleFinder(MetaPathFinder):
         self.includes = [Path(i).resolve() for i in includes]
         self.excludes = [Path(e).resolve() for e in (*excludes, *getsitepackages())]
 
+        self._last_sys_path: list[str] = []
+        self._last_cwd: Path = Path()
+        self._cached_search_paths: list[Path] = []
+
     def _accept(self, path: Path):
         return path.is_file() and not is_relative_to_any(path, self.excludes) and is_relative_to_any(path, self.includes)
 
-    @partial(DerivedProperty, context=HMR_CONTEXT)
+    @property
     def search_paths(self):
         # FIXME: Handle case where `includes` contains file paths, not just directories
         # Currently we assume `includes` never specify individual files
         # And we assume `includes` and `excludes` never change
-        return [path for path in (Path(p).resolve() for p in sys_path()) if not is_relative_to_any(path, self.excludes) and is_relative_to_any(path, self.includes)]
+
+        if sys.path == self._last_sys_path and self._last_cwd.exists() and Path.cwd().samefile(self._last_cwd):
+            return self._cached_search_paths
+        self._cached_search_paths = res = [path for path in (Path(p).resolve() for p in sys.path) if not is_relative_to_any(path, self.excludes) and is_relative_to_any(path, self.includes)]
+        self._last_cwd = Path.cwd()
+        self._last_sys_path = [*sys.path]
+        return res
 
     def find_spec(self, fullname: str, paths: Sequence[str] | None, _=None):
         if fullname in sys.modules:
@@ -177,10 +188,10 @@ class ReactiveModuleFinder(MetaPathFinder):
 
             file = directory / f"{fullname.replace('.', '/')}.py"
             if self._accept(file) and (paths is None or is_relative_to_any(file, paths)):
-                return spec_from_loader(fullname, ReactiveModuleLoader(file), origin=str(file))
+                return spec_from_loader(fullname, _loader, origin=str(file))
             file = directory / f"{fullname.replace('.', '/')}/__init__.py"
             if self._accept(file) and (paths is None or is_relative_to_any(file, paths)):
-                return spec_from_loader(fullname, ReactiveModuleLoader(file), origin=str(file), is_package=True)
+                return spec_from_loader(fullname, _loader, origin=str(file), is_package=True)
 
 
 def is_relative_to_any(path: Path, paths: Iterable[str | Path]):
@@ -349,4 +360,4 @@ def cli():
     reloader.keep_watching_until_interrupt()
 
 
-__version__ = "0.6.3.2"
+__version__ = "0.6.4"

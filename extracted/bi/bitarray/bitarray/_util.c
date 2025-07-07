@@ -85,10 +85,12 @@ resize_lite(bitarrayobject *self, Py_ssize_t nbits)
     assert(self->ob_exports == 0);
     assert(self->buffer == NULL);
 
+    /* bypass everything when buffer size hasn't changed */
     if (newsize == Py_SIZE(self)) {
         self->nbits = nbits;
         return 0;
     }
+
     if (newsize == 0) {
         PyMem_Free(self->ob_item);
         self->ob_item = NULL;
@@ -97,6 +99,7 @@ resize_lite(bitarrayobject *self, Py_ssize_t nbits)
         self->nbits = 0;
         return 0;
     }
+
     self->ob_item = PyMem_Realloc(self->ob_item, newsize);
     if (self->ob_item == NULL) {
         PyErr_NoMemory();
@@ -1675,8 +1678,8 @@ untouched.  Use `sc_encode()` for compressing (encoding).");
 
 /* ------------------- variable length bitarray format ----------------- */
 
-/* LEN_PAD_BITS is always 3 - the number of bits (length) that is necessary to
-   represent the number of pad bits.  The number of padding bits itself is
+/* LEN_PAD_BITS is always 3 - the number of bits (length) that is necessary
+   to represent the number of pad bits.  The number of padding bits itself is
    called 'padding' below.
 
    'padding' refers to the pad bits within the variable length format.
@@ -1691,16 +1694,15 @@ untouched.  Use `sc_encode()` for compressing (encoding).");
 static int
 vl_decode_core(bitarrayobject *a, PyObject *iter)
 {
-    Py_ssize_t padding;      /* number of pad bits read from header byte */
     Py_ssize_t i = 0;        /* bit counter */
-    int k, c;
+    int padding, k, c;
 
-    if ((c = next_char(iter)) < 0)           /* header byte */
+    if ((c = next_char(iter)) < 0)           /* head byte */
         return -1;
 
     padding = (c & 0x70) >> 4;
-    if (padding >= 7 || ((c & 0x80) == 0 && padding > 4)) {
-        PyErr_Format(PyExc_ValueError, "invalid header byte: 0x%02x", c);
+    if (padding == 7 || ((c & 0x80) == 0 && padding > 4)) {
+        PyErr_Format(PyExc_ValueError, "invalid head byte: 0x%02x", c);
         return -1;
     }
     for (k = 0; k < 4; k++)
@@ -1710,6 +1712,7 @@ vl_decode_core(bitarrayobject *a, PyObject *iter)
         if ((c = next_char(iter)) < 0)
             return -1;
 
+        /* ensure bitarray is large enough to accommodate seven more bits */
         if (a->nbits < i + 7 && resize_lite(a, a->nbits + 1024) < 0)
             return -1;
         assert(i + 6 < a->nbits);
@@ -1766,35 +1769,34 @@ vl_encode(PyObject *module, PyObject *obj)
 {
     PyObject *result;
     bitarrayobject *a;
-    Py_ssize_t padding, n, m, i;
-    Py_ssize_t j = 0;           /* byte conter */
+    Py_ssize_t nbits, n, i, j = 0;  /* j: byte counter */
+    int padding;
     char *str;
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     a = (bitarrayobject *) obj;
-    n = (a->nbits + LEN_PAD_BITS + 6) / 7;  /* number of resulting bytes */
-    m = 7 * n - LEN_PAD_BITS;    /* number of bits resulting bytes can hold */
-    padding = m - a->nbits;      /* number of pad bits */
-    assert(0 <= padding && padding < 7);
+    nbits = a->nbits;
+    n = (nbits + LEN_PAD_BITS + 6) / 7;  /* number of resulting bytes */
+    padding = (int) (7 * n - LEN_PAD_BITS - nbits);
 
     result = PyBytes_FromStringAndSize(NULL, n);
     if (result == NULL)
         return NULL;
 
     str = PyBytes_AsString(result);
-    str[0] = a->nbits > 4 ? 0x80 : 0x00;   /* leading bit */
-    str[0] |= padding << 4;                /* encode padding */
-    for (i = 0; i < 4 && i < a->nbits; i++)
+    str[0] = nbits > 4 ? 0x80 : 0x00;  /* lead bit */
+    str[0] |= padding << 4;            /* encode padding */
+    for (i = 0; i < 4 && i < nbits; i++)
         str[0] |= (0x08 >> i) * getbit(a, i);
 
-    for (i = 4; i < a->nbits; i++) {
+    for (i = 4; i < nbits; i++) {
         int k = (i - 4) % 7;
 
         if (k == 0) {
             j++;
-            str[j] = j < n - 1 ? 0x80 : 0x00;  /* leading bit */
+            str[j] = j < n - 1 ? 0x80 : 0x00;  /* lead bit */
         }
         str[j] |= (0x40 >> k) * getbit(a, i);
     }
@@ -2106,10 +2108,10 @@ static PyMethodDef module_functions[] = {
 
 #ifndef NDEBUG
     /* functions exposed in debug mode for testing */
-    {"_count_from_word", (PyCFunction) module_cfw,     METH_VARARGS, 0},
-    {"_read_n",          (PyCFunction) module_read_n,  METH_VARARGS, 0},
-    {"_write_n",         (PyCFunction) module_write_n, METH_VARARGS, 0},
-    {"_sc_rts",          (PyCFunction) module_sc_rts,  METH_O,       0},
+    {"_cfw",      (PyCFunction) module_cfw,     METH_VARARGS, 0},
+    {"_read_n",   (PyCFunction) module_read_n,  METH_VARARGS, 0},
+    {"_write_n",  (PyCFunction) module_write_n, METH_VARARGS, 0},
+    {"_sc_rts",   (PyCFunction) module_sc_rts,  METH_O,       0},
 #endif
 
     {NULL,        NULL}  /* sentinel */
@@ -2126,7 +2128,8 @@ PyInit__util(void)
 {
     PyObject *m, *bitarray_module;
 
-    if ((bitarray_module = PyImport_ImportModule("bitarray")) == NULL)
+    bitarray_module = PyImport_ImportModule("bitarray");
+    if (bitarray_module == NULL)
         return NULL;
     bitarray_type = (PyTypeObject *) PyObject_GetAttrString(bitarray_module,
                                                             "bitarray");

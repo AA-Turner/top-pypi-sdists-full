@@ -21,7 +21,7 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     packages=find_packages(exclude=("tests", "tests.cli")),
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=["numpy"],
     extras_require={
         "dev": [
@@ -30,13 +30,14 @@ setup(
             "sphinx",
             "sphinx-rtd-theme",
             "nox",
+            "attrs>=24.1", # Needed for nox <= 2025.05.01 to work
             "black==22.3.0",
             "pytest-benchmark",
             "m2r2",
             "rangehttpserver",
             "isort==5.11.5",
         ],
-        "lazrs": ["lazrs>=0.6.0, < 0.7.0"],
+        "lazrs": ["lazrs>=0.7.0, < 0.8.0"],
         "laszip": ["laszip >= 0.2.1, < 0.3.0"],
         "pyproj": ["pyproj"],
         "requests": ["requests"],

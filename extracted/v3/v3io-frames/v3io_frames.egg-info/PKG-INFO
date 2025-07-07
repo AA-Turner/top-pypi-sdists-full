@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: v3io_frames
-Version: 0.13.7
+Version: 0.13.8
 Summary: Unified multi-module DataFrames client for the Iguazio Data Science Platform
 Home-page: https://github.com/v3io/frames
 Author: Miki Tebeka

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.4.31
+Version: 0.4.39
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -43,6 +43,9 @@ Requires-Dist: webdriver-manager
 Requires-Dist: bs4
 Requires-Dist: markdown
 Requires-Dist: pandas
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
 Dynamic: license-file
 
 GWAY
@@ -60,6 +63,8 @@ Fetch the source, changelogs and issues (or submit your own) here:
 
 https://github.com/arthexis/gway
 
+Browse the latest changes in the `CHANGELOG <https://arthexis.com/release/changelog>`_.
+
 See a demo and the full list of available projects and other help topics online here:
 
 https://arthexis.com/site/help
@@ -71,7 +76,7 @@ Basic Features
 - ⛓️ CLI chaining: ``proj1 func1 - proj2 func2`` (implicit parameter passing by name)
 - 🧠 Sigil-based context resolution (e.g., ``[result-context-environ|fallback]``)
 - ⚙️ Automatic CLI generation, with support for ``*``, ``*args`` and ``**kwargs``
-- 🧪 Built-in test runner and self-packaging: ``gway test`` and ``gway release build``
+- 🧪 Built-in test runner and self-packaging: ``gway test`` (use ``--coverage`` for coverage) and ``gway release build``
 - 📦 Environment-aware loading (e.g., ``clients`` and ``servers`` .env files)
 
 
@@ -136,6 +141,22 @@ This launches an interactive web UI that lets you browse your project, inspect h
 
 Visit `http://localhost:8888` once it's running.
 
+Odoo Project Tasks
+~~~~~~~~~~~~~~~~~~
+
+You can add tasks to your Odoo projects without leaving the terminal.
+
+.. code-block:: bash
+
+    export ODOO_DEFAULT_PROJECT="Internal"
+    gway odoo create-task --customer "Acme Corp" \
+        --phone 5551234567 --notes "Requested callback next week" \
+        --new-customer
+
+Using ``--new-customer`` creates the partner before the task and the phone and
+note details are included in the task description. If ``--title`` is omitted,
+the task title defaults to the customer name.
+
 
 You can use a similar syntax to lunch any .gwr (GWAY Recipe) files you find. You can register them on your OS for automatic execution with the following command (Administrator/root privileges may be required):
 
@@ -188,6 +209,8 @@ Install from Source:
     # Run directly from shell or command prompt
     ./gway.sh        # On Linux/macOS
     gway.bat         # On Windows
+    # VS Code task configuration
+    tasks.json       # Provides a "Run Gway on Current File" task
 
 When running GWAY from source for the first time, it will **auto-install** dependencies if needed.
 
@@ -197,6 +220,27 @@ To **upgrade** to the latest version from source:
 
     ./upgrade.sh     # On Linux/macOS
     upgrade.bat      # On Windows
+    # Or run ./upgrade.sh via Git Bash or WSL
+
+To run GWAY automatically as a service using a recipe:
+
+.. code-block:: bash
+
+    sudo ./install.sh <recipe> [--debug] [--root]   # On Linux/macOS
+    install.bat <recipe> [--debug]         # On Windows
+    sudo ./install.sh <recipe> --remove    # Remove on Linux/macOS
+    install.bat <recipe> --remove [--force]  # Remove on Windows
+    install.bat <recipe> --repair            # Repair one service on Windows
+
+To apply updated service definitions to all installed services:
+
+.. code-block:: bash
+
+    sudo ./install.sh --repair   # On Linux/macOS
+    install.bat --repair         # Repair all services on Windows
+
+On Windows, the installed service will automatically restart if it exits
+unexpectedly.
 
 This pulls the latest updates from the `main` branch and refreshes dependencies.
 
@@ -244,7 +288,9 @@ After placing your modules under `projects/`, you can immediately invoke them fr
     gway project-dir-or-script your-function argN --kwargN valueN
 
 
-By default, results get reused as context for future calls made with the same Gateway thread.  
+By default, results get reused as context for future calls made with the same Gateway thread.
+
+
 
 
 Recipes and Web Views
@@ -322,10 +368,11 @@ You can chain as many projects as you want; each can define its own set of views
         --project conway --home game-of-life --path games/conway
 
     web server start-app --host 127.0.0.1 --port 8888
-    until --file VERSION --pypi
+    until --version --build --pypi
 
 
-The above example combines basic features such as cookies and navbar with custom projects, a virtual upload/download box system and Conway's Game of Life, into a single application. 
+The above example combines basic features such as cookies and navbar with custom projects, a virtual upload/download box system and Conway's Game of Life, into a single application.
+
 
 The above recipe also shows implicit repeated commands. For example, instead of writing "web app setup" multiple times, each line below that doesn't start with a command repeats the last command with new parameters.
 

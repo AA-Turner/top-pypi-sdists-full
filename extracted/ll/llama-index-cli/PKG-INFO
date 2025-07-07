@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-cli
-Version: 0.4.3
+Version: 0.4.4
 Summary: llama-index cli
 Author: llamaindex
 Maintainer-email: Andrei Fajardo <andrei@runllama.ai>, Haotian Zhang <ht@runllama.ai>, Jerry Liu <jerry@llamaindex.ai>, Logan Markewich <logan@llamaindex.ai>, Simon Suo <simon@llamaindex.ai>, Sourabh Desai <sourabh@llamaindex.ai>

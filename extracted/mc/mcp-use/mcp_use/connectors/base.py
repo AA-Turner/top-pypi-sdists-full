@@ -11,6 +11,7 @@ from typing import Any
 from mcp import ClientSession
 from mcp.shared.exceptions import McpError
 from mcp.types import CallToolResult, GetPromptResult, Prompt, ReadResourceResult, Resource, Tool
+from pydantic import AnyUrl
 
 from ..logging import logger
 from ..task_managers import ConnectionManager
@@ -30,6 +31,7 @@ class BaseConnector(ABC):
         self._resources: list[Resource] | None = None
         self._prompts: list[Prompt] | None = None
         self._connected = False
+        self._initialized = False  # Track if client_session.initialize() has been called
         self.auto_reconnect = True  # Whether to automatically reconnect on connection loss (not configurable for now)
 
     @abstractmethod
@@ -86,6 +88,7 @@ class BaseConnector(ABC):
         self._tools = None
         self._resources = None
         self._prompts = None
+        self._initialized = False  # Reset initialization flag
 
         if errors:
             logger.warning(f"Encountered {len(errors)} errors during resource cleanup")
@@ -95,38 +98,40 @@ class BaseConnector(ABC):
         if not self.client_session:
             raise RuntimeError("MCP client is not connected")
 
-        logger.debug("Initializing MCP session")
+        # Check if already initialized
+        if self._initialized:
+            return {"status": "already_initialized"}
 
         # Initialize the session
         result = await self.client_session.initialize()
+        self._initialized = True  # Mark as initialized
 
         server_capabilities = result.capabilities
 
         if server_capabilities.tools:
-            # Get available tools
-            tools_result = await self.list_tools()
-            self._tools = tools_result or []
+            # Get available tools directly from client session
+            tools_result = await self.client_session.list_tools()
+            self._tools = tools_result.tools if tools_result else []
         else:
             self._tools = []
 
         if server_capabilities.resources:
-            # Get available resources
-            resources_result = await self.list_resources()
-            self._resources = resources_result or []
+            # Get available resources directly from client session
+            resources_result = await self.client_session.list_resources()
+            self._resources = resources_result.resources if resources_result else []
         else:
             self._resources = []
 
         if server_capabilities.prompts:
-            # Get available prompts
-            prompts_result = await self.list_prompts()
-            self._prompts = prompts_result or []
+            # Get available prompts directly from client session
+            prompts_result = await self.client_session.list_prompts()
+            self._prompts = prompts_result.prompts if prompts_result else []
         else:
             self._prompts = []
 
         logger.debug(
             f"MCP session initialized with {len(self._tools)} tools, "
-            f"{len(self._resources)} resources, "
-            f"and {len(self._prompts)} prompts"
+            "{len(self._resources)} resources, and {len(self._prompts)} prompts"
         )
 
         return result
@@ -287,10 +292,9 @@ class BaseConnector(ABC):
             logger.error(f"Error listing resources: {e}")
             return []
 
-    async def read_resource(self, uri: str) -> ReadResourceResult:
+    async def read_resource(self, uri: AnyUrl) -> ReadResourceResult:
         """Read a resource by URI."""
-        if not self.client_session:
-            raise RuntimeError("MCP client is not connected")
+        await self._ensure_connected()
 
         logger.debug(f"Reading resource: {uri}")
         result = await self.client_session.read_resource(uri)
@@ -298,7 +302,6 @@ class BaseConnector(ABC):
 
     async def list_prompts(self) -> list[Prompt]:
         """List all available prompts from the MCP implementation."""
-        # Ensure we're connected
         await self._ensure_connected()
 
         logger.debug("Listing prompts")
@@ -311,7 +314,6 @@ class BaseConnector(ABC):
 
     async def get_prompt(self, name: str, arguments: dict[str, Any] | None = None) -> GetPromptResult:
         """Get a prompt by name."""
-        # Ensure we're connected
         await self._ensure_connected()
 
         logger.debug(f"Getting prompt: {name}")
@@ -320,7 +322,6 @@ class BaseConnector(ABC):
 
     async def request(self, method: str, params: dict[str, Any] | None = None) -> Any:
         """Send a raw request to the MCP implementation."""
-        # Ensure we're connected
         await self._ensure_connected()
 
         logger.debug(f"Sending request: {method} with params: {params}")

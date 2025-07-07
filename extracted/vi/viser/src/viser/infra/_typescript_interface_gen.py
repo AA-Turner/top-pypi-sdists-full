@@ -7,6 +7,7 @@ import numpy as np
 from typing_extensions import (
     Annotated,
     Literal,
+    Never,
     NotRequired,
     get_args,
     get_origin,
@@ -31,6 +32,7 @@ _raw_type_mapping = {
     bytes: "Uint8Array",
     Any: "any",
     None: "null",
+    Never: "never",
     type(None): "null",
 }
 
@@ -75,10 +77,8 @@ def _get_ts_type(typ: Type[Any]) -> str:
         return (
             "("
             + " | ".join(
-                map(
-                    _get_ts_type,
-                    get_args(typ),
-                )
+                # We're using dictionary as an ordered set.
+                {_get_ts_type(t): None for t in get_args(typ)}.keys()
             )
             + ")"
         )

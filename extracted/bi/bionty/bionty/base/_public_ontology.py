@@ -26,9 +26,11 @@ def encode_filenames(
     organism: str, name: str, version: str, entity: str
 ) -> tuple[str, str]:
     """Encode names of the cached files."""
-    parquet_filename = f"df_{organism}__{name}__{version}__{entity}.parquet"
-    ontology_filename = f"ontology_{organism}__{name}__{version}__{entity}".replace(
-        " ", "_"
+    # Paths are often passed as `bionty.Entity` but we only need the entity here
+    entity_name = entity.split(".")[-1] if "." in entity else entity
+    parquet_filename = f"df_{organism}__{name}__{version}__{entity_name}.parquet"
+    ontology_filename = (
+        f"ontology_{organism}__{name}__{version}__{entity_name}".replace(" ", "_")
     )
 
     return parquet_filename, ontology_filename
@@ -47,9 +49,11 @@ class PublicOntology:
         include_rel: str | None = None,
         entity: str | None = None,
         ols_supported: bool = True,
+        filter_prefix: bool = True,
     ):
         self._entity = entity or self.__class__.__name__
         self._ols_supported = ols_supported
+        self._filter_prefix = filter_prefix
 
         # search in all available sources to get url
         try:
@@ -337,14 +341,15 @@ class PublicOntology:
             bt_base.Gene().df()
         """
         if "ontology_id" in self._df.columns:
-            # Filter ontology_id by source prefix
-            filtered_df = self._df[
-                self._df["ontology_id"]
-                .str.upper()
-                .str.startswith(f"{self._source.upper()}:")
-            ].set_index("ontology_id")
-            if not filtered_df.empty:
-                return filtered_df
+            if self._filter_prefix:
+                # Filter ontology_id by source prefix
+                filtered_df = self._df[
+                    self._df["ontology_id"]
+                    .str.upper()
+                    .str.startswith(f"{self._source.upper()}:")
+                ].set_index("ontology_id")
+                if not filtered_df.empty:
+                    return filtered_df
             return self._df.set_index("ontology_id")
         else:
             return self._df

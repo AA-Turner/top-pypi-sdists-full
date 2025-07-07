@@ -6,3 +6,4 @@ from .sayaka import miki_decrypt_old_and_decompress as miki_decrypt_old_and_deco
 
 from .sayaka import ChaCha20 as ChaCha20
 from .sayaka import ManifestDataBinary as ManifestDataBinary
+from .sayaka import ChaChaDecryptor as ChaChaDecryptor

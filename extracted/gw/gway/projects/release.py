@@ -4,6 +4,7 @@ import os
 import inspect
 from pathlib import Path
 
+
 from gway import gw
 
 
@@ -91,18 +92,30 @@ def build(
         major, minor, patch = map(int, current_version.split("."))
         patch += 1
         new_version = f"{major}.{minor}.{patch}"
-        version_path.write_text(new_version)
+        version_path.write_text(new_version + "\n")
         gw.info(f"\nBumped version: {current_version} → {new_version}")
     else:
         new_version = version_path.read_text().strip()
 
     version = new_version
 
+    # Write BUILD file with current commit hash
+    build_path = Path("BUILD")
+    prev_build = build_path.read_text().strip() if build_path.exists() else None
+    build_hash = commit()
+    build_path.write_text(build_hash + "\n")
+    gw.info(f"Wrote BUILD file with commit {build_hash}")
+    update_changelog(version, build_hash, prev_build)
+
     dependencies = [
         line.strip()
         for line in requirements_path.read_text().splitlines()
         if line.strip() and not line.startswith("#")
     ]
+
+    optional_dependencies = {
+        "dev": ["pytest", "pytest-cov"],
+    }
 
     pyproject_content = {
         "build-system": {
@@ -121,6 +134,7 @@ def build(
             },
             "classifiers": classifiers,
             "dependencies": dependencies,
+            "optional-dependencies": optional_dependencies,
             "authors": [
                 {
                     "name": author_name,
@@ -151,6 +165,7 @@ def build(
         manifest_path.write_text(
             "include README.rst\n"
             "include VERSION\n"
+            "include BUILD\n"
             "include requirements.txt\n"
             "include pyproject.toml\n"
         )
@@ -217,7 +232,7 @@ def build(
             gw.info("Package uploaded to PyPI successfully.")
 
     if git:
-        files_to_add = ["VERSION", "pyproject.toml"]
+        files_to_add = ["VERSION", "BUILD", "pyproject.toml", "CHANGELOG.rst"]
         if help_db:
             files_to_add.append("data/help.sqlite")
         if projects:
@@ -369,6 +384,32 @@ def create_shortcut(
     print(f"Shortcut created at: {shortcut_path}")
 
 
+def commit(length: int = 6) -> str:
+    """Return the current git commit hash (optionally truncated)."""
+    import subprocess
+
+    try:
+        full = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if length:
+            return full[-length:]
+        return full
+    except Exception:
+        return "unknown"
+
+
+def get_build(length: int = 6) -> str:
+    """Return the build hash stored in the BUILD file."""
+    build_path = Path("BUILD")
+    if build_path.exists():
+        commit_hash = build_path.read_text().strip()
+        return commit_hash[-length:] if length else commit_hash
+    else:
+        gw.warning("BUILD file not found.")
+        return "unknown"
+
+
 def changes(*, files=None, staged=False, context=3, max_bytes=200_000, clip=False):
     """
     Returns a unified diff of all recent textual changes in the git repo.
@@ -419,6 +460,153 @@ def changes(*, files=None, staged=False, context=3, max_bytes=200_000, clip=Fals
         gw.clip.copy(result)
     if not gw.silent:
         return result or "[No changes detected]"
+
+
+def _last_changelog_build():
+    path = Path("CHANGELOG.rst")
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip().startswith("#"):
+            continue
+        if "[build" in line:
+            try:
+                return line.split("[build", 1)[1].split("]", 1)[0].strip()
+            except Exception:
+                return None
+    return None
+
+
+def _ensure_changelog() -> str:
+    """Return the changelog text ensuring base headers and an Unreleased section."""
+    base_header = "Changelog\n=========\n\n"
+    path = Path("CHANGELOG.rst")
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if not text.startswith("Changelog"):
+        text = base_header + text
+    if "Unreleased" not in text:
+        text = text[: len(base_header)] + "Unreleased\n----------\n\n" + text[len(base_header):]
+    return text
+
+
+def _pop_unreleased(text: str) -> tuple[str, str]:
+    """Return (body, new_text) removing the Unreleased section."""
+    lines = text.splitlines()
+    try:
+        idx = lines.index("Unreleased")
+    except ValueError:
+        return "", text
+
+    body = []
+    i = idx + 2  # Skip underline
+    while i < len(lines) and lines[i].startswith("- "):
+        body.append(lines[i])
+        i += 1
+    if i < len(lines) and lines[i] == "":
+        i += 1
+    new_lines = lines[:idx] + lines[i:]
+    return "\n".join(body), "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
+
+
+def add_note(message: str | None = None) -> None:
+    """Append a bullet to the Unreleased section of CHANGELOG.rst."""
+    import subprocess
+
+    if message is None:
+        try:
+            proc = subprocess.run(
+                ["git", "log", "-1", "--pretty=%h %s", "--no-merges"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            message = proc.stdout.strip()
+            if message.startswith("Merge"):
+                message = ""
+        except Exception:
+            message = ""
+
+    if not message:
+        gw.warning("No changelog entry provided and git log failed.")
+        return
+
+    path = Path("CHANGELOG.rst")
+    text = _ensure_changelog()
+    lines = text.splitlines()
+    try:
+        idx = lines.index("Unreleased")
+    except ValueError:
+        idx = None
+    if idx is None:
+        lines.insert(2, "Unreleased")
+        lines.insert(3, "-" * len("Unreleased"))
+        lines.insert(4, "")
+        idx = 2
+    insert = idx + 2
+    lines.insert(insert, f"- {message}")
+    lines.insert(insert + 1, "")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def update_changelog(version: str, build_hash: str, prev_build: str | None = None) -> None:
+    """Promote the Unreleased section to a new version entry."""
+    import subprocess
+
+    text = _ensure_changelog()
+
+    unreleased_body, text = _pop_unreleased(text)
+
+    if not unreleased_body:
+        prev_build = prev_build or _last_changelog_build()
+        log_range = f"{prev_build}..HEAD" if prev_build else "HEAD"
+        commits = []
+        try:
+            proc = subprocess.run(
+                ["git", "log", "--pretty=%h %s", "--no-merges", log_range],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            commits = [
+                f"- {line.strip()}"
+                for line in proc.stdout.splitlines()
+                if line.strip() and not line.strip().startswith("Merge")
+            ]
+        except subprocess.CalledProcessError:
+            try:
+                proc = subprocess.run(
+                    ["git", "log", "-1", "--pretty=%h %s", "--no-merges"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                commits = [
+                    f"- {line.strip()}"
+                    for line in proc.stdout.splitlines()
+                    if line.strip() and not line.strip().startswith("Merge")
+                ]
+            except Exception:
+                commits = []
+        except Exception:
+            commits = []
+        unreleased_body = "\n".join(commits)
+
+    header = f"{version} [build {build_hash}]"
+    underline = "-" * len(header)
+    entry = "\n".join([header, underline, "", unreleased_body, ""]).rstrip() + "\n\n"
+
+    base_header = "Changelog\n=========\n\n"
+    remaining = text[len(base_header):]
+    new_text = base_header + "Unreleased\n----------\n\n" + entry + remaining
+
+    Path("CHANGELOG.rst").write_text(new_text, encoding="utf-8")
+
+
+def view_changelog():
+    """Render the changelog including any Unreleased section."""
+    from projects.web import site
+
+    return site.view_reader(title="CHANGELOG", ext="rst")
 
 
 if __name__ == "__main__":

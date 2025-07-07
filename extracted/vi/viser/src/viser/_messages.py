@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 from typing_extensions import Literal, override
 
-from . import infra, theme
+from . import infra, theme, uplot
 
 
 @dataclasses.dataclass(frozen=True)
@@ -20,7 +20,7 @@ class GuiSliderMark:
     label: Optional[str]
 
 
-Color = Literal[
+LiteralColor = Literal[
     "dark",
     "gray",
     "red",
@@ -156,9 +156,9 @@ class NotificationProps:
     """Whether to show a loading indicator. Synchronized automatically when assigned."""
     with_close_button: bool
     """Whether to show a close button. Synchronized automatically when assigned."""
-    auto_close: Union[int, Literal[False]]
-    """Time in milliseconds after which the notification should auto-close, or False to disable auto-close. Synchronized automatically when assigned."""
-    color: Optional[Color]
+    auto_close_seconds: Union[float, None]
+    """Time in seconds after which the notification should auto-close, or False to disable auto-close. Synchronized automatically when assigned."""
+    color: Union[LiteralColor, Tuple[int, int, int], None]
     """Color of the notification. Synchronized automatically when assigned."""
 
 
@@ -179,7 +179,8 @@ class ViewerCameraMessage(Message):
     fov: float
     near: float
     far: float
-    aspect: float
+    image_height: int
+    image_width: int
     look_at: Tuple[float, float, float]
     up_direction: Tuple[float, float, float]
 
@@ -241,6 +242,12 @@ class CameraFrustumProps:
     """Format of the provided image ('image/jpeg' or 'image/png'). Synchronized automatically when assigned."""
     _image_data: Optional[bytes]
     """Optional image to be displayed on the frustum. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
+    variant: Literal["wireframe", "filled"] = "wireframe"
+    """Variant of the frustum visualization. 'wireframe' shows lines only, 'filled' adds semi-transparent faces. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -256,6 +263,10 @@ class GlbProps:
     """A binary payload containing the GLB data. Synchronized automatically when assigned."""
     scale: float
     """A scale for resizing the GLB asset. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -291,10 +302,12 @@ class BatchedAxesMessage(_CreateSceneNodeMessage):
 
 @dataclasses.dataclass
 class BatchedAxesProps:
-    wxyzs_batched: npt.NDArray[np.float32]
+    batched_wxyzs: npt.NDArray[np.float32]
     """Float array of shape (N,4) representing quaternion rotations. Synchronized automatically when assigned."""
-    positions_batched: npt.NDArray[np.float32]
+    batched_positions: npt.NDArray[np.float32]
     """Float array of shape (N,3) representing positions. Synchronized automatically when assigned."""
+    batched_scales: Optional[npt.NDArray[np.float32]]
+    """Float array of shape (N,) or (N,3) representing uniform or per-axis (XYZ) scales. Synchronized automatically when assigned."""
     axes_length: float
     """Length of each axis. Synchronized automatically when assigned."""
     axes_radius: float
@@ -332,6 +345,8 @@ class GridProps:
     """Thickness of the section lines. Synchronized automatically when assigned."""
     section_size: float
     """Size of each section in the grid. Synchronized automatically when assigned."""
+    shadow_opacity: float
+    """If true, shadows are casted onto the grid plane. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -376,26 +391,33 @@ class PointCloudMessage(_CreateSceneNodeMessage):
 
 @dataclasses.dataclass
 class PointCloudProps:
-    points: npt.NDArray[np.float16]
+    points: Union[npt.NDArray[np.float16], npt.NDArray[np.float32]]
     """Location of points. Should have shape (N, 3). Synchronized automatically when assigned."""
     colors: npt.NDArray[np.uint8]
     """Colors of points. Should have shape (N, 3) or (3,). Synchronized automatically when assigned."""
     point_size: float
     """Size of each point. Synchronized automatically when assigned."""
-    point_ball_norm: float
-    """Norm value determining the shape of each point. Synchronized automatically when assigned."""
+    point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"]
+    """Shape to draw each point. Synchronized automatically when assigned."""
+    precision: Literal["float16", "float32"]
+    """Precision of the point cloud. Assignments to `points` are automatically casted
+    based on the current precision value. Updates to `points` should therefore happen
+    *after* updates to `precision`. Synchronized automatically when assigned."""
 
     def __post_init__(self):
         # Check shapes.
-        assert self.points.shape == self.colors.shape
+        assert len(self.points.shape) == 2
+        assert self.colors.shape in ((3,), (self.points.shape[0], 3))
         assert self.points.shape[-1] == 3
 
         # Check dtypes.
-        assert self.points.dtype == np.float16
+        if self.precision == "float16":
+            assert self.points.dtype == np.float16
+        else:
+            assert self.points.dtype == np.float32
         assert self.colors.dtype == np.uint8
 
 
-@dataclasses.dataclass
 @dataclasses.dataclass
 class DirectionalLightMessage(_CreateSceneNodeMessage):
     """Directional light message."""
@@ -409,6 +431,8 @@ class DirectionalLightProps:
     """Color of the directional light. Synchronized automatically when assigned."""
     intensity: float
     """Intensity of the directional light. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """If set to true mesh will cast a shadow. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -460,6 +484,8 @@ class PointLightProps:
     """Distance of the point light. Synchronized automatically when assigned."""
     decay: float
     """Decay of the point light. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """If set to true mesh will cast a shadow. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -502,6 +528,8 @@ class SpotLightProps:
     """Penumbra of the spot light. Synchronized automatically when assigned."""
     decay: float
     """Decay of the spot light. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """If set to true mesh will cast a shadow. Synchronized automatically when assigned."""
 
     def __post_init__(self):
         assert self.angle <= np.pi / 2
@@ -537,9 +565,10 @@ class EnvironmentMapMessage(Message):
 
 @dataclasses.dataclass
 class EnableLightsMessage(Message):
-    """Spot light message."""
+    """Default light message."""
 
     enabled: bool
+    cast_shadow: bool
 
 
 @dataclasses.dataclass
@@ -552,12 +581,26 @@ class MeshMessage(_CreateSceneNodeMessage):
 
 
 @dataclasses.dataclass
+class BoxMessage(_CreateSceneNodeMessage):
+    """Box message."""
+
+    props: BoxProps
+
+
+@dataclasses.dataclass
+class IcosphereMessage(_CreateSceneNodeMessage):
+    """Icosphere message."""
+
+    props: IcosphereProps
+
+
+@dataclasses.dataclass
 class MeshProps:
     vertices: npt.NDArray[np.float32]
     """A numpy array of vertex positions. Should have shape (V, 3). Synchronized automatically when assigned."""
     faces: npt.NDArray[np.uint32]
     """A numpy array of faces, where each face is represented by indices of vertices. Should have shape (F, 3). Synchronized automatically when assigned."""
-    color: Union[Tuple[int, int, int], None]
+    color: Tuple[int, int, int]
     """Color of the mesh as RGB integers. Synchronized automatically when assigned."""
     wireframe: bool
     """Boolean indicating if the mesh should be rendered as a wireframe. Synchronized automatically when assigned."""
@@ -569,11 +612,61 @@ class MeshProps:
     """Side of the surface to render. Synchronized automatically when assigned."""
     material: Literal["standard", "toon3", "toon5"]
     """Material type of the mesh. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
 
     def __post_init__(self):
         # Check shapes.
         assert self.vertices.shape[-1] == 3
         assert self.faces.shape[-1] == 3
+
+
+@dataclasses.dataclass
+class BoxProps:
+    dimensions: Tuple[float, float, float]
+    """Dimensions of the box (x, y, z). Synchronized automatically when assigned."""
+    color: Tuple[int, int, int]
+    """Color of the box as RGB integers. Synchronized automatically when assigned."""
+    wireframe: bool
+    """Boolean indicating if the box should be rendered as a wireframe. Synchronized automatically when assigned."""
+    opacity: Optional[float]
+    """Opacity of the box. None means opaque. Synchronized automatically when assigned."""
+    flat_shading: bool
+    """Whether to do flat shading. Synchronized automatically when assigned."""
+    side: Literal["front", "back", "double"]
+    """Side of the surface to render. Synchronized automatically when assigned."""
+    material: Literal["standard", "toon3", "toon5"]
+    """Material type of the box. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
+
+
+@dataclasses.dataclass
+class IcosphereProps:
+    radius: float
+    """Radius of the icosphere. Synchronized automatically when assigned."""
+    subdivisions: int
+    """Number of subdivisions to use when creating the icosphere. Synchronized automatically when assigned."""
+    color: Tuple[int, int, int]
+    """Color of the icosphere as RGB integers. Synchronized automatically when assigned."""
+    wireframe: bool
+    """Boolean indicating if the icosphere should be rendered as a wireframe. Synchronized automatically when assigned."""
+    opacity: Optional[float]
+    """Opacity of the icosphere. None means opaque. Synchronized automatically when assigned."""
+    flat_shading: bool
+    """Whether to do flat shading. Synchronized automatically when assigned."""
+    side: Literal["front", "back", "double"]
+    """Side of the surface to render. Synchronized automatically when assigned."""
+    material: Literal["standard", "toon3", "toon5"]
+    """Material type of the icosphere. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -597,6 +690,10 @@ class SkinnedMeshProps(MeshProps):
     """Array of skin indices. Should have shape (V, 4). Synchronized automatically when assigned."""
     skin_weights: npt.NDArray[np.float32]
     """Array of skin weights. Should have shape (V, 4). Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
 
     def __post_init__(self):
         # Check shapes.
@@ -611,6 +708,81 @@ class SkinnedMeshProps(MeshProps):
             == self.skin_weights.shape
             == (self.vertices.shape[0], 4)
         )
+
+
+@dataclasses.dataclass
+class BatchedMeshesMessage(_CreateSceneNodeMessage):
+    """Message from server->client carrying batched meshes information."""
+
+    props: BatchedMeshesProps
+
+
+@dataclasses.dataclass
+class _BatchedMeshExtraProps:
+    batched_wxyzs: npt.NDArray[np.float32]
+    """Float array of shape (N, 4) representing quaternion rotations. Synchronized automatically when assigned."""
+    batched_positions: npt.NDArray[np.float32]
+    """Float array of shape (N, 3) representing positions. Synchronized automatically when assigned."""
+    batched_scales: Optional[npt.NDArray[np.float32]]
+    """Float array of shape (N,) or (N,3) representing uniform or per-axis (XYZ) scales. Synchronized automatically when assigned."""
+    lod: Union[Literal["auto", "off"], Tuple[Tuple[float, float], ...]]
+    """LOD settings. Either "auto", "off", or a tuple of (distance, ratio) pairs. Synchronized automatically when assigned."""
+
+    def __post_init__(self):
+        # Check shapes.
+        assert self.batched_wxyzs.shape[-1] == 4
+        assert self.batched_positions.shape[-1] == 3
+        assert self.batched_wxyzs.shape[0] == self.batched_positions.shape[0]
+        if self.batched_scales is not None:
+            assert self.batched_scales.shape in (
+                (self.batched_wxyzs.shape[0],),
+                (self.batched_wxyzs.shape[0], 3),
+            )
+
+
+@dataclasses.dataclass
+class BatchedMeshesProps(_BatchedMeshExtraProps):
+    """Batched meshes message."""
+
+    vertices: npt.NDArray[np.float32]
+    """A numpy array of vertex positions. Should have shape (V, 3). Synchronized automatically when assigned."""
+    faces: npt.NDArray[np.uint32]
+    """A numpy array of faces, where each face is represented by indices of vertices. Should have shape (F, 3). Synchronized automatically when assigned."""
+    batched_colors: npt.NDArray[np.uint8]
+    """A numpy array of colors, where each color is represented by RGB integers. Should have shape (N, 3) or (3,). Synchronized automatically when assigned."""
+    wireframe: bool
+    """Boolean indicating if the mesh should be rendered as a wireframe. Synchronized automatically when assigned."""
+    opacity: Optional[float]
+    """Opacity of the mesh. None means opaque. Synchronized automatically when assigned."""
+    flat_shading: bool
+    """Whether to do flat shading. Synchronized automatically when assigned."""
+    side: Literal["front", "back", "double"]
+    """Side of the surface to render. Synchronized automatically when assigned."""
+    material: Literal["standard", "toon3", "toon5"]
+    """Material type of the mesh. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
+
+
+@dataclasses.dataclass
+class BatchedGlbMessage(_CreateSceneNodeMessage):
+    """Message from server->client carrying batched GLB information."""
+
+    props: BatchedGlbProps
+
+
+@dataclasses.dataclass
+class BatchedGlbProps(_BatchedMeshExtraProps):
+    """Batched GLB message."""
+
+    glb_data: bytes
+    """A binary payload containing the GLB data. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -658,16 +830,20 @@ class TransformControlsProps:
     """Width of the lines used in the gizmo. Synchronized automatically when assigned."""
     fixed: bool
     """Boolean indicating if the gizmo should be fixed in position. Synchronized automatically when assigned."""
-    auto_transform: bool
-    """Whether the transform should be applied automatically. Synchronized automatically when assigned."""
     active_axes: Tuple[bool, bool, bool]
     """Tuple of booleans indicating active axes. Synchronized automatically when assigned."""
     disable_axes: bool
-    """Boolean to disable axes interaction. Synchronized automatically when assigned."""
+    """Tuple of booleans indicating if axes are disabled. These are used for
+    translation in the X, Y, or Z directions. Synchronized automatically when
+    assigned."""
     disable_sliders: bool
-    """Boolean to disable slider interaction. Synchronized automatically when assigned."""
+    """Tuple of booleans indicating if sliders are disabled. These are used for
+    translation on the XY, YZ, or XZ planes. Synchronized automatically when
+    assigned."""
     disable_rotations: bool
-    """Boolean to disable rotation interaction. Synchronized automatically when assigned."""
+    """Tuple of booleans indicating if rotations are disabled. These are used
+    for rotation around the X, Y, or Z axes. Synchronized automatically when
+    assigned."""
     translation_limits: Tuple[
         Tuple[float, float], Tuple[float, float], Tuple[float, float]
     ]
@@ -677,7 +853,9 @@ class TransformControlsProps:
     ]
     """Limits for rotation. Synchronized automatically when assigned."""
     depth_test: bool
-    """Boolean indicating if depth testing should be used when rendering. Synchronized automatically when assigned."""
+    """Boolean indicating if depth testing should be used when rendering.
+    Setting to False can be used to render the gizmo even when occluded by
+    other objects. Synchronized automatically when assigned."""
     opacity: float
     """Opacity of the gizmo. Synchronized automatically when assigned."""
 
@@ -756,6 +934,20 @@ class TransformControlsUpdateMessage(Message):
 
 
 @dataclasses.dataclass
+class TransformControlsDragStartMessage(Message):
+    """Client -> server message when a transform control drag starts."""
+
+    name: str
+
+
+@dataclasses.dataclass
+class TransformControlsDragEndMessage(Message):
+    """Client -> server message when a transform control drag ends."""
+
+    name: str
+
+
+@dataclasses.dataclass
 class BackgroundImageMessage(Message):
     """Message for rendering a background image."""
 
@@ -781,6 +973,10 @@ class ImageProps:
     """Width at which the image should be rendered in the scene. Synchronized automatically when assigned."""
     render_height: float
     """Height at which the image should be rendered in the scene. Synchronized automatically when assigned."""
+    cast_shadow: bool
+    """Whether or not to cast shadows. Synchronized automatically when assigned."""
+    receive_shadow: bool
+    """Whether or not to receive shadows. Synchronized automatically when assigned."""
 
 
 @dataclasses.dataclass
@@ -867,12 +1063,28 @@ class GuiMarkdownMessage(_CreateGuiComponentMessage):
 
 
 @dataclasses.dataclass
+class GuiHtmlProps:
+    order: float
+    """Order value for arranging GUI elements. Synchronized automatically when assigned."""
+    content: str
+    """HTML content to be displayed. Synchronized automatically when assigned."""
+    visible: bool
+    """Visibility state of the markdown element. Synchronized automatically when assigned."""
+
+
+@dataclasses.dataclass
+class GuiHtmlMessage(_CreateGuiComponentMessage):
+    container_uuid: str
+    props: GuiHtmlProps
+
+
+@dataclasses.dataclass
 class GuiProgressBarProps:
     order: float
     """Order value for arranging GUI elements. Synchronized automatically when assigned."""
     animated: bool
     """Whether the progress bar should be animated. Synchronized automatically when assigned."""
-    color: Optional[Color]
+    color: Union[LiteralColor, Tuple[int, int, int], None]
     """Color of the progress bar. Synchronized automatically when assigned."""
     visible: bool
     """Visibility state of the progress bar. Synchronized automatically when assigned."""
@@ -901,6 +1113,54 @@ class GuiPlotlyProps:
 class GuiPlotlyMessage(_CreateGuiComponentMessage):
     container_uuid: str
     props: GuiPlotlyProps
+
+
+@dataclasses.dataclass
+class GuiUplotProps:
+    order: float
+    """Order value for arranging GUI elements. Synchronized automatically when assigned."""
+    data: Tuple[npt.NDArray[np.float64], ...]
+    """Tuple of 1D numpy arrays containing chart data. First array is x-axis data,
+    subsequent arrays are y-axis data for each series. All arrays must have matching
+    lengths. Minimum 2 arrays required. Synchronized automatically when assigned."""
+    mode: Union[Literal[1, 2], None]
+    """Chart layout mode: 1 = aligned (all series share axes), 2 = faceted (each series
+    gets its own subplot panel). Defaults to 1. Synchronized automatically when assigned."""
+    title: Union[str, None]
+    """Chart title displayed at the top of the plot. Synchronized automatically when assigned."""
+    series: Tuple[uplot.Series, ...]
+    """Series configuration objects defining visual appearance (colors, line styles, labels)
+    and behavior for each data array. Must match data tuple length. Synchronized automatically when assigned."""
+    bands: Union[Tuple[uplot.Band, ...], None]
+    """High/low range visualizations between adjacent series indices. Useful for confidence
+    intervals, error bounds, or min/max ranges. Synchronized automatically when assigned."""
+    scales: Union[Dict[str, uplot.Scale], None]
+    """Scale definitions controlling data-to-pixel mapping and axis ranges. Enables features
+    like auto-ranging, manual bounds, time-based scaling, and logarithmic distributions.
+    Multiple scales support dual-axis charts. Synchronized automatically when assigned."""
+    axes: Union[Tuple[uplot.Axis, ...], None]
+    """Axis configuration for positioning (top/right/bottom/left), tick formatting, grid
+    styling, and spacing. Controls visual appearance of chart axes. Synchronized automatically when assigned."""
+    legend: Union[uplot.Legend, None]
+    """Legend display options including positioning, styling, and custom value formatting
+    for hover states. Synchronized automatically when assigned."""
+    cursor: Union[uplot.Cursor, None]
+    """Interactive cursor behavior including hover detection, drag-to-zoom, and crosshair
+    appearance. Controls user interaction with the chart. Synchronized automatically when assigned."""
+    focus: Union[uplot.Focus, None]
+    """Visual highlighting when hovering over series. Controls alpha transparency of
+    non-focused series to emphasize the active one. Synchronized automatically when assigned."""
+    aspect: float
+    """Width-to-height ratio for chart display (width/height). 1.0 = square, >1.0 = wider.
+    Synchronized automatically when assigned."""
+    visible: bool
+    """Whether the chart is visible in the interface. Synchronized automatically when assigned."""
+
+
+@dataclasses.dataclass
+class GuiUplotMessage(_CreateGuiComponentMessage):
+    container_uuid: str
+    props: GuiUplotProps
 
 
 @dataclasses.dataclass
@@ -965,7 +1225,7 @@ class GuiCloseModalMessage(Message):
 
 @dataclasses.dataclass
 class GuiButtonProps(GuiBaseProps):
-    color: Color | None
+    color: Union[LiteralColor, Tuple[int, int, int], None]
     """Color of the button. Synchronized automatically when assigned."""
     _icon_html: Optional[str]
     """(Private) HTML string for the icon to be displayed on the button. Synchronized automatically when assigned."""
@@ -980,9 +1240,9 @@ class GuiButtonMessage(_CreateGuiComponentMessage):
 
 @dataclasses.dataclass
 class GuiUploadButtonProps(GuiBaseProps):
-    color: Color | None
+    color: Union[LiteralColor, Tuple[int, int, int], None]
     """Color of the upload button. Synchronized automatically when assigned."""
-    _icon_html: str | None
+    _icon_html: Optional[str]
     """(Private) HTML string for the icon to be displayed on the upload button. Synchronized automatically when assigned."""
     mime_type: str
     """MIME type of the files that can be uploaded. Synchronized automatically when assigned."""
@@ -1029,7 +1289,7 @@ class GuiMultiSliderProps(GuiBaseProps):
     """Number of decimal places to display for the multi-slider values. Synchronized automatically when assigned."""
     fixed_endpoints: bool
     """If True, the first and last handles cannot be moved. Synchronized automatically when assigned."""
-    _marks: Tuple[GuiSliderMark, ...] | None
+    _marks: Optional[Tuple[GuiSliderMark, ...]]
     """(Private) Optional tuple of GuiSliderMark objects to display custom marks on the multi-slider. Synchronized automatically when assigned."""
 
 
@@ -1135,7 +1395,7 @@ class GuiVector3Message(_CreateGuiComponentMessage):
 
 @dataclasses.dataclass
 class GuiTextProps(GuiBaseProps):
-    pass
+    multiline: bool
 
 
 @dataclasses.dataclass
@@ -1251,9 +1511,9 @@ class CatmullRomSplineMessage(_CreateSceneNodeMessage):
 
 @dataclasses.dataclass
 class CatmullRomSplineProps:
-    # TODO: consider renaming positions to points and using numpy arrays for consistency with LineSegmentsProps.
-    positions: Tuple[Tuple[float, float, float], ...]
-    """A tuple of 3D positions (x, y, z) defining the spline's path. Synchronized automatically when assigned."""
+    points: npt.NDArray[np.float32]
+    """Array with shape (N, 3) defining the spline's path. Synchronized
+    automatically when assigned."""
     curve_type: Literal["centripetal", "chordal", "catmullrom"]
     """Type of the curve ('centripetal', 'chordal', 'catmullrom'). Synchronized automatically when assigned."""
     tension: float
@@ -1277,15 +1537,16 @@ class CubicBezierSplineMessage(_CreateSceneNodeMessage):
 
 @dataclasses.dataclass
 class CubicBezierSplineProps:
-    positions: Tuple[Tuple[float, float, float], ...]
-    """A tuple of 3D positions (x, y, z) defining the spline's key points. Synchronized automatically when assigned."""
-    control_points: Tuple[Tuple[float, float, float], ...]
-    """A tuple of control points for Bezier curve shaping. Synchronized automatically when assigned."""
+    points: npt.NDArray[np.float32]
+    """Array of shape (N, 3) defining the spline's key points. Synchronized
+    automatically when assigned."""
+    control_points: npt.NDArray[np.float32]
+    """Array of shape (2*N-2, 3) defining control points for Bezier curve shaping. Synchronized automatically when assigned."""
     line_width: float
     """Width of the spline line. Synchronized automatically when assigned."""
     color: Tuple[int, int, int]
     """Color of the spline as RGB integers. Synchronized automatically when assigned."""
-    segments: int | None
+    segments: Optional[int]
     """Number of segments to divide the spline into. Synchronized automatically when assigned."""
 
 
@@ -1337,11 +1598,32 @@ class GetRenderResponseMessage(Message):
 
 
 @dataclasses.dataclass
-class FileTransferStart(Message):
-    """Signal that a file is about to be sent."""
+class FileTransferStartUpload(Message):
+    """Signal that a file is about to be sent.
 
-    source_component_uuid: Optional[str]
-    """Origin GUI component, used for client->server file uploads."""
+    This message is used to upload files from clients to the server.
+    """
+
+    source_component_uuid: str
+    transfer_uuid: str
+    filename: str
+    mime_type: str
+    part_count: int
+    size_bytes: int
+
+    @override
+    def redundancy_key(self) -> str:
+        return type(self).__name__ + "-" + self.transfer_uuid
+
+
+@dataclasses.dataclass
+class FileTransferStartDownload(Message):
+    """Signal that a file is about to be sent.
+
+    This message is used to send files to clients from the server.
+    """
+
+    save_immediately: bool
     transfer_uuid: str
     filename: str
     mime_type: str
@@ -1359,12 +1641,14 @@ class FileTransferPart(Message):
 
     source_component_uuid: Optional[str]
     transfer_uuid: str
-    part: int
+    part_index: int
     content: bytes
 
     @override
     def redundancy_key(self) -> str:
-        return type(self).__name__ + "-" + self.transfer_uuid + "-" + str(self.part)
+        return (
+            type(self).__name__ + "-" + self.transfer_uuid + "-" + str(self.part_index)
+        )
 
 
 @dataclasses.dataclass

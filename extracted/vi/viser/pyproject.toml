@@ -34,20 +34,21 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 dependencies = [
-    "websockets>=13.1",
-    "numpy>=1.0.0",
-    "msgspec>=0.18.6",
-    "imageio>=2.0.0",
-    "scikit-image>=0.18.0",
-    "scipy>=1.7.3",
-    "tqdm>=4.0.0",
-    "tyro>=0.2.0",
-    "rich>=13.3.3",
-    "trimesh>=3.21.7",
-    "nodeenv>=1.8.0",
-    "psutil>=5.9.5",
-    "yourdfpy>=0.0.53",
-    "plyfile>=1.0.2"
+    "requests>=2.0.0,<3.0.0",
+    "websockets>=13.1,<16.0.0",
+    "numpy>=1.0.0,<3.0.0",
+    "msgspec>=0.18.6,<1.0.0",
+    "imageio>=2.0.0,<3.0.0",
+    "opencv-python>=4.0.0.21,<5.0.0",
+    "scikit-image>=0.18.0,<1.0.0",
+    "scipy>=1.7.3,<2.0.0",
+    "tqdm>=4.0.0,<5.0.0",
+    "tyro>=0.2.0,<1.0.0",
+    "rich>=13.3.3,<15.0.0",
+    "trimesh>=3.21.7,<5.0.0",
+    "nodeenv>=1.8.0,<2.0.0",
+    "psutil>=5.9.5,<8.0.0",
+    "yourdfpy>=0.0.53,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -62,11 +63,12 @@ examples = [
     "torch>=1.13.1",
     "matplotlib>=3.7.1",
     "plotly>=5.21.0",
-    "robot_descriptions>=1.10.0",
+    "robot_descriptions>=1.18.0",
     "gdown>=4.6.6",
     "plyfile",
     "opencv-python",
     "pyliblzfse>=0.4.1; platform_system!='Windows'",
+    "pandas",  # https://github.com/nerfstudio-project/viser/issues/457
 ]
 
 [project.urls]
@@ -76,6 +78,7 @@ examples = [
 viser-build-client = "viser._client_autobuild:build_client_entrypoint"
 
 [tool.pyright]
+extraPaths = []
 exclude = ["./docs/**/*", "./examples/assets/**/*", "./src/viser/client/.nodeenv", "./build"]
 
 [tool.ruff]
@@ -86,11 +89,11 @@ lint.select = [
     "PLE",  # Pylint errors.
     "PLR",  # Pylint refactor recommendations.
     "PLW",  # Pylint warnings.
-    "I", # Import sorting.
+    "I",  # Import sorting.
 ]
 lint.ignore = [
     "E731",  # Do not assign a lambda expression, use a def.
-    "E741", # Ambiguous variable name. (l, O, or I)
+    "E741",  # Ambiguous variable name. (l, O, or I)
     "E501",  # Line too long.
     "E721",  # Do not compare types, use `isinstance()`.
     "F722",  # Forward annotation false positive from jaxtyping. Should be caught by pyright.
@@ -99,11 +102,12 @@ lint.ignore = [
     "PLR0915",  # Too many statements.
     "PLR0913",  # Too many arguments.
     "PLC0414",  # Import alias does not rename variable. (this is used for exporting names)
+    "PLC0415",  # Import should be at the top-level of a file.
     "PLC1901",  # Use falsey strings.
     "PLR5501",  # Use `elif` instead of `else if`.
     "PLR0911",  # Too many return statements.
     "PLR0912",  # Too many branches.
-    "PLW0603",  # Globa statement updates are discouraged.
+    "PLW0603",  # Global statement updates are discouraged.
     "PLW2901",  # For loop variable overwritten.
     "PLW0642",  # Reassigned self in instance method.
 ]

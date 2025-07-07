@@ -27,7 +27,7 @@ from typing import Literal, Union
 import numpy as np
 import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
-from lamindb_setup.core.types import UPathStr  # noqa: F401
+from lamindb_setup.types import UPathStr  # noqa: F401
 
 # need to use Union because __future__.annotations doesn't do the job here <3.10
 # typing.TypeAlias, >3.10 on but already deprecated
@@ -37,7 +37,7 @@ StrField = Union[str, FieldAttr]  # typing.TypeAlias
 TransformType = Literal[
     "pipeline", "notebook", "upload", "script", "function", "linker"
 ]
-ArtifactKind = Literal["dataset", "model"]
+ArtifactKind = Literal["dataset", "model", "__lamindb_run__"]
 
 # below is used for Feature.dtype and Param.dtype
 Dtype = Literal[
@@ -51,10 +51,11 @@ Dtype = Literal[
     "datetime",  # datetime
     "dict",  # dictionary
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
+    "path",  # path, validated as str, but specially treated in the UI
 ]
 """Data type.
 
-Data types in lamindb are a string-serialized abstraction of common data types.
+String-serialized representations of common data types.
 
 Overview
 ========
@@ -68,8 +69,9 @@ integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
 float         `"float"`     `float64 | float32 | float16 | float8 | ...`
 string        `"str"`       `object`
 datetime      `"datetime"`  `datetime`
-date          `"date"`      `date`
+date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
+path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
 ============  ============  =================================================
 
 Categoricals

@@ -2126,9 +2126,10 @@ elly_a = 5900268983
 my_tid = 5491025132
 BOT_TID_TEST = 6066611486
 my_tids = ['5900268983', '6179455648', '6236215930', '5754810063', '5491025132', '5360564451', '6281795468']
-allowed_paths = ['ferey_extra', 'ferey_bot', 'ferey_user', 'ferey_channel', 'ferey_group', 'ferey_ai', 'ferey_demo',
-                 'ferey_tools', 'ferey_tonest', 'ferey_sticker', 'ferey_post', 'ferey_media', 'ferey_find',
-                 'ferey_target', 'ferey_codex', 'ferey_fest', 'anna_birthday']
+allowed_paths = ['ferey_f7', 'ferey_extra', 'ferey_bot', 'ferey_user', 'ferey_channel', 'ferey_group', 'ferey_ai',
+                 'ferey_demo', 'ferey_tools', 'ferey_tonest', 'ferey_sticker', 'ferey_post', 'ferey_media',
+                 'ferey_find', 'ferey_target', 'ferey_codex', 'ferey_fest', 'anna_birthday']
+allowed_startapp_params = ['fnd', 'sbt', 'don', 'sub', 'pay', 'pst', 'msg', 'ft', 'nft', 'dialog']
 tids_not_for_trans = [5134596871, 5152320320, 5200969162, 5240041587, 5277505344, 5298580533, 5300792695, 5304873693,
                       5318482236, 5372068352, 5380838469, 5456863561, 5588781655, 5621199443, 5805890320, 5846446387,
                       5850795580, 5868482417, 5951232918, 5962132892, 5969907012]

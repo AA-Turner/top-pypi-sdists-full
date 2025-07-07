@@ -13,11 +13,7 @@ impl Display for DecompressError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DecompressError::OutputTooSmall { expected, actual } => {
-                write!(
-                    f,
-                    "Output too small: expected {}, actual {}",
-                    expected, actual
-                )
+                write!(f, "Output too small: expected {expected}, actual {actual}")
             }
             DecompressError::LiteralOutOfBounds => write!(f, "Literal out of bounds"),
             DecompressError::OffsetOutOfBounds => write!(f, "Offset out of bounds"),

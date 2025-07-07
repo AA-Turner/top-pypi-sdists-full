@@ -1,18 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: metar-taf-parser-mivek
-Version: 1.9.0
+Version: 1.10.1
 Summary: Python project parsing metar and taf message
-Home-page: https://github.com/mivek/python-metar-taf-parser
-Author: Jean-Kevin KPADEY
-Author-email: jeankevin.kpadey@gmail.com
+Author-email: Jean-Kevin KPADEY <jeankevin.kpadey@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/mivek/python-metar-taf-parser
 Project-URL: Bug Tracker, https://github.com/mivek/python-metar-taf-parser/issues
 Keywords: metar,taf,parser,icao,airport
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Provides-Extra: tests
+Requires-Dist: parameterized; extra == "tests"
+Requires-Dist: coverage; extra == "tests"
+Dynamic: license-file
 
 # METAR TAF Parser
 

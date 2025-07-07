@@ -9,7 +9,7 @@
 Install and mount `bionty` in a new instance:
 
 >>> pip install 'bionty'
->>> lamin init --storage <storage_name> --modules bionty
+>>> lamin init --storage <path_to_storage_location> --modules bionty
 
 Import the package:
 
@@ -89,7 +89,18 @@ Submodules:
 
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
+
+
+from importlib.util import find_spec
+
+if find_spec("pronto"):
+    import warnings
+
+    from pronto.utils.warnings import NotImplementedWarning, SyntaxWarning
+
+    warnings.filterwarnings("ignore", category=SyntaxWarning)
+    warnings.filterwarnings("ignore", category=NotImplementedWarning)
 
 from lamindb_setup._check_setup import _check_instance_setup
 

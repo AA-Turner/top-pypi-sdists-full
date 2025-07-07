@@ -71,7 +71,7 @@ class BBoxSmoothingTracker:
 
 def _get_object_id(detection: Dict, config: BBoxSmoothingConfig) -> str:
     """
-    Generate unique object ID from detection.
+    Generate unique object ID from detection using robust hashing.
     
     Args:
         detection: Detection dictionary
@@ -80,36 +80,46 @@ def _get_object_id(detection: Dict, config: BBoxSmoothingConfig) -> str:
     Returns:
         str: Unique object identifier
     """
-    # Primary: Use track_id if available
-    if 'track_id' in detection and detection['track_id'] is not None:
-        return f"track_{detection['track_id']}"
+    # Extract bbox coordinates (handle different formats)
+    bbox = detection.get('bounding_box', detection.get('bbox', {}))
     
-    # Fallback: Use quantized centroid
-    if config.track_by_centroid:
-        bbox = detection.get('bounding_box', {})
-        if bbox:
-            # Handle different bbox formats
-            if 'x' in bbox and 'y' in bbox and 'width' in bbox and 'height' in bbox:
-                x, y, w, h = bbox['x'], bbox['y'], bbox['width'], bbox['height']
-            elif 'xmin' in bbox and 'ymin' in bbox and 'xmax' in bbox and 'ymax' in bbox:
-                x, y, w, h = bbox['xmin'], bbox['ymin'], bbox['xmax'] - bbox['xmin'], bbox['ymax'] - bbox['ymin']
-            elif 'x1' in bbox and 'y1' in bbox and 'x2' in bbox and 'y2' in bbox:
-                x, y, w, h = bbox['x1'], bbox['y1'], bbox['x2'] - bbox['x1'], bbox['y2'] - bbox['y1']
+    # Normalize bbox to consistent format
+    if isinstance(bbox, dict):
+        if 'x' in bbox and 'y' in bbox and 'width' in bbox and 'height' in bbox:
+            x, y, w, h = bbox['x'], bbox['y'], bbox['width'], bbox['height']
+        elif 'xmin' in bbox and 'ymin' in bbox and 'xmax' in bbox and 'ymax' in bbox:
+            x, y, w, h = bbox['xmin'], bbox['ymin'], bbox['xmax'] - bbox['xmin'], bbox['ymax'] - bbox['ymin']
+        elif 'x1' in bbox and 'y1' in bbox and 'x2' in bbox and 'y2' in bbox:
+            x, y, w, h = bbox['x1'], bbox['y1'], bbox['x2'] - bbox['x1'], bbox['y2'] - bbox['y1']
+        else:
+            # Fallback: try to extract any numeric values
+            values = [v for v in bbox.values() if isinstance(v, (int, float))]
+            if len(values) >= 4:
+                x, y, w, h = values[0], values[1], values[2], values[3]
             else:
-                # Try to extract values from any format
-                values = list(bbox.values())
-                if len(values) >= 4:
-                    x, y, w, h = values[0], values[1], values[2] - values[0], values[3] - values[1]
-                else:
-                    x, y, w, h = 0, 0, 0, 0
-            
-            # Quantize centroid to reduce jitter
-            cx = int((x + w/2) // config.centroid_quantization)
-            cy = int((y + h/2) // config.centroid_quantization)
-            return f"centroid_{cx}_{cy}"
+                x, y, w, h = 0, 0, 0, 0
+    else:
+        # Handle list/tuple format
+        if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+            x, y, w, h = bbox[0], bbox[1], bbox[2], bbox[3]
+        else:
+            x, y, w, h = 0, 0, 0, 0
     
-    # Last resort: Use detection index or hash
-    detection_hash = hash(str(detection.get('bounding_box', {})))
+    # Quantize coordinates to reduce jitter (similar to centroid approach but more robust)
+    quantized_x = int(x // config.centroid_quantization) if hasattr(config, 'centroid_quantization') else int(x)
+    quantized_y = int(y // config.centroid_quantization) if hasattr(config, 'centroid_quantization') else int(y)
+    quantized_w = int(w // config.centroid_quantization) if hasattr(config, 'centroid_quantization') else int(w)
+    quantized_h = int(h // config.centroid_quantization) if hasattr(config, 'centroid_quantization') else int(h)
+    
+    # Get other attributes (handle missing values)
+    confidence = detection.get('confidence', 0.0)
+    category = detection.get('category', 'unknown')
+    
+    # Create hash string from quantized bbox and attributes (no track_id dependency)
+    hash_string = f"{quantized_x}_{quantized_y}_{quantized_w}_{quantized_h}_{confidence}_{category}"
+    
+    # Generate hash and ensure it's positive
+    detection_hash = abs(hash(hash_string))
     return f"detection_{detection_hash}"
 
 
@@ -117,7 +127,7 @@ def _apply_window_smoothing(detections: List[Dict],
                           config: BBoxSmoothingConfig,
                           tracker: BBoxSmoothingTracker) -> List[Dict]:
     """
-    Apply window + cooldown smoothing.
+    Apply window smoothing without cooldown (frame-accurate).
     
     Args:
         detections: List of detection dictionaries
@@ -125,7 +135,7 @@ def _apply_window_smoothing(detections: List[Dict],
         tracker: Tracker instance for state management
         
     Returns:
-        List[Dict]: Smoothed detections
+        List[Dict]: Smoothed detections (only from current frame)
     """
     output = []
     current_object_ids = set()
@@ -139,28 +149,26 @@ def _apply_window_smoothing(detections: List[Dict],
         if object_id not in tracker.object_windows:
             tracker.object_windows[object_id] = deque(maxlen=config.window_size)
         
-        # Add to window and reset cooldown
+        # Add to window
         tracker.object_windows[object_id].append(det)
-        tracker.object_cooldowns[object_id] = config.cooldown_frames
     
-    # Process existing objects (including cooldown)
-    for object_id, window in list(tracker.object_windows.items()):
+    # Only output detections from current frame
+    for object_id in current_object_ids:
+        if object_id in tracker.object_windows:
+            window = tracker.object_windows[object_id]
+            if window:
+                # Calculate average confidence for smoothing
+                confidences = [d.get('confidence', 0.0) for d in window]
+                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+                
+                # Output if above threshold
+                if avg_confidence >= config.confidence_threshold:
+                    output.append(window[-1])  # Most recent detection
+    
+    # Clean up unused windows (optional memory management)
+    for object_id in list(tracker.object_windows.keys()):
         if object_id not in current_object_ids:
-            tracker.object_cooldowns[object_id] -= 1
-        
-        if tracker.object_cooldowns[object_id] <= 0:
-            # Remove expired object
             del tracker.object_windows[object_id]
-            del tracker.object_cooldowns[object_id]
-            continue
-        
-        # Calculate average confidence
-        confidences = [d.get('confidence', 0.0) for d in window]
-        avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-        
-        # Output if above threshold
-        if avg_confidence >= config.confidence_threshold:
-            output.append(window[-1])  # Most recent detection
     
     return output
 
@@ -169,7 +177,7 @@ def _apply_observability_smoothing(detections: List[Dict],
                                  config: BBoxSmoothingConfig,
                                  tracker: BBoxSmoothingTracker) -> List[Dict]:
     """
-    Apply observability/confidence tradeoff smoothing.
+    Apply observability/confidence tradeoff smoothing without cooldown (frame-accurate).
     
     Args:
         detections: List of detection dictionaries
@@ -177,7 +185,7 @@ def _apply_observability_smoothing(detections: List[Dict],
         tracker: Tracker instance for state management
         
     Returns:
-        List[Dict]: Smoothed detections
+        List[Dict]: Smoothed detections (only from current frame)
     """
     output = []
     current_object_ids = set()
@@ -192,38 +200,36 @@ def _apply_observability_smoothing(detections: List[Dict],
             tracker.object_windows[object_id] = deque(maxlen=config.window_size)
         
         tracker.object_windows[object_id].append(det)
-        tracker.object_cooldowns[object_id] = config.cooldown_frames
     
-    # Process existing objects
-    for object_id, window in list(tracker.object_windows.items()):
+    # Only process detections from current frame
+    for object_id in current_object_ids:
+        if object_id in tracker.object_windows:
+            window = tracker.object_windows[object_id]
+            if window:
+                # Calculate observability score
+                observability_score = len(window) / config.window_size
+                
+                # Get current confidence
+                current_confidence = window[-1].get('confidence', 0.0)
+                
+                # Define confidence range
+                conf_range = config.confidence_threshold * config.confidence_range_factor
+                
+                # Decision logic
+                if current_confidence >= config.confidence_threshold:
+                    # High confidence: always keep
+                    output.append(window[-1])
+                elif current_confidence >= (config.confidence_threshold - conf_range):
+                    # Borderline: apply tradeoff
+                    confidence_factor = (config.confidence_threshold - current_confidence) / conf_range
+                    if confidence_factor <= observability_score:
+                        output.append(window[-1])
+                # else: too low confidence, discard
+    
+    # Clean up unused windows (optional memory management)
+    for object_id in list(tracker.object_windows.keys()):
         if object_id not in current_object_ids:
-            tracker.object_cooldowns[object_id] -= 1
-        
-        if tracker.object_cooldowns[object_id] <= 0:
-            # Remove expired object
             del tracker.object_windows[object_id]
-            del tracker.object_cooldowns[object_id]
-            continue
-        
-        # Calculate observability score
-        observability_score = len(window) / config.window_size
-        
-        # Get current confidence
-        current_confidence = window[-1].get('confidence', 0.0)
-        
-        # Define confidence range
-        conf_range = config.confidence_threshold * config.confidence_range_factor
-        
-        # Decision logic
-        if current_confidence >= config.confidence_threshold:
-            # High confidence: always keep
-            output.append(window[-1])
-        elif current_confidence >= (config.confidence_threshold - conf_range):
-            # Borderline: apply tradeoff
-            confidence_factor = (config.confidence_threshold - current_confidence) / conf_range
-            if confidence_factor <= observability_score:
-                output.append(window[-1])
-        # else: too low confidence, discard
     
     return output
 

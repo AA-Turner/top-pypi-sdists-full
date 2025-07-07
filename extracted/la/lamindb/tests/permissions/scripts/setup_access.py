@@ -5,7 +5,7 @@ from hubmodule._setup import _install_db_module
 from laminhub_rest.core.postgres import DbRoleHandler
 
 # create a db connection url that works with RLS
-JWT_ROLE_NAME = "permissions_jwt"
+instance_id = ln.setup.settings.instance._id
 
 
 def create_jwt_user(dsn_admin: str, jwt_role_name: str):
@@ -18,8 +18,8 @@ def create_jwt_user(dsn_admin: str, jwt_role_name: str):
 
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
-jwt_db_url = create_jwt_user(pgurl, jwt_role_name=JWT_ROLE_NAME)
-_install_db_module(pgurl, jwt_role_name=JWT_ROLE_NAME)
+jwt_db_url = create_jwt_user(pgurl, jwt_role_name=f"{instance_id.hex}_jwt")
+_install_db_module(pgurl, instance_id=instance_id)
 
 print("Created jwt db connection")
 
@@ -37,10 +37,19 @@ account = hm.Account(
 ulabel = ln.ULabel(name="no_access_ulabel")
 ulabel.space = no_access
 ulabel.save()
+# set up access to this individual record with a dummy role,
+# will work only after the role is changed to read, write or admin
+hm.AccessRecord(
+    account=account, record_type="lamindb_ulabel", record_id=ulabel.id, role="dummy"
+).save()
 
 project = ln.Project(name="No_access_project")  # type: ignore
 project.space = no_access
 project.save()
+
+hm.AccessRecord(
+    account=account, record_type="lamindb_project", record_id=project.id, role="dummy"
+).save()
 
 # setup write access space
 hm.AccessSpace(account=account, space=full_access, role="write").save()

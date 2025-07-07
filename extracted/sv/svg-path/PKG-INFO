@@ -1,29 +1,39 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: svg.path
-Version: 6.3
+Version: 7.0
 Summary: SVG path objects and parser
-Home-page: https://github.com/regebro/svg.path
-Author: Lennart Regebro
-Author-email: regebro@gmail.com
+Author-email: Lennart Regebro <regebro@gmail.com>
 License: MIT
+Project-URL: Homepage, https://github.com/regebro/svg.path
 Keywords: svg,path,maths
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Multimedia :: Graphics
 Requires-Python: >=3.8
-Provides-Extra: test
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: Pillow; extra == "test"
+Requires-Dist: black; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: pyroma; extra == "test"
+Requires-Dist: check-manifest; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: zest.releaser[recommended]; extra == "test"
+Dynamic: license-file
 
 svg.path
 ========
@@ -207,9 +217,31 @@ the relative setting when parsing.
 
 Taewoong Jang [twjang] implemented boundingbox functions. 
 
+Benjamin Drung [bdrung] added a font to make tests non-flakey.
+
+Udi Fuchs [udifuchs] added type annotations.
 
 Changelog
 =========
+
+
+7.0 (2025-07-06)
+----------------
+
+- Make the Move class a Path Segment, for type annotation consistency.
+  If anyone is using isinstance() expecting that only draw commands are 
+  PathSegments, this will break that. Instead the test has to be explicitly
+  that it is NOT a Move segment.
+
+- Paths can now be sliced to return Paths.
+
+
+6.4b1 (2025-02-27)
+------------------
+
+- Improved test reliability [bdrung]
+
+- Added type annotations. [udifuchs]
 
 
 6.3 (2023-04-29)
@@ -455,5 +487,3 @@ Changelog
 ------------------
 
 - Original release.
-
-

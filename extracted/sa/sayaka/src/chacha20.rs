@@ -1,9 +1,8 @@
-use std::{fmt::Display, mem};
+use std::fmt::Display;
 
-use pyo3::{
-    Bound, PyAny, PyErr, PyResult, Python, exceptions::PyBufferError, ffi, pyclass, pymethods,
-    types::PyBytes,
-};
+use pyo3::{Bound, PyAny, PyErr, PyResult, Python, ffi, pyclass, pymethods, types::PyBytes};
+
+use crate::utils::get_python_buffer;
 
 const ALLOWED_KEY_LENGTH: usize = 32;
 const ALLOWED_NONCE_LENGTH: usize = 12;
@@ -22,15 +21,13 @@ impl Display for ChaCha20Error {
             ChaCha20Error::InvalidKeyLength { expected, actual } => {
                 write!(
                     f,
-                    "Invalid key length: expected {}, actual {}",
-                    expected, actual
+                    "Invalid key length: expected {expected}, actual {actual}"
                 )
             }
             ChaCha20Error::InvalidNonceLength { expected, actual } => {
                 write!(
                     f,
-                    "Invalid nonce length: expected {}, actual {}",
-                    expected, actual
+                    "Invalid nonce length: expected {expected}, actual {actual}"
                 )
             }
         }
@@ -86,32 +83,12 @@ impl ChaCha20 {
         py: pyo3::Python<'py>,
         encrypted: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        // https://github.com/milesgranger/cramjam/blob/c09d2aea008dcc445bf16f1ee7350e25c50163a8/src/io.rs#L265
-        let mut buf = Box::new(mem::MaybeUninit::uninit());
-        let rc = unsafe {
-            ffi::PyObject_GetBuffer(encrypted.as_ptr(), buf.as_mut_ptr(), ffi::PyBUF_CONTIG_RO)
-        };
-        if rc != 0 {
-            return Err(PyBufferError::new_err(
-                "Failed to get buffer, is it C contiguous, and shape is not null?",
-            ));
-        }
-        let mut buf = unsafe { mem::MaybeUninit::<ffi::Py_buffer>::assume_init(*buf) };
-        if buf.shape.is_null() {
-            return Err(PyBufferError::new_err("shape is null"));
-        }
-        let is_c_contiguous = unsafe {
-            ffi::PyBuffer_IsContiguous(&buf as *const ffi::Py_buffer, b'C' as std::os::raw::c_char)
-                == 1
-        };
-        if !is_c_contiguous {
-            return Err(PyBufferError::new_err("Buffer is not C contiguous"));
-        }
+        let mut buf = get_python_buffer(encrypted)?;
         let encrypted =
             unsafe { std::slice::from_raw_parts_mut(buf.buf as *mut u8, buf.len as usize) };
 
         let result = PyBytes::new_with(py, encrypted.len(), |data| {
-            self.work_bytes_inner(encrypted);
+            self.work_bytes_impl(encrypted);
             data.copy_from_slice(encrypted);
             Ok(())
         });
@@ -122,7 +99,7 @@ impl ChaCha20 {
 }
 
 impl ChaCha20 {
-    fn work_bytes_inner(&mut self, data: &mut [u8]) {
+    pub fn work_bytes_impl(&mut self, data: &mut [u8]) {
         let mut data_ptr = data.as_mut_ptr();
         let mut remaining = data.len();
         let keystream_ptr = self.keystream.as_ptr();

@@ -406,7 +406,7 @@ def load_octree_for_query(
             hierarchy_page.entries.update(page.entries)
             nodes_to_load.insert(0, current_node)
             continue
-        elif entry.point_count != 0:
+        elif entry.point_count >= 0:
             current_node.offset = entry.offset
             current_node.byte_size = entry.byte_size
             current_node.point_count = entry.point_count
@@ -539,7 +539,7 @@ class CopcReader:
     (Octree) making it possible to do spatial queries
     as well as queries with a level of details.
 
-    CopcReader **requires** the ``lazrz`` backend to work.
+    CopcReader **requires** the ``lazrs`` backend to work.
 
     Optionaly, if ``requests`` is installed, CopcReader can handle
     Copc files that are on a remote HTTP server
@@ -766,7 +766,7 @@ class CopcReader:
             level_range=level,
         )
         # print("num nodes to query:", len(nodes));
-        points = self._fetch_and_decrompress_points_of_nodes(nodes)
+        points = self._fetch_and_decompress_points_of_nodes(nodes)
 
         if bounds is not None:
             MINS = np.round(
@@ -795,7 +795,7 @@ class CopcReader:
     def level_query(self, level: Union[int, range]) -> ScaleAwarePointRecord:
         return self.query(bounds=None, level=level)
 
-    def _fetch_and_decrompress_points_of_nodes(
+    def _fetch_and_decompress_points_of_nodes(
         self, nodes_to_read: List[OctreeNode]
     ) -> ScaleAwarePointRecord:
         if not nodes_to_read:

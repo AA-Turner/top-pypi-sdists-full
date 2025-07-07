@@ -20,7 +20,7 @@ description = "Hot Module Reload for Python"
 dependencies = [
     "watchfiles>=0.21,<2 ; sys_platform != 'emscripten'",
 ]
-version = "0.6.3.2"
+version = "0.6.4"
 
 [project.scripts]
 hmr = "reactivity.hmr:cli"

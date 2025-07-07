@@ -161,24 +161,124 @@ condor = f"""
 """
 ###########################################################################
 
+
 # Processors:
-eagle_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/eagle-2021-removebg.png"
-heron_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/heron-2023-removebg.png"
-flamingo_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/flamingo-2025-removebg.png"
-condor_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/condor-2023-removebg.png"
-egret_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/egret-2023-removebg.png"
-falcon_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/falcon-2019-removebg.png"
-hummingbird_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/hummingbird-2019-removebg.png"
-canary_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/canary-2017-removebg.png"
-# Effects images URLs
-j_eagle_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/eagle-2021-effects.png"
-j_heron_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/heron-2023-effects.png"
-j_flamingo_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/flamingo-2025-effects.png"
-j_condor_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/condor-2023-effects.png"
-j_egret_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/egret-2023-effects.png"
-j_falcon_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/falcon-2019-effects.png"
-j_hummingbird_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/hummingbird-2019-effects.png"
-j_canary_processor =  "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media/canary-2017-effects.png"
+# ───────────────────────────────
+# Known processor image filenames
+# ───────────────────────────────
+processor_media_files_array = [
+    # Removebg images
+    "eagle-2021-removebg.png",
+    "heron-2023-removebg.png",
+    "flamingo-2025-removebg.png",
+    "condor-2023-removebg.png",
+    "egret-2023-removebg.png",
+    "falcon-2019-removebg.png",
+    "hummingbird-2019-removebg.png",
+    "canary-2017-removebg.png",
+    # Effects images
+    "eagle-2021-effects.png",
+    "heron-2023-effects.png",
+    "flamingo-2025-effects.png",
+    "condor-2023-effects.png",
+    "egret-2023-effects.png",
+    "falcon-2019-effects.png",
+    "hummingbird-2019-effects.png",
+    "canary-2017-effects.png",
+]
+
+# ───────────────────────────────
+# Local & remote base paths
+# ───────────────────────────────
+this_file  = Path(__file__).resolve()
+media_dir  = this_file.parent / "media"
+remote_dir = "https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/media"
+
+# ───────────────────────────────
+# Build variables at runtime
+# ───────────────────────────────
+#initialize empty image path string if not found:
+global default_processor
+default_processor = "QConnV2.ico"
+default_target_file = media_dir / default_processor
+
+#____________________________________________
+# Check if media directory exists, if not create it
+#_____________________________________________
+for filename in processor_media_files_array:
+    varname = filename.replace("-", "-").replace(".png", "")
+    target_file = media_dir / filename
+    if target_file.exists():
+        globals()[varname] = target_file
+        if varname.__eq__("eagle-2021-removebg"):
+            eagle_processor = target_file
+        elif varname.__eq__("heron-2023-removebg"):
+            heron_processor = target_file
+        elif varname.__eq__("flamingo-2025-removebg"):
+            flamingo_processor = target_file
+        elif varname.__eq__("condor-2023-removebg"):
+            condor_processor = target_file
+        elif varname.__eq__("egret-2023-removebg"):
+            egret_processor = target_file
+        elif varname.__eq__("falcon-2019-removebg"):
+            falcon_processor = target_file
+        elif varname.__eq__("hummingbird-2019-removebg"):
+            hummingbird_processor = target_file
+        elif varname.__eq__("canary-2017-removebg"):
+            canary_processor = target_file
+        elif varname.__eq__("eagle-2021-effects"):
+            j_eagle_processor = target_file
+        elif varname.__eq__("heron-2023-effects"):
+            j_heron_processor = target_file
+        elif varname.__eq__("flamingo-2025-effects"):
+            j_flamingo_processor = target_file
+        elif varname.__eq__("condor-2023-effects"):
+            j_condor_processor = target_file
+        elif varname.__eq__("egret-2023-effects"):
+            j_egret_processor = target_file
+        elif varname.__eq__("falcon-2019-effects"):
+            j_falcon_processor = target_file
+        elif varname.__eq__("hummingbird-2019-effects"):
+            j_hummingbird_processor = target_file
+        elif varname.__eq__("canary-2017-effects"):
+            j_canary_processor = target_file
+            print(f"🌐 Live")
+    else:
+        globals()[varname] = f"{remote_dir}/{filename}"
+        if varname.__eq__("eagle-2021-removebg"):
+            eagle_processor = default_target_file
+        elif varname.__eq__("heron-2023-removebg"):
+            heron_processor = default_target_file
+        elif varname.__eq__("flamingo-2025-removebg"):
+            flamingo_processor = default_target_file
+        elif varname.__eq__("condor-2023-removebg"):
+            condor_processor = default_target_file
+        elif varname.__eq__("egret-2023-removebg"):
+            egret_processor = default_target_file
+        elif varname.__eq__("falcon-2019-removebg"):
+            falcon_processor = default_target_file
+        elif varname.__eq__("hummingbird-2019-removebg"):
+            hummingbird_processor = default_target_file
+        elif varname.__eq__("canary-2017-removebg"):
+            canary_processor = f"{remote_dir}/{filename}"
+        # Effects images
+        elif varname.__eq__("eagle-2021-effects"):
+            j_eagle_processor = default_target_file
+        elif varname.__eq__("heron-2023-effects"):
+            j_heron_processor = default_target_file
+        elif varname.__eq__("flamingo-2025-effects"):
+            j_flamingo_processor = default_target_file
+        elif varname.__eq__("condor-2023-effects"):
+            j_condor_processor = default_target_file
+        elif varname.__eq__("egret-2023-effects"):
+            j_egret_processor = default_target_file
+        elif varname.__eq__("falcon-2019-effects"):
+            j_falcon_processor = default_target_file
+        elif varname.__eq__("hummingbird-2019-effects"):
+            j_hummingbird_processor = default_target_file
+        elif varname.__eq__("canary-2017-effects"):
+            j_canary_processor = default_target_file
+            print(f"🌐 Active")
 
 
 ############################################################

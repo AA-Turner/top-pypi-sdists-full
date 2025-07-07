@@ -20,6 +20,7 @@ from tempfile import gettempdir
 from .config import config
 import AOT_biomaps.Settings
 from concurrent.futures import ThreadPoolExecutor
+from scipy.interpolate import RegularGridInterpolator
 
 if config.get_process()  == 'gpu':
     import cupy as cp
@@ -1372,8 +1373,6 @@ class StructuredWave(AcousticField):
             factorT = ceil(self.params['f_AQ'] / self.params['f_saving'])
             factorX = ceil(Nx / self.params['Nx'])
             factorZ = ceil(Nz / self.params['Nz'])
-
-            print(f"Using grid size: Nx={Nx}, Nz={Nz}, dx={dx} with Nt={self.kgrid.Nt}")
             
             # Probe mask: aligned in the XZ plane
             source = kSource()
@@ -1411,8 +1410,6 @@ class StructuredWave(AcousticField):
                 delayedSignal = self._apply_delay(dx=dx)
             else:
                 delayedSignal = self.delayedSignal
-
-            print(f"Delayed signal shape: {delayedSignal.shape}")
                     
             # Ensure source.p matches the number of active elements
             source.p = delayedSignal[activeListGrid == 1, :]
@@ -1457,7 +1454,6 @@ class StructuredWave(AcousticField):
             )
 
             data = sensor_data['p'].reshape(kgrid.Nt, Nz, Nx)
-            print(f"Data shape after simulation: {data.shape}")
             
             if factorT != 1 or factorX != 1 or factorZ != 1:
                 return AcousticField.reshape_field(data, [factorT, factorX, factorZ])
@@ -1465,40 +1461,86 @@ class StructuredWave(AcousticField):
             raise RuntimeError(f"Error generating 2D acoustic field: {e}")
         
     def _generate_3Dacoustic_field_KWAVE(self, isGPU=True if config.get_process() == 'gpu' else False, show_log = True):
-        """
-        Generate a 3D acoustic field using k-Wave.
-
-        Returns:
-            ndarray: Simulated acoustic field data.
-        """
         try:
             active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
 
-            # Initialize grid and medium
-            kgrid = kWaveGrid([self.params['Nx'], self.params['Ny'], self.params['Nz']], [self.params['dx'], self.params['dy'], self.params['dz']])
-            kgrid.setTime(Nt=self.params['Nt'], dt=1 / self.params['f_AQ'])
+            element_width_meters = self.params['element_width']
+            dx = self.params['dx']
+            if dx >=  element_width_meters:
+                dx = element_width_meters / 2 # Ensure dx is at least twice the element width
+                Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / dx))
+                Ny = int(round((self.params['Yrange'][1] - self.params['Yrange'][0]) / dx))
+                Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / dx))
+            else:
+                Nx = self.params['Nx']
+                Ny = self.params['Ny']  
+                Nz = self.params['Nz']
 
+            factorT = ceil(self.params['f_AQ'] / self.params['f_saving'])
+            factorX = ceil(Nx / self.params['Nx'])
+            factorY = ceil(Ny / self.params['Ny'])
+            factorZ = ceil(Nz / self.params['Nz'])
+            
             # Probe mask: aligned in the XZ plane
             source = kSource()
-            source.p_mask = np.zeros((self.params['Nx'], self.params['Ny'], self.params['Nz']))  # Create an empty grid for the source mask
+            source.p_mask = np.zeros((Nx, Ny, Nz))
 
-            # Place active transducers in the mask
+            kgrid = kWaveGrid([Nx, Ny, Nz], [dx, dx, dx])
+            kgrid.setTime(Nt=self.kgrid.Nt, dt=1 / self.params['f_AQ'])
+
+            element_width_grid_points = int(round(element_width_meters / dx))
+
+            # Calculate the spacing between elements
+            total_elements_width = self.params['num_elements'] * element_width_grid_points
+            remaining_space = Nx - total_elements_width
+            spacing = remaining_space // (self.params['num_elements'] + 1)
+
+            center_index = np.argmin(np.abs(np.linspace(self.params['Xrange'][0], self.params['Xrange'][1], Nx)))
+
+            activeListGrid = np.zeros(total_elements_width, dtype=int)
+
+            # Place active transducers in the mask and count active elements
+            active_indices = []
+            current_position = center_index - (total_elements_width + (self.params['num_elements'] - 1) * spacing) // 2
             for i in range(self.params['num_elements']):
-                if active_list[i] == 1:  # Check if the element is active
-                    x_pos = i + self.params['Nx'] // 2 - self.params['num_elements'] // 2  # Position of elements on the X-axis
-                    source.p_mask[x_pos, self.params['Ny'] // 2, 0] = 1  # Position in the XZ plane
-
+                if active_list[i] == 1:
+                    x_pos = current_position
+                    source.p_mask[x_pos:x_pos + element_width_grid_points,self.params['Ny'] // 2, 0] = 1
+                    active_indices.append(i)
+                    start_idx = i * element_width_grid_points
+                    end_idx = start_idx + element_width_grid_points
+                    activeListGrid[start_idx:end_idx] = 1
+                current_position += element_width_grid_points + spacing
             source.p_mask = source.p_mask.astype(int)
-            source.p = self.delayedSignal[active_list == 1, :]
+
+            if factorT != 1:
+                delayedSignal = self._apply_delay(dx=dx)
+            else:
+                delayedSignal = self.delayedSignal
+                    
+            # Ensure source.p matches the number of active elements
+            source.p = delayedSignal[activeListGrid == 1, :]
 
             # Define sensors to observe acoustic fields
             sensor = kSensor()
-            sensor.mask = np.ones((self.params['Nx'], self.params['Ny'], self.params['Nz']))  # Sensor covering the entire domain
+            sensor.mask = np.ones((Nx, Ny, Nz))
 
-            # Simulation options
+            # Calculate the next power of 2 for the total grid size including PML
+            total_size_x = StructuredWave.next_power_of_2(Nx) 
+            total_size_y = StructuredWave.next_power_of_2(Ny)
+            total_size_z = StructuredWave.next_power_of_2(Nz)
+            
+
+            # Calculate the required PML size
+            pml_x_size = (total_size_x - Nx)//2
+            pml_y_size = (total_size_y - Ny)//2
+            pml_z_size = (total_size_z - Nz)//2
+
+            # Simulation options with adjusted PML sizes
+
             simulation_options = SimulationOptions(
-                pml_inside=False,  # Prevent PML from being added inside the grid
-                pml_auto=True,
+                pml_inside=False,
+                pml_size=[pml_x_size,pml_y_size, pml_z_size],
                 use_sg=False,
                 save_to_disk=True,
                 input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
@@ -1508,12 +1550,11 @@ class StructuredWave(AcousticField):
             execution_options = SimulationExecutionOptions(
                 is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
                 device_num=config.bestGPU,
-                show_sim_log= show_log
+                show_sim_log=show_log
             )
 
-            # Run the simulation
-            print("Starting simulation...")
-            sensor_data = kspaceFirstOrder3D(
+            # Run simulation with padded grid
+            sensor_data = kspaceFirstOrder2D(
                 kgrid=kgrid,
                 medium=self.medium,
                 source=source,
@@ -1521,12 +1562,13 @@ class StructuredWave(AcousticField):
                 simulation_options=simulation_options,
                 execution_options=execution_options,
             )
-            print("Simulation completed successfully.")
 
-            return sensor_data['p'].reshape(kgrid.Nt, (self.params['Nz'], self.params['Ny'], self.params['Nx']))
+            data = sensor_data['p'].reshape(kgrid.Nt, Nz, Ny, Nx)
+            
+            if factorT != 1 or factorX != 1 or factorZ != 1:
+                return AcousticField.reshape_field(data, [factorT, factorZ, factorY, factorX])
         except Exception as e:
-            print(f"Error generating 3D acoustic field: {e}")
-            return None
+            raise RuntimeError(f"Error generating 2D acoustic field: {e}")
     
 class PlaneWave(StructuredWave):
     def __init__(self, angle, space_0 = 0, space_1 = 192, move_head_0_2tail = 0, move_tail_1_2head = 0, **kwargs):

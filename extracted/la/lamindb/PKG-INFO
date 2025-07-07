@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lamindb
-Version: 1.6.2
+Version: 1.7.0
 Summary: A data framework for biology.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14
@@ -9,9 +9,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: lamin_utils==0.14.0
-Requires-Dist: lamin_cli==1.4.2
-Requires-Dist: lamindb_setup[aws]==1.6.1
+Requires-Dist: lamin_utils==0.15.0
+Requires-Dist: lamin_cli==1.5.3
+Requires-Dist: lamindb_setup[aws]==1.7.2
 Requires-Dist: pyyaml
 Requires-Dist: pyarrow
 Requires-Dist: pandera>=0.24.0
@@ -23,7 +23,7 @@ Requires-Dist: anndata>=0.8.0,<=0.11.4
 Requires-Dist: fsspec
 Requires-Dist: graphviz
 Requires-Dist: psycopg2-binary
-Requires-Dist: bionty>=1.5.0 ; extra == "bionty"
+Requires-Dist: bionty>=1.6.0 ; extra == "bionty"
 Requires-Dist: clinicore ; extra == "clinicore"
 Requires-Dist: tomlkit ; extra == "dev"
 Requires-Dist: line_profiler ; extra == "dev"

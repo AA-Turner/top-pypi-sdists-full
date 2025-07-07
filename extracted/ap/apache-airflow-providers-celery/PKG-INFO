@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-celery
-Version: 3.12.0
+Version: 3.12.1
 Summary: Provider package apache-airflow-providers-celery for Apache Airflow
 Keywords: airflow-provider,celery,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,8 +24,8 @@ Requires-Dist: celery[redis]>=5.5.0,<6
 Requires-Dist: flower>=1.0.0
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.4.0 ; extra == "cncf-kubernetes"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -58,7 +57,7 @@ Provides-Extra: cncf-kubernetes
 
 Package ``apache-airflow-providers-celery``
 
-Release: ``3.12.0``
+Release: ``3.12.1``
 
 
 `Celery <https://docs.celeryq.dev/en/stable/>`__
@@ -71,7 +70,7 @@ This is a provider package for ``celery`` provider. All classes for this provide
 are in ``airflow.providers.celery`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.1/>`_.
 
 Installation
 ------------
@@ -80,7 +79,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-celery``
 
-The package supports the following python versions: 3.9,3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12
 
 Requirements
 ------------
@@ -113,5 +112,5 @@ Dependent package                                                               
 ======================================================================================================================  ===================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.12.1/changelog.html>`_.
 

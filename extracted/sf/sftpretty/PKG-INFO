@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sftpretty
-Version: 1.1.7
+Version: 1.1.8
 Summary: Pretty secure file transfer made easy.
 Project-URL: Documentation, https://docs.sftpretty.com
 Project-URL: Repository, https://github.com/byteskeptical/sftpretty
@@ -54,7 +54,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.6
-Requires-Dist: paramiko>=1.17.0
+Requires-Dist: paramiko>=2.7.0
 Provides-Extra: dev
 Requires-Dist: pylint; extra == 'dev'
 Provides-Extra: doc
@@ -206,7 +206,7 @@ Additional Information
 
 Requirements
 ------------
-paramiko >= 1.17.0
+paramiko >= 2.7.0
 
 Supports
 --------

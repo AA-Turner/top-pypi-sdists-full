@@ -28,6 +28,7 @@ from django.db.models.fields.related import (
     ManyToManyRel,
     ManyToOneRel,
 )
+from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
@@ -282,7 +283,7 @@ def validate_fields(record: SQLRecord, kwargs):
 def suggest_records_with_similar_names(
     record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
-    """Returns True if found exact match, otherwise False.
+    """Returns a record if found exact match, otherwise None.
 
     Logs similar matches if found.
     """
@@ -305,18 +306,15 @@ def suggest_records_with_similar_names(
     )
     if not queryset.exists():  # empty queryset
         return None
-    s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
-    msg = f"record{s} with similar {name_field}{s} exist{nots}! did you mean to load {it}?"
-    if IPYTHON:
-        from IPython.display import display
+    s, it, nots, record_text = (
+        ("", "it", "s", "a record")
+        if len(queryset) == 1
+        else ("s", "one of them", "", "records")
+    )
+    similar_names = ", ".join(f"'{getattr(record, name_field)}'" for record in queryset)
+    msg = f"you are trying to create a record with name='{kwargs[name_field]}' but {record_text} with similar {name_field}{s} exist{nots}: {similar_names}. Did you mean to load {it}?"
+    logger.warning(f"{msg}")
 
-        from lamindb import settings
-
-        logger.warning(f"{msg}")
-        if settings._verbosity_int >= 1:
-            display(queryset.df())
-    else:
-        logger.warning(f"{msg}\n{queryset}")
     return None
 
 
@@ -405,9 +403,10 @@ class Registry(ModelBase):
         cls,
         field: StrField | None = None,
         return_field: StrField | None = None,
+        keep: Literal["first", "last", False] = "first",
     ) -> NamedTuple:
         """{}"""  # noqa: D415
-        return _lookup(cls=cls, field=field, return_field=return_field)
+        return _lookup(cls=cls, field=field, return_field=return_field, keep=keep)
 
     def filter(cls, *queries, **expressions) -> QuerySet:
         """Query records.
@@ -467,7 +466,7 @@ class Registry(ModelBase):
     def df(
         cls,
         include: str | list[str] | None = None,
-        features: bool | list[str] = False,
+        features: bool | list[str] | str = False,
         limit: int = 100,
     ) -> pd.DataFrame:
         """Convert to `pd.DataFrame`.
@@ -480,9 +479,11 @@ class Registry(ModelBase):
             include: Related fields to include as columns. Takes strings of
                 form `"ulabels__name"`, `"cell_types__name"`, etc. or a list
                 of such strings.
-            features: If `True`, map all features of the
-                :class:`~lamindb.Feature` registry onto the resulting
-                `DataFrame`. Only available for `Artifact`.
+            features: If a list of feature names, filters
+                :class:`~lamindb.Feature` down to these features.
+                If `True`, prints all features with dtypes in the core schema module.
+                If `"queryset"`, infers the features used within the set of artifacts or records.
+                Only available for `Artifact` and `Record`.
             limit: Maximum number of rows to display from a Pandas DataFrame.
                 Defaults to 100 to reduce database load.
 
@@ -549,8 +550,10 @@ class Registry(ModelBase):
         # we're in the default instance
         if instance is None or instance == "default":
             return QuerySet(model=cls, using=None)
+
         owner, name = get_owner_name_from_identifier(instance)
-        if [owner, name] == setup_settings.instance.slug.split("/"):
+        current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
+        if [owner, name] == current_instance_owner_name:
             return QuerySet(model=cls, using=None)
 
         # move on to different instances
@@ -565,6 +568,9 @@ class Registry(ModelBase):
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
             iresult, _ = result
+            # this can happen if querying via an old instance name
+            if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
+                return QuerySet(model=cls, using=None)
             # do not use {} syntax below, it gives rise to a dict if the schema modules
             # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
             source_modules = set(  # noqa
@@ -655,23 +661,53 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if self.__class__.__name__ in {
-                "Artifact",
-                "Collection",
-                "Transform",
-                "Run",
-            }:
+            if (
+                issubclass(self.__class__, SQLRecord)
+                and self.__class__.__name__ != "Storage"
+                # do not save bionty entities in restricted spaces by default
+                and self.__class__.__module__ != "bionty.models"
+            ):
                 from lamindb import context as run_context
 
                 if run_context.space is not None:
-                    kwargs["space"] = run_context.space
+                    current_space = run_context.space
+                elif setup_settings.space is not None:
+                    current_space = setup_settings.space
+
+                if current_space is not None:
+                    if "space_id" in kwargs:
+                        # space_id takes precedence over space
+                        # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
+                        if kwargs["space_id"] == 1:  # ignore default space
+                            kwargs.pop("space_id")
+                            kwargs["space"] = current_space
+                    elif "space" in kwargs:
+                        if kwargs["space"] is None:
+                            kwargs["space"] = current_space
+                    else:
+                        kwargs["space"] = current_space
             if issubclass(
                 self.__class__, SQLRecord
             ) and self.__class__.__name__ not in {"Storage", "Source"}:
                 from lamindb import context as run_context
 
                 if run_context.branch is not None:
-                    kwargs["branch"] = run_context.branch
+                    current_branch = run_context.branch
+                elif setup_settings.branch is not None:
+                    current_branch = setup_settings.branch
+
+                if current_branch is not None:
+                    # branch_id takes precedence over branch
+                    # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
+                    if "branch_id" in kwargs:
+                        if kwargs["branch_id"] == 1:  # ignore default branch
+                            kwargs.pop("branch_id")
+                            kwargs["branch"] = current_branch
+                    elif "branch" in kwargs:
+                        if kwargs["branch"] is None:
+                            kwargs["branch"] = current_branch
+                    else:
+                        kwargs["branch"] = current_branch
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -743,7 +779,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         track_current_key_and_name_values(self)
 
-    def save(self, *args, **kwargs) -> SQLRecord:
+    def save(self: T, *args, **kwargs) -> T:
         """Save.
 
         Always saves to the default database.
@@ -751,6 +787,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         using_key = None
         if "using" in kwargs:
             using_key = kwargs["using"]
+        transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk
         artifacts: list = []
@@ -813,6 +850,20 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                     init_self_from_db(self, pre_existing_record)
                 elif (
+                    self.__class__.__name__ == "Storage"
+                    and isinstance(e, IntegrityError)
+                    and "root" in error_msg
+                    or "uid" in error_msg
+                    and (
+                        "UNIQUE constraint failed" in error_msg
+                        or "duplicate key value violates unique constraint" in error_msg
+                    )
+                ):
+                    # even if uid was in the error message, we can retrieve based on
+                    # the root because it's going to be the same root
+                    pre_existing_record = self.__class__.get(root=self.root)
+                    init_self_from_db(self, pre_existing_record)
+                elif (
                     isinstance(e, ProgrammingError)
                     and hasattr(self, "space")
                     and "new row violates row-level security policy" in error_msg
@@ -834,21 +885,18 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
-            if hasattr(self, "labels"):
+            if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
-
-                from lamindb.models._feature_manager import FeatureManager
 
                 # here we go back to original record on the source database
                 self_on_db = copy(self)
                 self_on_db._state.db = db
                 self_on_db.pk = pk_on_db  # manually set the primary key
-                self_on_db.features = FeatureManager(self_on_db)  # type: ignore
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
-                    logger.important(f"{k} records: {', '.join(v)}")
+                    logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",
@@ -901,6 +949,11 @@ class Space(BaseSQLRecord):
     All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_space_name_lower")
+        ]
+
     id: int = models.SmallAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
@@ -909,8 +962,8 @@ class Space(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="A",
-        db_default="A",
+        default="aaaaaaaaaaaaa",
+        db_default="aaaaaaaaaaaa",
         db_index=True,
     )
     """Universal id."""
@@ -962,6 +1015,11 @@ class Branch(BaseSQLRecord):
     # An integer higher than >3 codes a branch that can be used for collaborators to create drafts
     # that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
     # onto a semantic branch name is handled through LaminHub.
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
+        ]
 
     id: int = models.AutoField(primary_key=True)
     """An integer id that's synchronized for a family of coupled database instances.
@@ -1273,7 +1331,7 @@ def get_transfer_run(record) -> Run:
     if not cache_using_filepath.exists():
         raise SystemExit("Need to call .using() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
-    key = f"transfers/{instance_uid}"
+    key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
     if transform is None:
@@ -1291,9 +1349,7 @@ def get_transfer_run(record) -> Run:
             logger.warning(WARNING_RUN_TRANSFORM)
         initiated_by_run = None
     # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(
-        transform=transform, initiated_by_run=initiated_by_run
-    ).one_or_none()
+    run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
         run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
@@ -1311,6 +1367,7 @@ def transfer_to_default_db(
     if record._state.db is None or record._state.db == "default":
         return None
     registry = record.__class__
+    logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if transfer_logs["run"] is None:
@@ -1366,7 +1423,15 @@ def track_current_key_and_name_values(record: SQLRecord):
 
 def check_name_change(record: SQLRecord):
     """Warns if a record's name has changed."""
-    from lamindb.models import Artifact, Collection, Feature, Schema, Transform
+    from lamindb.models import (
+        Artifact,
+        Collection,
+        Feature,
+        Record,
+        Schema,
+        Storage,
+        Transform,
+    )
 
     if (
         not record.pk
@@ -1389,7 +1454,7 @@ def check_name_change(record: SQLRecord):
 
     if old_name != new_name:
         # when a label is renamed, only raise a warning if it has a feature
-        if hasattr(record, "artifacts"):
+        if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
             linked_records = (
                 record.artifacts.through.filter(
                     label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}

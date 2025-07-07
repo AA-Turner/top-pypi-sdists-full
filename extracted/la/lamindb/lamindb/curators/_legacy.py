@@ -16,7 +16,7 @@ from lamindb.models.artifact import data_is_scversedatastructure
 from ..errors import InvalidArgument
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
     from mudata import MuData
     from spatialdata import SpatialData
 
@@ -222,6 +222,7 @@ class DataFrameCatManager(CatManager):
                 key="columns",
                 source=self._sources.get("columns"),
             )
+        self._cat_vectors["columns"].add_new()
         for key, field in self._categoricals.items():
             self._cat_vectors[key] = CatVector(
                 values_getter=lambda k=key: self._dataset[

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: laspy
-Version: 2.5.4
+Version: 2.6.0
 Summary: Native Python ASPRS LAS read/write library
 Home-page: https://github.com/laspy/laspy
 Author: Grant Brown, Thomas Montaigu
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy
@@ -24,13 +24,14 @@ Requires-Dist: coverage; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-rtd-theme; extra == "dev"
 Requires-Dist: nox; extra == "dev"
+Requires-Dist: attrs>=24.1; extra == "dev"
 Requires-Dist: black==22.3.0; extra == "dev"
 Requires-Dist: pytest-benchmark; extra == "dev"
 Requires-Dist: m2r2; extra == "dev"
 Requires-Dist: rangehttpserver; extra == "dev"
 Requires-Dist: isort==5.11.5; extra == "dev"
 Provides-Extra: lazrs
-Requires-Dist: lazrs<0.7.0,>=0.6.0; extra == "lazrs"
+Requires-Dist: lazrs<0.8.0,>=0.7.0; extra == "lazrs"
 Provides-Extra: laszip
 Requires-Dist: laszip<0.3.0,>=0.2.1; extra == "laszip"
 Provides-Extra: pyproj
@@ -40,6 +41,19 @@ Requires-Dist: requests; extra == "requests"
 Provides-Extra: cli
 Requires-Dist: typer[all]>=0.8.0; extra == "cli"
 Requires-Dist: rich>=10.11.0; extra == "cli"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Laspy
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hishel
-Version: 0.1.2
+Version: 0.1.3
 Summary: Persistent cache implementation for httpx and httpcore
 Project-URL: Homepage, https://hishel.com
 Project-URL: Source, https://github.com/karpetrosyan/hishel
@@ -25,14 +25,14 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.9
 Requires-Dist: httpx>=0.28.0
 Provides-Extra: redis
-Requires-Dist: redis==5.0.4; extra == 'redis'
+Requires-Dist: redis==6.2.0; extra == 'redis'
 Provides-Extra: s3
 Requires-Dist: boto3<=1.15.3,>=1.15.0; (python_version < '3.12') and extra == 's3'
 Requires-Dist: boto3>=1.15.3; (python_version >= '3.12') and extra == 's3'
 Provides-Extra: sqlite
 Requires-Dist: anysqlite>=0.0.5; extra == 'sqlite'
 Provides-Extra: yaml
-Requires-Dist: pyyaml==6.0.1; extra == 'yaml'
+Requires-Dist: pyyaml==6.0.2; extra == 'yaml'
 Description-Content-Type: text/markdown
 
 <p align="center" class="logo">
@@ -180,6 +180,13 @@ You can support the project by simply leaving a GitHub star ⭐ or by [contribut
 Help us grow and continue developing good software for you ❤️
 
 # Changelog
+
+## 0.1.3 (1st July, 2025)
+
+- Remove `types-redis` from dev dependencies (#336)
+- Bump redis to 6.0.0 and address async `.close()` deprecation warning (#336)
+- Avoid race condition when unlinking files in `FileStorage`. (#334)  
+- Allow prodiving a `path_prefix` in `S3Storage` and `AsyncS3Storage`. (#342)
 
 ## 0.1.2 (5th April, 2025)
 

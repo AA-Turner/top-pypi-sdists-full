@@ -36,11 +36,11 @@ if PLATFORM in {"i686", "x86_64"}:
         "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
+        "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
     }
     if PLATFORM == "x86_64":
         MANYLINUX_IMAGES.update(
             {
-                "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
                 "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
             }
         )
@@ -292,6 +292,7 @@ def docker_start(
         environment=env_variables,
         platform=f"linux/{goarch}",
     )
+    assert isinstance(con.id, str)
     logger.info("Started container %s", con.id[:12])
     return con
 
@@ -332,6 +333,7 @@ def docker_exec(
     cwd: str | None = None,
     env: dict[str, str] | None = None,
 ) -> str:
+    assert isinstance(container.id, str)
     logger.info("docker exec %s: %r", container.id[:12], cmd)
     ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
     output = output.decode("utf-8")

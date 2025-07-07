@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-cloudant
-Version: 4.2.0
+Version: 4.2.1
 Summary: Provider package apache-airflow-providers-cloudant for Apache Airflow
 Keywords: airflow-provider,cloudant,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.9,!=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -20,10 +20,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
-Requires-Dist: ibmcloudant==0.9.1;python_version>="3.10"
+Requires-Dist: ibmcloudant>=0.10.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -54,7 +54,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-cloudant``
 
-Release: ``4.2.0``
+Release: ``4.2.1``
 
 
 `IBM Cloudant <https://www.ibm.com/cloud/cloudant>`__
@@ -67,7 +67,7 @@ This is a provider package for ``cloudant`` provider. All classes for this provi
 are in ``airflow.providers.cloudant`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.1/>`_.
 
 Installation
 ------------
@@ -81,13 +81,13 @@ The package supports the following python versions: 3.10,3.11,3.12
 Requirements
 ------------
 
-==================  =====================================
+==================  ==================
 PIP package         Version required
-==================  =====================================
+==================  ==================
 ``apache-airflow``  ``>=2.10.0``
-``ibmcloudant``     ``==0.9.1; python_version >= "3.10"``
-==================  =====================================
+``ibmcloudant``     ``>=0.10.0``
+==================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-cloudant/4.2.1/changelog.html>`_.
 

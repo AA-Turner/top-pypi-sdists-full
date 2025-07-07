@@ -17,8 +17,7 @@ impl Display for MikiDecryptError {
             MikiDecryptError::BufferSizeMismatch { expected, actual } => {
                 write!(
                     f,
-                    "Buffer size mismatch: expected {}, actual {}",
-                    expected, actual
+                    "Buffer size mismatch: expected {expected}, actual {actual}"
                 )
             }
         }
@@ -31,7 +30,7 @@ impl From<MikiDecryptError> for PyErr {
     }
 }
 
-pub fn decrypt_to(src: &mut [u8], dst: &mut [u8]) -> Result<(), MikiDecryptError> {
+pub fn decrypt_to_impl(src: &mut [u8], dst: &mut [u8]) -> Result<(), MikiDecryptError> {
     if src.len() != dst.len() {
         return Err(MikiDecryptError::BufferSizeMismatch {
             expected: src.len(),
@@ -39,13 +38,13 @@ pub fn decrypt_to(src: &mut [u8], dst: &mut [u8]) -> Result<(), MikiDecryptError
         });
     }
 
-    decrypt(src)?;
+    decrypt_impl(src)?;
     dst.copy_from_slice(src);
 
     Ok(())
 }
 
-pub fn decrypt(bytes: &mut [u8]) -> Result<(), MikiDecryptError> {
+pub fn decrypt_impl(bytes: &mut [u8]) -> Result<(), MikiDecryptError> {
     let encrypted_offset = 0;
     let encrypted_size = min(0x500, bytes.len());
 
@@ -164,7 +163,7 @@ pub fn decrypt(bytes: &mut [u8]) -> Result<(), MikiDecryptError> {
     Ok(())
 }
 
-pub fn decrypt_old_to(src: &mut [u8], dst: &mut [u8]) -> Result<(), MikiDecryptError> {
+pub fn decrypt_old_to_impl(src: &mut [u8], dst: &mut [u8]) -> Result<(), MikiDecryptError> {
     if src.len() != dst.len() {
         return Err(MikiDecryptError::BufferSizeMismatch {
             expected: src.len(),
@@ -172,13 +171,13 @@ pub fn decrypt_old_to(src: &mut [u8], dst: &mut [u8]) -> Result<(), MikiDecryptE
         });
     }
 
-    decrypt_old(src)?;
+    decrypt_old_impl(src)?;
     dst.copy_from_slice(src);
 
     Ok(())
 }
 
-pub fn decrypt_old(bytes: &mut [u8]) -> Result<(), MikiDecryptError> {
+pub fn decrypt_old_impl(bytes: &mut [u8]) -> Result<(), MikiDecryptError> {
     let encrypted_size = min(0x500, bytes.len());
 
     if encrypted_size < 0x20 {

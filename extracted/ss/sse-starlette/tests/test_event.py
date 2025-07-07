@@ -1,6 +1,6 @@
 import pytest
 
-from sse_starlette.event import ServerSentEvent, ensure_bytes
+from sse_starlette.event import ServerSentEvent, JSONServerSentEvent, ensure_bytes
 
 
 @pytest.mark.parametrize(
@@ -41,13 +41,42 @@ def test_server_sent_event(input, expected):
 @pytest.mark.parametrize(
     "input, expected",
     [
+        (dict(data={"foo": "bar"}), b'data: {"foo":"bar"}\r\n\r\n'),
+        (
+            dict(data={"foo": "bar"}, event="baz"),
+            b'event: baz\r\ndata: {"foo":"bar"}\r\n\r\n',
+        ),
+        (
+            dict(data={"foo": "bar"}, event="baz", id="xyz"),
+            b'id: xyz\r\nevent: baz\r\ndata: {"foo":"bar"}\r\n\r\n',
+        ),
+        (
+            dict(data={"foo": "bar"}, event="baz", id="xyz", retry=1),
+            b'id: xyz\r\nevent: baz\r\ndata: {"foo":"bar"}\r\nretry: 1\r\n\r\n',
+        ),
+        (
+            dict(comment="a comment"),
+            b": a comment\r\n\r\n",
+        ),
+        (
+            dict(data={"foo": "bar"}, comment="a comment"),
+            b': a comment\r\ndata: {"foo":"bar"}\r\n\r\n',
+        ),
+    ],
+)
+def test_json_server_sent_event(input, expected):
+    assert JSONServerSentEvent(**input).encode() == expected
+
+
+@pytest.mark.parametrize(
+    "input, expected",
+    [
         (b"data: foo\r\n\r\n", b"data: foo\r\n\r\n"),
         ("foo", b"data: foo\n\n"),
         (dict(data="foo", event="bar"), b"event: bar\ndata: foo\n\n"),
     ],
 )
 def test_ensure_bytes(input, expected):
-    print(input, expected)
     assert ensure_bytes(input, sep="\n") == expected
 
 

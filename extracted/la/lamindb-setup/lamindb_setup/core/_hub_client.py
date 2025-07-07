@@ -5,7 +5,6 @@ import os
 from typing import Literal
 from urllib.request import urlretrieve
 
-from gotrue.errors import AuthUnknownError
 from lamin_utils import logger
 from pydantic_settings import BaseSettings
 from supabase import Client, create_client  # type: ignore
@@ -26,7 +25,7 @@ def load_fallback_connector() -> Connector:
     return connector
 
 
-PROD_URL = "https://laesaummdydllppgfchu.supabase.co"
+PROD_URL = "https://hub.lamin.ai"
 PROD_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhZXNhdW1tZHlkbGxwcGdmY2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTY4NDA1NTEsImV4cCI6MTk3MjQxNjU1MX0.WUeCRiun0ExUxKIv5-CtjF6878H8u26t0JmCWx3_2-c"
 
 
@@ -71,7 +70,7 @@ def connect_hub(
         # increase to avoid rare timeouts for edge functions
         client_options = ClientOptions(
             auto_refresh_token=False,
-            function_client_timeout=20,
+            function_client_timeout=30,
             postgrest_client_timeout=20,
         )
     return create_client(env.supabase_api_url, env.supabase_anon_key, client_options)
@@ -173,7 +172,7 @@ def call_with_fallback(
             client = connect_hub(fallback_env=fallback_env)
             result = callable(**kwargs, client=client)
             break
-        except AuthUnknownError as e:
+        except Exception as e:
             if fallback_env:
                 raise e
         finally:

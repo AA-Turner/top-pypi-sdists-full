@@ -5,17 +5,19 @@ from __future__ import absolute_import
 
 import os
 import sys
+import math
 import array
 import base64
 import binascii
 import operator
+import struct
 import shutil
 import tempfile
 import unittest
 from io import StringIO
 from functools import reduce
 from string import hexdigits
-from random import choice, getrandbits, randrange, randint, random
+from random import choice, getrandbits, randrange, randint, random, seed
 from collections import Counter
 
 from bitarray import (bitarray, frozenbitarray, decodetree, bits2bytes,
@@ -24,7 +26,7 @@ from bitarray.test_bitarray import (Util, skipIf, is_pypy, urandom_2,
                                     PTRSIZE, DEBUG, WHITESPACE)
 
 from bitarray.util import (
-    zeros, ones, urandom, pprint, strip, count_n,
+    zeros, ones, urandom, random_p, pprint, strip, count_n,
     parity, xor_indices,
     count_and, count_or, count_xor, any_and, subset,
     correspond_all, byteswap, intervals,
@@ -34,9 +36,11 @@ from bitarray.util import (
     _huffman_tree, huffman_code, canonical_huffman, canonical_decode,
 )
 
+from bitarray.util import _RandomP  # type: ignore
+
 if DEBUG:
     from bitarray._util import (  # type: ignore
-        _count_from_word, _read_n, _write_n, _sc_rts, _SEGSIZE,
+        _cfw, _read_n, _write_n, _sc_rts, _SEGSIZE,
     )
     SEGBITS = 8 * _SEGSIZE
 else:
@@ -46,39 +50,28 @@ else:
 
 class ZerosOnesTests(unittest.TestCase):
 
-    def test_range(self):
-        for n in range(100):
-            a = zeros(n)
-            self.assertEqual(len(a), n)
-            self.assertFalse(a.any())
-            self.assertEqual(a.count(0), n)
-            self.assertEqual(a.count(1), 0)
-            self.assertIsInstance(a, bitarray)
-            b = ones(n)
-            self.assertEqual(len(b), n)
-            self.assertTrue(b.all())
-            self.assertEqual(b.count(0), 0)
-            self.assertEqual(b.count(1), n)
-            self.assertIsInstance(b, bitarray)
-
-    def test_endian(self):
-        for default_endian in 'big', 'little':
+    def test_basic(self):
+        for _ in range(20):
+            default_endian = choice(['little', 'big'])
             _set_default_endian(default_endian)
+            a = choice([zeros(0), zeros(0, None), zeros(0, endian=None),
+                        ones(0), ones(0, None), ones(0, endian=None)])
+            self.assertEqual(a, bitarray())
+            self.assertEqual(a.endian, default_endian)
+            self.assertEqual(type(a), bitarray)
 
-            for a in (zeros(0), zeros(0, None), zeros(0, endian=None),
-                      ones(0), ones(0, None), ones(0, endian=None)):
-                self.assertEqual(a, bitarray())
-                self.assertEqual(a.endian, default_endian)
+            endian = choice(['little', 'big', None])
+            n = randrange(100)
 
-            for endian in 'big', 'little':
-                for a in zeros(3, endian), zeros(3, endian=endian):
-                    self.assertEqual(a, bitarray('000'))
-                    self.assertEqual(a.endian, endian)
-                for b in ones(3, endian), ones(3, endian=endian):
-                    self.assertEqual(b, bitarray('111'))
-                    self.assertEqual(b.endian, endian)
+            a = choice([zeros(n, endian), zeros(n, endian=endian)])
+            self.assertEqual(a.to01(), n * "0")
+            self.assertEqual(a.endian, endian or default_endian)
 
-    def test_wrong_args(self):
+            b = choice([ones(n, endian), ones(n, endian=endian)])
+            self.assertEqual(b.to01(), n * "1")
+            self.assertEqual(b.endian, endian or default_endian)
+
+    def test_errors(self):
         for f in zeros, ones:
             self.assertRaises(TypeError, f) # no argument
             self.assertRaises(TypeError, f, '')
@@ -98,40 +91,236 @@ class ZerosOnesTests(unittest.TestCase):
 class URandomTests(unittest.TestCase):
 
     def test_basic(self):
-        for default_endian in 'big', 'little':
+        for _ in range(20):
+            default_endian = choice(['little', 'big'])
             _set_default_endian(default_endian)
+            a = choice([urandom(0), urandom(0, endian=None)])
+            self.assertEqual(a, bitarray())
+            self.assertEqual(a.endian, default_endian)
 
-            for a in urandom(0), urandom(0, None), urandom(0, endian=None):
-                self.assertEqual(a, bitarray())
-                self.assertEqual(a.endian, default_endian)
+            endian = choice(['little', 'big', None])
+            n = randrange(100)
 
-            for n in range(50):
-                a = urandom(n)
-                self.assertEqual(len(a), n)
-                self.assertEqual(a.endian, default_endian)
+            a = choice([urandom(n, endian), urandom(n, endian=endian)])
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.endian, endian or default_endian)
+            self.assertEqual(type(a), bitarray)
 
-            for endian in 'big', 'little':
-                for a in urandom(11, endian), urandom(11, endian=endian):
-                    self.assertEqual(len(a), 11)
-                    self.assertEqual(a.endian, endian)
-
-    def test_count(self):
-        a = urandom(1000)
-        b = urandom(1000)
-        self.assertNotEqual(a, b)
-        self.assertTrue(400 < a.count() < 600)
-        self.assertTrue(400 < b.count() < 600)
-
-    def test_wrong_args(self):
+    def test_errors(self):
         self.assertRaises(TypeError, urandom)
         self.assertRaises(TypeError, urandom, '')
         self.assertRaises(TypeError, urandom, bitarray())
         self.assertRaises(TypeError, urandom, [])
         self.assertRaises(TypeError, urandom, 1.0)
         self.assertRaises(ValueError, urandom, -1)
-
         self.assertRaises(TypeError, urandom, 0, 1)
         self.assertRaises(ValueError, urandom, 0, 'foo')
+
+    def test_count(self):
+        a = urandom(10_000_000)
+        # see if population is within expectation
+        self.assertTrue(abs(a.count() - 5_000_000) <= 15_811)
+
+# ---------------------------- .random_p() ----------------------------------
+
+HAVE_BINOMIALVARIATE = sys.version_info[:2] >= (3, 12)
+
+@skipIf(HAVE_BINOMIALVARIATE)
+class Random_P_Not_Implemented(unittest.TestCase):
+
+    def test_not_implemented(self):
+        self.assertRaises(NotImplementedError, random_p, 100, 0.25)
+
+@skipIf(not HAVE_BINOMIALVARIATE)
+class Random_P_Tests(unittest.TestCase):
+
+    def test_basic(self):
+        for _ in range(250):
+            default_endian = choice(['little', 'big'])
+            _set_default_endian(default_endian)
+            endian = choice(['little', 'big', None])
+            n = randrange(100)
+            p = choice([0.0, 0.0001, 0.2, 0.5, 0.9, 1.0])
+            a = random_p(n, p, endian)
+            self.assertTrue(type(a), bitarray)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.endian, endian or default_endian)
+
+    def test_inputs_and_edge_cases(self):
+        R = random_p
+        self.assertRaises(TypeError, R)
+        self.assertRaises(TypeError, R, 0.25)
+        self.assertRaises(TypeError, R, 1, "0.5")
+        self.assertRaises(ValueError, R, -1)
+        self.assertRaises(ValueError, R, 1, -0.5)
+        self.assertRaises(ValueError, R, 1, 1.5)
+        self.assertEqual(R(0), bitarray())
+        for n in range(20):
+            self.assertEqual(R(n, 0), zeros(n))
+            self.assertEqual(R(n, p=1.0), ones(n))
+
+    def test_default(self):
+        a = random_p(10_000_000)  # p defaults to 0.5
+        # see if population is within expectation
+        self.assertTrue(abs(a.count() - 5_000_000) <= 15_811)
+
+    def test_count(self):
+        for _ in range(500):
+            n = choice([4, 10, 100, 1000, 10_000])
+            p = choice([0.0001, 0.001, 0.01, 0.1, 0.25, 0.5, 0.9])
+            sigma = math.sqrt(n * p * (1.0 - p))
+            a = random_p(n, p)
+            self.assertEqual(len(a), n)
+            self.assertTrue(abs(a.count() - n * p) < max(4, 10 * sigma))
+
+    @skipIf(_RandomP().M != 8)
+    def test_seed(self):
+        _set_default_endian("little")
+        seed(1234)
+        # for default p=0.5, random_p uses randbytes
+        self.assertEqual(random_p(32),
+                         bitarray('10011101111111101001011011101111'))
+        # test small p
+        a = random_p(5000, 0.001)
+        self.assertEqual(list(a.search(1)), [286, 687, 806, 2905])
+        # general case
+        self.assertEqual(random_p(32, 0.7),
+                         bitarray('11111011101011111000111111011111'))
+        # small n (note that p=0.4 will call the "literal definition" case)
+        self.assertEqual(random_p(9, 0.4), bitarray('001111001'))
+        # initialize with current system time again
+        seed()
+
+    # ---------------- tests for internal _RandomP methods ------------------
+
+    r = _RandomP()
+
+    def test_constants(self):
+        # The purpose of this test function is to establish that
+        #
+        #     SMALL_P  >  1.0 / (K / 2 + 1)
+        #
+        # where K is the number of probability intervals (K = 1 << M).
+
+        K = self.r.K
+        SMALL_P = self.r.SMALL_P
+        #print(1.0 / (K / 2 + 1))
+
+        # Ensure the small p case filters out i = 0 for get_op_seq().
+        i = int(SMALL_P * K)
+        self.assertTrue(i > 0)
+        # So SMALL_P must the larger than the interval span:
+        self.assertTrue(SMALL_P > 1.0 / K)
+        # However, this limit is exceeded by the following.
+
+        # Ensure we hit the small p case when calling random_p() itself.
+        # This would be problematic as it could cause a self recursive loop.
+        # We consider p just below 1/2
+        p = 0.5 - 1e-16
+        q = int(p * K) / K
+        self.assertEqual(q, 0.5 - 1.0 / K)
+        self.assertEqual(q, (K / 2 - 1) / K)
+        x = (0.5 - q) / (1.0 - q)  # see below
+        self.assertAlmostEqual(x, 1.0 / (K / 2 + 1))
+        self.assertTrue(x < SMALL_P)
+        # So SMALL_P must the larger than:
+        self.assertTrue(SMALL_P > 1.0 / (K / 2 + 1))
+
+    def test_final_oring(self):
+        K = self.r.K
+        SMALL_P = self.r.SMALL_P
+
+        special_p = [0.0, 1e-16, SMALL_P - 1e-16, SMALL_P, 0.25 - 1e-16,
+                     0.25, 1.0 / 3, 0.5 - 1e-16, 0.5]
+        for j in range(1000):
+            try:
+                p = special_p[j]
+            except IndexError:
+                p = 0.5 * random()  # 0.0 <= p < 0.5
+
+            q = int(p * K) / K
+            self.assertTrue(q <= p)
+            self.assertTrue(0.0 <= p - q < 1.0 / K)
+
+            r = math.fmod(p, 1.0 / K)  # remainder
+            self.assertEqual(q + r, p)
+            self.assertEqual(bool(r), q < p)
+
+            if q < p:
+                # calculated such that q will equal to p
+                x = (p - q) / (1.0 - q)
+                self.assertAlmostEqual(r / (1.0 - p + r), x, delta=1e-16)
+                # Ensure we hit the small p case when calling random_p()
+                # itself.  Considering p = 0.5-1e-16, we have q = 127/256,
+                # so the maximal:
+                # x = (0.5 - q) / (1 - q) = 1 / 129 = 0.0077519 < 0.01
+                self.assertTrue(x < SMALL_P, x)
+                q += x * (1.0 - q)   # q = 1 - (1 - q) * (1 - x)
+
+            # ensure desired probability q is p
+            self.assertAlmostEqual(q, p, delta=1e-16)
+
+    def test_get_op_seq(self):
+        G = self.r.get_op_seq
+        K = self.r.K
+        M = self.r.M
+
+        # special cases
+        self.assertRaises(AssertionError, G, 0)
+        self.assertEqual(G(1), zeros(M - 1))
+        self.assertEqual(G(K // 2), bitarray())
+        self.assertEqual(G(K - 1), ones(M - 1))
+        self.assertRaises(AssertionError, G, K)
+
+        # examples
+        for p, s in [
+                (0.15625, '0100'),
+                (0.25,       '0'),  # 1/2   and ->   1/4
+                (0.375,     '10'),  # 1/2   or ->   3/4   and ->   3/8
+                (0.5,         ''),
+                (0.625,     '01'),  # 1/2   and ->   1/4   or ->   5/8
+                (0.6875,   '101'),
+                (0.75,       '1'),  # 1/2   or ->   3/4
+        ]:
+            seq = G(int(p * K))
+            self.assertEqual(seq.to01(), s)
+
+        for i in range(1, K):
+            seq = G(i)
+            self.assertTrue(0 <= len(s) < M)
+            q = 0.5                        # a = random_half()
+            for k in seq:
+                # k=0: and operation    k=1: or operation
+                if k:
+                    q += 0.5 * (1.0 - q)   # a |= random_half()
+                else:
+                    q *= 0.5               # a &= random_half()
+            self.assertEqual(q, i / K)
+
+    def test_random_m_basic(self):
+        r = _RandomP(7)
+        for m in -1, 8:
+            self.assertRaises(AssertionError, r.random_m, m)
+
+        for n in range(10):
+            r = _RandomP(n)
+            m = randint(0, n)
+            a = r.random_m(m)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.count(), m)
+
+    def test_random_m_active(self):
+        # test if all bits are active
+        n = 250
+        r = _RandomP(n)
+        cum = zeros(n)
+        for _ in range(100):
+            m = randrange(n // 2)
+            a = r.random_m(m)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.count(), m)
+            cum |= a
+        self.assertTrue(cum.all())
 
 # ---------------------------------------------------------------------------
 
@@ -221,25 +410,26 @@ class StripTests(unittest.TestCase, Util):
             b = frozenbitarray('00010110000')
             c = strip(b, 'both')
             self.assertEqual(c, bitarray('1011'))
-            self.assertIsType(c, 'frozenbitarray')
+            self.assertEqual(type(c), frozenbitarray)
 
     def test_zeros_ones(self):
-        for n in range(10):
-            for mode in 'left', 'right', 'both':
-                a = zeros(n)
-                c = strip(a, mode)
-                self.assertIsType(c, 'bitarray')
-                self.assertEqual(c, bitarray())
-                self.assertEqual(a, zeros(n))
+        for _ in range(50):
+            n = randrange(10)
+            mode = choice(['left', 'right', 'both'])
+            a = zeros(n)
+            c = strip(a, mode)
+            self.assertEqual(type(c), bitarray)
+            self.assertEqual(len(c), 0)
+            self.assertEqual(a, zeros(n))
 
-                b = frozenbitarray(a)
-                c = strip(b, mode)
-                self.assertIsType(c, 'frozenbitarray')
-                self.assertEqual(c, bitarray())
+            b = frozenbitarray(a)
+            c = strip(b, mode)
+            self.assertEqual(type(c), frozenbitarray)
+            self.assertEqual(len(c), 0)
 
-                a.setall(1)
-                c = strip(a, mode)
-                self.assertEqual(c, ones(n))
+            a.setall(1)
+            c = strip(a, mode)
+            self.assertEqual(c, ones(n))
 
     def test_random(self):
         for a in self.randombitarrays():
@@ -253,12 +443,12 @@ class StripTests(unittest.TestCase, Util):
             ]:
                 c = strip(a, mode)
                 self.assertEQUAL(c, res)
-                self.assertIsType(c, 'bitarray')
+                self.assertEqual(type(c), bitarray)
                 self.assertEQUAL(a, b)
 
                 c = strip(f, mode)
                 self.assertEQUAL(c, res)
-                self.assertIsType(c, 'frozenbitarray')
+                self.assertEqual(type(c), frozenbitarray)
                 self.assertEQUAL(f, b)
 
     def test_one_set(self):
@@ -537,7 +727,7 @@ class BitwiseAnyTests(unittest.TestCase, Util):
 
     def check(self, a, b):
         r = any_and(a, b)
-        self.assertIsInstance(r, bool)
+        self.assertEqual(type(r), bool)
         self.assertEqual(r, any_and(b, a))  # symmetry
         self.assertEqual(r, any(a & b))
         self.assertEqual(r, (a & b).any())
@@ -591,7 +781,7 @@ class SubsetTests(unittest.TestCase, Util):
 
     def check(self, a, b, res):
         r = subset(a, b)
-        self.assertIsInstance(r, bool)
+        self.assertEqual(type(r), bool)
         self.assertEqual(r, res)
         self.assertEqual(a | b == b, res)
         self.assertEqual(a & b == a, res)
@@ -920,7 +1110,7 @@ class HexlifyTests(unittest.TestCase, Util):
         self.assertRaises(TypeError, ba2hex, '101')
 
         c = ba2hex(bitarray('1101', 'big'))
-        self.assertIsInstance(c, str)
+        self.assertEqual(type(c), str)
 
     def test_ba2hex_group(self):
         a = bitarray('1000 0000 0101 1111', 'little')
@@ -948,7 +1138,7 @@ class HexlifyTests(unittest.TestCase, Util):
             a = hex2ba(c)
             self.assertEqual(a.to01(), '1110')
             self.assertEqual(a.endian, 'big')
-            self.assertIsType(a, 'bitarray')
+            self.assertEqual(type(a), bitarray)
         self.assertEQUAL(hex2ba('01'), bitarray('0000 0001', 'big'))
         self.assertEQUAL(hex2ba('08', 'little'),
                          bitarray('0000 0001', 'little'))
@@ -1008,12 +1198,12 @@ class HexlifyTests(unittest.TestCase, Util):
             a = hex2ba(hexdigits)
             self.assertEqual(len(a) % 4, 0)
             self.assertEqual(a.endian, default_endian)
-            self.assertIsType(a, 'bitarray')
+            self.assertEqual(type(a), bitarray)
             self.check_obj(a)
 
             t = ba2hex(a)
             self.assertEqual(t, hexdigits.lower())
-            self.assertIsInstance(t, str)
+            self.assertEqual(type(t), str)
             self.assertEQUAL(a, hex2ba(t, default_endian))
 
     def test_binascii(self):
@@ -1029,7 +1219,7 @@ class BaseTests(unittest.TestCase, Util):
 
     def test_ba2base(self):
         s = ba2base(16, bitarray('1101 0100', 'big'))
-        self.assertIsInstance(s, str)
+        self.assertEqual(type(s), str)
         self.assertEqual(s, 'd4')
 
     def test_base2ba(self):
@@ -1038,7 +1228,7 @@ class BaseTests(unittest.TestCase, Util):
             a = base2ba(16, c)
             self.assertEqual(a.to01(), '1110')
             self.assertEqual(a.endian, 'big')
-            self.assertIsType(a, 'bitarray')
+            self.assertEqual(type(a), bitarray)
 
     def test_base2ba_whitespace(self):
         self.assertEqual(base2ba(8, bytearray(b"17 0"), "little"),
@@ -1072,7 +1262,7 @@ class BaseTests(unittest.TestCase, Util):
                 ]:
             a = bitarray(s, "big")
             s = ba2base(n, a, group, sep)
-            self.assertIsInstance(s, str)
+            self.assertEqual(type(s), str)
             self.assertEqual(s, res)
 
     def test_explicit(self):
@@ -1222,269 +1412,13 @@ class BaseTests(unittest.TestCase, Util):
             self.assertEQUAL(a, b)
             self.check_obj(b)
 
-# ---------------------------------------------------------------------------
-
-class SC_Tests(unittest.TestCase, Util):
-
-    def test_explicit(self):
-        for b, bits, endian in [
-                (b'\x00\0',                 '',                  'little'),
-                (b'\x01\x03\x01\x03\0',     '110',               'little'),
-                (b'\x11\x07\x01\x02\0',     '0000001',           'big'),
-                (b'\x01\x10\x02\xf0\x0f\0', '00001111 11110000', 'little'),
-                (b'\x11\x10\xa1\x0c\0',     '00000000 00001000', 'big'),
-                (b'\x11\x09\xa1\x08\0',     '00000000 1',        'big'),
-                (b'\x01E\xa3ABD\0',         65 * '0' + '1101',   'little'),
-        ]:
-            a = bitarray(bits, endian)
-            self.assertEqual(sc_encode(a), b)
-            self.assertEqual(sc_decode(b), a)
-
-    def test_decode_header_nbits(self):
-        for b, n in [
-                (b'\x00\0', 0),
-                (b'\x01\x00\0', 0),
-                (b'\x01\x01\0', 1),
-                (b'\x02\x00\x00\0', 0),
-                (b'\x02\x00\x01\0', 256),
-                (b'\x03\x00\x00\x00\0', 0),
-                (b'\x03\x00\x00\x01\0', 65536),
-        ]:
-            a = sc_decode(b)
-            self.assertEqual(len(a), n)
-            self.assertFalse(a.any())
-
-    def test_decode_untouch(self):
-        stream = iter(b'\x01\x03\x01\x03\0XYZ')
-        self.assertEqual(sc_decode(stream), bitarray('110'))
-        self.assertEqual(next(stream), ord('X'))
-
-        stream = iter([0x11, 0x05, 0x01, 0xff, 0, None, 'foo'])
-        self.assertEqual(sc_decode(stream), bitarray('11111'))
-        self.assertIsNone(next(stream))
-        self.assertEqual(next(stream), 'foo')
-
-    def test_decode_header_errors(self):
-        # invalid header
-        for c in 0x20, 0x21, 0x40, 0x80, 0xc0, 0xf0, 0xff:
-            self.assertRaisesMessage(ValueError,
-                                     "invalid header: 0x%02x" % c,
-                                     sc_decode,
-                                     bytearray([c]))
-        # invalid block head
-        for c in 0xc0, 0xc1, 0xc5, 0xff:
-            self.assertRaisesMessage(ValueError,
-                                     "invalid block head: 0x%02x" % c,
-                                     sc_decode,
-                                     bytearray([0x01, 0x10, c]))
-
-    def test_decode_header_overflow(self):
-        nbytes = PTRSIZE
-        self.assertRaisesMessage(
-            OverflowError,
-            "sizeof(Py_ssize_t) = %d: cannot read 9 bytes" % nbytes,
-            sc_decode, b'\x09' + 9 * b'\x00')
-
-        self.assertRaisesMessage(
-            ValueError,
-            "read %d bytes got negative value: -1" % nbytes,
-            sc_decode, bytearray([nbytes] + nbytes * [0xff]))
-
-        if nbytes == 4:
-            self.assertRaisesMessage(
-                OverflowError,
-                "sizeof(Py_ssize_t) = 4: cannot read 5 bytes",
-                sc_decode, b'\x05' + 5 * b'\x00')
-
-            self.assertRaisesMessage(
-                ValueError,
-                "read 4 bytes got negative value: -2147483648",
-                sc_decode, b'\x04\x00\x00\x00\x80')
-
-    def test_decode_errors(self):
-        # too many raw bytes
-        self.assertRaisesMessage(
-            ValueError, "decode error (raw): 0 + 2 > 1",
-            sc_decode, b"\x01\x05\x02\xff\xff\0")
-        self.assertRaisesMessage(
-            ValueError, "decode error (raw): 32 + 3 > 34",
-            sc_decode, b"\x02\x0f\x01\xa0\x03\xff\xff\xff\0")
-        # sparse index too high
-        self.assertRaisesMessage(
-            ValueError, "decode error (n=1): 128 >= 128",
-            sc_decode, b"\x01\x80\xa1\x80\0")
-        self.assertRaisesMessage(
-            ValueError, "decode error (n=2): 512 >= 512",
-            sc_decode, b"\x02\x00\x02\xc2\x01\x00\x02\0")
-        self.assertRaisesMessage(
-            ValueError, "decode error (n=3): 32768 >= 32768",
-            sc_decode, b"\x02\x00\x80\xc3\x01\x00\x80\x00\0")
-
-        msg = {4: "read 4 bytes got negative value: -2147483648",
-               8: "decode error (n=4): 2147483648 >= 16"}
-        self.assertRaisesMessage(
-            ValueError, msg[PTRSIZE],
-            sc_decode, b"\x01\x10\xc4\x01\x00\x00\x00\x80\0")
-
-        msg = {4: "read 4 bytes got negative value: -1",
-               8: "decode error (n=4): 4294967295 >= 16"}
-        self.assertRaisesMessage(
-            ValueError, msg[PTRSIZE],
-            sc_decode, b"\x01\x10\xc4\x01\xff\xff\xff\xff\0")
-
-    def test_decode_end_of_stream(self):
-        for stream in [b'', b'\x00', b'\x01', b'\x02\x77',
-                       b'\x01\x04\x01', b'\x01\x04\xa1', b'\x01\x04\xa0']:
-            self.assertRaises(StopIteration, sc_decode, stream)
-
-    def test_decode_types(self):
-        blob = b'\x11\x03\x01\x20\0'
-        for b in blob, bytearray(blob), list(blob), array.array('B', blob):
-            a = sc_decode(b)
-            self.assertIsType(a, 'bitarray')
-            self.assertEqual(a.endian, 'big')
-            self.assertEqual(a.to01(), '001')
-
-        a = [17, 3, 1, 32, 0]
-        self.assertEqual(sc_decode(a), bitarray("001"))
-        for x in 256, -1:
-            a[-1] = x
-            self.assertRaises(ValueError, sc_decode, a)
-
-        self.assertRaises(TypeError, sc_decode, [0x02, None])
-        for x in None, 3, 3.2, Ellipsis:
-            self.assertRaises(TypeError, sc_decode, x)
-        for _ in range(10):
-            self.assertRaises(TypeError, sc_decode, [0x00, None])
-
-    def test_decode_ambiguity(self):
-        for b in [
-                # raw:
-                b'\x11\x03\x01\x20\0',    # this is what sc_encode gives us
-                b'\x11\x03\x01\x3f\0',    # but we can set the pad bits to 1
-                # sparse:
-                b'\x11\x03\xa1\x02\0',                  # using block type 1
-                b'\x11\x03\xc2\x01\x02\x00\0',          # using block type 2
-                b'\x11\x03\xc3\x01\x02\x00\x00\0',      # using block type 3
-                b'\x11\x03\xc4\x01\x02\x00\x00\x00\0',  # using block type 4
-        ]:
-            a = sc_decode(b)
-            self.assertEqual(a.to01(), '001')
-
-    def test_sparse_block_type1(self):
-        a = bitarray(256, 'little')
-        for n in range(1, 32):
-            positions = os.urandom(n)
-            b = bytearray([0x02, 0x00, 0x01, 0xa0 + n])
-            b.extend(positions)
-            b.append(0)  # stop byte
-
-            a.setall(0)
-            a[positions] = 1
-            self.assertEqual(sc_decode(b), a)
-
-            # in order to recreate the block sc_encode generates, we need
-            # a sorted list of the positions with no duplicates
-            lst = sorted(set(positions))
-            b = bytearray([0x02, 0x00, 0x01, 0xa0 + len(lst)])
-            b.extend(lst)
-            b.append(0)  # stop
-
-            self.assertEqual(sc_decode(b), a)
-            self.assertEqual(sc_encode(a), b)
-
-    def test_decode_random_bytes(self):
-        # ensure random input doesn't crash the decoder
-        for _ in range(100):
-            n = randrange(20)
-            b = b'\x02\x00\x04' + os.urandom(n)
-            try:
-                a = sc_decode(b)
-            except (StopIteration, ValueError):
-                continue
-            self.assertEqual(len(a), 1024)
-            self.assertEqual(a.endian, 'little')
-
-    def test_encode_types(self):
-        for a in bitarray('1', 'big'), frozenbitarray('1', 'big'):
-            b = sc_encode(a)
-            self.assertIsInstance(b, bytes)
-            self.assertEqual(b, b'\x11\x01\x01\x80\0')
-
-        for a in None, [], 0, 123, b'', b'\x00', 3.14:
-            self.assertRaises(TypeError, sc_encode, a)
-
-    def round_trip(self, a):
-        c = a.copy()
-        i = iter(sc_encode(a))
-        b = sc_decode(i)
-        self.assertTrue(a == b == c)
-        self.assertTrue(a.endian == b.endian == c.endian)
-        self.assertEqual(list(i), [])
-
-    def test_encode_zeros(self):
-        for i in range(18):
-            n = 1 << i
-            a = zeros(n)
-            m = 2                            # head byte and stop byte
-            m += bits2bytes(n.bit_length())  # size bytes
-            #print(i, n, m, sc_encode(a))
-            self.assertEqual(m, len(sc_encode(a)))
-            self.round_trip(a)
-
-            a[0] = 1
-            m += 2                  # block head byte and one index byte
-            m += 2 * bool(n > 512)  # second block head and second index byte
-            m += bool(n > 65536)    # third index byte
-            self.assertEqual(m, len(sc_encode(a)))
-            self.round_trip(a)
-
-    def test_encode_type4(self):
-        a = zeros(1 << 26, 'big')
-        self.assertEqual(
-            sc_encode(a),
-            b'\x14\x00\x00\x00\x04\0')
-
-        a[0xccbbaa] = 1
-        self.assertEqual(
-            sc_encode(a),
-            b'\x14\x00\x00\x00\x04\xc4\x01\xaa\xbb\xcc\x00\0')
-
-        a[0x3ffeedd] = 1
-        self.assertEqual(
-            sc_encode(a),
-            b'\x14\x00\x00\x00\x04\xc4\x02\xaa\xbb\xcc\x00\xdd\xee\xff\x03\0')
-
-    def test_encode_ones(self):
-        for _ in range(50):
-            nbits = randrange(100000)
-            a = ones(nbits)
-            m = 2                                # head byte and stop byte
-            m += bits2bytes(nbits.bit_length())  # size bytes
-            nbytes = bits2bytes(nbits)
-            m += nbytes                       # actual raw bytes
-            # number of head bytes, all of block type 0:
-            m += bool(nbytes % 32)            # number in 0x01 .. 0x1f
-            m += (nbytes // 32 + 127) // 128  # number in 0x20 .. 0xbf
-            self.assertEqual(m, len(sc_encode(a)))
-            self.round_trip(a)
-
-    def test_random(self):
-        for _ in range(10):
-            n = randrange(100000)
-            endian = self.random_endian()
-            a = ones(n, endian)
-            for _ in range(16):
-                a &= urandom(n, endian)
-                self.round_trip(a)
-
 # -----------------  _sc_rts()   (running totals debug test)  ---------------
 
 @skipIf(not DEBUG)
 class RTS_Tests(unittest.TestCase):
 
     def test_segsize(self):
-        self.assertIsInstance(_SEGSIZE, int)
+        self.assertEqual(type(_SEGSIZE), int)
         self.assertTrue(_SEGSIZE in [8, 16, 32])
 
     def test_empty(self):
@@ -1499,7 +1433,7 @@ class RTS_Tests(unittest.TestCase):
         a[:5] = a[512:515] = a[768:772] = 1
         self.assertEqual(a.count(), 12)
         rts = _sc_rts(a)
-        self.assertIsInstance(rts, list)
+        self.assertEqual(type(rts), list)
         self.assertEqual(len(rts), 5)
         self.assertEqual(rts, [0, 5, 5, 8, 12])
 
@@ -1528,70 +1462,359 @@ class RTS_Tests(unittest.TestCase):
                 seg_pop = a.count(1, SEGBITS * i, SEGBITS * (i + 1))
                 self.assertEqual(rts[i + 1] - rts[i], seg_pop)
 
+# --------------------------- sparse compression ----------------------------
+
+class SC_Tests(unittest.TestCase, Util):
+
+    def test_explicit(self):
+        for b, bits, endian in [
+                (b'\x00\0',                 '',                  'little'),
+                (b'\x01\x03\x01\x03\0',     '110',               'little'),
+                (b'\x01\x07\x01\x40\0',     '0000001',           'little'),
+                (b'\x11\x07\x01\x02\0',     '0000001',           'big'),
+                (b'\x01\x10\x02\xf0\x0f\0', '00001111 11110000', 'little'),
+                (b'\x11\x10\xa1\x0c\0',     '00000000 00001000', 'big'),
+                (b'\x11\x09\xa1\x08\0',     '00000000 1',        'big'),
+                (b'\x01g\xa4abde\0',        97 * '0' + '110110', 'little'),
+        ]:
+            a = bitarray(bits, endian)
+            self.assertEqual(sc_encode(a), b)
+            self.assertEQUAL(sc_decode(b), a)
+
+    def test_encode_types(self):
+        for a in bitarray('1', 'big'), frozenbitarray('1', 'big'):
+            b = sc_encode(a)
+            self.assertEqual(type(b), bytes)
+            self.assertEqual(b, b'\x11\x01\x01\x80\0')
+
+        for a in None, [], 0, 123, b'', b'\x00', 3.14:
+            self.assertRaises(TypeError, sc_encode, a)
+
+    def test_decode_types(self):
+        blob = b'\x11\x03\x01\x20\0'
+        for b in blob, bytearray(blob), list(blob), array.array('B', blob):
+            a = sc_decode(b)
+            self.assertEqual(type(a), bitarray)
+            self.assertEqual(a.endian, 'big')
+            self.assertEqual(a.to01(), '001')
+
+        a = [17, 3, 1, 32, 0]
+        self.assertEqual(sc_decode(a), bitarray("001"))
+        for x in 256, -1:
+            a[-1] = x
+            self.assertRaises(ValueError, sc_decode, a)
+
+        self.assertRaises(TypeError, sc_decode, [0x02, None])
+        for x in None, 3, 3.2, Ellipsis, 'foo':
+            self.assertRaises(TypeError, sc_decode, x)
+
+    def test_decode_header_nbits(self):
+        for b, n in [
+                (b'\x00\0', 0),
+                (b'\x01\x00\0', 0),
+                (b'\x01\x01\0', 1),
+                (b'\x02\x00\x00\0', 0),
+                (b'\x02\x00\x01\0', 256),
+                (b'\x03\x00\x00\x00\0', 0),
+                (b'\x03\x00\x00\x01\0', 65536),
+        ]:
+            a = sc_decode(b)
+            self.assertEqual(len(a), n)
+            self.assertFalse(a.any())
+
+    def test_decode_untouch(self):
+        stream = iter(b'\x01\x03\x01\x03\0XYZ')
+        self.assertEqual(sc_decode(stream), bitarray('110'))
+        self.assertEqual(next(stream), ord('X'))
+
+        stream = iter([0x11, 0x05, 0x01, 0xff, 0, None, 'foo'])
+        self.assertEqual(sc_decode(stream), bitarray('11111'))
+        self.assertTrue(next(stream) is None)
+        self.assertEqual(next(stream), 'foo')
+
+    def test_decode_header_errors(self):
+        # invalid header
+        for c in 0x20, 0x21, 0x40, 0x80, 0xc0, 0xf0, 0xff:
+            self.assertRaisesMessage(ValueError,
+                                     "invalid header: 0x%02x" % c,
+                                     sc_decode, [c])
+        # invalid block head
+        for c in 0xc0, 0xc1, 0xc5, 0xff:
+            self.assertRaisesMessage(ValueError,
+                                     "invalid block head: 0x%02x" % c,
+                                     sc_decode, [0x01, 0x10, c])
+
+    def test_decode_header_overflow(self):
+        self.assertRaisesMessage(
+            OverflowError,
+            "sizeof(Py_ssize_t) = %d: cannot read 9 bytes" % PTRSIZE,
+            sc_decode, b'\x09' + 9 * b'\x00')
+
+        self.assertRaisesMessage(
+            ValueError,
+            "read %d bytes got negative value: -1" % PTRSIZE,
+            sc_decode, [PTRSIZE] + PTRSIZE * [0xff])
+
+        if PTRSIZE == 4:
+            self.assertRaisesMessage(
+                OverflowError,
+                "sizeof(Py_ssize_t) = 4: cannot read 5 bytes",
+                sc_decode, b'\x05' + 5 * b'\x00')
+
+            self.assertRaisesMessage(
+                ValueError,
+                "read 4 bytes got negative value: -2147483648",
+                sc_decode, b'\x04\x00\x00\x00\x80')
+
+    def test_decode_errors(self):
+        # too many raw bytes
+        self.assertRaisesMessage(
+            ValueError, "decode error (raw): 0 + 2 > 1",
+            sc_decode, b"\x01\x05\x02\xff\xff\0")
+        self.assertRaisesMessage(
+            ValueError, "decode error (raw): 32 + 3 > 34",
+            sc_decode, b"\x02\x0f\x01\xa0\x03\xff\xff\xff\0")
+
+        # sparse index too high
+        self.assertRaisesMessage(
+            ValueError, "decode error (n=1): 128 >= 128",
+            sc_decode, b"\x01\x80\xa1\x80\0")
+        self.assertRaisesMessage(
+            ValueError, "decode error (n=2): 512 >= 512",
+            sc_decode, b"\x02\x00\x02\xc2\x01\x00\x02\0")
+        self.assertRaisesMessage(
+            ValueError, "decode error (n=3): 32768 >= 32768",
+            sc_decode, b"\x02\x00\x80\xc3\x01\x00\x80\x00\0")
+
+        msg = {4: "read 4 bytes got negative value: -2147483648",
+               8: "decode error (n=4): 2147483648 >= 16"}
+        self.assertRaisesMessage(
+            ValueError, msg[PTRSIZE],
+            sc_decode, b"\x01\x10\xc4\x01\x00\x00\x00\x80\0")
+
+        msg = {4: "read 4 bytes got negative value: -1",
+               8: "decode error (n=4): 4294967295 >= 16"}
+        self.assertRaisesMessage(
+            ValueError, msg[PTRSIZE],
+            sc_decode, b"\x01\x10\xc4\x01\xff\xff\xff\xff\0")
+
+    def test_decode_end_of_stream(self):
+        for stream in [b'', b'\x00', b'\x01', b'\x02\x77',
+                       b'\x01\x04\x01', b'\x01\x04\xa1', b'\x01\x04\xa0']:
+            self.assertRaises(StopIteration, sc_decode, stream)
+
+    def test_decode_ambiguity(self):
+        for b in [
+                # raw:
+                b'\x11\x03\x01\x20\0',    # this is what sc_encode gives us
+                b'\x11\x03\x01\x3f\0',    # but we can set the pad bits to 1
+                # sparse:
+                b'\x11\x03\xa1\x02\0',                  # block type 1
+                b'\x11\x03\xc2\x01\x02\x00\0',          # block type 2
+                b'\x11\x03\xc3\x01\x02\x00\x00\0',      # block type 3
+                b'\x11\x03\xc4\x01\x02\x00\x00\x00\0',  # block type 4
+        ]:
+            a = sc_decode(b)
+            self.assertEqual(a.to01(), '001')
+
+    def test_block_type0(self):
+        for k in range(0x01, 0xa0):
+            nbytes = k if k <= 32 else 32 * (k - 31)
+            nbits = 8 * nbytes
+            a = ones(nbits, "little")
+            b = bytearray([0x01, nbits] if nbits < 256 else
+                          [0x02, nbits % 256, nbits // 256])
+            b.append(k)
+            b.extend(a.tobytes())
+            b.append(0)  # stop byte
+
+            self.assertEqual(sc_decode(b), a)
+            self.assertEqual(sc_encode(a), b)
+
+    def test_block_type1(self):
+        a = bitarray(256, 'little')
+        for n in range(1, 32):
+            a[getrandbits(8)] = 1
+
+            b = bytearray([0x02, 0x00, 0x01, 0xa0 + a.count()])
+            b.extend(list(a.search(1)))  # sorted indices with no duplicates
+            b.append(0)  # stop byte
+
+            self.assertEqual(sc_decode(b), a)
+            self.assertEqual(sc_encode(a), b)
+
+    def test_block_type2(self):
+        a = bitarray(65536, 'little')
+        for n in range(1, 256):
+            a[getrandbits(16)] = 1
+
+            b = bytearray([0x03, 0x00, 0x00, 0x01, 0xc2, a.count()])
+            for i in a.search(1):
+                b.extend(struct.pack("<H", i))
+            b.append(0)  # stop byte
+            self.assertEqual(sc_decode(b), a)
+            if n < 250:
+                # We cannot compare for the highest populations, as for
+                # such high values sc_encode() may find better compression
+                # with type 1 blocks.
+                self.assertEqual(sc_encode(a), b)
+            else:
+                self.assertTrue(len(sc_encode(a)) <= len(b))
+
+    def test_block_type3(self):
+        a = bitarray(16_777_216, 'little')
+        a[[getrandbits(24) for _ in range(255)]] = 1
+        b = bytearray([0x04, 0x00, 0x00, 0x00, 0x01, 0xc3, a.count()])
+        for i in a.search(1):
+            b.extend(struct.pack("<I", i)[:3])
+        b.append(0)  # stop byte
+        self.assertEqual(sc_decode(b), a)
+        self.assertEqual(sc_encode(a), b)
+
+    def test_block_type4(self):
+        a = bitarray(1 << 26, 'little')
+        # To understand why we cannot have a population larger than 5 for
+        # an array size 4 times the size of a type 3 block, take a look
+        # at the cost comparison in sc_encode_block().  (2 + 6 >= 2 * 4)
+        indices = sorted(set(randrange(len(a)) for _ in range(5)))
+        a[indices] = 1
+        b = bytearray(b'\x04\x00\x00\x00\x04\xc4')
+        b.append(len(indices))
+        for i in indices:
+            b.extend(struct.pack("<I", i))
+        b.append(0)  # stop byte
+        self.assertEqual(sc_decode(b), a)
+        self.assertEqual(sc_encode(a), b)
+
+    def test_decode_random_bytes(self):
+        # ensure random input doesn't crash the decoder
+        for _ in range(100):
+            n = randrange(20)
+            b = b'\x02\x00\x04' + os.urandom(n)
+            try:
+                a = sc_decode(b)
+            except (StopIteration, ValueError):
+                continue
+            self.assertEqual(len(a), 1024)
+            self.assertEqual(a.endian, 'little')
+
+    def check_blob_length(self, a, m):
+        blob = sc_encode(a)
+        self.assertEqual(len(blob), m)
+        self.assertEqual(sc_decode(blob), a)
+
+    def test_encode_zeros(self):
+        for i in range(26):
+            n = 1 << i
+            a = zeros(n)
+            m = 2                            # head byte and stop byte
+            m += bits2bytes(n.bit_length())  # size of n in bytes
+            self.check_blob_length(a, m)
+
+            a[0] = 1
+            m += 2                  # block head byte and one index byte
+            m += 2 * bool(i > 9)    # count byte and second index byte
+            m += bool(i > 16)       # third index byte
+            m += bool(i > 24)       # fourth index byte
+            self.check_blob_length(a, m)
+
+    def test_encode_ones(self):
+        for _ in range(10):
+            nbits = randrange(100_000)
+            a = ones(nbits)
+            m = 2                                # head byte and stop byte
+            m += bits2bytes(nbits.bit_length())  # size bytes
+            nbytes = bits2bytes(nbits)
+            m += nbytes                       # actual raw bytes
+            # number of head bytes, all of block type 0:
+            m += bool(nbytes % 32)            # number in 0x01 .. 0x1f
+            m += (nbytes // 32 + 127) // 128  # number in 0x20 .. 0xbf
+            self.check_blob_length(a, m)
+
+    def round_trip(self, a):
+        c = a.copy()
+        i = iter(sc_encode(a))
+        b = sc_decode(i)
+        self.assertTrue(a == b == c)
+        self.assertTrue(a.endian == b.endian == c.endian)
+        self.assertEqual(list(i), [])
+
+    def test_random(self):
+        for _ in range(10):
+            n = randrange(100_000)
+            endian = self.random_endian()
+            a = ones(n, endian)
+            while a.count():
+                a &= urandom(n, endian)
+                self.round_trip(a)
+
 # ---------------------------------------------------------------------------
 
 class VLFTests(unittest.TestCase, Util):
 
     def test_explicit(self):
-        for s, bits in [
+        for blob, s in [
                 (b'\x40', ''),
                 (b'\x30', '0'),
                 (b'\x38', '1'),
                 (b'\x00', '0000'),
                 (b'\x01', '0001'),
+                (b'\xd3\x20', '001101'),
                 (b'\xe0\x40', '0000 1'),
                 (b'\x90\x02', '0000 000001'),
                 (b'\xb5\xa7\x18', '0101 0100111 0011'),
+                (b'\x95\xb7\x1c', '0101 0110111 001110'),
         ]:
-            a = bitarray(bits)
-            self.assertEqual(vl_encode(a), s)
-            self.assertEqual(vl_decode(s), a)
+            default_endian = self.random_endian()
+            _set_default_endian(default_endian)
 
-    def test_encode(self):
-        for endian in 'big', 'little':
-            s = vl_encode(bitarray('001101', endian))
-            self.assertIsInstance(s, bytes)
-            self.assertEqual(s, b'\xd3\x20')
+            a = bitarray(s)
+            self.assertEqual(vl_encode(a), blob)
+            c = vl_decode(blob)
+            self.assertEqual(c, a)
+            self.assertEqual(c.endian, default_endian)
+
+            for endian in 'big', 'little', None:
+                a = bitarray(s, endian)
+                c = vl_encode(a)
+                self.assertEqual(type(c), bytes)
+                self.assertEqual(c, blob)
+
+                c = vl_decode(blob, endian)
+                self.assertEqual(c, a)
+                self.assertEqual(c.endian, endian or default_endian)
+
+    def test_encode_types(self):
+        s = "0011 01"
+        for a in bitarray(s), frozenbitarray(s):
+            b = vl_encode(a)
+            self.assertEqual(type(b), bytes)
+            self.assertEqual(b, b'\xd3\x20')
+
+        for a in None, [], 0, 123, b'', b'\x00', 3.14:
+            self.assertRaises(TypeError, vl_encode, a)
+
+    def test_decode_types(self):
+        blob = b'\xd3\x20'
+        for s in (blob, iter(blob), memoryview(blob), iter([0xd3, 0x20]),
+                  bytearray(blob)):
+            a = vl_decode(s, endian=self.random_endian())
+            self.assertEqual(type(a), bitarray)
+            self.assertEqual(a, bitarray('0011 01'))
+
+        # these objects are not iterable
+        for arg in None, 0, 1, 0.0:
+            self.assertRaises(TypeError, vl_decode, arg)
+        # these items cannot be interpreted as ints
+        for item in None, 2.34, Ellipsis, 'foo':
+            self.assertRaises(TypeError, vl_decode, iter([0x95, item]))
 
     def test_decode_args(self):
-        self.assertRaises(TypeError, vl_decode, 'foo')
         # item not integer
         self.assertRaises(TypeError, vl_decode, iter([b'\x40']))
 
         self.assertRaises(TypeError, vl_decode, b'\x40', 'big', 3)
         self.assertRaises(ValueError, vl_decode, b'\x40', 'foo')
-        # these objects are not iterable
-        for arg in None, 0, 1, 0.0:
-            self.assertRaises(TypeError, vl_decode, arg)
-        # these items cannot be interpreted as ints
-        for item in None, 2.34, Ellipsis:
-            self.assertRaises(TypeError, vl_decode, iter([0x95, item]))
-
-        b = b'\xd3\x20'
-        lst = [b, iter(b), memoryview(b)]
-        lst.append(iter([0xd3, 0x20]))
-        lst.append(bytearray(b))
-        for s in lst:
-            a = vl_decode(s, endian=self.random_endian())
-            self.assertIsType(a, 'bitarray')
-            self.assertEqual(a, bitarray('0011 01'))
-
-    def test_decode_endian(self):
-        blob = b'\xd3\x20'
-        res = bitarray('0011 01')
-
-        for default_endian in 'little', 'big':
-            _set_default_endian(default_endian)
-
-            for endian in 'little', 'big', None:
-                a = vl_decode(blob, endian)
-                self.assertEqual(a, res)
-                self.assertEqual(a.endian,
-                                 endian if endian else default_endian)
-
-            a = vl_decode(blob)
-            self.assertEqual(a, res)
-            self.assertEqual(a.endian, default_endian)
 
     def test_decode_trailing(self):
         for s, bits in [(b'\x40ABC', ''),
@@ -1602,9 +1825,9 @@ class VLFTests(unittest.TestCase, Util):
 
     def test_decode_ambiguity(self):
         for s in b'\x40', b'\x4f', b'\x45':
-            self.assertEqual(vl_decode(iter(s)), bitarray())
+            self.assertEqual(vl_decode(s), bitarray())
         for s in b'\x1e', b'\x1f':
-            self.assertEqual(vl_decode(iter(s)), bitarray('111'))
+            self.assertEqual(vl_decode(s), bitarray('111'))
 
     def test_decode_stream(self):
         stream = iter(b'\x40\x30\x38\x40\x2c\xe0\x40\xd3\x20')
@@ -1619,10 +1842,14 @@ class VLFTests(unittest.TestCase, Util):
     def test_decode_errors(self):
         # decode empty bytes
         self.assertRaises(StopIteration, vl_decode, b'')
-        # invalid number of padding bits
-        for s in b'\x50', b'\x60', b'\x70':
-            self.assertRaises(ValueError, vl_decode, s)
-        self.assertRaises(ValueError, vl_decode, b'\xf0')
+        # invalid head byte
+        for s in [
+                b'\x70', b'\xf0',           # padding = 7
+                b'\x50', b'\x60', b'\x70',  # no second byte, but padding > 4
+        ]:
+            self.assertRaisesMessage(ValueError,
+                                     "invalid head byte: 0x%02x" % s[0],
+                                     vl_decode, s)
         # high bit set, but no terminating byte
         for s in b'\x80', b'\x80\x80':
             self.assertRaises(StopIteration, vl_decode, s)
@@ -1641,7 +1868,7 @@ class VLFTests(unittest.TestCase, Util):
                 a = vl_decode(s)
             except TypeError:
                 pass
-            self.assertIsNone(a)
+            self.assertTrue(a is None)
         self.assertEqual(next(s), 'end.')
 
     def test_explicit_zeros(self):
@@ -1991,12 +2218,12 @@ class SerializationTests(unittest.TestCase, Util):
             a = bitarray(bits, endian)
             s = serialize(a)
             self.assertEqual(blob, s)
-            self.assertIsInstance(s, bytes)
+            self.assertEqual(type(s), bytes)
 
             b = deserialize(blob)
             self.assertEqual(b, a)
             self.assertEqual(b.endian, endian)
-            self.assertIsType(b, 'bitarray')
+            self.assertEqual(type(b), bitarray)
 
     def test_serialize_args(self):
         for x in '0', 0, 1, b'\x00', 0.0, [0, 1], bytearray([0]):
@@ -2192,9 +2419,9 @@ class CanonicalHuffmanTests(unittest.TestCase, Util):
     def test_basic(self):
         plain = bytearray(b'the quick brown fox jumps over the lazy dog.')
         chc, count, symbol = canonical_huffman(Counter(plain))
-        self.assertIsInstance(chc, dict)
-        self.assertIsInstance(count, list)
-        self.assertIsInstance(symbol, list)
+        self.assertEqual(type(chc), dict)
+        self.assertEqual(type(count), list)
+        self.assertEqual(type(symbol), list)
         a = bitarray()
         a.encode(chc, plain)
         self.assertEqual(bytearray(a.decode(chc)), plain)
@@ -2491,18 +2718,18 @@ class CountFromWord_Tests(unittest.TestCase, Util):
             n = randrange(1024)
             a = ones(n)
             i = randrange(16)
-            self.assertEqual(_count_from_word(a, i), max(0, n - i * 64))
+            self.assertEqual(_cfw(a, i), max(0, n - i * 64))
             a.setall(0)
-            self.assertEqual(_count_from_word(a, i), 0)
+            self.assertEqual(_cfw(a, i), 0)
             a.clear()
-            self.assertEqual(_count_from_word(a, i), 0)
+            self.assertEqual(_cfw(a, i), 0)
 
     def test_random(self):
         for _ in range(1000):
             n = randrange(1024)
             a = urandom_2(n)
             i = randrange(16)
-            res = _count_from_word(a, i)
+            res = _cfw(a, i)
             self.assertEqual(res, a[64 * i:].count())
 
 

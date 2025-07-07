@@ -9,6 +9,7 @@ from __future__ import absolute_import
 
 import os
 import sys
+import random
 
 from bitarray import bitarray, bits2bytes
 
@@ -25,7 +26,7 @@ from bitarray._util import (
 )
 
 __all__ = [
-    'zeros', 'ones', 'urandom',
+    'zeros', 'ones', 'urandom', 'random_p',
     'pprint', 'strip', 'count_n',
     'parity', 'xor_indices',
     'count_and', 'count_or', 'count_xor', 'any_and', 'subset',
@@ -41,13 +42,136 @@ __all__ = [
 
 
 def urandom(__length, endian=None):
-    """urandom(length, /, endian=None) -> bitarray
+    """urandom(n, /, endian=None) -> bitarray
 
-Return a bitarray of `length` random bits (uses `os.urandom`).
+Return random bitarray of length `n` (uses `os.urandom()`).
 """
     a = bitarray(os.urandom(bits2bytes(__length)), endian)
     del a[__length:]
     return a
+
+
+def random_p(__n, p=0.5, endian=None):
+    """random_p(n, /, p=0.5, endian=None) -> bitarray
+
+Return pseudo-random bitarray of length `n`.  Each bit has probability `p` of
+being 1.  Equivalent to `bitarray((random() < p for _ in range(n)), endian)`.
+The bitarrays are reproducible when calling Python's `random.seed()` with a
+specific seed value.
+
+This function requires Python 3.12 or higher, as it depends on the standard
+library function `random.binomialvariate()`.  Raises `NotImplementedError`
+when Python version is too low.
+"""
+    if sys.version_info[:2] < (3, 12):
+        raise NotImplementedError("bitarray.util.random_p() requires "
+                                  "Python 3.12 or higher")
+    r = _RandomP(__n, endian)
+    return r.random_p(p)
+
+class _RandomP:
+
+    # maximal number of calls to .random_half() in .combine()
+    M = 8
+
+    # number of resulting probability intervals
+    K = 1 << M
+
+    # limit for setting individual bits randomly
+    SMALL_P = 0.01
+
+    def __init__(self, n=0, endian=None):
+        self.n = n
+        self.nbytes = bits2bytes(n)
+        self.endian = endian
+
+    def random_half(self):
+        """
+        Return bitarray with each bit having probability p = 1/2 of being 1.
+        """
+        # use randbytes() for reproducibility (not urandom())
+        a = bitarray(random.randbytes(self.nbytes), self.endian)
+        del a[self.n:]
+        return a
+
+    def get_op_seq(self, i):
+        """
+        Return bitarray containing operator sequence.
+        Each item represents a bitwise operation:   0: and   1: or
+        After applying the sequence (see .random_combine()), we
+        obtain a bitarray with probability  q = i / K
+        """
+        assert 0 < i < self.K
+        # sequence of &, | operations - least significant operations first
+        seq = int2ba(i, length=self.M, endian="little")
+        seq = strip(seq, mode="left")
+        del seq[0]
+        return seq
+
+    def random_combine(self, p):
+        """
+        Given a desired probability p, return a random bitarray with
+        actual probability  q = int(p * K) / K
+        """
+        a = self.random_half()
+        for k in self.get_op_seq(int(p * self.K)):
+            b = self.random_half()
+            if k:
+                a |= b
+            else:
+                a &= b
+        return a
+
+    def random_m(self, m):
+        """
+        Return a bitarray (of length n) with m bits randomly set to 1.
+        Designed for small m (compared to n).
+        """
+        assert 0 <= m <= self.n
+        a = zeros(self.n, self.endian)
+        for _ in range(m):
+            while 1:
+                i = random.randrange(self.n)
+                if not a[i]:
+                    a[i] = 1
+                    break
+        return a
+
+    def random_p(self, p):
+        # error check inputs and handle edge cases
+        if p <= 0.0 or p == 0.5 or p >= 1.0:
+            if p == 0.0:
+                return zeros(self.n, self.endian)
+            if p == 0.5:
+                return self.random_half()
+            if p == 1.0:
+                return ones(self.n, self.endian)
+            raise ValueError("p must be in range 0.0 <= p <= 1.0, got %s" % p)
+
+        # for small n, use literal definition
+        if self.n < 10:
+            return bitarray((random.random() < p for _ in range(self.n)),
+                            self.endian)
+
+        # exploit symmetry to establish: p <= 0.5
+        if p > 0.5:
+            a = self.random_p(1.0 - p)
+            a.invert()
+            return a
+
+        # for small p, set randomly individual bits
+        if p < self.SMALL_P:
+            return self.random_m(random.binomialvariate(self.n, p))
+
+        # combine random bitarrays using bitwise & and | operations
+        a = self.random_combine(p)
+        q = int(p * self.K) / self.K
+        if q < p:
+            # increase probability q by "oring" with probability x
+            x = (p - q) / (1.0 - q)
+            a |= self.random_p(x)
+
+        return a
 
 
 def pprint(__a, stream=None, group=8, indent=4, width=80):

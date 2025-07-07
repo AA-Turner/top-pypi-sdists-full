@@ -8,8 +8,7 @@ import code
 import random
 import inspect
 import collections.abc
-from collections.abc import Iterable, Mapping, Sequence
-from types import FunctionType
+from collections.abc import Mapping, Sequence
 from typing import Any, Optional, Type, List
 
 
@@ -193,12 +192,20 @@ def resource_list(*parts, ext=None, prefix=None, suffix=None):
     matches.sort(key=lambda p: p.stat().st_ctime)
     return matches
 
-def test(*, root: str = 'tests', filter=None, on_success = None, on_failure= None):
+def test(*, root: str = 'tests', filter=None, on_success=None, on_failure=None, coverage: bool = False):
     """Execute all automatically detected test suites, logging to logs/test.log."""
     import unittest
     import os
     from gway import gw
     from gway.logging import use_logging
+    cov = None
+    if coverage:
+        try:
+            from coverage import Coverage
+            cov = Coverage()
+            cov.start()
+        except Exception as e:
+            gw.warning(f"Coverage requested but failed to initialize: {e}")
 
     log_path = os.path.join("logs", "test.log")
 
@@ -232,6 +239,36 @@ def test(*, root: str = 'tests', filter=None, on_success = None, on_failure= Non
         runner = unittest.TextTestRunner(verbosity=2)
         result = runner.run(test_suite)
         gw.info(f"Test results: {str(result).strip()}")
+
+    if cov:
+        cov.stop()
+        try:
+            percent = cov.report(include=["gway/*"])
+            gw.info(f"gway coverage: {percent:.2f}%")
+            print(f"gway: {percent:.2f}%")
+            projects_dir = "projects"
+            if os.path.isdir(projects_dir):
+                for proj in sorted(os.listdir(projects_dir)):
+                    if proj.startswith("__"):
+                        continue
+                    path = os.path.join(projects_dir, proj)
+                    include_paths = []
+                    if os.path.isdir(path):
+                        include_paths = [os.path.join(os.path.abspath(path), "*")]
+                    elif os.path.isfile(path) and path.endswith(".py"):
+                        include_paths = [os.path.abspath(path)]
+                    if include_paths:
+                        try:
+                            percent = cov.report(include=include_paths)
+                            gw.info(f"{proj} coverage: {percent:.2f}%")
+                            print(f"{proj}: {percent:.2f}%")
+                        except Exception:
+                            gw.warning(f"Coverage report failed for {proj}")
+            total = cov.report()
+            gw.info(f"Total coverage: {total:.2f}%")
+            print(f"Total: {total:.2f}%")
+        except Exception as e:
+            gw.warning(f"Coverage report failed: {e}")
 
     # --- Cleanup: Remove test.log if tests succeeded and on_success is 'clear' ---
     if result.wasSuccessful() and on_success == "clear":
@@ -497,56 +534,7 @@ def run(*script: str, **context):
         # Now run the new recipe
         return gw.run_recipe(recipe_path, **context)
 
-# Unwrapping is useful for handling one or multiple apps, or other
-# objects passed between GWAY functions, using a simplified scheme.
 
-def unwrap_one(obj: Any, expected: Optional[Type] = None) -> Any:
-    """Returns the first matching unwrapped value from obj."""
-    return next(_unwrap(obj, expected, first_only=True), None)
-
-def unwrap_all(obj: Any, expected: Optional[Type] = None) -> List[Any]:
-    """Returns a list of all matching unwrapped values from obj."""
-    return list(_unwrap(obj, expected, first_only=False))
-
-# TODO: Create unwrap_split_one that returns a two item tuple: first_found, others
-#       and its equivalent unwrap_split_all: all_found
-
-def _unwrap(obj: Any, expected: Optional[Type], first_only: bool = True):
-    def unwrap_closure(fn):
-        # Only unwrap closures for *actual* functions with __closure__
-        if isinstance(fn, FunctionType) and getattr(fn, "__closure__", None):
-            for cell in fn.__closure__:
-                try: val = cell.cell_contents
-                except Exception: continue
-                yield from _unwrap(val, expected, first_only)
-                if first_only: return
-
-    if expected is not None:
-        if isinstance(obj, expected):
-            yield obj
-            if first_only: return
-
-        if callable(obj):
-            try: unwrapped = inspect.unwrap(obj)
-            except Exception: unwrapped = obj
-
-            if isinstance(unwrapped, expected):
-                yield unwrapped
-                if first_only:
-                    return
-
-            yield from unwrap_closure(unwrapped)
-            if first_only: return
-
-        if isinstance(obj, Iterable) and not isinstance(obj, (str, bytes, bytearray)):
-            for item in obj:
-                yield from _unwrap(item, expected, first_only)
-                if first_only: return
-    else:
-        if callable(obj):
-            try: yield inspect.unwrap(obj)
-            except Exception: yield obj
-        else: yield obj
 
 # Excludse ambiguous characters: 0, O, 1, I, l, Z, 2
 _EZ_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXY3456789"

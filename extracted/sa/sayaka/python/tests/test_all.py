@@ -1,4 +1,6 @@
+import base64
 import pathlib
+from collections.abc import ByteString
 import sayaka
 
 current_dir = pathlib.Path(__file__).parent.absolute()
@@ -94,7 +96,16 @@ def test_small_ab():
         LZ4BYD = 5
 
     UnityPyEnumsBundleFile.CompressionFlags = CompressionFlags
-    DECOMPRESSION_MAP[CompressionFlags.LZ4BYD] = sayaka.miki_decrypt_old_and_decompress
+
+    def miki_decrypt(encrypted_bytes: ByteString, uncompressed_size: int) -> ByteString:
+        if bytes(encrypted_bytes[:32]).count(0xB7) > 5:
+            return sayaka.miki_decrypt_old_and_decompress(
+                encrypted_bytes, uncompressed_size
+            )
+        else:
+            return sayaka.decompress_buffer(encrypted_bytes, uncompressed_size)
+
+    DECOMPRESSION_MAP[CompressionFlags.LZ4BYD] = miki_decrypt
 
     env = UnityPy.load(data)
 
@@ -120,8 +131,46 @@ def test_enc_ab():
         LZ4BYD = 5
 
     UnityPyEnumsBundleFile.CompressionFlags = CompressionFlags
-    DECOMPRESSION_MAP[CompressionFlags.LZ4BYD] = sayaka.miki_decrypt_old_and_decompress
+
+    def miki_decrypt(encrypted_bytes: ByteString, uncompressed_size: int) -> ByteString:
+        if bytes(encrypted_bytes[:32]).count(0xB7) > 5:
+            return sayaka.miki_decrypt_old_and_decompress(
+                encrypted_bytes, uncompressed_size
+            )
+        else:
+            return sayaka.decompress_buffer(encrypted_bytes, uncompressed_size)
+
+    DECOMPRESSION_MAP[CompressionFlags.LZ4BYD] = miki_decrypt
 
     env = UnityPy.load(data)
 
     assert len(env.objects) == 3, "No objects found in the .ab file"  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
+
+def test_chacha_decryptor_common_chacha_key_bs():
+    chacha = sayaka.ChaChaDecryptor()
+
+    assert chacha.common_chacha_key_bs == bytes.fromhex(
+        "e95b317ac4f828569d23a86bf271dcb53e846fa75c924d671dba8e38f4ca52e1"
+    )
+
+
+def test_chacha_decryptor_key_decrypt():
+    KEY = "=="
+    KEYS = [
+        "cynb5",
+        "ctSml",
+        "5B93g",
+        "J3qLQl",
+        "72iUy",
+        "aulYnb",
+        "901lU",
+        "dDfl2",
+    ]
+
+    XXTeaKey = sayaka.ChaChaDecryptor.key_decrypt(
+        base64.b64decode(KEYS[1] + KEYS[5] + KEYS[3] + KEYS[2] + KEY),
+        "Assets/Beyond/DynamicAssets/GameData/GameplayConfig/JsonCfg/",
+    ).decode("utf-8")
+
+    assert XXTeaKey == "1a307234de3b3a9e", "XXTeaKey does not match expected value"

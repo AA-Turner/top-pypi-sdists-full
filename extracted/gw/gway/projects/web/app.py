@@ -4,6 +4,7 @@ import os
 from urllib.parse import urlencode
 import bottle
 import json
+import datetime
 from bottle import Bottle, static_file, request, response, template, HTTPResponse
 from gway import gw
 
@@ -12,7 +13,45 @@ from gway import gw
 _ver = None
 _homes = []   # (title, route)
 _enabled = set()
+_registered_routes: set[tuple[str, str]] = set()
+_fresh_mtime = None
+_fresh_dt = None
 UPLOAD_MB = 100
+
+def _refresh_fresh_date():
+    """Return cached datetime of VERSION modification, updating cache if needed."""
+    global _fresh_mtime, _fresh_dt
+    try:
+        path = gw.resource("VERSION")
+        mtime = os.path.getmtime(path)
+    except Exception:
+        return None
+    if _fresh_mtime != mtime:
+        _fresh_mtime = mtime
+        _fresh_dt = datetime.datetime.fromtimestamp(mtime)
+    return _fresh_dt
+
+
+def _format_fresh(dt: datetime.datetime | None) -> str:
+    """Return human friendly string for datetime `dt`."""
+    if not dt:
+        return "unknown"
+    now = datetime.datetime.now(dt.tzinfo)
+    delta = now - dt
+    if delta < datetime.timedelta(minutes=1):
+        return "seconds ago"
+    if delta < datetime.timedelta(hours=1):
+        minutes = int(delta.total_seconds() // 60)
+        return "a minute ago" if minutes == 1 else f"{minutes} minutes ago"
+    if delta < datetime.timedelta(days=1):
+        hours = int(delta.total_seconds() // 3600)
+        return "an hour ago" if hours == 1 else f"{hours} hours ago"
+    if delta < datetime.timedelta(days=7):
+        days = delta.days
+        return "a day ago" if days == 1 else f"{days} days ago"
+    if dt.year == now.year:
+        return dt.strftime("%B %d").replace(" 0", " ")
+    return dt.strftime("%B %d, %Y").replace(" 0", " ")
 
 def enabled_projects():
     """Return a set of all enabled web projects (for static.collect, etc)."""
@@ -71,19 +110,37 @@ def setup_app(*,
         if path.startswith('web/'):
             path = path.removeprefix('web/')
             
-    is_new_app = not (app := gw.unwrap_one(app, Bottle) if (oapp := app) else None)
+    oapp = app
+    match app:
+        case Bottle() as b:
+            app = b
+            is_new_app = False
+        case list() | tuple() as seq:
+            app = next((x for x in seq if isinstance(x, Bottle)), None)
+            is_new_app = app is None
+        case None:
+            is_new_app = True
+        case _ if isinstance(app, Bottle):
+            is_new_app = False
+        case _ if hasattr(app, "__iter__") and not isinstance(app, (str, bytes, bytearray)):
+            app = next((x for x in app if isinstance(x, Bottle)), None)
+            is_new_app = app is None
+        case _:
+            is_new_app = app is None or not isinstance(app, Bottle)
+
     if is_new_app:
         gw.info("No Bottle app found; creating a new Bottle app.")
         app = Bottle()
         _homes.clear()
+        _registered_routes.clear()
         if home:
             add_home(home, path)
 
-        @app.route("/", method=["GET", "POST"])
         def index():
             response.status = 302
             response.set_header("Location", default_home())
             return ""
+        add_route(app, "/", ["GET", "POST"], index)
 
         @app.error(404)
         def handle_404(error):
@@ -94,26 +151,25 @@ def setup_app(*,
 
     # Serve shared files (flat mount)
     if shared:
-        @app.route(f"/{path}/{shared}/<filepath:path>")
-        @app.route(f"/{shared}/<filepath:path>")
         def send_shared(filepath):
             file_path = gw.resource("work", "shared", filepath)
             if os.path.isfile(file_path):
                 return static_file(os.path.basename(file_path), root=os.path.dirname(file_path))
             return HTTPResponse(status=404, body="shared file not found")
+        add_route(app, f"/{path}/{shared}/<filepath:path>", "GET", send_shared)
+        add_route(app, f"/{shared}/<filepath:path>", "GET", send_shared)
 
     # Serve static files (flat mount)
     if static:
-        @app.route(f"/{path}/{static}/<filepath:path>")
-        @app.route(f"/{static}/<filepath:path>")
         def send_static(filepath):
             file_path = gw.resource("data", "static", filepath)
             if os.path.isfile(file_path):
                 return static_file(os.path.basename(file_path), root=os.path.dirname(file_path))
             return HTTPResponse(status=404, body="static file not found")
+        add_route(app, f"/{path}/{static}/<filepath:path>", "GET", send_static)
+        add_route(app, f"/{static}/<filepath:path>", "GET", send_static)
         
     if views:
-        @app.route(f"/{path}/<view:path>", method=["GET", "POST"])
         def view_dispatch(view):
             nonlocal home, views
             # --- AUTH CHECK ---
@@ -165,10 +221,10 @@ def setup_app(*,
                 css_files=(f"{media_origin}/{css}.css",),
                 js_files=(f"{media_origin}/{js}.js",),
             )
+        add_route(app, f"/{path}/<view:path>", ["GET", "POST"], view_dispatch)
 
     # API dispatcher (only if apis is not None)
     if apis:
-        @app.route(f"/api/{path}/<view:path>", method=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
         def api_dispatch(view):
             nonlocal home, apis
             # --- AUTH CHECK ---
@@ -206,9 +262,9 @@ def setup_app(*,
                 return res
             except Exception as e:
                 return gw.web.error.redirect("Broken API", err=e)
+        add_route(app, f"/api/{path}/<view:path>", ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], api_dispatch)
             
     if renders:
-        @app.route(f"/render/{path}/<view>/<hash>", method=["GET", "POST"])
         def render_dispatch(view, hash):
             nonlocal renders
             # --- AUTH CHECK ---
@@ -265,8 +321,8 @@ def setup_app(*,
             except Exception as e:
                 return gw.web.error.redirect("Broken render function", err=e)
 
-        
-    @app.route("/favicon.ico")
+        add_route(app, f"/render/{path}/<view>/<hash>", ["GET", "POST"], render_dispatch)
+
     def favicon():
         proj_parts = project.split('.')
         candidate = gw.resource("data", "static", *proj_parts, "favicon.ico")
@@ -276,6 +332,7 @@ def setup_app(*,
         if os.path.isfile(global_favicon):
             return static_file("favicon.ico", root=os.path.dirname(global_favicon))
         return HTTPResponse(status=404, body="favicon.ico not found")
+    add_route(app, "/favicon.ico", "GET", favicon)
 
     if gw.verbose:
         gw.info(f"Registered homes: {_homes}")
@@ -298,6 +355,13 @@ def build_url(*args, **kwargs):
 def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
     global _ver
     version = _ver = _ver or gw.version()
+    fresh = _format_fresh(_refresh_fresh_date())
+    build = ""
+    if getattr(gw, "debug_enabled", False):
+        try:
+            build = f" Build: {gw.release.commit()}"
+        except Exception:
+            build = ""
 
     css_files = gw.cast.to_list(css_files)
     theme_css = None
@@ -343,9 +407,10 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
                 <div class="layout">
                     {{!nav}}<main>{{!content}}</main>
                 </div>
-                <footer><p>This website was <strong>built</strong>, <strong>tested</strong> 
-                    and <strong>released</strong> with <a href="https://arthexis.com">GWAY</a> 
-                    <a href="https://pypi.org/project/gway/{{!version}}/">v{{!version}}</a>.</p>
+                <footer><p>This website was <strong>built</strong>, <strong>tested</strong>
+                    and <strong>released</strong> with <a href="https://arthexis.com">GWAY</a>
+                    <a href="https://pypi.org/project/gway/{{!version}}/">v{{!version}}</a>,
+                    fresh since {{!fresh}}{{!build}}.</p>
                     {{!credits}}
                 </footer>
             </div>
@@ -364,6 +429,24 @@ def default_home():
 def debug_routes(app):
     for route in app.routes:
         gw.debug(f"{route.method:6} {route.rule:30} -> {route.callback.__name__}")
+
+def _route_exists(app, rule: str, methods) -> bool:
+    methods = gw.cast.to_list(methods)
+    for route in app.routes:
+        if route.rule == rule and route.method in methods:
+            return True
+    return False
+
+def add_route(app, rule: str, method, callback):
+    """Register route unless already handled."""
+    methods = gw.cast.to_list(method or "GET")
+    for m in methods:
+        key = (m.upper(), rule)
+        if key in _registered_routes or _route_exists(app, rule, m):
+            gw.debug(f"Skipping duplicate route: {m} {rule}")
+            continue
+        _registered_routes.add(key)
+        app.route(rule, method=m)(callback)
 
 def is_setup(project_name):
     global _enabled
