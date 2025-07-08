@@ -5,7 +5,7 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .llama_index_core_base_llms_types_chat_message_blocks_item import LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem
-from .llama_index_core_base_llms_types_message_role import LlamaIndexCoreBaseLlmsTypesMessageRole
+from .message_role import MessageRole
 
 try:
     import pydantic
@@ -21,7 +21,7 @@ class LlamaIndexCoreBaseLlmsTypesChatMessage(pydantic.BaseModel):
     Chat message.
     """
 
-    role: typing.Optional[LlamaIndexCoreBaseLlmsTypesMessageRole]
+    role: typing.Optional[MessageRole]
     additional_kwargs: typing.Optional[typing.Dict[str, typing.Any]]
     blocks: typing.Optional[typing.List[LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem]]
 

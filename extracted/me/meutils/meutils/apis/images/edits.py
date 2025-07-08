@@ -161,6 +161,15 @@ async def make_request_for_baidu(payload, token: Optional[str] = None, response_
 
 
 async def edit_image(request: ImageProcess):
+    if request.model == "clarity":
+        # payload['type'] = "3"
+        #
+        # return await make_request_for_baidu(payload, response_format=request.response_format)
+        # 临时替换
+        from meutils.apis.baidu.image_enhance import image_enhance
+        data = await image_enhance(request.image)
+        return ImagesResponse(data=[{"url": data.get("image")}])
+
     image, mask = await asyncio.gather(to_base64(request.image), to_base64(request.mask))
 
     # baidu_url = "https://chatfire.hkg.bcebos.com/zjz.jpg"
@@ -191,6 +200,9 @@ async def edit_image(request: ImageProcess):
         payload['type'] = "3"
 
         return await make_request_for_baidu(payload, response_format=request.response_format)
+
+
+
 
     elif request.model == "expand":
         payload['type'] = "4"
@@ -223,8 +235,8 @@ if __name__ == '__main__':
     # hunyuan
     token = "web_uid=ac283ec7-4bf6-40c9-a0ce-5a2e0cd7db06; hy_source=web; hy_user=I09MgMfFcUUyVSIg; hy_token=hevVCi/QuVjQcre5NDRMO7FuiWCZoDMIq3Zp8IwNxrPUofl4zWYazHEdeZ2S5o7q; _qimei_q36=; _qimei_h38=f2d27f50f0f23e085296d28303000006a17a09; _qimei_fingerprint=efbb885a22f7d4e5589008c28bc8e7ba; _qimei_uuid42=18c0310102d1002a082420cd40bb9717523c3c7e12; _gcl_au=1.1.915258067.1733278380; _ga_RPMZTEBERQ=GS1.1.1733722091.3.1.1733722108.0.0.0; _ga=GA1.2.981511920.1725261466; sensorsdata2015jssdkcross=%7B%22distinct_id%22%3A%22100000458739%22%2C%22first_id%22%3A%22191b198c7b2d52-0fcca8d731cb9b8-18525637-2073600-191b198c7b31fd9%22%2C%22props%22%3A%7B%22%24latest_traffic_source_type%22%3A%22%E7%A4%BE%E4%BA%A4%E7%BD%91%E7%AB%99%E6%B5%81%E9%87%8F%22%2C%22%24latest_utm_medium%22%3A%22cpc%22%7D%2C%22identities%22%3A%22eyIkaWRlbnRpdHlfY29va2llX2lkIjoiMTkxYjE5OGM3YjJkNTItMGZjY2E4ZDczMWNiOWI4LTE4NTI1NjM3LTIwNzM2MDAtMTkxYjE5OGM3YjMxZmQ5IiwiJGlkZW50aXR5X2xvZ2luX2lkIjoiMTAwMDAwNDU4NzM5In0%3D%22%2C%22history_login_id%22%3A%7B%22name%22%3A%22%24identity_login_id%22%2C%22value%22%3A%22100000458739%22%7D%2C%22%24device_id%22%3A%22191b198c7b2d52-0fcca8d731cb9b8-18525637-2073600-191b198c7b31fd9%22%7D"
 
-    url = "https://api.chatfire.cn/beta/https://s3.ffire.cc/files/jimeng.jpg"
-    # url = "https://juzhen-1318772386.cos.ap-guangzhou.myqcloud.com/mj/2025/06/07/7b347a36-8146-4d3d-a5dc-0b8dc365817d.png"
+    # url = "https://api.chatfire.cn/beta/https://s3.ffire.cc/files/jimeng.jpg"
+    url = "https://juzhen-1318772386.cos.ap-guangzhou.myqcloud.com/mj/2025/06/07/7b347a36-8146-4d3d-a5dc-0b8dc365817d.png"
     # url = "https://oss.ffire.cc/files/shuiyin.jpg"
     # url = "https://oss.ffire.cc/files/shuiyin3.jpg"
 

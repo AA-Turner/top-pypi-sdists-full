@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bubus
-Version: 1.3.0
+Version: 1.4.1
 Summary: Advanced Pydantic-powered event bus with async support
 Project-URL: Repository, https://github.com/browser-use/bubus
 Author: Nick Sweeting
@@ -21,7 +21,9 @@ Description-Content-Type: text/markdown
 
 Bubus is a fully-featured, Pydantic-powered event bus library for async Python.
 
-It's designed for building reactive, event-driven applications with Python. It provides a powerful yet simple [pydantic](https://docs.pydantic.dev/latest/)-based API for implementing publish-subscribe patterns with type safety, async/sync handler support, and advanced features like event forwarding between buses.
+It's designed for quickly building event-driven applications with Python in a way that "just works" with async support, proper support for nested events, and real concurrency control.
+
+It provides a [pydantic](https://docs.pydantic.dev/latest/)-based API for implementing publish-subscribe patterns with type safety, async/sync handler support, and advanced features like event forwarding between buses. It's inspired by the simplicity of `JS`'s async system and DOM events APIs, and it aims to bring a fully type-checked [`EventTarget`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)-style API to Python.
 
 ## 🔢 Quickstart
 
@@ -50,7 +52,7 @@ async def handle_login(login_event: UserLoginEvent):
     return {"status": "success", "user": event.username}
 
 
-bus.on('UserLoginEvent', handle_login)
+bus.on(UserLoginEvent, handle_login)
 
 event = bus.dispatch(UserLoginEvent(username="alice", timestamp=1234567890))
 result = await event
@@ -65,7 +67,7 @@ print(f"Login handled: {result.event_results}")
 
 ## ✨ Features
 
-### Type-Safe Events with Pydantic
+### 🔠 Type-Safe Events with Pydantic
 
 Define events as Pydantic models with full type checking and validation:
 
@@ -88,7 +90,7 @@ event = OrderCreatedEvent(
 )
 ```
 
-### Async and Sync Handler Support
+### 🔀 Async and Sync Handler Support
 
 Register both synchronous and asynchronous handlers for maximum flexibility:
 
@@ -129,7 +131,7 @@ bus.on('MyEvent', SomeClass.handler_can_be_classmethods)
 bus.on('MyEvent', SomeClass.handlers_can_be_staticmethods)
 ```
 
-### Event Pattern Matching
+### 🔎 Event Pattern Matching
 
 Subscribe to events using multiple patterns:
 
@@ -144,7 +146,7 @@ bus.on(UserActionEvent, handler)
 bus.on('*', universal_handler)
 ```
 
-### Forward `Events` Between `EventBus`s 
+### ⏩ Forward `Events` Between `EventBus`s 
 
 You can define separate `EventBus` instances in different "microservices" to separate different areas of concern.
 `EventBus`s can be set up to forward events between each other (with automatic loop prevention):
@@ -165,23 +167,22 @@ await event
 print(event.event_path)  # ['MainBus', 'AuthBus', 'DataBus']  # list of buses that have already procssed the event
 ```
 
-### Event Results Aggregation
+### 🔱 Event Results Aggregation
 
 Collect and aggregate results from multiple handlers:
 
 ```python
-async def config_handler_1(event):
+async def load_user_config(event):
     return {"debug": True, "port": 8080}
 
-async def config_handler_2(event):
+async def load_system_config(event):
     return {"debug": False, "timeout": 30}
 
-bus.on('GetConfig', config_handler_1)
-bus.on('GetConfig', config_handler_2)
+bus.on('GetConfig', load_user_config)
+bus.on('GetConfig', load_system_config)
 
-event = await bus.dispatch(BaseEvent(event_type='GetConfig'))
-
-# Merge all dict results
+# Get a merger of all dict results
+event = await bus.dispatch(GetConfig())
 config = await event.event_results_flat_dict()
 # {'debug': False, 'port': 8080, 'timeout': 30}
 
@@ -189,7 +190,7 @@ config = await event.event_results_flat_dict()
 results = await event.event_results_by_handler_id()
 ```
 
-### FIFO Event Processing
+### 🚦 FIFO Event Processing
 
 Events are processed in strict FIFO order, maintaining consistency:
 
@@ -222,7 +223,41 @@ await bus.dispatch(MainEvent()).event_result()
 # result from awaiting child event: xyz123
 ```
 
-### Parallel Handler Execution
+### 🧹 Memory Management
+
+EventBus includes automatic memory management to prevent unbounded growth in long-running applications:
+
+```python
+# Create a bus with memory limits (default: 50 events)
+bus = EventBus(max_history_size=100)  # Keep max 100 events in history
+
+# Or disable memory limits for unlimited history
+bus = EventBus(max_history_size=None)
+```
+
+**Automatic Cleanup:**
+- When `max_history_size` is set, EventBus automatically removes old events when the limit is exceeded
+- Completed events are removed first (oldest first), then started events, then pending events
+- This ensures active events are preserved while cleaning up old completed events
+
+**Manual Memory Management:**
+```python
+# For request-scoped buses (e.g. web servers), clear all memory after each request
+try:
+    event_service = EventService()  # Creates internal EventBus
+    await event_service.process_request()
+finally:
+    # Clear all event history and remove from global tracking
+    await event_service.eventbus.stop(clear=True)
+```
+
+**Memory Monitoring:**
+- EventBus automatically monitors total memory usage across all instances
+- Warnings are logged when total memory exceeds 50MB
+- Use `bus.stop(clear=True)` to completely free memory for unused buses
+- To avoid memory leaks from big events, the default limits are intentionally kept low. events are normally processed as they come in, and there is rarely a need to keep every event in memory longer after its complete. long-term storage should be accomplished using other mechanisms, like the WAL
+
+### ⛓️ Parallel Handler Execution
 
 Enable parallel processing of handlers for better performance.  
 The tradeoff is slightly less deterministic ordering as handler execution order will not be guaranteed when run in parallel.
@@ -240,7 +275,7 @@ await bus.dispatch(DataEvent())
 # Total time: ~1 second (not 2)
 ```
 
-### Dispatch Nested Child Events From Handlers
+### 🪆 Dispatch Nested Child Events From Handlers
 
 Automatically track event relationships and causality tree:
 
@@ -270,7 +305,7 @@ print(bus.log_tree())                        # print a nice pretty tree view of 
 <img width="1145" alt="image" src="https://github.com/user-attachments/assets/f94684a6-7694-4066-b948-46925f47b56c" />
 
 
-### Expect an Event to be Dispatched
+### ⏳ Expect an Event to be Dispatched
 
 Wait for specific events to be seen on a bus with optional filtering:
 
@@ -290,7 +325,7 @@ response_event = await bus.expect(
 > [!IMPORTANT]
 > `expect()` resolves when the event is first *dispatched* to the `EventBus`, not when it completes. `await response_event` to get the completed event.
 
-### Write-Ahead Logging
+### 📝 Write-Ahead Logging
 
 Persist events automatically for durability and debugging:
 
@@ -322,7 +357,8 @@ The main event bus class that manages event processing and handler execution.
 EventBus(
     name: str | None = None,
     wal_path: Path | str | None = None,
-    parallel_handlers: bool = False
+    parallel_handlers: bool = False,
+    max_history_size: int | None = 50
 )
 ```
 
@@ -331,15 +367,17 @@ EventBus(
 - `name`: Optional unique name for the bus (auto-generated if not provided)
 - `wal_path`: Path for write-ahead logging of events to a `jsonl` file (optional)
 - `parallel_handlers`: If `True`, handlers run concurrently for each event, otherwise serially if `False` (the default)
+- `max_history_size`: Maximum number of events to keep in history (default: 50, None = unlimited)
 
 #### `EventBus` Properties
 
 - `name`: The bus identifier
 - `id`: Unique UUID7 for this bus instance
-- `event_history`: Dict of all events the bus has seen by event_id
+- `event_history`: Dict of all events the bus has seen by event_id (limited by `max_history_size`)
 - `events_pending`: List of events waiting to be processed
 - `events_started`: List of events currently being processed
 - `events_completed`: List of completed events
+- `all_instances`: Class-level WeakSet tracking all active EventBus instances (for memory monitoring)
 
 
 #### `EventBus` Methods
@@ -362,6 +400,8 @@ Enqueue an event for processing and return the pending `Event` immediately (sync
 event = bus.dispatch(MyEvent(data="test"))
 result = await event  # await the pending Event to get the completed Event
 ```
+
+**Note:** When `max_history_size` is set, EventBus enforces a hard limit of 100 pending events (queue + processing) to prevent runaway memory usage. Dispatch will raise `RuntimeError` if this limit is exceeded.
 
 ##### `expect(event_type: str | Type[BaseEvent], timeout: float | None=None, predicate: Callable[[BaseEvent], bool]=None) -> BaseEvent`
 
@@ -388,13 +428,14 @@ await bus.wait_until_idle()             # wait indefinitely until EventBus has f
 await bus.wait_until_idle(timeout=5.0)  # wait up to 5 seconds
 ```
 
-##### `stop(timeout: float | None=None)`
+##### `stop(timeout: float | None=None, clear: bool=False)`
 
-Stop the event bus, optionally waiting for pending events.
+Stop the event bus, optionally waiting for pending events and clearing memory.
 
 ```python
 await bus.stop(timeout=1.0)  # Graceful stop, wait up to 1sec for pending and active events to finish processing
 await bus.stop()             # Immediate shutdown, aborts all pending and actively processing events
+await bus.stop(clear=True)   # Stop and clear all event history and handlers to free memory
 ```
 
 ---
@@ -549,6 +590,111 @@ Await the `EventResult` object directly to get the raw result value.
 ```python
 handler_result = event.event_results['handler_id']
 value = await handler_result  # Returns result or raises an exception if handler hits an error
+```
+
+---
+
+## 🧵 Advanced Concurrency Control
+
+### `@retry` Decorator
+
+The `@retry` decorator provides automatic retry functionality with built-in concurrency control for any function, including event handlers. This is particularly useful when handlers interact with external services that may temporarily fail.
+
+```python
+from bubus import EventBus, BaseEvent
+from bubus.helpers import retry
+
+bus = EventBus()
+
+class FetchDataEvent(BaseEvent):
+    url: str
+
+@retry(
+    wait=2,                     # Wait 2 seconds between retries
+    retries=3,                  # Retry up to 3 times after initial failure
+    timeout=5,                  # Each attempt times out after 5 seconds
+    semaphore_limit=5,          # Max 5 concurrent executions
+    backoff_factor=1.5,         # Exponential backoff: 2s, 3s, 4.5s
+    retry_on=(TimeoutError, ConnectionError)  # Only retry on specific exceptions
+)
+async def fetch_with_retry(event: FetchDataEvent):
+    # This handler will automatically retry on network failures
+    async with aiohttp.ClientSession() as session:
+        async with session.get(event.url) as response:
+            return await response.json()
+
+bus.on(FetchDataEvent, fetch_with_retry)
+```
+
+#### Retry Parameters
+
+- **`timeout`**: Maximum amount of time function is allowed to take per attempt, in seconds (default: 5)
+- **`retries`**: Number of additional retry attempts if function raises an exception (default: 3)
+- **`retry_on`**: Tuple of exception types to retry on (default: `None` = retry on any `Exception`)
+- **`wait`**: Base seconds to wait between retries (default: 3)
+- **`backoff_factor`**: Multiplier for wait time after each retry (default: 1.0)
+- **`semaphore_limit`**: Maximum number of concurrent calls that can run at the same time
+- **`semaphore_scope`**: Scope for the semaphore: `class`, `self`, `global`, or `multiprocess`
+- **`semaphore_timeout`**: Maximum time to wait for a semaphore slot before proceeding or failing
+- **`semaphore_lax`**: Continue anyway if semaphore fails to be acquired in within the given time
+- **`semaphore_name`**: Unique semaphore name to allow sharing a semaphore between functions
+
+#### Semaphore Options
+
+Control concurrency with built-in semaphore support:
+
+```python
+# Global semaphore - all calls share one limit
+@retry(semaphore_limit=3, semaphore_scope='global')
+async def global_limited_handler(event): ...
+
+# Per-class semaphore - all instances of a class share one limit
+class MyService:
+    @retry(semaphore_limit=2, semaphore_scope='class')
+    async def class_limited_handler(self, event): ...
+
+# Per-instance semaphore - each instance gets its own limit
+class MyService:
+    @retry(semaphore_limit=1, semaphore_scope='self')
+    async def instance_limited_handler(self, event): ...
+
+# Cross-process semaphore - all processes share one limit
+@retry(semaphore_limit=5, semaphore_scope='multiprocess')
+async def process_limited_handler(event): ...
+```
+
+#### Advanced Example
+
+```python
+import logging
+
+# Configure logging to see retry attempts
+logging.basicConfig(level=logging.INFO)
+
+class DatabaseEvent(BaseEvent):
+    query: str
+
+class DatabaseService:
+    @retry(
+        wait=1,
+        retries=5,
+        timeout=10,
+        semaphore_limit=10,          # Max 10 concurrent DB operations
+        semaphore_scope='class',     # Shared across all instances
+        semaphore_timeout=30,        # Wait up to 30s for semaphore
+        semaphore_lax=False,         # Fail if can't acquire semaphore
+        backoff_factor=2.0,          # Exponential backoff: 1s, 2s, 4s, 8s, 16s
+        retry_on=(ConnectionError, TimeoutError)
+    )
+    async def execute_query(self, event: DatabaseEvent):
+        # Automatically retries on connection failures
+        # Limited to 10 concurrent operations across all instances
+        result = await self.db.execute(event.query)
+        return result
+
+# Register the handler
+db_service = DatabaseService()
+bus.on(DatabaseEvent, db_service.execute_query)
 ```
 
 <br/>

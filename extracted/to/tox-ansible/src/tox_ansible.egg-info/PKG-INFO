@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-ansible
-Version: 25.5.2
+Version: 25.5.3
 Summary: A radical approach to testing ansible content
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>

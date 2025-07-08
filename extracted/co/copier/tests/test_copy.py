@@ -852,93 +852,89 @@ def test_required_choice_question_without_data(
 
 
 @pytest.mark.parametrize(
-    "type_name, default, expected",
+    "spec, expected",
     [
-        ("str", "string", does_not_raise()),
-        ("str", "1.0", does_not_raise()),
-        ("str", 1.0, does_not_raise()),
-        ("str", None, pytest.raises(TypeError)),
+        ({"type": "str", "default": "string"}, does_not_raise()),
+        ({"type": "str", "default": "1.0"}, does_not_raise()),
+        ({"type": "str", "default": 1.0}, does_not_raise()),
+        ({"type": "str", "default": None}, pytest.raises(TypeError)),
         (
             {
                 "type": "str",
+                "default": "",
+                "validator": "[% if q|length < 3 %]too short[% endif %]",
+            },
+            pytest.raises(ValueError),
+        ),
+        (
+            {
+                "type": "str",
+                "default": "",
                 "secret": True,
                 "validator": "[% if q|length < 3 %]too short[% endif %]",
             },
-            "",
             pytest.raises(ValueError),
         ),
-        ("int", 1, does_not_raise()),
-        ("int", 1.0, does_not_raise()),
-        ("int", "1", does_not_raise()),
-        ("int", "1.0", pytest.raises(ValueError)),
-        ("int", "no-int", pytest.raises(ValueError)),
-        ("int", None, pytest.raises(TypeError)),
-        ("int", {}, pytest.raises(TypeError)),
-        ("int", [], pytest.raises(TypeError)),
-        ("float", 1.1, does_not_raise()),
-        ("float", 1, does_not_raise()),
-        ("float", "1.1", does_not_raise()),
-        ("float", "no-float", pytest.raises(ValueError)),
-        ("float", None, pytest.raises(TypeError)),
-        ("float", {}, pytest.raises(TypeError)),
-        ("float", [], pytest.raises(TypeError)),
-        ("bool", True, does_not_raise()),
-        ("bool", False, does_not_raise()),
-        ("bool", "y", does_not_raise()),
-        ("bool", "n", does_not_raise()),
-        ("bool", None, pytest.raises(TypeError)),
-        ("json", '"string"', does_not_raise()),
-        ("json", "1", does_not_raise()),
-        ("json", 1, does_not_raise()),
-        ("json", "1.1", does_not_raise()),
-        ("json", 1.1, does_not_raise()),
-        ("json", "true", does_not_raise()),
-        ("json", True, does_not_raise()),
-        ("json", "false", does_not_raise()),
-        ("json", False, does_not_raise()),
-        ("json", "{}", does_not_raise()),
-        ("json", {}, does_not_raise()),
-        ("json", "[]", does_not_raise()),
-        ("json", [], does_not_raise()),
-        ("json", "null", does_not_raise()),
-        ("json", None, does_not_raise()),
-        ("yaml", '"string"', does_not_raise()),
-        ("yaml", "string", does_not_raise()),
-        ("yaml", "1", does_not_raise()),
-        ("yaml", 1, does_not_raise()),
-        ("yaml", "1.1", does_not_raise()),
-        ("yaml", 1.1, does_not_raise()),
-        ("yaml", "true", does_not_raise()),
-        ("yaml", True, does_not_raise()),
-        ("yaml", "false", does_not_raise()),
-        ("yaml", False, does_not_raise()),
-        ("yaml", "{}", does_not_raise()),
-        ("yaml", {}, does_not_raise()),
-        ("yaml", "[]", does_not_raise()),
-        ("yaml", [], does_not_raise()),
-        ("yaml", "null", does_not_raise()),
-        ("yaml", None, does_not_raise()),
+        ({"type": "int", "default": 1}, does_not_raise()),
+        ({"type": "int", "default": 1.0}, does_not_raise()),
+        ({"type": "int", "default": "1"}, does_not_raise()),
+        ({"type": "int", "default": "1.0"}, pytest.raises(ValueError)),
+        ({"type": "int", "default": "no-int"}, pytest.raises(ValueError)),
+        ({"type": "int", "default": None}, pytest.raises(TypeError)),
+        ({"type": "int", "default": {}}, pytest.raises(TypeError)),
+        ({"type": "int", "default": []}, pytest.raises(TypeError)),
+        ({"type": "float", "default": 1.1}, does_not_raise()),
+        ({"type": "float", "default": 1}, does_not_raise()),
+        ({"type": "float", "default": "1.1"}, does_not_raise()),
+        ({"type": "float", "default": "no-float"}, pytest.raises(ValueError)),
+        ({"type": "float", "default": None}, pytest.raises(TypeError)),
+        ({"type": "float", "default": {}}, pytest.raises(TypeError)),
+        ({"type": "float", "default": []}, pytest.raises(TypeError)),
+        ({"type": "bool", "default": True}, does_not_raise()),
+        ({"type": "bool", "default": False}, does_not_raise()),
+        ({"type": "bool", "default": "y"}, does_not_raise()),
+        ({"type": "bool", "default": "n"}, does_not_raise()),
+        ({"type": "bool", "default": None}, pytest.raises(TypeError)),
+        ({"type": "json", "default": '"string"'}, does_not_raise()),
+        ({"type": "json", "default": "1"}, does_not_raise()),
+        ({"type": "json", "default": 1}, does_not_raise()),
+        ({"type": "json", "default": "1.1"}, does_not_raise()),
+        ({"type": "json", "default": 1.1}, does_not_raise()),
+        ({"type": "json", "default": "true"}, does_not_raise()),
+        ({"type": "json", "default": True}, does_not_raise()),
+        ({"type": "json", "default": "false"}, does_not_raise()),
+        ({"type": "json", "default": False}, does_not_raise()),
+        ({"type": "json", "default": "{}"}, does_not_raise()),
+        ({"type": "json", "default": {}}, does_not_raise()),
+        ({"type": "json", "default": "[]"}, does_not_raise()),
+        ({"type": "json", "default": []}, does_not_raise()),
+        ({"type": "json", "default": "null"}, does_not_raise()),
+        ({"type": "json", "default": None}, does_not_raise()),
+        ({"type": "yaml", "default": '"string"'}, does_not_raise()),
+        ({"type": "yaml", "default": "string"}, does_not_raise()),
+        ({"type": "yaml", "default": "1"}, does_not_raise()),
+        ({"type": "yaml", "default": 1}, does_not_raise()),
+        ({"type": "yaml", "default": "1.1"}, does_not_raise()),
+        ({"type": "yaml", "default": 1.1}, does_not_raise()),
+        ({"type": "yaml", "default": "true"}, does_not_raise()),
+        ({"type": "yaml", "default": True}, does_not_raise()),
+        ({"type": "yaml", "default": "false"}, does_not_raise()),
+        ({"type": "yaml", "default": False}, does_not_raise()),
+        ({"type": "yaml", "default": "{}"}, does_not_raise()),
+        ({"type": "yaml", "default": {}}, does_not_raise()),
+        ({"type": "yaml", "default": "[]"}, does_not_raise()),
+        ({"type": "yaml", "default": []}, does_not_raise()),
+        ({"type": "yaml", "default": "null"}, does_not_raise()),
+        ({"type": "yaml", "default": None}, does_not_raise()),
     ],
 )
 def test_validate_default_value(
     tmp_path_factory: pytest.TempPathFactory,
-    type_name: str,
-    default: Any,
+    spec: AnyByStrDict,
     expected: AbstractContextManager[None],
 ) -> None:
     src, dst = map(tmp_path_factory.mktemp, ("src", "dst"))
-    build_file_tree(
-        {
-            (src / "copier.yml"): yaml.dump(
-                {
-                    "q": {
-                        "type": type_name,
-                        "default": default,
-                    }
-                }
-            )
-        }
-    )
+    build_file_tree({(src / "copier.yml"): yaml.dump({"q": spec})})
     with expected:
         copier.run_copy(str(src), dst, defaults=True)
 
@@ -1041,6 +1037,164 @@ def test_templated_choices(tmp_path_factory: pytest.TempPathFactory, spec: str) 
     )
     copier.run_copy(str(src), dst, data={"q": "two"})
     assert yaml.safe_load((dst / "q.txt").read_text()) == "two"
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (
+            """\
+            type: str
+            choices: ["one", "two", "three"]
+            multiselect: true
+            default: "{{ '[one, three]' }}"
+            """,
+            ["one", "three"],
+        ),
+        (
+            """\
+            type: str
+            choices:
+                one: '[1]'
+                two: '[2]'
+                three: '[3]'
+            multiselect: true
+            # NOTE: Balanced (nested) brackets don't need to be quoted because the
+            # shallow list parser retains raw list items
+            default: "{{ '[[1], [3]]' }}"
+            """,
+            ["[1]", "[3]"],
+        ),
+        (
+            """\
+            type: str
+            choices:
+                left: '['
+                right: ']'
+            multiselect: true
+            # NOTE: Unbalanced brackets need to be explicitly quoted to avoid ambiguity
+            # with the surrounding list brackets.
+            default: >
+                {{ '["[", "]"]' }}
+            """,
+            ["[", "]"],
+        ),
+        (
+            """\
+            type: int
+            choices: [1, 2, 3]
+            multiselect: true
+            default: "{{ '[1, 3]' }}"
+            """,
+            [1, 3],
+        ),
+        (
+            """\
+            type: int
+            choices: ['1', '2', '3']
+            multiselect: true
+            default: >
+                {{ '["1", "3"]' }}
+            """,
+            [1, 3],
+        ),
+        (
+            """\
+            type: float
+            choices: [1.0, 2.0, 3.0]
+            multiselect: true
+            default: "{{ '[1.0, 3.0]' }}"
+            """,
+            [1.0, 3.0],
+        ),
+        (
+            """\
+            type: float
+            choices: ['1.0', '2.0', '3.0']
+            multiselect: true
+            default: >
+                {{ '["1.0", "3.0"]' }}
+            """,
+            [1.0, 3.0],
+        ),
+        (
+            """\
+            type: json
+            choices:
+                one: '{"value": 1}'
+                two: '{"value": 2}'
+                three: '{"value": 3}'
+            multiselect: true
+            default: |
+                {%- if true %}
+                - '{"value": 1}'
+                - '{"value": 3}'
+                {%- endif %}
+            """,
+            [{"value": 1}, {"value": 3}],
+        ),
+        (
+            """\
+            type: yaml
+            choices:
+                one: '{value: [1, null]}'
+                two: '{value: [2, null]}'
+                three: '{value: [3, null]}'
+            multiselect: true
+            default: |
+                {%- if true %}
+                - {value: [1, null]}
+                - {value: [3, null]}
+                {%- endif %}
+            """,
+            [{"value": [1, None]}, {"value": [3, None]}],
+        ),
+        (
+            """\
+            type: yaml
+            choices:
+                one: '{value: [1, null]}'
+                two: '{value: [2, null]}'
+                three: '{value: [3, null]}'
+            multiselect: true
+            default: |
+                {%- if true %}
+                - '{value: [1, null]}'
+                - '{value: [3, null]}'
+                {%- endif %}
+            """,
+            [{"value": [1, None]}, {"value": [3, None]}],
+        ),
+        (
+            """\
+            type: yaml
+            choices:
+                one: '{value: "[1]"}'
+                two: '{value: "[2]"}'
+                three: '{value: "[3]"}'
+            multiselect: true
+            default: |
+                {%- if true %}
+                - {value: '[1]'}
+                - {value: '[3]'}
+                {%- endif %}
+            """,
+            [{"value": "[1]"}, {"value": "[3]"}],
+        ),
+    ],
+)
+def test_multiselect_choices_with_templated_default_value(
+    tmp_path_factory: pytest.TempPathFactory, spec: str, expected: Any
+) -> None:
+    src, dst = map(tmp_path_factory.mktemp, ("src", "dst"))
+    build_file_tree(
+        {
+            (src / "copier.yml"): f"q:\n{indent(dedent(spec), ' ' * 4)}",
+            (src / "q.yml.jinja"): "{{ q | to_nice_yaml }}",
+        }
+    )
+    copier.run_copy(str(src), dst, defaults=True)
+    assert yaml.safe_load((dst / "q.yml").read_bytes()) == expected
 
 
 def test_copier_phase_variable(tmp_path_factory: pytest.TempPathFactory) -> None:

@@ -116,8 +116,7 @@ logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.dataset import Dataset
 
     class SegmentationDict(TypedDict):

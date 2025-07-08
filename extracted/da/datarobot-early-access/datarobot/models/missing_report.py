@@ -19,7 +19,7 @@ from datarobot._compat import Int, String
 from datarobot.models.api_object import APIObject
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class TaskInfo(TypedDict):
         name: str

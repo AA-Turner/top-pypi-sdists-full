@@ -13,9 +13,9 @@ import datetime
 from typing import List, Optional
 
 import dateutil
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.models.api_object import APIObject
 from datarobot.models.model_registry.common import UserMetadata
 

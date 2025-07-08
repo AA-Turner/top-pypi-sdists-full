@@ -7,8 +7,10 @@ from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from inspect import currentframe, ismethod
+from os import getenv
 from pathlib import Path
-from site import getsitepackages
+from site import getsitepackages, getusersitepackages
+from sysconfig import get_paths
 from types import ModuleType, TracebackType
 from typing import Self
 from weakref import WeakValueDictionary
@@ -152,11 +154,20 @@ class ReactiveModuleLoader(Loader):
 _loader = ReactiveModuleLoader()  # This is a singleton loader instance used by the finder
 
 
+def _deduplicate(input_paths: Iterable[str | Path]):
+    paths = [*{Path(p).resolve(): None for p in input_paths}]  # dicts preserve insertion order
+    for i, p in enumerate(s := sorted(paths, reverse=True), start=1):
+        if is_relative_to_any(p, s[i:]):
+            paths.remove(p)
+    return paths
+
+
 class ReactiveModuleFinder(MetaPathFinder):
     def __init__(self, includes: Iterable[str] = ".", excludes: Iterable[str] = ()):
         super().__init__()
-        self.includes = [Path(i).resolve() for i in includes]
-        self.excludes = [Path(e).resolve() for e in (*excludes, *getsitepackages())]
+        builtins = map(get_paths().__getitem__, ("stdlib", "platstdlib", "platlib", "purelib"))
+        self.includes = _deduplicate(includes)
+        self.excludes = _deduplicate((*([venv] if (venv := getenv("VIRTUAL_ENV")) else ()), *getsitepackages(), getusersitepackages(), *builtins, *excludes))
 
         self._last_sys_path: list[str] = []
         self._last_cwd: Path = Path()
@@ -360,4 +371,4 @@ def cli():
     reloader.keep_watching_until_interrupt()
 
 
-__version__ = "0.6.4"
+__version__ = "0.6.4.3"

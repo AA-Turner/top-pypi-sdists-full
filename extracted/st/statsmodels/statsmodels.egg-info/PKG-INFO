@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: statsmodels
-Version: 0.14.4
+Version: 0.14.5
 Summary: Statistical computations and models for Python
 Home-page: https://www.statsmodels.org/
 Download-URL: 
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Developers
@@ -42,6 +43,7 @@ Requires-Dist: setuptools_scm[toml]~=8.0; extra == "develop"
 Requires-Dist: matplotlib>=3; extra == "develop"
 Requires-Dist: colorama; extra == "develop"
 Requires-Dist: joblib; extra == "develop"
+Requires-Dist: jinja2; extra == "develop"
 Requires-Dist: pytest<8,>=7.3.0; extra == "develop"
 Requires-Dist: pytest-randomly; extra == "develop"
 Requires-Dist: pytest-xdist; extra == "develop"
@@ -58,6 +60,19 @@ Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: nbformat; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: pandas-datareader; extra == "docs"
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: docs/source/images/statsmodels-logo-v2-horizontal.svg
   :alt: Statsmodels logo

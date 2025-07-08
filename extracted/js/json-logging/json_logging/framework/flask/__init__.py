@@ -2,8 +2,10 @@
 import logging
 
 import json_logging
+import json_logging.formatters
 import json_logging.framework
-from json_logging.framework_base import AppRequestInstrumentationConfigurator, RequestAdapter, ResponseAdapter
+from json_logging.framework_base import BaseAppRequestInstrumentationConfigurator, BaseRequestInfoExtractor, \
+    BaseResponseInfoExtractor
 
 from json_logging.util import is_not_match_any_pattern
 
@@ -25,10 +27,11 @@ if is_flask_present():
     _flask = flask
 
 
-class FlaskAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfigurator):
-    def config(self, app, exclude_url_patterns=[]):
+class FlaskAppRequestInstrumentationConfigurator(BaseAppRequestInstrumentationConfigurator):
+    def config(self, app, request_response_dto_class, exclude_url_patterns=[]):
         if not is_flask_present():
             raise RuntimeError("flask is not available in system runtime")
+
         from flask.app import Flask
         if not isinstance(app, Flask):
             raise RuntimeError("app is not a valid flask.app.Flask app instance")
@@ -37,7 +40,7 @@ class FlaskAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfig
         logging.getLogger('werkzeug').disabled = True
 
         json_logging.util.update_formatter_for_loggers([logging.getLogger('werkzeug')],
-                                                       json_logging.JSONLogWebFormatter)
+                                                       json_logging.formatters.JSONLogWebFormatter)
 
         # noinspection PyAttributeOutsideInit
         self.request_logger = logging.getLogger('flask-request-logger')
@@ -47,18 +50,19 @@ class FlaskAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfig
         @app.before_request
         def before_request():
             if is_not_match_any_pattern(_current_request.path, exclude_url_patterns):
-                g.request_info = json_logging.RequestInfo(_current_request)
+                g.request_response_data = request_response_dto_class(_current_request)
 
         @app.after_request
         def after_request(response):
-            if hasattr(g, 'request_info'):
-                request_info = g.request_info
-                request_info.update_response_status(response)
-                self.request_logger.info("", extra={'request_info': request_info})
+            if hasattr(g, 'request_response_data'):
+                request_response_data = g.request_response_data
+                request_response_data.on_request_complete(response)
+                self.request_logger.info("", extra={'request_response_data': request_response_data})
+
             return response
 
 
-class FlaskRequestAdapter(RequestAdapter):
+class FlaskRequestInfoExtractor(BaseRequestInfoExtractor):
     @staticmethod
     def get_request_class_type():
         raise NotImplementedError
@@ -116,7 +120,7 @@ class FlaskRequestAdapter(RequestAdapter):
         return request.environ.get('REMOTE_PORT')
 
 
-class FlaskResponseAdapter(ResponseAdapter):
+class FlaskResponseInfoExtractor(BaseResponseInfoExtractor):
     def get_status_code(self, response):
         return response.status_code
 

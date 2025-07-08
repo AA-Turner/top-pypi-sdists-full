@@ -66,7 +66,7 @@ def send(chip, msg_type, step, index):
     msg = MIMEMultipart()
 
     if step and index:
-        subject = f'SiliconCompiler : {chip.design} | {jobname} | {step}{index} | {msg_type}'
+        subject = f'SiliconCompiler : {chip.design} | {jobname} | {step} | {index} | {msg_type}'
     else:
         subject = f'SiliconCompiler : {chip.design} | {jobname} | {msg_type}'
 
@@ -92,7 +92,7 @@ def send(chip, msg_type, step, index):
                     msg.attach(img_attach)
 
             runtime = RuntimeFlowgraph(
-                chip.schema.get("flowgraph", flow, field='schema'),
+                chip.get("flowgraph", flow, field='schema'),
                 from_steps=chip.get('option', 'from'),
                 to_steps=chip.get('option', 'to'),
                 prune_nodes=chip.get('option', 'prune'))
@@ -110,7 +110,7 @@ def send(chip, msg_type, step, index):
                 metric_keys=metrics_to_show)
         else:
             # Attach logs
-            for log in (f'sc_{step}{index}.log', f'{step}.log'):
+            for log in (f'sc_{step}_{index}.log', f'{step}.log'):
                 log_file = f'{chip.getworkdir(step=step, index=index)}/{log}'
                 if os.path.exists(log_file):
                     with sc_open(log_file) as f:

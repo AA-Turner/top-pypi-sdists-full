@@ -1,6 +1,8 @@
 from unittest import TestCase
-from joserfc.jws import register_key_set
-from joserfc.jwk import guess_key, import_key, generate_key
+
+# trigger register_key_set
+import joserfc.jws  # noqa: F401
+from joserfc.jwk import guess_key, import_key, generate_key, thumbprint_uri
 from joserfc.jwk import KeySet, OctKey, RSAKey, ECKey, OKPKey
 from joserfc.errors import (
     UnsupportedKeyAlgorithmError,
@@ -10,8 +12,6 @@ from joserfc.errors import (
     MissingKeyTypeError,
     InvalidKeyIdError,
 )
-
-register_key_set()
 
 
 class Guest:
@@ -26,49 +26,23 @@ class Guest:
 
 
 class TestKeyMethods(TestCase):
-    def test_guess_str_key(self):
-        self.assertRaises(
-            DeprecationWarning,
-            guess_key,
-            "key",
-            Guest(),
-        )
-
-    def test_guess_bytes_key(self):
-        self.assertRaises(
-            DeprecationWarning,
-            guess_key,
-            b"key",
-            Guest(),
-        )
-
     def test_guess_callable_key(self):
         oct_key = OctKey.generate_key(parameters={"kid": "1"})
         rsa_key = RSAKey.generate_key(parameters={"kid": "2"})
 
-        def key_func1(obj):
-            return "key"
-
-        def key_func2(obj):
+        def rsa_key_func(obj):
             return rsa_key
 
-        def key_func3(obj):
+        def key_set_func(obj):
             return KeySet([oct_key, rsa_key])
 
-        self.assertRaises(
-            DeprecationWarning,
-            guess_key,
-            key_func1,
-            Guest(),
-        )
-
-        key2 = guess_key(key_func2, Guest())
-        self.assertIsInstance(key2, RSAKey)
+        key = guess_key(rsa_key_func, Guest())
+        self.assertIsInstance(key, RSAKey)
 
         guest = Guest()
         guest.set_kid("2")
-        key3 = guess_key(key_func3, guest)
-        self.assertIsInstance(key3, RSAKey)
+        key = guess_key(key_set_func, guest)
+        self.assertIsInstance(key, RSAKey)
 
     def test_guess_key_set(self):
         key_set = KeySet([OctKey.generate_key(), RSAKey.generate_key()])
@@ -152,3 +126,15 @@ class TestKeyMethods(TestCase):
 
     def test_import_without_kty(self):
         self.assertRaises(MissingKeyTypeError, import_key, {})
+
+    def test_thumbprint_uri(self):
+        value = thumbprint_uri(
+            {
+                "kty": "EC",
+                "crv": "P-256",
+                "x": "jJ6Flys3zK9jUhnOHf6G49Dyp5hah6CNP84-gY-n9eo",
+                "y": "nhI6iD5eFXgBTLt_1p3aip-5VbZeMhxeFSpjfEAf7Ww",
+            }
+        )
+        expected = "urn:ietf:params:oauth:jwk-thumbprint:sha-256:w9eYdC6_s_tLQ8lH6PUpc0mddazaqtPgeC2IgWDiqY8"
+        self.assertEqual(value, expected)

@@ -33,6 +33,7 @@ class TaskScheduler:
     def __init__(self, chip, tasks):
         self.__chip = chip
         self.__logger = self.__chip.logger
+        self.__logger_console_handler = self.__chip._logger_console
         self.__schema = self.__chip.schema
         self.__flow = self.__schema.get("flowgraph", self.__chip.get('option', 'flow'),
                                         field="schema")
@@ -73,13 +74,14 @@ class TaskScheduler:
             if self.__record.get('status', step=step, index=index) != NodeStatus.PENDING:
                 continue
 
-            threads = tasks[(step, index)].threads
+            with tasks[(step, index)].runtime():
+                threads = tasks[(step, index)].threads
             if not threads:
                 threads = self.__max_threads
             threads = max(1, min(threads, self.__max_threads))
 
             task = {
-                "name": f"{step}{index}",
+                "name": f"{step}/{index}",
                 "inputs": runtime.get_node_inputs(step, index, record=self.__record),
                 "proc": None,
                 "parent_pipe": None,
@@ -93,7 +95,6 @@ class TaskScheduler:
 
             task["parent_pipe"], pipe = multiprocessing.Pipe()
             task["node"].set_queue(pipe, self.__log_queue)
-            task["node"].init_state()  # reinit access to remove holdover access
 
             task["proc"] = multiprocessing.Process(target=task["node"].run)
             init_funcs.add(task["node"].init)
@@ -108,9 +109,9 @@ class TaskScheduler:
         multiprocessing.freeze_support()
 
         # Handle logs across threads
-        log_listener = QueueListener(self.__log_queue, self.__logger._console)
-        console_format = self.__logger._console.formatter
-        self.__logger._console.setFormatter(SCBlankLoggerFormatter())
+        log_listener = QueueListener(self.__log_queue, self.__logger_console_handler)
+        console_format = self.__logger_console_handler.formatter
+        self.__logger_console_handler.setFormatter(SCBlankLoggerFormatter())
         log_listener.start()
 
         # Update dashboard before run begins
@@ -130,7 +131,7 @@ class TaskScheduler:
 
         # Cleanup logger
         log_listener.stop()
-        self.__logger._console.setFormatter(console_format)
+        self.__logger_console_handler.setFormatter(console_format)
 
     def __run_loop(self):
         self.__startTimes = {None: time.time()}

@@ -9,7 +9,7 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import trafaret as t
 
@@ -27,7 +27,7 @@ class APIObject:  # pylint: disable=missing-class-docstring
     _converter = t.Dict({}).allow_extra("*")
 
     @classmethod
-    def _fields(cls):
+    def _fields(cls) -> Set[str]:
         return {k.to_name or k.name for k in cls._converter.keys}
 
     @classmethod
@@ -49,7 +49,7 @@ class APIObject:  # pylint: disable=missing-class-docstring
         cls: Type[T],
         path: str,
         keep_attrs: Optional[List[str]] = None,
-        params: Optional[Dict] = None,
+        params: Optional[Dict[str, Any]] = None,
     ) -> T:
         server_data = cls._server_data(path, params=params)
         return cls.from_server_data(server_data, keep_attrs=keep_attrs)
@@ -82,9 +82,9 @@ class APIObject:  # pylint: disable=missing-class-docstring
         return {key: value for key, value in data.items() if key in fields}
 
     @classmethod
-    def _safe_data(cls, data, do_recursive=False):
+    def _safe_data(cls, data: ServerDataType, do_recursive: bool = False) -> ServerDataDictType:
         return cls._filter_data(cls._converter.check(from_api(data, do_recursive=do_recursive)))
 
     @classmethod
-    def _server_data(cls, path: str, params: Optional[Dict] = None) -> ServerDataType:
+    def _server_data(cls, path: str, params: Optional[Dict[str, Any]] = None) -> ServerDataType:
         return cls._client.get(path, params=params).json()

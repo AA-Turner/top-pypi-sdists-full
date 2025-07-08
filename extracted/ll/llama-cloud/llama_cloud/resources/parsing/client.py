@@ -233,6 +233,7 @@ class ParsingClient:
         language: typing.List[ParserLanguages],
         extract_layout: bool,
         max_pages: typing.Optional[int] = OMIT,
+        merge_tables_across_pages_in_markdown: bool,
         outlined_table_extraction: bool,
         output_pdf_of_document: bool,
         output_s_3_path_prefix: str,
@@ -369,6 +370,8 @@ class ParsingClient:
             - extract_layout: bool.
 
             - max_pages: typing.Optional[int].
+
+            - merge_tables_across_pages_in_markdown: bool.
 
             - outlined_table_extraction: bool.
 
@@ -518,6 +521,7 @@ class ParsingClient:
             "invalidate_cache": invalidate_cache,
             "language": language,
             "extract_layout": extract_layout,
+            "merge_tables_across_pages_in_markdown": merge_tables_across_pages_in_markdown,
             "outlined_table_extraction": outlined_table_extraction,
             "output_pdf_of_document": output_pdf_of_document,
             "output_s3_path_prefix": output_s_3_path_prefix,
@@ -1389,6 +1393,7 @@ class AsyncParsingClient:
         language: typing.List[ParserLanguages],
         extract_layout: bool,
         max_pages: typing.Optional[int] = OMIT,
+        merge_tables_across_pages_in_markdown: bool,
         outlined_table_extraction: bool,
         output_pdf_of_document: bool,
         output_s_3_path_prefix: str,
@@ -1525,6 +1530,8 @@ class AsyncParsingClient:
             - extract_layout: bool.
 
             - max_pages: typing.Optional[int].
+
+            - merge_tables_across_pages_in_markdown: bool.
 
             - outlined_table_extraction: bool.
 
@@ -1674,6 +1681,7 @@ class AsyncParsingClient:
             "invalidate_cache": invalidate_cache,
             "language": language,
             "extract_layout": extract_layout,
+            "merge_tables_across_pages_in_markdown": merge_tables_across_pages_in_markdown,
             "outlined_table_extraction": outlined_table_extraction,
             "output_pdf_of_document": output_pdf_of_document,
             "output_s3_path_prefix": output_s_3_path_prefix,

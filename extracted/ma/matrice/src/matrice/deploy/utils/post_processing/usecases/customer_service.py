@@ -328,11 +328,10 @@ class CustomerServiceUseCase(BaseProcessor):
             result.predictions = predictions
             result.metrics = business_metrics
 
-            # --- Patch: Also update human_text for cumulative counts ---
-            # Compose a human_text string using the same cumulative counts
+            # --- Patch: Compose human_text using current chunk counts, not cumulative ---
             human_text_parts = [
                 summary,
-                f"Detected {len(self._global_customer_ids)} customers and {len(self._global_staff_ids)} staff members"
+                f"Detected {len(current_customer_ids)} customers and {len(current_staff_ids)} staff members"
             ]
             if insights:
                 human_text_parts.extend(insights[1:])  # skip duplicate count line
@@ -554,9 +553,10 @@ class CustomerServiceUseCase(BaseProcessor):
     def _analyze_customer_journeys(self, customer_detections: List[Dict],
                                   config: CustomerServiceConfig) -> Dict[str, Any]:
         """Analyze customer journey patterns and behavior."""
+        # Use global unique customer IDs for total_customers and tracked_customers
         journey_analytics = {
-            "total_customers": len(customer_detections),
-            "tracked_customers": 0,
+            "total_customers": len(self._global_customer_ids),
+            "tracked_customers": len(self._global_customer_ids),
             "area_transitions": [],
             "dwell_times": {},
             "journey_patterns": {}
@@ -625,7 +625,8 @@ class CustomerServiceUseCase(BaseProcessor):
                                   config: CustomerServiceConfig) -> Dict[str, Any]:
         """Analyze staff utilization and efficiency metrics."""
         staff_analytics = {
-            "total_staff": len(staff_detections),
+            # Use global unique staff IDs for total_staff
+            "total_staff": len(self._global_staff_ids),
             "active_staff": 0,
             "staff_efficiency": {},
             "coverage_areas": [],

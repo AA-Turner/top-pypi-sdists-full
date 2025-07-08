@@ -9,15 +9,22 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+from typing import Any, cast, Dict, List, Optional, Union
 
 import trafaret as t
 
 from datarobot._compat import String
 from datarobot.models.api_object import APIObject
-from datarobot.models.execution_environment_version import ExecutionEnvironmentVersion
+from datarobot.models.execution_environment_version import (
+    ExecutionEnvironmentVersion,
+    ExecutionEnvironmentVersionType,
+)
 from datarobot.models.sharing import SharingAccess
 from datarobot.utils.pagination import unpaginate
+
+RequiredMetadataKeyType = Dict[str, str]
 
 
 class RequiredMetadataKey(APIObject):
@@ -38,23 +45,26 @@ class RequiredMetadataKey(APIObject):
 
     schema = _converter
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         self._set_values(**kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{}(field_name={!r}, display_name={!r})".format(
             self.__class__.__name__,
             self.field_name,
             self.display_name,
         )
 
-    def _set_values(self, field_name, display_name):
+    def _set_values(self, field_name: str, display_name: str) -> None:
         self.field_name = field_name
         self.display_name = display_name
 
-    def to_dict(self):
-        return self._converter.check(
-            {"field_name": self.field_name, "display_name": self.display_name}
+    def to_dict(self) -> Dict[str, str]:
+        return cast(
+            RequiredMetadataKeyType,
+            self._converter.check(
+                {"field_name": self.field_name, "display_name": self.display_name}
+            ),
         )
 
 
@@ -108,25 +118,25 @@ class ExecutionEnvironment(APIObject):
         }
     ).ignore_extra("*")
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         self._set_values(**kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.name or self.id!r})"
 
     def _set_values(  # pylint: disable=missing-function-docstring
         self,
-        id,
-        name,
-        description=None,
-        programming_language=None,
-        is_public=None,
-        created_at=None,
-        latest_version=None,
-        latest_successful_version=None,
-        required_metadata_keys=None,
-        use_cases=None,
-    ):
+        id: str,
+        name: str,
+        description: Optional[str] = None,
+        programming_language: Optional[str] = None,
+        is_public: Optional[bool] = None,
+        created_at: Optional[str] = None,
+        latest_version: Optional[ExecutionEnvironmentVersionType] = None,
+        latest_successful_version: Optional[ExecutionEnvironmentVersionType] = None,
+        required_metadata_keys: Optional[List[RequiredMetadataKeyType]] = None,
+        use_cases: Optional[List[str]] = None,
+    ) -> None:
         self.id = id
         self.name = name
         self.description = description
@@ -136,16 +146,18 @@ class ExecutionEnvironment(APIObject):
         self.latest_version = None
         self.latest_successful_version = None
         self.required_metadata_keys = [
-            RequiredMetadataKey.from_data(key) for key in required_metadata_keys
+            RequiredMetadataKey.from_data(key) for key in required_metadata_keys or []
         ]
         self.use_cases = use_cases
 
         if latest_version is not None:
-            latest_version.pop("image_id", None)  # "image_id" is being removed in RAPTOR-2460
+            # "image_id" is being removed in RAPTOR-2460
+            latest_version.pop("image_id", None)  # type: ignore[typeddict-item]
             self.latest_version = ExecutionEnvironmentVersion(**latest_version)
 
         if latest_successful_version is not None:
-            latest_successful_version.pop("image_id", None)
+            # "image_id" is being removed in RAPTOR-2460
+            latest_successful_version.pop("image_id", None)  # type: ignore[typeddict-item]
             self.latest_successful_version = ExecutionEnvironmentVersion(
                 **latest_successful_version
             )
@@ -153,13 +165,13 @@ class ExecutionEnvironment(APIObject):
     @classmethod
     def create(
         cls,
-        name,
-        description=None,
-        programming_language=None,
-        required_metadata_keys=None,
-        is_public=None,
-        use_cases=None,
-    ):
+        name: str,
+        description: Optional[str] = None,
+        programming_language: Optional[str] = None,
+        required_metadata_keys: Optional[List[RequiredMetadataKey]] = None,
+        is_public: Optional[bool] = None,
+        use_cases: Optional[List[str]] = None,
+    ) -> "ExecutionEnvironment":
         """Create an execution environment.
 
         .. versionadded:: v2.21
@@ -193,7 +205,7 @@ class ExecutionEnvironment(APIObject):
             if the server responded with 5xx status
         """
         required_metadata_keys = required_metadata_keys or []
-        payload = {
+        payload: Dict[str, Union[None, str, bool, List[str], List[RequiredMetadataKeyType]]] = {
             "name": name,
             "description": description,
             "programming_language": programming_language,
@@ -209,12 +221,12 @@ class ExecutionEnvironment(APIObject):
     @classmethod
     def list(
         cls,
-        search_for=None,
+        search_for: Optional[str] = None,
         is_own: Optional[bool] = None,
         use_cases: Optional[str] = None,
         offset: Optional[int] = 0,
         limit: Optional[int] = 0,
-    ):
+    ) -> List["ExecutionEnvironment"]:
         """List execution environments available to the user.
 
         .. versionadded:: v2.21
@@ -264,7 +276,7 @@ class ExecutionEnvironment(APIObject):
         return [cls.from_server_data(item) for item in data]
 
     @classmethod
-    def get(cls, execution_environment_id):
+    def get(cls, execution_environment_id: str) -> "ExecutionEnvironment":
         """Get execution environment by its ID.
 
         .. versionadded:: v2.21
@@ -289,7 +301,7 @@ class ExecutionEnvironment(APIObject):
         path = f"{cls._path}{execution_environment_id}/"
         return cls.from_location(path)
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete execution environment.
 
         .. versionadded:: v2.21
@@ -306,12 +318,12 @@ class ExecutionEnvironment(APIObject):
 
     def update(
         self,
-        name=None,
-        description=None,
-        required_metadata_keys=None,
-        is_public=None,
-        use_cases=None,
-    ):
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        required_metadata_keys: Optional[List[RequiredMetadataKey]] = None,
+        is_public: Optional[bool] = None,
+        use_cases: Optional[List[str]] = None,
+    ) -> None:
         """Update execution environment properties.
 
         .. versionadded:: v2.21
@@ -336,7 +348,10 @@ class ExecutionEnvironment(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        payload = {"name": name, "description": description}
+        payload: Dict[str, Union[None, str, bool, List[RequiredMetadataKeyType], List[str]]] = {
+            "name": name,
+            "description": description,
+        }
         if required_metadata_keys is not None:
             payload["required_metadata_keys"] = [key.to_dict() for key in required_metadata_keys]
         if is_public is not None:
@@ -350,7 +365,7 @@ class ExecutionEnvironment(APIObject):
         data = response.json()
         self._set_values(**self._safe_data(data, do_recursive=True))
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Update execution environment with the latest data from server.
 
         .. versionadded:: v2.21

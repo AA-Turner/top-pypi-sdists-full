@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: neutron-lib
-Version: 3.19.0
+Version: 3.20.0
 Summary: Neutron shared routines and utilities
 Home-page: https://docs.openstack.org/neutron-lib/latest/
 Author: OpenStack

@@ -447,8 +447,17 @@ class BigQuery(Dialect):
         },
         exp.ArrayConcat: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
         exp.Concat: _annotate_concat,
+        exp.Corr: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
+        exp.CovarPop: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
+        exp.CovarSamp: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
+        exp.Lag: lambda self, e: self._annotate_by_args(e, "this", "default"),
+        exp.SHA: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
+        exp.SHA2: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
         exp.Sign: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Split: lambda self, e: self._annotate_by_args(e, "this", array=True),
+        exp.TimestampFromParts: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.Type.DATETIME
+        ),
     }
 
     def normalize_identifier(self, expression: E) -> E:

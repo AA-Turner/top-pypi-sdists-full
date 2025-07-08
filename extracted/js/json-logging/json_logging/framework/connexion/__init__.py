@@ -5,7 +5,8 @@ import sys
 import json_logging
 import json_logging.framework
 from json_logging import JSONLogWebFormatter
-from json_logging.framework_base import AppRequestInstrumentationConfigurator, RequestAdapter, ResponseAdapter
+from json_logging.framework_base import BaseAppRequestInstrumentationConfigurator, BaseRequestInfoExtractor, \
+    BaseResponseInfoExtractor
 from json_logging.util import is_not_match_any_pattern
 
 
@@ -30,8 +31,8 @@ if is_connexion_present():
     _connexion.g = g
 
 
-class ConnexionAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfigurator):
-    def config(self, app, exclude_url_patterns=[]):
+class ConnexionAppRequestInstrumentationConfigurator(BaseAppRequestInstrumentationConfigurator):
+    def config(self, app, request_response_dto_class, exclude_url_patterns=[]):
         if not is_connexion_present():
             raise RuntimeError("connexion is not available in system runtime")
         from flask.app import Flask
@@ -50,19 +51,24 @@ class ConnexionAppRequestInstrumentationConfigurator(AppRequestInstrumentationCo
 
         @app.app.before_request
         def before_request():
-            if is_not_match_any_pattern(_current_request.path, exclude_url_patterns):
-                g.request_info = json_logging.RequestInfo(_current_request)
+            # for connexion 3.0+, requests use starlette
+            if hasattr(_current_request, "_starlette_request"):
+                path = _current_request.url.path
+            else:
+                path = _current_request.path
+            if is_not_match_any_pattern(path, exclude_url_patterns):
+                g.request_response_data = request_response_dto_class(_current_request)
 
         @app.app.after_request
         def after_request(response):
-            if hasattr(g, 'request_info'):
-                request_info = g.request_info
-                request_info.update_response_status(response)
-                self.request_logger.info("", extra={'request_info': request_info})
+            if hasattr(g, 'request_response_data'):
+                request_response_data = g.request_response_data
+                request_response_data.on_request_complete(response)
+                self.request_logger.info("", extra={'request_response_data': request_response_data})
             return response
 
 
-class ConnexionRequestAdapter(RequestAdapter):
+class ConnexionRequestInfoExtractor(BaseRequestInfoExtractor):
     @staticmethod
     def get_request_class_type():
         raise NotImplementedError
@@ -120,7 +126,7 @@ class ConnexionRequestAdapter(RequestAdapter):
         return request.environ.get('REMOTE_PORT')
 
 
-class ConnexionResponseAdapter(ResponseAdapter):
+class ConnexionResponseInfoExtractor(BaseResponseInfoExtractor):
     def get_status_code(self, response):
         return response.status_code
 

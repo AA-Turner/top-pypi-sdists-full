@@ -11,11 +11,11 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.enums import (
     AggregationType,
     enum_to_list,
@@ -24,10 +24,15 @@ from datarobot.enums import (
     InsightTypes,
 )
 from datarobot.models.api_object import APIObject
+from datarobot.models.genai.ootb_metric_configuration import (
+    ExtraMetricSettings,
+    ExtraMetricSettingsDict,
+)
 from datarobot.models.genai.playground_moderation_configuration import (
     moderation_configuration_with_id,
     moderation_configuration_without_id,
 )
+from datarobot.utils import from_api
 
 
 class InsightsConfigurationDict(TypedDict):
@@ -59,6 +64,7 @@ class InsightsConfigurationDict(TypedDict):
     guard_configuration_id: Optional[str]
     model_package_registered_model_id: Optional[str]
     custom_model_guard: Optional[CustomModelGuardDict]
+    extra_metric_settings: Optional[ExtraMetricSettingsDict]
 
 
 class CustomModelGuardDict(TypedDict):
@@ -131,6 +137,7 @@ insight_configuration_trafaret = t.Dict(
         t.Key("guard_configuration_id", optional=True): t.Or(t.String, t.Null),
         t.Key("model_package_registered_model_id", optional=True): t.Or(t.String, t.Null),
         t.Key("custom_model_guard", optional=True): t.Or(custom_model_guard_trafaret, t.Null),
+        t.Key("extra_metric_settings", optional=True): t.Or(ExtraMetricSettings._converter, t.Null),
     }
 ).ignore_extra("*")
 
@@ -206,6 +213,8 @@ class InsightsConfiguration(APIObject):
         The ID of the registered model package associated with `deploymentId`.
     custom_model_guard : Optional[CustomModelGuard]
         The custom model guard configuration, if applicable.
+    extra_metric_settings : Optional[ExtraMetricSettings]
+        Additional settings for the insight.
     """
 
     _converter = insight_configuration_trafaret
@@ -237,7 +246,8 @@ class InsightsConfiguration(APIObject):
         guard_template_id: Optional[str] = None,
         guard_configuration_id: Optional[str] = None,
         model_package_registered_model_id: Optional[str] = None,
-        custom_model_guard: Optional[GuardConfiguration] = None,
+        custom_model_guard: Optional[CustomModelGuard] = None,
+        extra_metric_settings: Optional[ExtraMetricSettings] = None,
     ):
         self.insight_name = insight_name
         self.insight_type = insight_type
@@ -265,6 +275,23 @@ class InsightsConfiguration(APIObject):
         self.guard_configuration_id = guard_configuration_id
         self.model_package_registered_model_id = model_package_registered_model_id
         self.custom_model_guard = custom_model_guard
+        self.extra_metric_settings = extra_metric_settings
+
+    @classmethod
+    def from_data(cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> InsightsConfiguration:
+        """Properly convert composition classes."""
+        converted_data = cls._converter.check(from_api(data))
+
+        custom_model_guard = converted_data.get("custom_model_guard")
+        converted_data["custom_model_guard"] = (
+            CustomModelGuard.from_data(custom_model_guard) if custom_model_guard else None
+        )
+
+        extra_metric_settings = converted_data.get("extra_metric_settings")
+        converted_data["extra_metric_settings"] = (
+            ExtraMetricSettings.from_data(extra_metric_settings) if extra_metric_settings else None
+        )
+        return cls(**converted_data)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.insight_name}, model_id={self.model_id})"
@@ -299,10 +326,13 @@ class InsightsConfiguration(APIObject):
             custom_model_guard=(
                 self.custom_model_guard.to_dict() if self.custom_model_guard else None
             ),
+            extra_metric_settings=(
+                self.extra_metric_settings.to_dict() if self.extra_metric_settings else None
+            ),
         )
 
 
-class GuardConfiguration(APIObject):
+class CustomModelGuard(APIObject):
     """
     Configuration information for a guard.
 

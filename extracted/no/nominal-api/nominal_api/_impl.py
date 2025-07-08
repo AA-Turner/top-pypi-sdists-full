@@ -25630,22 +25630,134 @@ class scout_chartdefinition_api_EnumCellConfig(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'visualisation': ConjureFieldDefinition('visualisation', OptionalTypeWrapper[scout_chartdefinition_api_EnumValueVisualisation])
+            'visualisation': ConjureFieldDefinition('visualisation', OptionalTypeWrapper[scout_chartdefinition_api_EnumValueVisualisation]),
+            'group_by_sort': ConjureFieldDefinition('groupBySort', OptionalTypeWrapper[scout_chartdefinition_api_EnumGroupBySort])
         }
 
-    __slots__: List[str] = ['_visualisation']
+    __slots__: List[str] = ['_visualisation', '_group_by_sort']
 
-    def __init__(self, visualisation: Optional["scout_chartdefinition_api_EnumValueVisualisation"] = None) -> None:
+    def __init__(self, group_by_sort: Optional["scout_chartdefinition_api_EnumGroupBySort"] = None, visualisation: Optional["scout_chartdefinition_api_EnumValueVisualisation"] = None) -> None:
         self._visualisation = visualisation
+        self._group_by_sort = group_by_sort
 
     @builtins.property
     def visualisation(self) -> Optional["scout_chartdefinition_api_EnumValueVisualisation"]:
         return self._visualisation
 
+    @builtins.property
+    def group_by_sort(self) -> Optional["scout_chartdefinition_api_EnumGroupBySort"]:
+        """Sorting configuration for grouped data rendering in a cell.
+If undefined, will sort alphabetically by grouping.
+        """
+        return self._group_by_sort
+
 
 scout_chartdefinition_api_EnumCellConfig.__name__ = "EnumCellConfig"
 scout_chartdefinition_api_EnumCellConfig.__qualname__ = "EnumCellConfig"
 scout_chartdefinition_api_EnumCellConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_EnumGroupBySort(ConjureUnionType):
+    _custom: Optional["scout_chartdefinition_api_EnumGroupBySortCustom"] = None
+    _alphabetical: Optional["scout_chartdefinition_api_ValueSort"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'custom': ConjureFieldDefinition('custom', scout_chartdefinition_api_EnumGroupBySortCustom),
+            'alphabetical': ConjureFieldDefinition('alphabetical', scout_chartdefinition_api_ValueSort)
+        }
+
+    def __init__(
+            self,
+            custom: Optional["scout_chartdefinition_api_EnumGroupBySortCustom"] = None,
+            alphabetical: Optional["scout_chartdefinition_api_ValueSort"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (custom is not None) + (alphabetical is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if custom is not None:
+                self._custom = custom
+                self._type = 'custom'
+            if alphabetical is not None:
+                self._alphabetical = alphabetical
+                self._type = 'alphabetical'
+
+        elif type_of_union == 'custom':
+            if custom is None:
+                raise ValueError('a union value must not be None')
+            self._custom = custom
+            self._type = 'custom'
+        elif type_of_union == 'alphabetical':
+            if alphabetical is None:
+                raise ValueError('a union value must not be None')
+            self._alphabetical = alphabetical
+            self._type = 'alphabetical'
+
+    @builtins.property
+    def custom(self) -> Optional["scout_chartdefinition_api_EnumGroupBySortCustom"]:
+        return self._custom
+
+    @builtins.property
+    def alphabetical(self) -> Optional["scout_chartdefinition_api_ValueSort"]:
+        return self._alphabetical
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_EnumGroupBySortVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_EnumGroupBySortVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'custom' and self.custom is not None:
+            return visitor._custom(self.custom)
+        if self._type == 'alphabetical' and self.alphabetical is not None:
+            return visitor._alphabetical(self.alphabetical)
+
+
+scout_chartdefinition_api_EnumGroupBySort.__name__ = "EnumGroupBySort"
+scout_chartdefinition_api_EnumGroupBySort.__qualname__ = "EnumGroupBySort"
+scout_chartdefinition_api_EnumGroupBySort.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_EnumGroupBySortVisitor:
+
+    @abstractmethod
+    def _custom(self, custom: "scout_chartdefinition_api_EnumGroupBySortCustom") -> Any:
+        pass
+
+    @abstractmethod
+    def _alphabetical(self, alphabetical: "scout_chartdefinition_api_ValueSort") -> Any:
+        pass
+
+
+scout_chartdefinition_api_EnumGroupBySortVisitor.__name__ = "EnumGroupBySortVisitor"
+scout_chartdefinition_api_EnumGroupBySortVisitor.__qualname__ = "EnumGroupBySortVisitor"
+scout_chartdefinition_api_EnumGroupBySortVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_EnumGroupBySortCustom(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'order': ConjureFieldDefinition('order', List[str])
+        }
+
+    __slots__: List[str] = ['_order']
+
+    def __init__(self, order: List[str]) -> None:
+        self._order = order
+
+    @builtins.property
+    def order(self) -> List[str]:
+        """Specify the values in the order they should appear.
+Unspecified values will be sorted to the bottom.
+        """
+        return self._order
+
+
+scout_chartdefinition_api_EnumGroupBySortCustom.__name__ = "EnumGroupBySortCustom"
+scout_chartdefinition_api_EnumGroupBySortCustom.__qualname__ = "EnumGroupBySortCustom"
+scout_chartdefinition_api_EnumGroupBySortCustom.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_EnumRawVisualisation(ConjureBeanType):
@@ -27108,14 +27220,16 @@ class scout_chartdefinition_api_NumericCellConfig(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'visualisation': ConjureFieldDefinition('visualisation', OptionalTypeWrapper[scout_chartdefinition_api_NumericValueVisualisationV2]),
-            'number_format': ConjureFieldDefinition('numberFormat', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormat])
+            'number_format': ConjureFieldDefinition('numberFormat', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormat]),
+            'group_by_sort': ConjureFieldDefinition('groupBySort', OptionalTypeWrapper[scout_chartdefinition_api_NumericGroupBySort])
         }
 
-    __slots__: List[str] = ['_visualisation', '_number_format']
+    __slots__: List[str] = ['_visualisation', '_number_format', '_group_by_sort']
 
-    def __init__(self, number_format: Optional["scout_chartdefinition_api_NumberFormat"] = None, visualisation: Optional["scout_chartdefinition_api_NumericValueVisualisationV2"] = None) -> None:
+    def __init__(self, group_by_sort: Optional["scout_chartdefinition_api_NumericGroupBySort"] = None, number_format: Optional["scout_chartdefinition_api_NumberFormat"] = None, visualisation: Optional["scout_chartdefinition_api_NumericValueVisualisationV2"] = None) -> None:
         self._visualisation = visualisation
         self._number_format = number_format
+        self._group_by_sort = group_by_sort
 
     @builtins.property
     def visualisation(self) -> Optional["scout_chartdefinition_api_NumericValueVisualisationV2"]:
@@ -27125,10 +27239,73 @@ class scout_chartdefinition_api_NumericCellConfig(ConjureBeanType):
     def number_format(self) -> Optional["scout_chartdefinition_api_NumberFormat"]:
         return self._number_format
 
+    @builtins.property
+    def group_by_sort(self) -> Optional["scout_chartdefinition_api_NumericGroupBySort"]:
+        """Sorting configuration for grouped data rendering in a cell.
+If undefined, will sort alphabetically by grouping.
+        """
+        return self._group_by_sort
+
 
 scout_chartdefinition_api_NumericCellConfig.__name__ = "NumericCellConfig"
 scout_chartdefinition_api_NumericCellConfig.__qualname__ = "NumericCellConfig"
 scout_chartdefinition_api_NumericCellConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_NumericGroupBySort(ConjureUnionType):
+    _value: Optional["scout_chartdefinition_api_ValueSort"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', scout_chartdefinition_api_ValueSort)
+        }
+
+    def __init__(
+            self,
+            value: Optional["scout_chartdefinition_api_ValueSort"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (value is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if value is not None:
+                self._value = value
+                self._type = 'value'
+
+        elif type_of_union == 'value':
+            if value is None:
+                raise ValueError('a union value must not be None')
+            self._value = value
+            self._type = 'value'
+
+    @builtins.property
+    def value(self) -> Optional["scout_chartdefinition_api_ValueSort"]:
+        return self._value
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_NumericGroupBySortVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_NumericGroupBySortVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'value' and self.value is not None:
+            return visitor._value(self.value)
+
+
+scout_chartdefinition_api_NumericGroupBySort.__name__ = "NumericGroupBySort"
+scout_chartdefinition_api_NumericGroupBySort.__qualname__ = "NumericGroupBySort"
+scout_chartdefinition_api_NumericGroupBySort.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_NumericGroupBySortVisitor:
+
+    @abstractmethod
+    def _value(self, value: "scout_chartdefinition_api_ValueSort") -> Any:
+        pass
+
+
+scout_chartdefinition_api_NumericGroupBySortVisitor.__name__ = "NumericGroupBySortVisitor"
+scout_chartdefinition_api_NumericGroupBySortVisitor.__qualname__ = "NumericGroupBySortVisitor"
+scout_chartdefinition_api_NumericGroupBySortVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_NumericRawVisualisation(ConjureBeanType):
@@ -27626,22 +27803,87 @@ class scout_chartdefinition_api_RangeCellConfig(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'visualisation': ConjureFieldDefinition('visualisation', OptionalTypeWrapper[scout_chartdefinition_api_RangeValueVisualisation])
+            'visualisation': ConjureFieldDefinition('visualisation', OptionalTypeWrapper[scout_chartdefinition_api_RangeValueVisualisation]),
+            'group_by_sort': ConjureFieldDefinition('groupBySort', OptionalTypeWrapper[scout_chartdefinition_api_RangeGroupBySort])
         }
 
-    __slots__: List[str] = ['_visualisation']
+    __slots__: List[str] = ['_visualisation', '_group_by_sort']
 
-    def __init__(self, visualisation: Optional["scout_chartdefinition_api_RangeValueVisualisation"] = None) -> None:
+    def __init__(self, group_by_sort: Optional["scout_chartdefinition_api_RangeGroupBySort"] = None, visualisation: Optional["scout_chartdefinition_api_RangeValueVisualisation"] = None) -> None:
         self._visualisation = visualisation
+        self._group_by_sort = group_by_sort
 
     @builtins.property
     def visualisation(self) -> Optional["scout_chartdefinition_api_RangeValueVisualisation"]:
         return self._visualisation
 
+    @builtins.property
+    def group_by_sort(self) -> Optional["scout_chartdefinition_api_RangeGroupBySort"]:
+        """Sorting configuration for grouped data rendering in a cell.
+If undefined, will sort alphabetically by grouping.
+        """
+        return self._group_by_sort
+
 
 scout_chartdefinition_api_RangeCellConfig.__name__ = "RangeCellConfig"
 scout_chartdefinition_api_RangeCellConfig.__qualname__ = "RangeCellConfig"
 scout_chartdefinition_api_RangeCellConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_RangeGroupBySort(ConjureUnionType):
+    _value: Optional["scout_chartdefinition_api_ValueSort"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', scout_chartdefinition_api_ValueSort)
+        }
+
+    def __init__(
+            self,
+            value: Optional["scout_chartdefinition_api_ValueSort"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (value is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if value is not None:
+                self._value = value
+                self._type = 'value'
+
+        elif type_of_union == 'value':
+            if value is None:
+                raise ValueError('a union value must not be None')
+            self._value = value
+            self._type = 'value'
+
+    @builtins.property
+    def value(self) -> Optional["scout_chartdefinition_api_ValueSort"]:
+        return self._value
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_RangeGroupBySortVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_RangeGroupBySortVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'value' and self.value is not None:
+            return visitor._value(self.value)
+
+
+scout_chartdefinition_api_RangeGroupBySort.__name__ = "RangeGroupBySort"
+scout_chartdefinition_api_RangeGroupBySort.__qualname__ = "RangeGroupBySort"
+scout_chartdefinition_api_RangeGroupBySort.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_RangeGroupBySortVisitor:
+
+    @abstractmethod
+    def _value(self, value: "scout_chartdefinition_api_ValueSort") -> Any:
+        pass
+
+
+scout_chartdefinition_api_RangeGroupBySortVisitor.__name__ = "RangeGroupBySortVisitor"
+scout_chartdefinition_api_RangeGroupBySortVisitor.__qualname__ = "RangeGroupBySortVisitor"
+scout_chartdefinition_api_RangeGroupBySortVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_RangeRawVisualisation(ConjureBeanType):
@@ -28609,6 +28851,32 @@ class scout_chartdefinition_api_ValueAxis(ConjureBeanType):
 scout_chartdefinition_api_ValueAxis.__name__ = "ValueAxis"
 scout_chartdefinition_api_ValueAxis.__qualname__ = "ValueAxis"
 scout_chartdefinition_api_ValueAxis.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ValueSort(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'is_descending': ConjureFieldDefinition('isDescending', bool)
+        }
+
+    __slots__: List[str] = ['_is_descending']
+
+    def __init__(self, is_descending: bool) -> None:
+        self._is_descending = is_descending
+
+    @builtins.property
+    def is_descending(self) -> bool:
+        """If true, numerics sort high to low, enums sort alphabetically descending, and ranges sort inRange groupings first.
+If false, the opposite is true for each.
+        """
+        return self._is_descending
+
+
+scout_chartdefinition_api_ValueSort.__name__ = "ValueSort"
+scout_chartdefinition_api_ValueSort.__qualname__ = "ValueSort"
+scout_chartdefinition_api_ValueSort.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_ValueTableCell(ConjureBeanType):
@@ -37202,6 +37470,56 @@ scout_compute_api_ArithmeticSeries.__qualname__ = "ArithmeticSeries"
 scout_compute_api_ArithmeticSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ArrowBucketedNumericPlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+        }
+
+    __slots__: List[str] = ['_arrow_binary']
+
+    def __init__(self, arrow_binary: Any) -> None:
+        self._arrow_binary = arrow_binary
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for BucketedNumericPlot
+        """
+        return self._arrow_binary
+
+
+scout_compute_api_ArrowBucketedNumericPlot.__name__ = "ArrowBucketedNumericPlot"
+scout_compute_api_ArrowBucketedNumericPlot.__qualname__ = "ArrowBucketedNumericPlot"
+scout_compute_api_ArrowBucketedNumericPlot.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ArrowNumericPlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+        }
+
+    __slots__: List[str] = ['_arrow_binary']
+
+    def __init__(self, arrow_binary: Any) -> None:
+        self._arrow_binary = arrow_binary
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for NumericPlot
+        """
+        return self._arrow_binary
+
+
+scout_compute_api_ArrowNumericPlot.__name__ = "ArrowNumericPlot"
+scout_compute_api_ArrowNumericPlot.__qualname__ = "ArrowNumericPlot"
+scout_compute_api_ArrowNumericPlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_AssetChannel(ConjureBeanType):
 
     @builtins.classmethod
@@ -39093,6 +39411,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _numeric: Optional["scout_compute_api_NumericPlot"] = None
     _bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None
     _numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None
+    _arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None
+    _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
     _enum: Optional["scout_compute_api_EnumPlot"] = None
     _enum_point: Optional[Optional["scout_compute_api_EnumPoint"]] = None
     _bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None
@@ -39117,6 +39437,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericPlot),
             'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericPlot),
             'numeric_point': ConjureFieldDefinition('numericPoint', OptionalTypeWrapper[scout_compute_api_NumericPoint]),
+            'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowNumericPlot),
+            'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumPlot),
             'enum_point': ConjureFieldDefinition('enumPoint', OptionalTypeWrapper[scout_compute_api_EnumPoint]),
             'bucketed_enum': ConjureFieldDefinition('bucketedEnum', scout_compute_api_BucketedEnumPlot),
@@ -39141,6 +39463,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             numeric: Optional["scout_compute_api_NumericPlot"] = None,
             bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None,
             numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None,
+            arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None,
+            arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
             enum: Optional["scout_compute_api_EnumPlot"] = None,
             enum_point: Optional[Optional["scout_compute_api_EnumPoint"]] = None,
             bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None,
@@ -39158,7 +39482,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (bucketed_geo is not None) + (frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) != 1:
+            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (bucketed_geo is not None) + (frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -39179,6 +39503,12 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             if numeric_point is not None:
                 self._numeric_point = numeric_point
                 self._type = 'numericPoint'
+            if arrow_numeric is not None:
+                self._arrow_numeric = arrow_numeric
+                self._type = 'arrowNumeric'
+            if arrow_bucketed_numeric is not None:
+                self._arrow_bucketed_numeric = arrow_bucketed_numeric
+                self._type = 'arrowBucketedNumeric'
             if enum is not None:
                 self._enum = enum
                 self._type = 'enum'
@@ -39252,6 +39582,16 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._numeric_point = numeric_point
             self._type = 'numericPoint'
+        elif type_of_union == 'arrowNumeric':
+            if arrow_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_numeric = arrow_numeric
+            self._type = 'arrowNumeric'
+        elif type_of_union == 'arrowBucketedNumeric':
+            if arrow_bucketed_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_bucketed_numeric = arrow_bucketed_numeric
+            self._type = 'arrowBucketedNumeric'
         elif type_of_union == 'enum':
             if enum is None:
                 raise ValueError('a union value must not be None')
@@ -39348,6 +39688,14 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._numeric_point
 
     @builtins.property
+    def arrow_numeric(self) -> Optional["scout_compute_api_ArrowNumericPlot"]:
+        return self._arrow_numeric
+
+    @builtins.property
+    def arrow_bucketed_numeric(self) -> Optional["scout_compute_api_ArrowBucketedNumericPlot"]:
+        return self._arrow_bucketed_numeric
+
+    @builtins.property
     def enum(self) -> Optional["scout_compute_api_EnumPlot"]:
         return self._enum
 
@@ -39418,6 +39766,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             return visitor._bucketed_numeric(self.bucketed_numeric)
         if self._type == 'numericPoint' and self.numeric_point is not None:
             return visitor._numeric_point(self.numeric_point)
+        if self._type == 'arrowNumeric' and self.arrow_numeric is not None:
+            return visitor._arrow_numeric(self.arrow_numeric)
+        if self._type == 'arrowBucketedNumeric' and self.arrow_bucketed_numeric is not None:
+            return visitor._arrow_bucketed_numeric(self.arrow_bucketed_numeric)
         if self._type == 'enum' and self.enum is not None:
             return visitor._enum(self.enum)
         if self._type == 'enumPoint' and self.enum_point is not None:
@@ -39477,6 +39829,14 @@ class scout_compute_api_ComputeNodeResponseVisitor:
 
     @abstractmethod
     def _numeric_point(self, numeric_point: Optional["scout_compute_api_NumericPoint"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowNumericPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_bucketed_numeric(self, arrow_bucketed_numeric: "scout_compute_api_ArrowBucketedNumericPlot") -> Any:
         pass
 
     @abstractmethod
@@ -40540,6 +40900,35 @@ class scout_compute_api_CurveResultDetailsVisitor:
 scout_compute_api_CurveResultDetailsVisitor.__name__ = "CurveResultDetailsVisitor"
 scout_compute_api_CurveResultDetailsVisitor.__qualname__ = "CurveResultDetailsVisitor"
 scout_compute_api_CurveResultDetailsVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DataSourceAndChannel(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_DataSourceRid),
+            'channel': ConjureFieldDefinition('channel', str)
+        }
+
+    __slots__: List[str] = ['_data_source_rid', '_channel']
+
+    def __init__(self, channel: str, data_source_rid: str) -> None:
+        self._data_source_rid = data_source_rid
+        self._channel = channel
+
+    @builtins.property
+    def data_source_rid(self) -> str:
+        return self._data_source_rid
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+
+scout_compute_api_DataSourceAndChannel.__name__ = "DataSourceAndChannel"
+scout_compute_api_DataSourceAndChannel.__qualname__ = "DataSourceAndChannel"
+scout_compute_api_DataSourceAndChannel.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_DataSourceChannel(ConjureBeanType):
@@ -45559,6 +45948,24 @@ scout_compute_api_OnChangeRanges.__qualname__ = "OnChangeRanges"
 scout_compute_api_OnChangeRanges.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_OutputFormat(ConjureEnumType):
+
+    ARROW_V1 = 'ARROW_V1'
+    '''ARROW_V1'''
+    LEGACY = 'LEGACY'
+    '''LEGACY'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_OutputFormat.__name__ = "OutputFormat"
+scout_compute_api_OutputFormat.__qualname__ = "OutputFormat"
+scout_compute_api_OutputFormat.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_OutputRangeStart(ConjureUnionType):
     _first_point_matching_condition: Optional["scout_compute_api_FirstPointMatchingCondition"] = None
     _after_persistence_window: Optional["scout_compute_api_AfterPersistenceWindow"] = None
@@ -49070,15 +49477,17 @@ Summarization strategy should be specified.
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_Series),
+            'output_format': ConjureFieldDefinition('outputFormat', OptionalTypeWrapper[scout_compute_api_OutputFormat]),
             'resolution': ConjureFieldDefinition('resolution', OptionalTypeWrapper[int]),
             'buckets': ConjureFieldDefinition('buckets', OptionalTypeWrapper[int]),
             'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', OptionalTypeWrapper[scout_compute_api_SummarizationStrategy])
         }
 
-    __slots__: List[str] = ['_input', '_resolution', '_buckets', '_summarization_strategy']
+    __slots__: List[str] = ['_input', '_output_format', '_resolution', '_buckets', '_summarization_strategy']
 
-    def __init__(self, input: "scout_compute_api_Series", buckets: Optional[int] = None, resolution: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_SummarizationStrategy"] = None) -> None:
+    def __init__(self, input: "scout_compute_api_Series", buckets: Optional[int] = None, output_format: Optional["scout_compute_api_OutputFormat"] = None, resolution: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_SummarizationStrategy"] = None) -> None:
         self._input = input
+        self._output_format = output_format
         self._resolution = resolution
         self._buckets = buckets
         self._summarization_strategy = summarization_strategy
@@ -49086,6 +49495,12 @@ Summarization strategy should be specified.
     @builtins.property
     def input(self) -> "scout_compute_api_Series":
         return self._input
+
+    @builtins.property
+    def output_format(self) -> Optional["scout_compute_api_OutputFormat"]:
+        """The output format of the response. Defaults to LEGACY.
+        """
+        return self._output_format
 
     @builtins.property
     def resolution(self) -> Optional[int]:
@@ -49827,17 +50242,23 @@ class scout_compute_api_UnitsMissing(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'series_rids': ConjureFieldDefinition('seriesRids', List[api_LogicalSeriesRid])
+            'series_rids': ConjureFieldDefinition('seriesRids', List[api_LogicalSeriesRid]),
+            'channels': ConjureFieldDefinition('channels', List[scout_compute_api_DataSourceAndChannel])
         }
 
-    __slots__: List[str] = ['_series_rids']
+    __slots__: List[str] = ['_series_rids', '_channels']
 
-    def __init__(self, series_rids: List[str]) -> None:
+    def __init__(self, channels: List["scout_compute_api_DataSourceAndChannel"], series_rids: List[str]) -> None:
         self._series_rids = series_rids
+        self._channels = channels
 
     @builtins.property
     def series_rids(self) -> List[str]:
         return self._series_rids
+
+    @builtins.property
+    def channels(self) -> List["scout_compute_api_DataSourceAndChannel"]:
+        return self._channels
 
 
 scout_compute_api_UnitsMissing.__name__ = "UnitsMissing"
@@ -52575,23 +52996,25 @@ scout_compute_resolved_api_BitOperationSeriesNode.__module__ = "nominal_api.scou
 
 
 class scout_compute_resolved_api_CachedStorageLocator(ConjureBeanType):
+    """A storage locator for data in the legacy global cached datasets table. See SeriesCacheDb.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'series_uuids': ConjureFieldDefinition('seriesUuids', List[str]),
+            'logical_series': ConjureFieldDefinition('logicalSeries', timeseries_logicalseries_api_LogicalSeries),
             'type': ConjureFieldDefinition('type', storage_series_api_NominalDataType)
         }
 
-    __slots__: List[str] = ['_series_uuids', '_type']
+    __slots__: List[str] = ['_logical_series', '_type']
 
-    def __init__(self, series_uuids: List[str], type: "storage_series_api_NominalDataType") -> None:
-        self._series_uuids = series_uuids
+    def __init__(self, logical_series: "timeseries_logicalseries_api_LogicalSeries", type: "storage_series_api_NominalDataType") -> None:
+        self._logical_series = logical_series
         self._type = type
 
     @builtins.property
-    def series_uuids(self) -> List[str]:
-        return self._series_uuids
+    def logical_series(self) -> "timeseries_logicalseries_api_LogicalSeries":
+        return self._logical_series
 
     @builtins.property
     def type(self) -> "storage_series_api_NominalDataType":
@@ -54792,6 +55215,8 @@ scout_compute_resolved_api_MinSeriesNode.__module__ = "nominal_api.scout_compute
 
 
 class scout_compute_resolved_api_NominalStorageLocator(ConjureBeanType):
+    """A storage locator for Nominal data in the per-org data tables.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -56849,39 +57274,42 @@ scout_compute_resolved_api_ResolvedNodeVisitor.__module__ = "nominal_api.scout_c
 
 
 class scout_compute_resolved_api_ResolvedSeries(ConjureBeanType):
+    """A resolved series is a fully-formed read on a raw set of series. The data for series may be stored in the
+Nominal database or externally.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'logical_series': ConjureFieldDefinition('logicalSeries', timeseries_logicalseries_api_LogicalSeries),
-            'series_spec': ConjureFieldDefinition('seriesSpec', scout_compute_api_SeriesSpec),
-            'storage_locator': ConjureFieldDefinition('storageLocator', OptionalTypeWrapper[scout_compute_resolved_api_StorageLocator]),
-            'granularity': ConjureFieldDefinition('granularity', api_Granularity)
+            'storage_locator': ConjureFieldDefinition('storageLocator', scout_compute_resolved_api_StorageLocator),
+            'granularity': ConjureFieldDefinition('granularity', api_Granularity),
+            'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_run_api_Duration]),
+            'unit': ConjureFieldDefinition('unit', OptionalTypeWrapper[api_Unit])
         }
 
-    __slots__: List[str] = ['_logical_series', '_series_spec', '_storage_locator', '_granularity']
+    __slots__: List[str] = ['_storage_locator', '_granularity', '_offset', '_unit']
 
-    def __init__(self, granularity: "api_Granularity", logical_series: "timeseries_logicalseries_api_LogicalSeries", series_spec: "scout_compute_api_SeriesSpec", storage_locator: Optional["scout_compute_resolved_api_StorageLocator"] = None) -> None:
-        self._logical_series = logical_series
-        self._series_spec = series_spec
+    def __init__(self, granularity: "api_Granularity", storage_locator: "scout_compute_resolved_api_StorageLocator", offset: Optional["scout_run_api_Duration"] = None, unit: Optional[str] = None) -> None:
         self._storage_locator = storage_locator
         self._granularity = granularity
+        self._offset = offset
+        self._unit = unit
 
     @builtins.property
-    def logical_series(self) -> "timeseries_logicalseries_api_LogicalSeries":
-        return self._logical_series
-
-    @builtins.property
-    def series_spec(self) -> "scout_compute_api_SeriesSpec":
-        return self._series_spec
-
-    @builtins.property
-    def storage_locator(self) -> Optional["scout_compute_resolved_api_StorageLocator"]:
+    def storage_locator(self) -> "scout_compute_resolved_api_StorageLocator":
         return self._storage_locator
 
     @builtins.property
     def granularity(self) -> "api_Granularity":
         return self._granularity
+
+    @builtins.property
+    def offset(self) -> Optional["scout_run_api_Duration"]:
+        return self._offset
+
+    @builtins.property
+    def unit(self) -> Optional[str]:
+        return self._unit
 
 
 scout_compute_resolved_api_ResolvedSeries.__name__ = "ResolvedSeries"
@@ -57668,22 +58096,25 @@ scout_compute_resolved_api_StaleRangesNode.__module__ = "nominal_api.scout_compu
 class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
     _cached: Optional["scout_compute_resolved_api_CachedStorageLocator"] = None
     _nominal: Optional["scout_compute_resolved_api_NominalStorageLocator"] = None
+    _external: Optional["timeseries_logicalseries_api_LogicalSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'cached': ConjureFieldDefinition('cached', scout_compute_resolved_api_CachedStorageLocator),
-            'nominal': ConjureFieldDefinition('nominal', scout_compute_resolved_api_NominalStorageLocator)
+            'nominal': ConjureFieldDefinition('nominal', scout_compute_resolved_api_NominalStorageLocator),
+            'external': ConjureFieldDefinition('external', timeseries_logicalseries_api_LogicalSeries)
         }
 
     def __init__(
             self,
             cached: Optional["scout_compute_resolved_api_CachedStorageLocator"] = None,
             nominal: Optional["scout_compute_resolved_api_NominalStorageLocator"] = None,
+            external: Optional["timeseries_logicalseries_api_LogicalSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (cached is not None) + (nominal is not None) != 1:
+            if (cached is not None) + (nominal is not None) + (external is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if cached is not None:
@@ -57692,6 +58123,9 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
             if nominal is not None:
                 self._nominal = nominal
                 self._type = 'nominal'
+            if external is not None:
+                self._external = external
+                self._type = 'external'
 
         elif type_of_union == 'cached':
             if cached is None:
@@ -57703,6 +58137,11 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._nominal = nominal
             self._type = 'nominal'
+        elif type_of_union == 'external':
+            if external is None:
+                raise ValueError('a union value must not be None')
+            self._external = external
+            self._type = 'external'
 
     @builtins.property
     def cached(self) -> Optional["scout_compute_resolved_api_CachedStorageLocator"]:
@@ -57712,6 +58151,10 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
     def nominal(self) -> Optional["scout_compute_resolved_api_NominalStorageLocator"]:
         return self._nominal
 
+    @builtins.property
+    def external(self) -> Optional["timeseries_logicalseries_api_LogicalSeries"]:
+        return self._external
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_StorageLocatorVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_StorageLocatorVisitor'.format(visitor.__class__.__name__))
@@ -57719,6 +58162,8 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
             return visitor._cached(self.cached)
         if self._type == 'nominal' and self.nominal is not None:
             return visitor._nominal(self.nominal)
+        if self._type == 'external' and self.external is not None:
+            return visitor._external(self.external)
 
 
 scout_compute_resolved_api_StorageLocator.__name__ = "StorageLocator"
@@ -57734,6 +58179,10 @@ class scout_compute_resolved_api_StorageLocatorVisitor:
 
     @abstractmethod
     def _nominal(self, nominal: "scout_compute_resolved_api_NominalStorageLocator") -> Any:
+        pass
+
+    @abstractmethod
+    def _external(self, external: "timeseries_logicalseries_api_LogicalSeries") -> Any:
         pass
 
 
@@ -57914,14 +58363,16 @@ Summarization strategy should be specified.
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode),
-            'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', scout_compute_api_SummarizationStrategy)
+            'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', scout_compute_api_SummarizationStrategy),
+            'output_format': ConjureFieldDefinition('outputFormat', scout_compute_api_OutputFormat)
         }
 
-    __slots__: List[str] = ['_input', '_summarization_strategy']
+    __slots__: List[str] = ['_input', '_summarization_strategy', '_output_format']
 
-    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", summarization_strategy: "scout_compute_api_SummarizationStrategy") -> None:
+    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", output_format: "scout_compute_api_OutputFormat", summarization_strategy: "scout_compute_api_SummarizationStrategy") -> None:
         self._input = input
         self._summarization_strategy = summarization_strategy
+        self._output_format = output_format
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_SeriesNode":
@@ -57932,6 +58383,10 @@ Summarization strategy should be specified.
         """The strategy to use when summarizing the series.
         """
         return self._summarization_strategy
+
+    @builtins.property
+    def output_format(self) -> "scout_compute_api_OutputFormat":
+        return self._output_format
 
 
 scout_compute_resolved_api_SummarizeSeriesNode.__name__ = "SummarizeSeriesNode"
@@ -80847,8 +81302,7 @@ class storage_writer_api_WriteBatchesRequest(ConjureBeanType):
 
     @builtins.property
     def asynchronous_insert(self) -> Optional[bool]:
-        """Defaults to true if not specified. If enabled, the server handles batching of requests. Request latency
-will be slower, but overall throughput will be faster if requests are sent in parallel.
+        """Is always true - setting this to false will do nothing.
         """
         return self._asynchronous_insert
 
@@ -80885,8 +81339,7 @@ class storage_writer_api_WriteBatchesRequestExternal(ConjureBeanType):
 
     @builtins.property
     def asynchronous_insert(self) -> Optional[bool]:
-        """Defaults to true if not specified. If enabled, the server handles batching of requests. Request latency
-will be slower, but overall throughput will be faster if requests are sent in parallel.
+        """Is always true - setting this to false will do nothing.
         """
         return self._asynchronous_insert
 

@@ -26,8 +26,7 @@ from datarobot.utils.pagination import unpaginate
 from ..utils import from_api, parse_time
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.api_object import ServerDataType
 
     class DataSourceParametersPayload(TypedDict, total=False):

@@ -10,26 +10,41 @@
 
 
 from fastapi import FastAPI, Request, Depends, HTTPException
-from typing import Dict, Optional
+
+# from meutils.pipe import *
+from meutils.str_utils.json_utils import repair_json
 
 
 def get_headers(request: Request):
     dic = dict(request.headers)
-    _dic = {k.replace('-', '_'): v for k, v in dic.items()}
+    _dic = {k.replace('-', '_'): v for k, v in dic.items()}  # 增强兼容性
+
+    if x_headers := dic.get('x-headers'):  # -H 'x-headers: {a: 1}' todo
+        dic['x-headers'] = repair_json(x_headers, return_objects=True)
+
+        # logger.debug(dic['x-headers'])
+    if x_model_mapper := dic.get('x-model-mapper'):  #
+        dic['x-model-mapper'] = eval(f"lambda r: {x_model_mapper}")
 
     return {**dic, **_dic}
 
 
 if __name__ == '__main__':
     def get_headers():
-        d = {"upstream-base-url": 'xx'}
-        d = {}
-        dic = {}
-        # upstream_base_url = headers.get('upstream-base-url')
-        if d:
-            dic = {k.replace('-', '_'): v for k, v in d.items()}
+        dic = {
+            "x-headers": "{a:1}",
 
-        return {**d, **dic}
+            'x-model-mapper': "r.get('a')"
+        }
+        # upstream_base_url = headers.get('upstream-base-url')
+        if x_headers := dic.get('x-headers'):  # -H 'x-headers: {a: 1}' todo
+            dic['x-headers'] = repair_json(x_headers, return_objects=True)
+
+        if x_model_mapper := dic.get('x-model-mapper'):  #
+            dic['x-model-mapper'] = eval(f"lambda r: {x_model_mapper}")
+
+        return dic
 
 
     print(get_headers())
+

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-zaqarclient
-Version: 3.0.1
+Version: 4.0.0
 Summary: Client Library for OpenStack Zaqar Messaging API
 Home-page: https://docs.openstack.org/python-zaqarclient/latest/
 Author: OpenStack
@@ -16,11 +16,10 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pbr!=2.1.0,>=2.0.0
 Requires-Dist: requests>=2.14.2

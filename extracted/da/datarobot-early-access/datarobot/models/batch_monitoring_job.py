@@ -34,8 +34,7 @@ from .api_object import APIObject
 LOG = logger.get_logger(__name__)
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.deployment import Deployment
 
     DeploymentType = Union[str, Deployment]

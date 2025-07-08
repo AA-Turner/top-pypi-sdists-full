@@ -70,7 +70,7 @@ from datarobot.utils.source import parse_source_type
 from datarobot.utils.waiters import wait_for_async_resolution
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class FeatureDict(TypedDict):
         name: str
@@ -2235,7 +2235,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
     def get_service_stats_over_time(
         self,
         metric: Optional[str] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -2252,7 +2252,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         ----------
         metric : SERVICE_STAT_METRIC, optional
             the service stat metric to retrieve
-        model_id : Optional[str]
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime, optional
             start of the time period

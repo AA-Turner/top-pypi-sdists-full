@@ -21,6 +21,8 @@ import (
 	"github.com/replicate/cog/pkg/dockerfile"
 	"github.com/replicate/cog/pkg/dockerignore"
 	"github.com/replicate/cog/pkg/global"
+	"github.com/replicate/cog/pkg/http"
+	"github.com/replicate/cog/pkg/procedure"
 	"github.com/replicate/cog/pkg/registry"
 	"github.com/replicate/cog/pkg/util/console"
 	"github.com/replicate/cog/pkg/weights"
@@ -54,10 +56,22 @@ func Build(
 	annotations map[string]string,
 	localImage bool,
 	dockerCommand command.Command,
-	client registry.Client) error {
+	client registry.Client,
+	pipelinesImage bool) error {
 	console.Infof("Building Docker image from environment in cog.yaml as %s...", imageName)
 	if fastFlag {
 		console.Info("Fast build enabled.")
+	}
+
+	if pipelinesImage {
+		httpClient, err := http.ProvideHTTPClient(ctx, dockerCommand)
+		if err != nil {
+			return err
+		}
+		err = procedure.Validate(dir, httpClient, cfg, true)
+		if err != nil {
+			return err
+		}
 	}
 
 	// remove bundled schema files that may be left from previous builds
@@ -89,7 +103,7 @@ func Build(
 			return fmt.Errorf("Failed to build Docker image: %w", err)
 		}
 	} else {
-		generator, err := dockerfile.NewGenerator(cfg, dir, fastFlag, dockerCommand, localImage, client)
+		generator, err := dockerfile.NewGenerator(cfg, dir, fastFlag, dockerCommand, localImage, client, true)
 		if err != nil {
 			return fmt.Errorf("Error creating Dockerfile generator: %w", err)
 		}
@@ -323,13 +337,13 @@ func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Co
 	return nil
 }
 
-func BuildBase(ctx context.Context, dockerClient command.Command, cfg *config.Config, dir string, useCudaBaseImage string, useCogBaseImage *bool, progressOutput string, client registry.Client) (string, error) {
+func BuildBase(ctx context.Context, dockerClient command.Command, cfg *config.Config, dir string, useCudaBaseImage string, useCogBaseImage *bool, progressOutput string, client registry.Client, requiresCog bool) (string, error) {
 	// TODO: better image management so we don't eat up disk space
 	// https://github.com/replicate/cog/issues/80
 	imageName := config.BaseDockerImageName(dir)
 
 	console.Info("Building Docker image from environment in cog.yaml...")
-	generator, err := dockerfile.NewGenerator(cfg, dir, false, dockerClient, false, client)
+	generator, err := dockerfile.NewGenerator(cfg, dir, false, dockerClient, false, client, requiresCog)
 	if err != nil {
 		return "", fmt.Errorf("Error creating Dockerfile generator: %w", err)
 	}

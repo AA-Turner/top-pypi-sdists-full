@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 11.4.0
+Version: 11.5.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -39,6 +39,7 @@ Requires-Dist: opentelemetry-proto>=1.12.0
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: pandas>=1.0
+Requires-Dist: prometheus-client
 Requires-Dist: protobuf<6.0,>=4.25.8
 Requires-Dist: psutil
 Requires-Dist: pyarrow
@@ -96,7 +97,6 @@ Requires-Dist: pandas-stubs==2.2.2.240603; extra == 'dev'
 Requires-Dist: pandas>=1.0; extra == 'dev'
 Requires-Dist: portpicker; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: prometheus-client; extra == 'dev'
 Requires-Dist: psycopg[binary,pool]; extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'

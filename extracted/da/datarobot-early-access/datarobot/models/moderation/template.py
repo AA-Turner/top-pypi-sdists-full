@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import trafaret as t
 
@@ -112,7 +112,7 @@ class ModerationTemplate(APIObject):
 
     def _update_values(self: ModerationTemplate, new_response: ModerationTemplate) -> None:
         # called by update() and refresh()
-        fields: Set[str] = self._fields()  # type: ignore[no-untyped-call]
+        fields = self._fields()
         for attr in fields:
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)

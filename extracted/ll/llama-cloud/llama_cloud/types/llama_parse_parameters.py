@@ -34,6 +34,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     disable_image_extraction: typing.Optional[bool]
     invalidate_cache: typing.Optional[bool]
     outlined_table_extraction: typing.Optional[bool]
+    merge_tables_across_pages_in_markdown: typing.Optional[bool]
     output_pdf_of_document: typing.Optional[bool]
     do_not_cache: typing.Optional[bool]
     fast_mode: typing.Optional[bool]

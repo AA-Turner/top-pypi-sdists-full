@@ -1,24 +1,51 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ansible-sign
-Version: 0.1.1
+Version: 0.1.2
 Summary: Ansible content validation library and CLI
-Home-page: https://github.com/ansible/ansible-sign/
-Author: Rick Elrod
-Author-email: relrod@redhat.com
-License: MIT
-Project-URL: Documentation, https://ansible.github.io/ansible-sign/
-Project-URL: Source, https://github.com/ansible/ansible-sign
-Project-URL: Tracker, https://github.com/ansible/ansible-sign/issues
-Platform: any
-Classifier: Development Status :: 4 - Beta
+Author-email: Rick Elrod <relrod@redhat.com>
+License-Expression: MIT
+Project-URL: changelog, https://github.com/ansible/ansible-sign/releases
+Project-URL: documentation, https://ansible.readthedocs.io/projects/sign/
+Project-URL: homepage, https://github.com/ansible/ansible-sign
+Project-URL: repository, https://github.com/ansible/ansible-sign
+Keywords: ansible,sign
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python
-Description-Content-Type: text/markdown; charset=UTF-8
-Provides-Extra: testing
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+License-File: AUTHORS.rst
+Requires-Dist: distlib
+Requires-Dist: python-gnupg
+Provides-Extra: docs
+Requires-Dist: sphinx-ansible-theme>=0.10.1; extra == "docs"
+Requires-Dist: sphinx>=3.2.1; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: setuptools; extra == "test"
+Dynamic: license-file
 
 # `ansible-sign`
 
-This is a library and auxillary CLI tool for dealing with Ansible content
+This is a library and auxiliary CLI tool for dealing with Ansible content
 verification.
 
 It does the following:
@@ -29,9 +56,13 @@ It does the following:
 
 Note: The API (library) part of this package is not officially supported and
 might change as time goes on. CLI commands should be considered stable within
-major verions (the `X` of version `X.Y.Z`).
+major versions (the `X` of version `X.Y.Z`).
 
-Documentation can be found [here](https://ansible.github.io/ansible-sign/)
+Documentation can be found on [ansible-sign.readthedocs.io](https://ansible.readthedocs.io/projects/sign/en/latest/)
 including a
-[rundown/tutorial](https://ansible.github.io/ansible-sign/rundown.html)
+[rundown/tutorial](https://ansible.readthedocs.io/projects/sign/en/latest/rundown.html)
 explaining how to use the CLI for basic project signing and verification.
+
+## Community
+
+Need help or want to discuss the project? See our [Community guide](https://ansible.readthedocs.io/projects/sign/en/latest/community.html) join the conversation.

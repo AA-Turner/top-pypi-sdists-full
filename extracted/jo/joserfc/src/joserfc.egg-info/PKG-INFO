@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: joserfc
-Version: 1.1.0
+Version: 1.2.0
 Summary: The ultimate Python library for JOSE RFCs, including JWS, JWE, JWK, JWA, JWT
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
 Project-URL: Documentation, https://jose.authlib.org/
 Project-URL: Source, https://github.com/authlib/joserfc
+Project-URL: Funding, https://github.com/sponsors/authlib
 Project-URL: Blog, https://blog.authlib.org/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -22,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
 Requires-Python: >=3.8
@@ -35,7 +37,7 @@ Dynamic: license-file
 JOSE RFC
 ========
 
-`·joserfc·` is a Python library that provides a comprehensive implementation of several
+``joserfc`` is a Python library that provides a comprehensive implementation of several
 essential JSON Object Signing and Encryption (JOSE) standards.
 
 This package contains implementation of:
@@ -47,13 +49,16 @@ This package contains implementation of:
 - RFC7519: JSON Web Token
 - RFC7520: Examples of Protecting Content Using JSON Object Signing and Encryption
 - RFC7638: thumbprint for JWK
+- RFC7797: JSON Web Signature (JWS) Unencoded Payload Option
 - RFC8037: OKP Key and EdDSA algorithm
 - RFC8812: ES256K algorithm
+- RFC9278: JWK Thumbprint URI
 
 And draft RFCs implementation of:
 
-- C20P and XC20P
-- ECDH-1PU algorithms
+- draft-ietf-jose-deprecate-none-rsa15-02
+- draft-amringer-jose-chacha-02
+- draft-madden-jose-ecdh-1pu-04
 
 Usage
 -----

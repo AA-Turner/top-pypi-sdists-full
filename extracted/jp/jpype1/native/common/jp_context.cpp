@@ -48,7 +48,7 @@ JPContext::JPContext()
 {
 	m_Embedded = false;
 
-	m_GC = new JPGarbageCollection(this);
+	m_GC = new JPGarbageCollection();
 }
 
 JPContext::~JPContext()
@@ -119,24 +119,38 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 		throw;
 	}
 
+	// Determine the memory requirements
+#define PAD(x) ((x+31)&~31)
+	size_t mem = PAD(sizeof(JavaVMInitArgs));
+	size_t oblock = mem;
+	mem += PAD(sizeof(JavaVMOption)*args.size() + 1);
+	size_t sblock = mem;
+	for (size_t i = 0; i < args.size(); i++)
+	{
+		mem += PAD(args[i].size()+1);
+	}
+
 	// Pack the arguments
 	JP_TRACE("Pack arguments");
-	JavaVMInitArgs jniArgs;
-	jniArgs.options = nullptr;
+	char *block = (char*) malloc(mem);
+	JavaVMInitArgs* jniArgs = (JavaVMInitArgs*) block;
+	memset(jniArgs, 0, mem);
+	jniArgs->options = (JavaVMOption*)(&block[oblock]);
 
 	// prepare this ...
-	jniArgs.version = USE_JNI_VERSION;
-	jniArgs.ignoreUnrecognized = ignoreUnrecognized;
+	jniArgs->version = USE_JNI_VERSION;
+	jniArgs->ignoreUnrecognized = ignoreUnrecognized;
 	JP_TRACE("IgnoreUnrecognized", ignoreUnrecognized);
 
-	jniArgs.nOptions = (jint) args.size();
-	JP_TRACE("NumOptions", jniArgs.nOptions);
-	jniArgs.options = new JavaVMOption[jniArgs.nOptions];
-	memset(jniArgs.options, 0, sizeof (JavaVMOption) * jniArgs.nOptions);
-	for (int i = 0; i < jniArgs.nOptions; i++)
+	jniArgs->nOptions = (jint) args.size();
+	JP_TRACE("NumOptions", jniArgs->nOptions);
+	size_t j = sblock;
+	for (size_t i = 0; i < args.size(); i++)
 	{
 		JP_TRACE("Option", args[i]);
-		jniArgs.options[i].optionString = (char*) args[i].c_str();
+		strncpy(&block[j], args[i].c_str(), args[i].size());
+		jniArgs->options[i].optionString = (char*) &block[j];
+		j += PAD(args[i].size()+1);
 	}
 
 	// Launch the JVM
@@ -144,13 +158,13 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	JP_TRACE("Create JVM");
 	try
 	{
-		CreateJVM_Method(&m_JavaVM, (void**) &env, (void*) &jniArgs);
+		CreateJVM_Method(&m_JavaVM, (void**) &env, (void*) jniArgs);
 	} catch (...)
 	{
 		JP_TRACE("Exception in CreateJVM?");
 	}
 	JP_TRACE("JVM created");
-	delete [] jniArgs.options;
+	free(jniArgs);
 
 	if (m_JavaVM == nullptr)
 	{
@@ -158,6 +172,8 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 		JP_RAISE(PyExc_RuntimeError, "Unable to start JVM");
 	}
 
+	// Mark running for assert
+	m_Running = true;
 	initializeResources(env, interrupt);
 	JP_TRACE_OUT;
 }
@@ -203,7 +219,7 @@ std::string getShared()
 
 void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 {
-	JPJavaFrame frame = JPJavaFrame::external(this, env);
+	JPJavaFrame frame = JPJavaFrame::external(env);
 	// This is the only frame that we can use until the system
 	// is initialized.  Any other frame creation will result in an error.
 
@@ -318,6 +334,10 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	m_Buffer_IsReadOnlyID = frame.GetMethodID(bufferClass, "isReadOnly",
 			"()Z");
 
+	jclass bytebufferClass = frame.FindClass("java/nio/ByteBuffer");
+	m_Buffer_AsReadOnlyID = frame.GetMethodID(bytebufferClass, "asReadOnlyBuffer",
+			"()Ljava/nio/ByteBuffer;");
+
 	jclass comparableClass = frame.FindClass("java/lang/Comparable");
 	m_CompareToID = frame.GetMethodID(comparableClass, "compareTo",
 			"(Ljava/lang/Object;)I");
@@ -339,7 +359,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// FIXME find a way to call this from instrumentation.
 	// throw std::runtime_error("Failed");
 	// Everything is started.
-	m_Running = true;
 }
 
 void JPContext::onShutdown()
@@ -446,7 +465,9 @@ JNIEnv* JPContext::getEnv()
 		// not deadlock the shutdown.  The user can convert later if they want.
 		res = m_JavaVM->AttachCurrentThreadAsDaemon((void**) &env, nullptr);
 		if (res != JNI_OK)
+		{
 			JP_RAISE(PyExc_RuntimeError, "Unable to attach to local thread");
+		}
 	}
 	return env;
 }
@@ -489,10 +510,14 @@ extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeContext_onShutdown
 
 static int interruptState = 0;
 extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeSignal_interruptPy
-(JNIEnv *env, jclass cls)
+(JNIEnv *env, jclass cls, jint signal)
 {
 	interruptState = 1;
+#if PY_MINOR_VERSION<10
 	PyErr_SetInterrupt();
+#else
+	PyErr_SetInterruptEx((int) signal);
+#endif
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeSignal_acknowledgePy

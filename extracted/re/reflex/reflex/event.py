@@ -570,7 +570,7 @@ class JavascriptHTMLInputElement:
 class JavascriptInputEvent:
     """Interface for a Javascript InputEvent https://developer.mozilla.org/en-US/docs/Web/API/InputEvent."""
 
-    target: JavascriptHTMLInputElement = JavascriptHTMLInputElement()  # noqa: RUF009
+    target: JavascriptHTMLInputElement = JavascriptHTMLInputElement()
 
 
 @dataclasses.dataclass(
@@ -1021,6 +1021,22 @@ def set_focus(ref: str) -> EventSpec:
     return server_side(
         "_set_focus",
         get_fn_signature(set_focus),
+        ref=LiteralVar.create(format.format_ref(ref)),
+    )
+
+
+def blur_focus(ref: str) -> EventSpec:
+    """Blur focus of specified ref.
+
+    Args:
+        ref: The ref.
+
+    Returns:
+        An event to blur focus on the ref
+    """
+    return server_side(
+        "_blur_focus",
+        get_fn_signature(blur_focus),
         ref=LiteralVar.create(format.format_ref(ref)),
     )
 
@@ -2293,6 +2309,7 @@ class EventNamespace:
     back = staticmethod(back)
     window_alert = staticmethod(window_alert)
     set_focus = staticmethod(set_focus)
+    blur_focus = staticmethod(blur_focus)
     scroll_to = staticmethod(scroll_to)
     set_value = staticmethod(set_value)
     remove_cookie = staticmethod(remove_cookie)

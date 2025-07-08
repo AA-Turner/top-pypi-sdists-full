@@ -15,6 +15,9 @@ use starlark_map::ordered_map::OrderedMap;
 
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::FunctionKind;
+use crate::types::literal::Lit;
+use crate::types::tuple::Tuple;
+use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
@@ -30,6 +33,13 @@ impl TypeMap {
             .get(name)
             .and_then(|t| t.as_bool())
             .unwrap_or(default)
+    }
+
+    fn get_string(&self, name: &Name) -> Option<&str> {
+        self.0.get(name).and_then(|t| match t {
+            Type::Literal(Lit::Str(s)) => Some(&**s),
+            _ => None,
+        })
     }
 }
 
@@ -76,7 +86,7 @@ pub struct DataclassTransformKeywords {
     pub order_default: bool,
     pub kw_only_default: bool,
     pub frozen_default: bool,
-    // TODO(rechen): add field_specifiers
+    pub field_specifiers: Vec<CalleeKind>,
 }
 
 impl DataclassTransformKeywords {
@@ -84,6 +94,7 @@ impl DataclassTransformKeywords {
     const ORDER_DEFAULT: Name = Name::new_static("order_default");
     const KW_ONLY_DEFAULT: Name = Name::new_static("kw_only_default");
     const FROZEN_DEFAULT: Name = Name::new_static("frozen_default");
+    const FIELD_SPECIFIERS: Name = Name::new_static("field_specifiers");
 
     pub fn from_type_map(map: &TypeMap) -> Self {
         Self {
@@ -91,6 +102,12 @@ impl DataclassTransformKeywords {
             order_default: map.get_bool(&Self::ORDER_DEFAULT, false),
             kw_only_default: map.get_bool(&Self::KW_ONLY_DEFAULT, false),
             frozen_default: map.get_bool(&Self::FROZEN_DEFAULT, false),
+            field_specifiers: match map.0.get(&Self::FIELD_SPECIFIERS) {
+                Some(Type::Tuple(Tuple::Concrete(elts))) => {
+                    elts.iter().filter_map(|e| e.callee_kind()).collect()
+                }
+                _ => Vec::new(),
+            },
         }
     }
 
@@ -108,26 +125,33 @@ pub struct DataclassFieldKeywords {
     pub default: bool,
     /// None means that kw_only was not explicitly set
     pub kw_only: Option<bool>,
-    // TODO(rechen): add factory, alias, and converter
+    /// Alias that is used in `__init__` rather than the field name. None means no alias
+    pub alias: Option<Name>,
+    // TODO(rechen): add converter
 }
 
 impl DataclassFieldKeywords {
     const INIT: Name = Name::new_static("init");
-    /// We combine default and default_factory into a single "default" keyword indicating whether
-    /// the field has a default. The default value isn't stored.
+    /// We combine default, default_factory, and factory into a single "default" keyword indicating
+    /// whether the field has a default. The default value isn't stored.
     const DEFAULT: Name = Name::new_static("default");
     const DEFAULT_FACTORY: Name = Name::new_static("default_factory");
+    const FACTORY: Name = Name::new_static("factory");
     const KW_ONLY: Name = Name::new_static("kw_only");
+    const ALIAS: Name = Name::new_static("alias");
 
     pub fn from_type_map(map: &TypeMap) -> Self {
         let init = map.get_bool(&Self::INIT, true);
-        let default =
-            map.0.contains_key(&Self::DEFAULT) | map.0.contains_key(&Self::DEFAULT_FACTORY);
+        let default = [&Self::DEFAULT, &Self::DEFAULT_FACTORY, &Self::FACTORY]
+            .iter()
+            .any(|k| map.0.contains_key(*k));
         let kw_only = map.0.get(&Self::KW_ONLY).and_then(|t| t.as_bool());
+        let alias = map.get_string(&Self::ALIAS).map(Name::new);
         Self {
             init,
             default,
             kw_only,
+            alias,
         }
     }
 
@@ -152,7 +176,7 @@ pub struct DataclassKeywords {
     pub kw_only: bool,
     pub eq: bool,
     pub unsafe_hash: bool,
-    // TODO(rechen): add `slots`
+    pub slots: bool,
 }
 
 impl DataclassKeywords {
@@ -163,6 +187,7 @@ impl DataclassKeywords {
     const KW_ONLY: Name = Name::new_static("kw_only");
     const EQ: Name = Name::new_static("eq");
     const UNSAFE_HASH: Name = Name::new_static("unsafe_hash");
+    const SLOTS: Name = Name::new_static("slots");
 
     pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformKeywords) -> Self {
         Self {
@@ -173,6 +198,7 @@ impl DataclassKeywords {
             kw_only: map.get_bool(&Self::KW_ONLY, defaults.kw_only_default),
             eq: map.get_bool(&Self::EQ, defaults.eq_default),
             unsafe_hash: map.get_bool(&Self::UNSAFE_HASH, false),
+            slots: map.get_bool(&Self::SLOTS, false),
         }
     }
 

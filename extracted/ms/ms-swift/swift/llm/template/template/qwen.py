@@ -50,9 +50,13 @@ class ThinkingTemplate(Template):
 
     def _swift_prepare_messages(self, messages):
         super()._swift_prepare_messages(messages)
-        for i, message in enumerate(messages):
-            if message['role'] == 'assistant' and isinstance(message['content'], str) and i != len(messages) - 1:
-                message['content'] = message['content'].split('</think>')[-1].strip()
+        # Only during inference or training, and only if the loss_scale is set to 'last_round',
+        # will the previous 'think' entries be deleted.
+        if not self.is_training or self.loss_scale.name == 'last_round':
+            for i, message in enumerate(messages):
+                # Delete the content before '</think>' in all assistant turns except the last round.
+                if message['role'] == 'assistant' and isinstance(message['content'], str) and i != len(messages) - 1:
+                    message['content'] = message['content'].split('</think>')[-1].strip()
 
 
 register_template(
@@ -61,6 +65,28 @@ register_template(
 
 # '<think>\n\n</think>\n\n'
 register_template(QwenTemplateMeta(LLMTemplateType.qwen3, default_system=None, template_cls=ThinkingTemplate))
+
+
+class Qwen3RerankerTemplate(Template):
+    instruction = 'Given a web search query, retrieve relevant passages that answer the query'
+
+    def _preprocess_inputs(self, inputs: StdTemplateInputs) -> None:
+        super()._preprocess_inputs(inputs)
+        query = inputs.messages[-2]['content']
+        user_message = '<Instruct>: ' + self.instruction + '\n' + '<Query>: ' + query + '\n' + '<Document>: {doc}'
+        inputs.messages[-2]['content'] = user_message
+
+
+qwen3_reranker_system = (
+    'Judge whether the Document meets the requirements based on the Query and the Instruct provided. '
+    'Note that the answer can only be \"yes\" or \"no\".')
+
+register_template(
+    QwenTemplateMeta(
+        LLMTemplateType.qwen3_reranker,
+        default_system=qwen3_reranker_system,
+        response_prefix='<think>\n\n</think>\n\n',
+        template_cls=Qwen3RerankerTemplate))
 
 register_template(Qwen2_5MathTemplateMeta(LLMTemplateType.qwen2_5_math))
 
@@ -275,9 +301,9 @@ class Qwen2VLTemplate(Template):
         encoded['labels'] = labels
         return encoded
 
-    def compute_loss_context(self, model, inputs):
+    def forward_context(self, model, inputs):
         if 'real_position_ids' not in inputs:
-            return super().compute_loss_context(model, inputs)
+            return super().forward_context(model, inputs)
         if self.version == 'v2':
             from transformers.models.qwen2_vl import modeling_qwen2_vl as modeling_module
         elif self.version == 'v2_5':

@@ -32,7 +32,7 @@ from .trafarets import (
 )
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class UserBlueprintsHexColumnNameLookupEntryDict(TypedDict):
         colname: str

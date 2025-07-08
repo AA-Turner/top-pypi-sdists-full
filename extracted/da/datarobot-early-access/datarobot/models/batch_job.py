@@ -37,12 +37,11 @@ import time
 import typing
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
-from mypy_extensions import TypedDict
 import pandas as pd
 import requests
 import trafaret as t
 
-from datarobot._compat import Int, String
+from datarobot._compat import Int, String, TypedDict
 from datarobot.utils import recognize_sourcedata as orig_recognize_sourcedata
 
 from .. import errors

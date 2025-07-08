@@ -35,6 +35,9 @@ class BasePlan(pydantic.BaseModel):
     is_payment_failed: typing.Optional[bool] = pydantic.Field(
         description="Whether the organization has a failed payment that requires support contact"
     )
+    failure_count: typing.Optional[int] = pydantic.Field(
+        description="The number of payment failures for this organization"
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

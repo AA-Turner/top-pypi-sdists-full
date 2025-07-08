@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dvclive
-Version: 3.48.2
+Version: 3.48.3
 Summary: Experiments logger for ML projects.
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
@@ -34,7 +34,7 @@ Provides-Extra: image
 Requires-Dist: numpy; extra == "image"
 Requires-Dist: pillow; extra == "image"
 Provides-Extra: sklearn
-Requires-Dist: scikit-learn; extra == "sklearn"
+Requires-Dist: scikit-learn>=1.5.0; extra == "sklearn"
 Provides-Extra: plots
 Requires-Dist: scikit-learn; extra == "plots"
 Requires-Dist: pandas; extra == "plots"
@@ -54,7 +54,7 @@ Requires-Dist: transformers[torch]; extra == "tests"
 Requires-Dist: tf-keras; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: dvclive[all,tests]; extra == "dev"
-Requires-Dist: mypy==1.14.1; extra == "dev"
+Requires-Dist: mypy==1.15.0; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Provides-Extra: mmcv
 Requires-Dist: mmcv; extra == "mmcv"
@@ -77,6 +77,7 @@ Provides-Extra: optuna
 Requires-Dist: optuna; extra == "optuna"
 Provides-Extra: all
 Requires-Dist: dvclive[fastai,huggingface,image,lgbm,lightning,markdown,mmcv,optuna,plots,tf,xgb]; extra == "all"
+Dynamic: license-file
 
 # DVCLive
 

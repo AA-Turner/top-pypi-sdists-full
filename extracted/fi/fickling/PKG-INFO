@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fickling
-Version: 0.1.3
+Version: 0.1.4
 Summary: A static analyzer and interpreter for Python pickle data
 Author-email: Trail of Bits <opensource@trailofbits.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
@@ -11,9 +11,10 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Utilities
-Requires-Dist: astunparse ~= 1.6.3
+License-File: LICENSE
+Requires-Dist: stdlib_list ~= 0.11.1
 Requires-Dist: build ; extra == "dev"
-Requires-Dist: fickling[lint,test] ; extra == "dev"
+Requires-Dist: fickling[lint, test] ; extra == "dev"
 Requires-Dist: twine ; extra == "dev"
 Requires-Dist: torch >= 2.1.0 ; extra == "dev"
 Requires-Dist: torchvision >= 0.16.1 ; extra == "dev"
@@ -21,10 +22,12 @@ Requires-Dist: numpy ; extra == "examples"
 Requires-Dist: pytorchfi ; extra == "examples"
 Requires-Dist: black ; extra == "lint"
 Requires-Dist: mypy ; extra == "lint"
-Requires-Dist: ruff ; extra == "lint"
+Requires-Dist: ruff==0.5.4 ; extra == "lint"
+Requires-Dist: typing-extensions ; extra == "lint" and ( python_version < '3.12')
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: coverage[toml] ; extra == "test"
+Requires-Dist: numpy==2.0.2 ; extra == "test"
 Requires-Dist: torch >= 2.1.0 ; extra == "test"
 Requires-Dist: torchvision >= 0.16.1 ; extra == "test"
 Requires-Dist: torch >= 2.1.0 ; extra == "torch"
@@ -50,7 +53,8 @@ malicious pickle or pickle-based files, including PyTorch files.
 Fickling can be used both as a **python library** and a **CLI**.
 
 * [Installation](#installation)
-* [Malicious file detection](#malicious-file-detection)
+* [Securing AI/ML environments](#securing-aiml-environments)
+* [Generic malicious file detection](#generic-malicious-file-detection)
 * [Advanced usage](#advanced-usage)
   * [Trace pickle execution](#trace-pickle-execution)
   * [Pickle code injection](#pickle-code-injection)
@@ -61,7 +65,7 @@ Fickling can be used both as a **python library** and a **CLI**.
 
 ## Installation
 
-Fickling has been tested on Python 3.8 through Python 3.11 and has very few dependencies.
+Fickling has been tested on Python 3.9 through Python 3.13 and has very few dependencies.
 Both the library and command line utility can be installed through pip:
 
 ```bash
@@ -75,7 +79,38 @@ and `polyglot` modules, you should run:
 python -m pip install fickling[torch]
 ```
 
-## Malicious file detection
+## Securing AI/ML environments
+
+Fickling can help securing AI/ML codebases by automatically scanning pickle files contained in
+models. Fickling hooks the pickle module and verifies imports made when loading a model. It only
+checks the imports against an allowlist of imports from ML libraries that are considered safe, and blocks files that contain other imports.
+
+To enable Fickling security checks simply run the following lines once in your process, before loading any AI/ML models:
+
+```python
+import fickling
+# This sets global hooks on pickle
+fickling.hook.activate_safe_ml_environment()
+```
+
+To remove the protection:
+
+```python
+fickling.hook.deactivate_safe_ml_environment()
+```
+
+It is possible that the models you are using contain imports that aren't allowed by Fickling. If you still want to load the model, you can simply allow additional imports for your specific use-case with the `also_allow` argument:
+
+```python
+fickling.hook.activate_safe_ml_environment(also_allow=[
+    "some.import",
+    "another.allowed.import",
+])
+```
+
+**Important**: You should always make sure that manually added imports are actually safe and can not enable attackers to execute arbitrary code. If you are unsure on how to do that, you can open an issue on Fickling's Github repository that indicates the imports/models in question, and our team can review them and include them in the allow list if possible.
+
+## Generic malicious file detection
 
 Fickling can seamlessly be integrated into your codebase to detect and halt the loading of malicious
 files at runtime.
@@ -90,7 +125,7 @@ raises an `UnsafeFileError` exception if malicious content is detected in the fi
 # This enforces safety checks every time pickle.load() is used
 fickling.always_check_safety()
 
-# Attempt to load an unsafe file now raises an exception  
+# Attempt to load an unsafe file now raises an exception
 with open("file.pkl", "rb") as f:
     try:
         pickle.load(f)
@@ -116,7 +151,7 @@ pickle.load("file.pkl")
 #### Option 3: check and load a single file
 
 ```python
-# Use fickling.load() in place of pickle.load() to check safety and load a single pickle file 
+# Use fickling.load() in place of pickle.load() to check safety and load a single pickle file
 try:
     fickling.load("file.pkl")
 except fickling.UnsafeFileError as e:
@@ -209,8 +244,8 @@ Module(
 
 ### PyTorch polyglots
 
-PyTorch contains multiple file formats with which one can make polyglot files, which 
-are files that can be validly interpreted as more than one file format. 
+PyTorch contains multiple file formats with which one can make polyglot files, which
+are files that can be validly interpreted as more than one file format.
 Fickling supports identifying, inspecting, and creating polyglots with the
 following PyTorch file formats:
 
@@ -231,7 +266,7 @@ following PyTorch file formats:
 >> torch.save(model, "mobilenet.pth")
 >> fickled_model = PyTorchModelWrapper("mobilenet.pth")
 >> print(fickled_model.formats)
-Your file is most likely of this format:  PyTorch v1.3 
+Your file is most likely of this format:  PyTorch v1.3
 ['PyTorch v1.3']
 ```
 

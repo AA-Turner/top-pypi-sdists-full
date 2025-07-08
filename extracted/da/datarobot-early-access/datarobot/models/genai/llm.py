@@ -14,9 +14,9 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.models.api_object import APIObject
 from datarobot.models.use_cases.use_case import UseCase
 from datarobot.models.use_cases.utils import get_use_case_id

@@ -85,8 +85,7 @@ from .feature_impact import FeatureImpact
 
 MODEL_RECORDS_CHUNK_SIZE = 250
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.blueprint import BlueprintJson
     from datarobot.models.dataset import Dataset
     from datarobot.models.job import Job

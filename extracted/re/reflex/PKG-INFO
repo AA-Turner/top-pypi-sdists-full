@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex
-Version: 0.8.0
+Version: 0.8.1
 Summary: Web apps in pure Python.
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
@@ -31,7 +31,7 @@ Requires-Dist: pydantic<3.0,>=1.10.21
 Requires-Dist: python-multipart<1.0,>=0.0.20
 Requires-Dist: python-socketio<6.0,>=5.12.0
 Requires-Dist: redis<7.0,>=5.2.1
-Requires-Dist: reflex-hosting-cli>=0.1.47
+Requires-Dist: reflex-hosting-cli>=0.1.51
 Requires-Dist: rich<15,>=13
 Requires-Dist: sqlmodel<0.1,>=0.0.24
 Requires-Dist: typing-extensions>=4.13.0

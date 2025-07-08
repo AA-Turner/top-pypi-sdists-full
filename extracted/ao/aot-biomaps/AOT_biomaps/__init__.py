@@ -4,7 +4,7 @@ from .AOT_Reconstruction import *
 from .AOT_Experiment import *
 from .config import config
 
-__version__ = '2.5.9'
+__version__ = '2.6.7'
 
 if config.get_process() == 'gpu':
     __process__ = 'gpu'

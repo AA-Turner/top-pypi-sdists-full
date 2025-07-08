@@ -52,17 +52,28 @@ stages:
           - template: compile.yaml
           - script: |
               cd questdb-rs
-              cargo build --examples --all-features
+              cargo build --examples --features almost-all-features
             displayName: "Build Rust examples"
+          ############################# temp for test begin #####################
+          - script: |
+              git clone --depth 1 https://github.com/questdb/questdb.git ./questdb
+            displayName: git clone questdb
+          - task: Maven@3
+            displayName: "Compile QuestDB"
+            inputs:
+              mavenPOMFile: "questdb/pom.xml"
+              jdkVersionOption: "1.17"
+              options: "-DskipTests -Pbuild-web-console"
+          ############################# temp for test end ##################### 
           - script: python3 ci/run_all_tests.py
             env:
               JAVA_HOME: $(JAVA_HOME_11_X64)
             displayName: "Tests"
-          - task: PublishBuildArtifacts@1
-            inputs:
-              pathToPublish: ./build
-            displayName: "Publish build directory"
-      - job: CargoFmtAndClippy
+          # - task: PublishBuildArtifacts@1
+          #   inputs:
+          #     pathToPublish: ./build
+          #   displayName: "Publish build directory"
+      - job: FormatAndLinting
         displayName: "cargo fmt and clippy"
         pool:
           vmImage: 'ubuntu-latest'
@@ -70,16 +81,17 @@ stages:
         steps:
           - checkout: self
           - script: |
+              apt install clang-format
               rustup component add clippy
               rustup component add rustfmt
-            displayName: "Install clippy and rustfmt"
+            displayName: "Install clang-format, clippy and rustfmt"
           - script: |
               cd questdb-rs
               cargo fmt --all -- --check
             displayName: "questdb-rs: fmt"
           - script: |
               cd questdb-rs
-              cargo clippy --all-targets --all-features -- -D warnings
+              cargo clippy --all-targets --features almost-all-features -- -D warnings
             displayName: "questdb-rs: clippy"
           - script: |
               cd questdb-rs-ffi
@@ -89,6 +101,9 @@ stages:
               cd questdb-rs-ffi
               cargo clippy --all-targets --all-features -- -D warnings
             displayName: "questdb-rs-ffi: clippy"
+          - script: |
+              python3 ci/format_cpp.py --check
+            displayName: "C/C++ clang-format"
           - script: |
               cd system_test
               cd tls_proxy
@@ -117,7 +132,7 @@ stages:
             displayName: "Compile QuestDB"
             inputs:
               mavenPOMFile: 'questdb/pom.xml'
-              jdkVersionOption: '1.11'
+              jdkVersionOption: '1.17'
               options: "-DskipTests -Pbuild-web-console"
           - script: |
               python3 system_test/test.py run --repo ./questdb -v

@@ -12,12 +12,16 @@
 from dataclasses import dataclass
 from enum import auto, Enum
 from pathlib import Path
-from typing import List
+from typing import Dict, Iterable, List, Optional, Type, TypeVar, Union
 
+from strenum import StrEnum
 import trafaret as t
 
 from datarobot.models.api_object import APIObject, ServerDataType
+from datarobot.utils import from_api
 from datarobot.utils.pagination import unpaginate
+
+TOCRJobResource = TypeVar("TOCRJobResource", bound="OCRJobResource")
 
 
 class OCRJobDatasetLanguage(Enum):
@@ -36,6 +40,20 @@ class OCRJobDatasetLanguage(Enum):
             f"Valid values are {[lang.name for lang in cls]}"
         )
         raise ValueError(msg)
+
+
+class DataRobotOCREngineType(StrEnum):
+    """Supported OCR engine type"""
+
+    TESSERACT = auto()
+    ARYN = auto()
+
+
+class DataRobotArynOutputFormat(StrEnum):
+    """Supported Aryn OCR engine output format"""
+
+    JSON = auto()
+    MARKDOWN = auto()
 
 
 def from_language_enum_to_api_representation(lang_enum: OCRJobDatasetLanguage) -> str:
@@ -112,6 +130,40 @@ class StartOCRJobResponse:
         )
 
 
+_engine_specific_parameters_converter = t.Dict(
+    {
+        t.Key("engine_type", optional=True): t.Or(
+            t.Enum(*[e.name for e in DataRobotOCREngineType]), t.Null()
+        ),
+        t.Key("output_format", optional=True): t.Or(
+            t.Enum(*[f.name for f in DataRobotArynOutputFormat]), t.Null()
+        ),
+    }
+).ignore_extra("*")
+
+
+class OCREngineSpecificParameters:
+    """Container of Engine Specific Parameters"""
+
+    def __init__(self, engine_type: Optional[str] = None, output_format: Optional[str] = None):
+        _engine_specific_parameters_converter.check(
+            {
+                "engine_type": engine_type,
+                "output_format": output_format,
+            }
+        )
+        self.engine_type = engine_type
+        self.output_format = output_format
+
+    def get_payload(self) -> Dict[str, Optional[str]]:
+        """return dict containing values that are not None"""
+        data = {
+            "engine_type": self.engine_type,
+            "output_format": self.output_format,
+        }
+        return {key: value for key, value in data.items() if value}
+
+
 class OCRJobResource(APIObject):
     """An OCR job resource container. It is used to:
     - Get an existing OCR  job resource.
@@ -136,9 +188,13 @@ class OCRJobResource(APIObject):
         Determines if a job associated with the OCRJobResource has started.
     language: str
         String representation of OCRJobDatasetLanguage.
+    engine_specific_parameters: OCREngineSpecificParameters
+        Optional. OCR engine parameters.
+
     """
 
     _path = "ocrJobResources/"
+
     _converter = t.Dict(
         {
             t.Key("id"): t.String(),
@@ -147,6 +203,9 @@ class OCRJobResource(APIObject):
             t.Key("user_id"): t.String(),
             t.Key("job_started"): t.Bool(),
             t.Key("language"): t.Enum(*[el.name for el in OCRJobDatasetLanguage]),
+            t.Key(
+                "engine_specific_parameters", optional=True
+            ): _engine_specific_parameters_converter,
         }
     ).ignore_extra("*")
 
@@ -160,6 +219,7 @@ class OCRJobResource(APIObject):
         user_id: str,
         job_started: bool,
         language: str,
+        engine_specific_parameters: Optional[OCREngineSpecificParameters] = None,
     ) -> None:
         self.id = id
         self.input_catalog_id = input_catalog_id
@@ -167,6 +227,7 @@ class OCRJobResource(APIObject):
         self.user_id = user_id
         self.job_started = job_started
         self.language = OCRJobDatasetLanguage.from_string(language)
+        self.engine_specific_parameters = engine_specific_parameters
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.id!r})"
@@ -212,7 +273,12 @@ class OCRJobResource(APIObject):
         ]
 
     @classmethod
-    def create(cls, input_catalog_id: str, language: OCRJobDatasetLanguage) -> "OCRJobResource":
+    def create(
+        cls,
+        input_catalog_id: str,
+        language: OCRJobDatasetLanguage,
+        engine_specific_parameters: Optional[OCREngineSpecificParameters] = None,
+    ) -> "OCRJobResource":
         """Create a new OCR job resource and return it.
 
         Parameters
@@ -221,16 +287,21 @@ class OCRJobResource(APIObject):
             The identifier of an AI catalog item used as the OCR job input.
         language: OCRJobDatasetLanguage
             The OCR job dataset language.
+        engine_specific_parameters: OCREngineSpecificParameters
+            Optional. OCR engine parameters.
 
         Returns
         -------
         OCRJobResource
             The created OCR job resource.
         """
-        request_body = {
+        request_body: Dict[str, Union[Optional[str], dict[str, Optional[str]]]] = {
             "dataset_id": input_catalog_id,
             "language": from_language_enum_to_api_representation(language),
         }
+        if engine_specific_parameters and engine_specific_parameters.get_payload():
+            request_body["engine_specific_parameters"] = engine_specific_parameters.get_payload()
+
         data = cls._client.post(
             cls._path,
             data=request_body,
@@ -278,3 +349,15 @@ class OCRJobResource(APIObject):
         response = self._client.get(path, stream=True)
         for chunk in response.iter_content(chunk_size=1024 * 1024):
             download_file_path.write_bytes(chunk)
+
+    @classmethod
+    def from_server_data(
+        cls: Type[TOCRJobResource],
+        data: ServerDataType,
+        keep_attrs: Optional[Iterable[str]] = None,
+    ) -> TOCRJobResource:
+        converted_data = cls._converter.check(from_api(data))
+        params = converted_data.pop("engine_specific_parameters", None)
+        if params:
+            converted_data["engine_specific_parameters"] = OCREngineSpecificParameters(**params)
+        return cls(**converted_data)

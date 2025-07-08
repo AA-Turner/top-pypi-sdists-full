@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gherkin-official
-Version: 32.1.2
+Version: 33.0.0
 Summary: Gherkin parser (official, by Cucumber team)
 Author-email: Cucumber Ltd and Björn Rasmusson <cukes@googlegroups.com>
 Project-URL: Homepage, https://github.com/cucumber/gherkin

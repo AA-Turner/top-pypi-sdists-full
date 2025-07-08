@@ -46,6 +46,9 @@ class LegacyParseJobConfig(pydantic.BaseModel):
     invalidate_cache: bool = pydantic.Field(alias="invalidateCache", description="Whether to invalidate the cache.")
     output_pdf_of_document: typing.Optional[bool] = pydantic.Field(alias="outputPDFOfDocument")
     outlined_table_extraction: typing.Optional[bool] = pydantic.Field(alias="outlinedTableExtraction")
+    merge_tables_across_pages_in_markdown: typing.Optional[bool] = pydantic.Field(
+        alias="mergeTablesAcrossPagesInMarkdown"
+    )
     save_images: typing.Optional[bool] = pydantic.Field(alias="saveImages")
     gpt_4_o: typing.Optional[bool] = pydantic.Field(alias="gpt4o", description="Whether to use GPT4o.")
     open_aiapi_key: str = pydantic.Field(alias="openAIAPIKey", description="The OpenAI API key.")

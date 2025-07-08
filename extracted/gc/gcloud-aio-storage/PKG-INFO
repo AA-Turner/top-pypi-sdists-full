@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: gcloud-aio-storage
-Version: 9.4.0
+Version: 9.5.0
 Summary: Python Client for Google Cloud Storage
 License: MIT
 Author: Vi Engineering

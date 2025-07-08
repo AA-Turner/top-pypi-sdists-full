@@ -46,7 +46,7 @@ logger = structlog.stdlib.get_logger(__name__)
 class CliError(Exception):
     """CLI Error."""
 
-    def __init__(self, *args, exit_code: int = 1, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def __init__(self, *args: t.Any, exit_code: int = 1, **kwargs: t.Any) -> None:
         """Instantiate custom CLI Error exception."""
         super().__init__(*args, **kwargs)
 
@@ -58,8 +58,7 @@ class CliError(Exception):
         if self.printed:
             return
 
-        logger.debug(str(self), exc_info=True)
-        click.secho(str(self), fg="red", err=True)
+        logger.error(str(self), exc_info=self.__cause__)
 
         self.printed = True
 
@@ -637,3 +636,30 @@ class AutoInstallBehavior(StrEnum):
     install = auto()
     no_install = auto()
     only_install = auto()
+
+
+class PluginTypeArg(click.Choice):
+    """A click parameter that converts a string to a PluginType."""
+
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+        """Initialize the PluginTypeArg."""
+        super().__init__(PluginType.cli_arguments(), *args, **kwargs)
+
+    def convert(
+        self,
+        value: str,
+        param: click.Parameter | None,  # noqa: ARG002
+        ctx: click.Context | None,  # noqa: ARG002
+    ) -> PluginType:
+        """Convert the value to a PluginType."""
+        return PluginType.from_cli_argument(value)
+
+
+def infer_plugin_type(plugin_name: str) -> PluginType:
+    """Infer the plugin type from the plugin name."""
+    if plugin_name.startswith("tap-"):
+        return PluginType.EXTRACTORS
+    if plugin_name.startswith("target-"):
+        return PluginType.LOADERS
+
+    return PluginType.UTILITIES

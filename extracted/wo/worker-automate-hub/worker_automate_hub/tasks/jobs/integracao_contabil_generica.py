@@ -409,19 +409,19 @@ async def integracao_contabil_generica(
             ).wrapper_object()
 
             botao_integrar.click_input()
-            
+
             await worker_sleep(5)
-            
+
             assets_int_cont = "assets\\integracao_contabil\\"
             err_dict = {
                 assets_int_cont
-                + "erro_duplicidade.png": "Erro de Duplicidade localizado enquanto finalizava a integração.",
+                + "erro_duplicidade.png": "Integração não realizada. Erro de Duplicidade localizado enquanto finalizava a integração, contate o suporte do Emsys.",
                 assets_int_cont
-                + "conta_indefinida_error.png": "Conta contábil indefinida no sistema.",
+                + "conta_indefinida_error.png": "Integração não realizada. Conta contábil indefinida no sistema.",
                 assets_int_cont
-                + "lote_sem_complemento_error.png": "Lote encontrado sem complemento obrigatório.",
+                + "lote_sem_complemento_error.png": "Integração não realizada. Lote encontrado sem complemento obrigatório.",
                 assets_int_cont
-                + "diferenca_cred_deb.png": "Existem diferença em lotes consistentes, por favor verificar."
+                + "diferenca_cred_deb.png": "Integração não realizada. Existem diferença em lotes consistentes, por favor verificar.",
             }
             # Aguardar finalizar
             while True:
@@ -464,16 +464,16 @@ async def integracao_contabil_generica(
                         ).click_input()
                         break
                     except ElementNotFoundError:
-                        console.print("[yellow]Janela TMsgBox ainda não visível.[/yellow]")
+                        console.print(
+                            "[yellow]Janela TMsgBox ainda não visível.[/yellow]"
+                        )
                         break
-                        
 
                 except ElementNotFoundError:
                     console.print("[yellow]Janela TMsgBox ainda não visível.[/yellow]")
                 except Exception as e:
                     print(f"Erro inesperado ao verificar janela de confirmação: {e}")
                     break
-                    
 
                 await worker_sleep(1)
 

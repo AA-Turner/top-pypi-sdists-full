@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chellow
-Version: 1751619264.0.0
+Version: 1751875889.0.0
 Summary: Web Application for checking UK energy bills.
 Project-URL: Homepage, https://github.com/WessexWater/chellow
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
@@ -85,6 +85,19 @@ in Windows an environment variable can be set by doing:
   prompted to enter a username and password. Enter the admin user name
   `admin@example.com` and the password `admin`, and then the home page should appear.
   Change the admin password from the `users` page.
+
+### Azure
+
+SSH into the machine and you'll be in ``/home/site/wwwroot``.
+
+* Create a virtual environment: ``python -m venv antenv``
+* Activate the virtual environment with: ``source antenv/bin/activate``
+*
+In ``/home/site/wwwroot`` create a file called ``app.py`` containing the following:
+
+    import chellow
+    
+    app = chellow.create_app()
 
 
 ### Manually Upgrading Chellow

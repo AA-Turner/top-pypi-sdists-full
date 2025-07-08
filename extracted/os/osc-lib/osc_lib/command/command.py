@@ -24,13 +24,16 @@ from cliff import show
 from osc_lib import exceptions
 from osc_lib.i18n import _
 
+if ty.TYPE_CHECKING:
+    from osc_lib import shell
+
 
 class CommandMeta(abc.ABCMeta):
     def __new__(
-        mcs: ty.Type['CommandMeta'],
+        mcs: type['CommandMeta'],
         name: str,
-        bases: ty.Tuple[ty.Type[ty.Any], ...],
-        namespace: ty.Dict[str, ty.Any],
+        bases: tuple[type[ty.Any], ...],
+        namespace: dict[str, ty.Any],
     ) -> 'CommandMeta':
         if 'log' not in namespace:
             namespace['log'] = logging.getLogger(
@@ -41,6 +44,7 @@ class CommandMeta(abc.ABCMeta):
 
 class Command(command.Command, metaclass=CommandMeta):
     log: logging.Logger
+    app: 'shell.OpenStackShell'
 
     def run(self, parsed_args: argparse.Namespace) -> int:
         self.log.debug('run(%s)', parsed_args)

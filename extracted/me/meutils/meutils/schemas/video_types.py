@@ -55,8 +55,7 @@ class VideoRequest(BaseModel):
 
     fps: Literal[30, 60] = 30
 
-    class Config:
-        frozen = True
+
 
 
 class FalVideoRequest(BaseModel):

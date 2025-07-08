@@ -161,15 +161,42 @@ public:
   // DCM offset bounds (polygon)
   std::vector<Eigen::Vector2d> dcm_offset_polygon;
 
+  enum FootstepClipping
+  {
+    Ellipsoid = 0,
+    Box = 1,
+    Conic = 2
+  };
+
   /**
-   * @brief Applies the ellipsoid clipping to a given step size (dx, dy, dtheta)
+   * @brief Applies the ellipsoid (L2) clipping to a given step size (dx, dy, dtheta)
    */
   Eigen::Vector3d ellipsoid_clip(Eigen::Vector3d step);
+
+  /**
+   * @brief Applies the box clipping (L1) to a given step size (dx, dy, dtheta)
+   */
+  Eigen::Vector3d box_clip(Eigen::Vector3d step);
+
+    /**
+   * @brief Applies the conic clipping to a given step size (dx, dy, dtheta)
+   */
+  Eigen::Vector3d conic_clip(Eigen::Vector3d step);
 
   /**
    * @brief Clips a step using ellipsoid and overlap avoidance
    */
   Eigen::Vector3d ellipsoid_overlap_clip(HumanoidRobot::Side support_side, Eigen::Vector3d step);
+
+  /**
+   * @brief Clips a step using ellipsoid and overlap avoidance
+   */
+  Eigen::Vector3d box_overlap_clip(HumanoidRobot::Side support_side, Eigen::Vector3d step);
+
+  /**
+   * @brief Clips a step using ellipsoid and overlap avoidance
+   */
+  Eigen::Vector3d conic_overlap_clip(HumanoidRobot::Side support_side, Eigen::Vector3d step);
 
   /**
    * @brief Frames for opposite and neutral positions
@@ -178,5 +205,12 @@ public:
                                  double d_y = 0., double d_theta = 0.);
   Eigen::Affine3d neutral_frame(HumanoidRobot::Side side, Eigen::Affine3d T_world_foot, double d_x = 0.,
                                 double d_y = 0., double d_theta = 0.);
+
+protected:
+
+/**
+   * @brief Clips a step using ellipsoid and overlap avoidance
+   */
+  Eigen::Vector3d overlap_clip(HumanoidRobot::Side support_side, Eigen::Vector3d step, FootstepClipping clipping);
 };
 }  // namespace placo::humanoid

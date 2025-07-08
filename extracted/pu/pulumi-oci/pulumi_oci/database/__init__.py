@@ -67,6 +67,7 @@ from .get_application_vip import *
 from .get_application_vips import *
 from .get_autonomous_character_sets import *
 from .get_autonomous_container_database import *
+from .get_autonomous_container_database_backups import *
 from .get_autonomous_container_database_dataguard_association import *
 from .get_autonomous_container_database_dataguard_associations import *
 from .get_autonomous_container_database_resource_usage import *
@@ -82,6 +83,7 @@ from .get_autonomous_database_instance_wallet_management import *
 from .get_autonomous_database_peers import *
 from .get_autonomous_database_refreshable_clones import *
 from .get_autonomous_database_regional_wallet_management import *
+from .get_autonomous_database_resource_pool_members import *
 from .get_autonomous_database_software_image import *
 from .get_autonomous_database_software_images import *
 from .get_autonomous_database_wallet import *

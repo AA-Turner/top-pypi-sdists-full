@@ -8,7 +8,7 @@ color distribution patterns.
 
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import tempfile
 import os
 import cv2
@@ -30,57 +30,125 @@ from ..utils import (
 class ColorDetectionConfig(BaseConfig):
     """Configuration for color detection use case."""
     
-    # Detection settings
+    # Existing fields...
     confidence_threshold: float = 0.5
-    
-    # Color analysis settings
     top_k_colors: int = 3
     frame_skip: int = 1
-    
-    # Category settings
     target_categories: Optional[List[str]] = field(default_factory=lambda: [
         "person", "people", "car", "cars", "truck", "trucks", "motorcycle", "motorcycles", "vehicle", "vehicles", "bus", "bicycle"
     ])
-    
-    # Video processing settings
     fps: Optional[float] = None
     bbox_format: str = "auto"
-    
-    # Category mapping
     index_to_category: Optional[Dict[int, str]] = None
-    
-    # Alert configuration
     alert_config: Optional[AlertConfig] = None
-    
-    # Time window configuration
     time_window_minutes: int = 60
     enable_unique_counting: bool = True
+
+    # New tracking and smoothing fields
+    enable_smoothing: bool = True
+    smoothing_algorithm: str = "observability"  # "window" or "observability"
+    smoothing_window_size: int = 20
+    smoothing_cooldown_frames: int = 5
+    smoothing_confidence_range_factor: float = 0.5
 
     def validate(self) -> List[str]:
         """Validate configuration parameters."""
         errors = super().validate()
-        
         if self.confidence_threshold < 0 or self.confidence_threshold > 1:
             errors.append("confidence_threshold must be between 0 and 1")
-            
         if self.top_k_colors <= 0:
             errors.append("top_k_colors must be positive")
-            
         if self.frame_skip <= 0:
             errors.append("frame_skip must be positive")
-            
         if self.bbox_format not in ["auto", "xmin_ymin_xmax_ymax", "x_y_width_height"]:
             errors.append("bbox_format must be one of: auto, xmin_ymin_xmax_ymax, x_y_width_height")
-            
+        if self.smoothing_window_size <= 0:
+            errors.append("smoothing_window_size must be positive")
+        if self.smoothing_cooldown_frames < 0:
+            errors.append("smoothing_cooldown_frames cannot be negative")
+        if self.smoothing_confidence_range_factor <= 0:
+            errors.append("smoothing_confidence_range_factor must be positive")
         return errors
 
 
 class ColorDetectionUseCase(BaseProcessor):
-    """Color detection processor for analyzing object colors in video streams."""
+    """Color detection processor for analyzing object colors in video streams with tracking."""
     
     def __init__(self):
         super().__init__("color_detection")
         self.category = "visual_appearance"
+        self.tracker = None  # AdvancedTracker instance
+        self.smoothing_tracker = None  # BBoxSmoothingTracker instance
+        self._total_frame_counter = 0  # Total frames processed
+        self._global_frame_offset = 0  # Frame offset for new sessions
+        self._color_total_track_ids = {}  # Cumulative track IDs per category and color
+        self._color_current_frame_track_ids = {}  # Per-frame track IDs per category and color
+
+    def reset_tracker(self) -> None:
+        """Reset the advanced tracker instance."""
+        if self.tracker is not None:
+            self.tracker.reset()
+            self.logger.info("AdvancedTracker reset for new tracking session")
+
+    def reset_color_tracking(self) -> None:
+        """Reset color tracking state."""
+        self._color_total_track_ids = {}
+        self._color_current_frame_track_ids = {}
+        self._total_frame_counter = 0
+        self._global_frame_offset = 0
+        self.logger.info("Color tracking state reset")
+
+    def reset_all_tracking(self) -> None:
+        """Reset both advanced tracker and color tracking state."""
+        self.reset_tracker()
+        self.reset_color_tracking()
+        self.logger.info("All color tracking state reset")
+        
+    @staticmethod
+    def _iou(bbox1, bbox2):
+        """Compute IoU between two bboxes (dicts with xmin/ymin/xmax/ymax or x/y/width/height)."""
+        if "xmin" in bbox1:
+            x1 = max(bbox1["xmin"], bbox2["xmin"])
+            y1 = max(bbox1["ymin"], bbox2["ymin"])
+            x2 = min(bbox1["xmax"], bbox2["xmax"])
+            y2 = min(bbox1["ymax"], bbox2["ymax"])
+            area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
+            area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
+        else:
+            x1 = max(bbox1["x"], bbox2["x"])
+            y1 = max(bbox1["y"], bbox2["y"])
+            x2 = min(bbox1["x"] + bbox1["width"], bbox2["x"] + bbox2["width"])
+            y2 = min(bbox1["y"] + bbox1["height"], bbox2["y"] + bbox2["height"])
+            area1 = bbox1["width"] * bbox1["height"]
+            area2 = bbox2["width"] * bbox2["height"]
+        inter_w = max(0, x2 - x1)
+        inter_h = max(0, y2 - y1)
+        inter_area = inter_w * inter_h
+        union = area1 + area2 - inter_area
+        return inter_area / union if union > 0 else 0.0
+
+    @staticmethod
+    def _deduplicate_detections(detections, iou_thresh=0.7):
+        """Suppress duplicate/overlapping detections with same category and high IoU."""
+        filtered = []
+        used = [False] * len(detections)
+        for i, det in enumerate(detections):
+            if used[i]:
+                continue
+            group = [i]
+            for j in range(i + 1, len(detections)):
+                if used[j]:
+                    continue
+                if det.get("category") == detections[j].get("category"):
+                    bbox1 = det.get("bounding_box", det.get("bbox"))
+                    bbox2 = detections[j].get("bounding_box", detections[j].get("bbox"))
+                    if bbox1 and bbox2 and ColorDetectionUseCase._iou(bbox1, bbox2) > iou_thresh:
+                        used[j] = True
+                        group.append(j)
+            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
+            filtered.append(detections[best_idx])
+            used[best_idx] = True
+        return filtered
         
     def get_config_schema(self) -> Dict[str, Any]:
         """Get JSON schema for configuration validation."""
@@ -121,30 +189,50 @@ class ColorDetectionUseCase(BaseProcessor):
         }
         defaults.update(overrides)
         return ColorDetectionConfig(**defaults)
+    
+    def _update_color_tracking_state(self, detections: List[Dict]):
+        """Track unique track_ids per category and color for total count."""
+        self._color_total_track_ids = getattr(self, '_color_total_track_ids', defaultdict(set))
+        self._color_current_frame_track_ids = defaultdict(set)
+        for det in detections:
+            cat = det.get('category')
+            color = det.get('main_color')
+            track_id = det.get('track_id')
+            if cat and color and track_id is not None:
+                key = f"{cat}:{color}"  # Unique key for category-color pair
+                self._color_total_track_ids[key].add(track_id)
+                self._color_current_frame_track_ids[key].add(track_id)
+
+    def get_total_color_counts(self):
+        """Return total unique track_id count for each category-color pair."""
+        return {key: len(ids) for key, ids in getattr(self, '_color_total_track_ids', {}).items()}
+
+    def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
+        """Get detailed information about track IDs for color detections (per frame)."""
+        frame_track_ids = set(det.get('track_id') for det in detections if det.get('track_id') is not None)
+        total_track_ids = set()
+        for s in getattr(self, '_color_total_track_ids', {}).values():
+            total_track_ids.update(s)
+        return {
+            "total_count": len(total_track_ids),
+            "current_frame_count": len(frame_track_ids),
+            "total_unique_track_ids": len(total_track_ids),
+            "current_frame_track_ids": list(frame_track_ids),
+            "last_update_time": time.time(),
+            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
+        }
         
     def process(
         self,
         data: Any, 
         config: ConfigProtocol,
         input_bytes: Optional[bytes] = None,
-        context: Optional[ProcessingContext] = None
+        context: Optional[ProcessingContext] = None,
+        stream_info: Optional[Dict[str, Any]] = None
     ) -> ProcessingResult:
-        """
-        Process color detection use case.
-        
-        Args:
-            data: Raw model output (detection or tracking format)
-            config: Color detection configuration
-            input_bytes: Video or image bytes for color analysis
-            context: Processing context
-            
-        Returns:
-            ProcessingResult: Processing result with color detection analytics
-        """
         start_time = time.time()
         
         try:
-            # Ensure we have the right config type
             if not isinstance(config, ColorDetectionConfig):
                 return self.create_error_result(
                     "Invalid configuration type for color detection",
@@ -153,11 +241,9 @@ class ColorDetectionUseCase(BaseProcessor):
                     context=context
                 )
             
-            # Initialize processing context if not provided
             if context is None:
                 context = ProcessingContext()
             
-            # Validate required inputs
             if not input_bytes:
                 return self.create_error_result(
                     "input_bytes (video/image) is required for color detection",
@@ -174,7 +260,6 @@ class ColorDetectionUseCase(BaseProcessor):
                     context=context
                 )
             
-            # Detect input format
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
@@ -182,10 +267,8 @@ class ColorDetectionUseCase(BaseProcessor):
             self.logger.info(f"Processing color detection with format: {input_format.value}")
             
             # Step 1: Apply confidence filtering
-            processed_data = data
-            if config.confidence_threshold is not None:
-                processed_data = filter_by_confidence(processed_data, config.confidence_threshold)
-                self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
             
             # Step 2: Apply category mapping if provided
             if config.index_to_category:
@@ -193,43 +276,89 @@ class ColorDetectionUseCase(BaseProcessor):
                 self.logger.debug("Applied category mapping")
             
             # Step 2.5: Filter to only include target categories
-            color_processed_data = processed_data
-            if config.target_categories:
-                color_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
-                self.logger.debug(f"Applied target category filtering for: {config.target_categories}")
+            color_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
+            self.logger.debug(f"Applied target category filtering for: {config.target_categories}")
             
-            # Step 3: Analyze colors in media (video or image)
+            # Step 3: Apply bounding box smoothing if enabled
+            # if config.enable_smoothing:
+            #     if self.smoothing_tracker is None:
+            #         smoothing_config = BBoxSmoothingConfig(
+            #             smoothing_algorithm=config.smoothing_algorithm,
+            #             window_size=config.smoothing_window_size,
+            #             cooldown_frames=config.smoothing_cooldown_frames,
+            #             confidence_threshold=config.confidence_threshold,
+            #             confidence_range_factor=config.smoothing_confidence_range_factor,
+            #             enable_smoothing=True
+            #         )
+            #         self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+            #     color_processed_data = bbox_smoothing(color_processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+            
+            # Step 4: Apply advanced tracking
+            try:
+                from ..advanced_tracker import AdvancedTracker
+                from ..advanced_tracker.config import TrackerConfig
+                
+                if self.tracker is None:
+                    tracker_config = TrackerConfig()
+                    self.tracker = AdvancedTracker(tracker_config)
+                    self.logger.info("Initialized AdvancedTracker for color detection tracking")
+                
+                color_processed_data = self.tracker.update(color_processed_data)
+            
+            except Exception as e:
+                self.logger.warning(f"AdvancedTracker failed: {e}")
+            
+            # Step 5: Deduplicate detections
+            #color_processed_data = self._deduplicate_detections(color_processed_data, iou_thresh=0.7)
+            
+            # Step 6: Update tracking state
+            self._update_color_tracking_state(color_processed_data)
+            self._total_frame_counter += 1
+            
+            frame_number = None
+            if stream_info:
+                input_settings = stream_info.get("input_settings", {})
+                start_frame = input_settings.get("start_frame")
+                end_frame = input_settings.get("end_frame")
+                # If start and end frame are the same, it's a single frame
+                if start_frame is not None and end_frame is not None and start_frame == end_frame:
+                    frame_number = start_frame
+            
+            # Step 7: Analyze colors in media
             color_analysis = self._analyze_colors_in_media(
                 color_processed_data, 
                 input_bytes, 
                 config
             )
             
-            # Step 4: Calculate comprehensive summaries
+            # Step 8: Calculate summaries
             color_summary = self._calculate_color_summary(color_analysis, config)
             general_summary = self._calculate_general_summary(processed_data, config)
+            color_summary['total_color_counts'] = self.get_total_color_counts()
             
-            # Step 5: Generate insights and alerts
+            # Step 9: Generate insights and alerts
             insights = self._generate_insights(color_summary, config)
             alerts = self._check_alerts(color_summary, config)
             
-            # Step 6: Calculate detailed metrics
+            # Step 10: Calculate metrics
             metrics = self._calculate_metrics(color_analysis, color_summary, config, context)
             
-            # Step 7: Extract predictions for API compatibility
+            # Step 11: Extract predictions
             predictions = self._extract_predictions(color_analysis, config)
             
-            # Step 8: Generate human-readable summary
+            # Step 12: Generate human-readable summary
             summary = self._generate_summary(color_summary, general_summary, alerts)
             
-            # Step 9: Generate structured events and tracking stats
-            events = self._generate_events(color_summary, alerts, config)
-            tracking_stats = self._generate_tracking_stats(color_summary, insights, summary, config)
+            # Step 13: Generate structured events and tracking stats
+            # frame_number = None  # Extract from input_bytes or data if available
+            events_list = self._generate_events(color_summary, alerts, config, frame_number)
+            tracking_stats_list = self._generate_tracking_stats(color_summary, insights, summary, config, frame_number)
             
-            # Mark processing as completed
+            events = events_list[0] if events_list else {}
+            tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+            
             context.mark_completed()
             
-            # Create successful result
             result = self.create_result(
                 data={
                     "color_analysis": color_analysis,
@@ -246,13 +375,11 @@ class ColorDetectionUseCase(BaseProcessor):
                 context=context
             )
             
-            # Add human-readable information
             result.summary = summary
             result.insights = insights
             result.predictions = predictions
             result.metrics = metrics
             
-            # Add warnings for low confidence detections
             if config.confidence_threshold and config.confidence_threshold < 0.3:
                 result.add_warning(f"Low confidence threshold ({config.confidence_threshold}) may result in false positives")
             
@@ -262,10 +389,8 @@ class ColorDetectionUseCase(BaseProcessor):
             
         except Exception as e:
             self.logger.error(f"Color detection failed: {str(e)}", exc_info=True)
-            
             if context:
                 context.mark_completed()
-            
             return self.create_error_result(
                 str(e), 
                 type(e).__name__,
@@ -312,9 +437,6 @@ class ColorDetectionUseCase(BaseProcessor):
         video_bytes: bytes, 
         config: ColorDetectionConfig
     ) -> List[Dict[str, Any]]:
-        """Analyze colors of detected objects in video frames."""
-
-        # Save video to temporary file
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_video:
             temp_video.write(video_bytes)
             video_path = temp_video.name
@@ -327,22 +449,18 @@ class ColorDetectionUseCase(BaseProcessor):
             fps = config.fps or cap.get(cv2.CAP_PROP_FPS)
             color_analysis = []
             frame_id = 0
-            seen_track_ids = set()
 
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
 
-                # Skip frames based on frame_skip setting
                 if frame_id % config.frame_skip != 0:
                     frame_id += 1
                     continue
 
                 frame_key = str(frame_id)
                 timestamp = frame_id / fps
-
-                # Get detections for this frame
                 frame_detections = self._get_frame_detections(data, frame_key)
                 if not frame_detections:
                     frame_id += 1
@@ -350,7 +468,6 @@ class ColorDetectionUseCase(BaseProcessor):
 
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                # Analyze colors for each detection
                 for detection in frame_detections:
                     if detection.get("confidence", 1.0) < config.confidence_threshold:
                         continue
@@ -359,18 +476,10 @@ class ColorDetectionUseCase(BaseProcessor):
                     if not bbox:
                         continue
 
-                    track_id = detection.get("track_id")
-                    if config.enable_unique_counting and track_id is not None:
-                        if track_id in seen_track_ids:
-                            continue  # Skip if already counted
-                        seen_track_ids.add(track_id)
-
-                    # Crop the bounding box region
                     crop = self._crop_bbox(rgb_frame, bbox, config.bbox_format)
                     if crop.size == 0:
                         continue
 
-                    # Extract major colors
                     major_colors = extract_major_colors(crop, k=config.top_k_colors)
                     main_color = major_colors[0][0] if major_colors else "unknown"
 
@@ -383,7 +492,7 @@ class ColorDetectionUseCase(BaseProcessor):
                         "major_colors": major_colors,
                         "bbox": bbox,
                         "detection_id": detection.get("id", f"det_{len(color_analysis)}"),
-                        "track_id": track_id
+                        "track_id": detection.get("track_id")
                     }
                     color_analysis.append(color_record)
 
@@ -402,9 +511,6 @@ class ColorDetectionUseCase(BaseProcessor):
         image_bytes: bytes, 
         config: ColorDetectionConfig
     ) -> List[Dict[str, Any]]:
-        """Analyze colors of detected objects in a single image."""
-        
-        # Decode image from bytes
         image_array = np.frombuffer(image_bytes, np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
         
@@ -413,11 +519,7 @@ class ColorDetectionUseCase(BaseProcessor):
         
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         color_analysis = []
-        
-        # Get detections from data
-        detections = self._get_frame_detections(data, "0")  # Use "0" as frame ID for single image
-        
-        seen_track_ids = set()
+        detections = self._get_frame_detections(data, "0")
         
         for detection in detections:
             if detection.get("confidence", 1.0) < config.confidence_threshold:
@@ -427,18 +529,10 @@ class ColorDetectionUseCase(BaseProcessor):
             if not bbox:
                 continue
 
-            track_id = detection.get("track_id")
-            if config.enable_unique_counting and track_id is not None:
-                if track_id in seen_track_ids:
-                    continue  # Skip if already counted
-                seen_track_ids.add(track_id)
-
-            # Crop the bounding box region
             crop = self._crop_bbox(rgb_image, bbox, config.bbox_format)
             if crop.size == 0:
                 continue
 
-            # Extract major colors
             major_colors = extract_major_colors(crop, k=config.top_k_colors)
             main_color = major_colors[0][0] if major_colors else "unknown"
 
@@ -451,11 +545,12 @@ class ColorDetectionUseCase(BaseProcessor):
                 "major_colors": major_colors,
                 "bbox": bbox,
                 "detection_id": detection.get("id", f"det_{len(color_analysis)}"),
-                "track_id": track_id
+                "track_id": detection.get("track_id")
             }
             color_analysis.append(color_record)
         
         return color_analysis
+    
     
     def _get_frame_detections(self, data: Any, frame_key: str) -> List[Dict[str, Any]]:
         """Extract detections for a specific frame from data."""
@@ -467,8 +562,6 @@ class ColorDetectionUseCase(BaseProcessor):
             return data
         else:
             return []
-
-
                 
     def _crop_bbox(self, image: np.ndarray, bbox: Dict[str, Any], bbox_format: str) -> np.ndarray:
         """Crop bounding box region from image."""
@@ -500,34 +593,37 @@ class ColorDetectionUseCase(BaseProcessor):
         return image[ymin:ymax, xmin:xmax]
         
     def _calculate_color_summary(self, color_analysis: List[Dict], config: ColorDetectionConfig) -> Dict[str, Any]:
-        """Calculate color distribution summary."""
-        
-        # Group by category and color
         category_colors = defaultdict(lambda: defaultdict(int))
         total_detections = len(color_analysis)
-        
+        detections = []
+
         for record in color_analysis:
             category = record["category"]
             main_color = record["main_color"]
             category_colors[category][main_color] += 1
-            
-        # Calculate summary statistics
+            detections.append({
+                "bounding_box": record["bbox"],
+                "category": record["category"],
+                "confidence": record["confidence"],
+                "track_id": record["track_id"],
+                "frame_id": record["frame_id"],
+                "main_color": record["main_color"]
+            })
+
         summary = {
             "total_detections": total_detections,
             "categories": dict(category_colors),
             "color_distribution": {},
-            "dominant_colors": {}
+            "dominant_colors": {},
+            "detections": detections
         }
-        
-        # Calculate overall color distribution
+
         all_colors = defaultdict(int)
         for category_data in category_colors.values():
             for color, count in category_data.items():
                 all_colors[color] += count
-                
         summary["color_distribution"] = dict(all_colors)
-        
-        # Find dominant color per category
+
         for category, colors in category_colors.items():
             if colors:
                 dominant_color = max(colors.items(), key=lambda x: x[1])
@@ -536,7 +632,7 @@ class ColorDetectionUseCase(BaseProcessor):
                     "count": dominant_color[1],
                     "percentage": round((dominant_color[1] / sum(colors.values())) * 100, 1)
                 }
-                
+
         return summary
         
     def _calculate_general_summary(self, processed_data: Any, config: ColorDetectionConfig) -> Dict[str, Any]:
@@ -738,41 +834,27 @@ class ColorDetectionUseCase(BaseProcessor):
         
         return ", ".join(summary_parts)
     
-    def _generate_events(self, color_summary: Dict, alerts: List, config: ColorDetectionConfig) -> List[Dict]:
-        """Generate structured events for the output format."""
-        from datetime import datetime, timezone
-        
-        events = []
+    def _generate_events(self, color_summary: Dict, alerts: List, config: ColorDetectionConfig, frame_number: Optional[int] = None) -> List[Dict]:
+        """Generate structured events with frame-based keys."""
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        events = [{frame_key: []}]
+        frame_events = events[0][frame_key]
         total_detections = color_summary.get("total_detections", 0)
-        unique_colors = len(color_summary.get("color_distribution", {}))
-        
+
         if total_detections > 0:
-            # Determine event level based on thresholds
             level = "info"
-            intensity = 5.0
-            
+            intensity = min(10.0, total_detections / 5.0)
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 20)
                 intensity = min(10.0, (total_detections / threshold) * 10)
-                
-                if intensity >= 7:
-                    level = "critical"
-                elif intensity >= 5:
-                    level = "warning"
-                else:
-                    level = "info"
-            else:
-                if total_detections > 50:
-                    level = "critical"
-                    intensity = 9.0
-                elif total_detections > 25:
-                    level = "warning" 
-                    intensity = 7.0
-                else:
-                    level = "info"
-                    intensity = min(10.0, total_detections / 5.0)
-            
-            # Main color detection event
+                level = "critical" if intensity >= 7 else "warning" if intensity >= 5 else "info"
+            elif total_detections > 50:
+                level = "critical"
+                intensity = 9.0
+            elif total_detections > 25:
+                level = "warning"
+                intensity = 7.0
+
             event = {
                 "type": "color_detection",
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
@@ -786,52 +868,16 @@ class ColorDetectionUseCase(BaseProcessor):
                 "application_name": "Color Detection System",
                 "application_version": "1.2",
                 "location_info": None,
-                # "human_text": f"Event: Color Detection\nLevel: {level.title()}\nTime: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')}\nDetections: {total_detections} objects analyzed\nColors: {unique_colors} unique colors detected\nIntensity: {intensity:.1f}/10"
+                "human_text": (
+                    f"Event: Color Detection\nLevel: {level.title()}\n"
+                    f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')}\n"
+                    f"Detections: {total_detections} objects analyzed\n"
+                    f"Unique Colors: {len(color_summary.get('color_distribution', {}))}\n"
+                    f"Intensity: {intensity:.1f}/10"
+                )
             }
-            if level == "critical":  
-                event["human_text"] = (
-                    f"Event: Color Detection\nLevel: {level.title()}\nTime: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')}\nDetections: {total_detections} objects analyzed\nColors: {unique_colors} unique colors detected\nIntensity: {intensity:.1f}/10"
-                )
-            else:
-                event["human_text"] = (
-                    f""
-                )
-            events.append(event)
-        
-        # Add category-specific events if multiple categories
-        categories = color_summary.get("categories", {})
-        if len(categories) > 1:
-            for category, colors in categories.items():
-                category_total = sum(colors.values())
-                if category_total > 0:
-                    category_intensity = min(10.0, category_total / 10.0)
-                    category_level = "info"
-                    if category_intensity >= 7:
-                        category_level = "warning"
-                    elif category_intensity >= 5:
-                        category_level = "info"
-                    
-                    # Find dominant color for this category
-                    dominant_color = max(colors.items(), key=lambda x: x[1])[0] if colors else "unknown"
-                    
-                    category_event = {
-                        "type": "color_category_analysis",
-                        "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                        "level": category_level,
-                        "intensity": round(category_intensity, 1),
-                        "config": {
-                            "min_value": 0,
-                            "max_value": 10,
-                            "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                        },
-                        "application_name": "Color Category Analysis System",
-                        "application_version": "1.2",
-                        "location_info": category,
-                        "human_text": f"Category: {category}\nCount: {category_total} objects\n color: {dominant_color}",
-                    }
-                    events.append(category_event)
-        
-        # Add alert events
+            frame_events.append(event)
+
         for alert in alerts:
             alert_event = {
                 "type": alert.get("type", "color_alert"),
@@ -845,37 +891,36 @@ class ColorDetectionUseCase(BaseProcessor):
                 },
                 "application_name": "Color Detection Alert System",
                 "application_version": "1.2",
-                "location_info": None,
+                "location_info": alert.get("category"),
                 "human_text": f"Event: {alert.get('type', 'Color Alert').title()}\nMessage: {alert.get('message', 'Color detection alert triggered')}"
             }
-            events.append(alert_event)
-        
+            frame_events.append(alert_event)
+
         return events
     
-    def _generate_tracking_stats(self, color_summary: Dict, insights: List[str], summary: str, config: ColorDetectionConfig) -> List[Dict]:
-        """Generate structured tracking stats for the output format."""
-        from datetime import datetime, timezone
-        
-        tracking_stats = []
+    def _generate_tracking_stats(self, color_summary: Dict, insights: List[str], summary: str, config: ColorDetectionConfig, frame_number: Optional[int] = None) -> List[Dict]:
+        """Generate structured tracking stats with frame-based keys."""
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        tracking_stats = [{frame_key: []}]
+        frame_tracking_stats = tracking_stats[0][frame_key]
         total_detections = color_summary.get("total_detections", 0)
-        
+
         if total_detections > 0:
-            # Create main tracking stats entry
+            track_ids_info = self._get_track_ids_info(color_summary.get("detections", []))
             tracking_stat = {
-                "tracking_start_time": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                "all_results_for_tracking": {
-                    "total_detections": total_detections,
-                    "color_summary": color_summary,
-                    "detection_rate": (total_detections / config.time_window_minutes * 60) if config.time_window_minutes else 0,
-                    "unique_colors": len(color_summary.get("color_distribution", {})),
-                    "categories_analyzed": len(color_summary.get("categories", {})),
-                    "dominant_colors": color_summary.get("dominant_colors", {}),
-                    "color_diversity": len(color_summary.get("color_distribution", {})) / total_detections * 100 if total_detections > 0 else 0
-                },
-                "human_text": self._generate_human_text_for_tracking(total_detections, color_summary, insights, summary, config)
+                "type": "color_tracking",
+                "category": "visual_appearance",
+                "count": total_detections,
+                "insights": insights,
+                "summary": summary,
+                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
+                "human_text": self._generate_human_text_for_tracking(total_detections, color_summary, insights, summary, config),
+                "track_ids_info": track_ids_info,
+                "global_frame_offset": getattr(self, '_global_frame_offset', 0),
+                "local_frame_id": frame_key
             }
-            tracking_stats.append(tracking_stat)
-        
+            frame_tracking_stats.append(tracking_stat)
+
         return tracking_stats
     
     def _generate_human_text_for_tracking(self, total_detections: int, color_summary: Dict, insights: List[str], summary: str, config: ColorDetectionConfig) -> str:

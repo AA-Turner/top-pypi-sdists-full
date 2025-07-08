@@ -897,13 +897,21 @@ class Index:
 
         f = GitFile(self._filename, "wb")
         try:
+            # Filter out extensions with no meaningful data
+            meaningful_extensions = []
+            for ext in self._extensions:
+                # Skip extensions that have empty data
+                ext_data = ext.to_bytes()
+                if ext_data:
+                    meaningful_extensions.append(ext)
+
             if self._skip_hash:
                 # When skipHash is enabled, write the index without computing SHA1
                 write_index_dict(
                     cast(BinaryIO, f),
                     self._byname,
                     version=self._version,
-                    extensions=self._extensions,
+                    extensions=meaningful_extensions,
                 )
                 # Write 20 zero bytes instead of SHA1
                 f.write(b"\x00" * 20)
@@ -914,7 +922,7 @@ class Index:
                     cast(BinaryIO, sha1_writer),
                     self._byname,
                     version=self._version,
-                    extensions=self._extensions,
+                    extensions=meaningful_extensions,
                 )
                 sha1_writer.close()
         except:
@@ -1300,6 +1308,60 @@ def validate_path_element_ntfs(element: bytes) -> bool:
         return False
     if stripped == b"git~1":
         return False
+    return True
+
+
+# HFS+ ignorable Unicode codepoints (from Git's utf8.c)
+HFS_IGNORABLE_CHARS = {
+    0x200C,  # ZERO WIDTH NON-JOINER
+    0x200D,  # ZERO WIDTH JOINER
+    0x200E,  # LEFT-TO-RIGHT MARK
+    0x200F,  # RIGHT-TO-LEFT MARK
+    0x202A,  # LEFT-TO-RIGHT EMBEDDING
+    0x202B,  # RIGHT-TO-LEFT EMBEDDING
+    0x202C,  # POP DIRECTIONAL FORMATTING
+    0x202D,  # LEFT-TO-RIGHT OVERRIDE
+    0x202E,  # RIGHT-TO-LEFT OVERRIDE
+    0x206A,  # INHIBIT SYMMETRIC SWAPPING
+    0x206B,  # ACTIVATE SYMMETRIC SWAPPING
+    0x206C,  # INHIBIT ARABIC FORM SHAPING
+    0x206D,  # ACTIVATE ARABIC FORM SHAPING
+    0x206E,  # NATIONAL DIGIT SHAPES
+    0x206F,  # NOMINAL DIGIT SHAPES
+    0xFEFF,  # ZERO WIDTH NO-BREAK SPACE
+}
+
+
+def validate_path_element_hfs(element: bytes) -> bool:
+    """Validate path element for HFS+ filesystem.
+
+    Equivalent to Git's is_hfs_dotgit and related checks.
+    Uses NFD normalization and ignores HFS+ ignorable characters.
+    """
+    import unicodedata
+
+    try:
+        # Decode to Unicode
+        element_str = element.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        # Malformed UTF-8 - be conservative and reject
+        return False
+
+    # Remove HFS+ ignorable characters (like Git's next_hfs_char)
+    filtered = "".join(c for c in element_str if ord(c) not in HFS_IGNORABLE_CHARS)
+
+    # Normalize to NFD (HFS+ uses a variant of NFD)
+    normalized = unicodedata.normalize("NFD", filtered)
+
+    # Check against invalid names (case-insensitive)
+    normalized_bytes = normalized.encode("utf-8", errors="strict")
+    if normalized_bytes.lower() in INVALID_DOTNAMES:
+        return False
+
+    # Also check for 8.3 short name
+    if normalized_bytes.lower() == b"git~1":
+        return False
+
     return True
 
 
@@ -1926,8 +1988,13 @@ def update_working_tree(
             ):
                 try:
                     os.rmdir(root)
-                except OSError:
+                except FileNotFoundError:
+                    # Directory was already removed
                     pass
+                except OSError as e:
+                    if e.errno != errno.ENOTEMPTY:
+                        # Only ignore "directory not empty" errors
+                        raise
 
     index.write()
 

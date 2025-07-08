@@ -12,6 +12,7 @@ from modern_treasury import ModernTreasury, AsyncModernTreasury
 from modern_treasury.types import (
     InternalAccount,
 )
+from modern_treasury._utils import parse_datetime
 from modern_treasury.pagination import SyncPage, AsyncPage
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -37,6 +38,19 @@ class TestInternalAccounts:
             currency="USD",
             name="name",
             party_name="party_name",
+            account_capabilities=[
+                {
+                    "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "direction": "credit",
+                    "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "identifier": "identifier",
+                    "live_mode": True,
+                    "object": "object",
+                    "payment_type": "ach",
+                    "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                }
+            ],
             account_type="checking",
             counterparty_id="counterparty_id",
             legal_entity_id="legal_entity_id",
@@ -216,7 +230,9 @@ class TestInternalAccounts:
 
 
 class TestAsyncInternalAccounts:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncModernTreasury) -> None:
@@ -235,6 +251,19 @@ class TestAsyncInternalAccounts:
             currency="USD",
             name="name",
             party_name="party_name",
+            account_capabilities=[
+                {
+                    "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "direction": "credit",
+                    "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "identifier": "identifier",
+                    "live_mode": True,
+                    "object": "object",
+                    "payment_type": "ach",
+                    "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                }
+            ],
             account_type="checking",
             counterparty_id="counterparty_id",
             legal_entity_id="legal_entity_id",

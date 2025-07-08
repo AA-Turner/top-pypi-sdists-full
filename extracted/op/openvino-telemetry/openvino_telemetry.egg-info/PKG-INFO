@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: openvino-telemetry
-Version: 2025.1.0
+Version: 2025.2.0
 Summary: OpenVINO™ Telemetry package for sending statistics with user's consent, used in combination with other OpenVINO™ packages.
 Home-page: https://github.com/openvinotoolkit/telemetry
 Author: Intel® Corporation

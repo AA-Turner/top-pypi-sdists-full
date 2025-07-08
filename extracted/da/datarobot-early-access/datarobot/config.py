@@ -24,7 +24,7 @@ from .context import ENABLE_API_CONSUMER_TRACKING_DEFAULT, env_to_bool
 from .rest import DataRobotClientConfig
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class ConfigDict(TypedDict, total=False):
         """TypedDict for config"""

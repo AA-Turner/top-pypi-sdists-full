@@ -319,7 +319,18 @@ FootstepsPlanner::Footstep FootstepsPlanner::clipped_opposite_footstep(Footstep 
     step.y() += parameters.walk_dtheta_spacing * fabs(step.z());
   }
 
-  step = parameters.ellipsoid_clip(step);
+  if (footstep_clipping == HumanoidParameters::FootstepClipping::Conic)
+  {
+    step = parameters.conic_clip(step);
+  }
+  else if (footstep_clipping == HumanoidParameters::FootstepClipping::Ellipsoid)
+  {
+    step = parameters.ellipsoid_clip(step);
+  }
+  else if (footstep_clipping == HumanoidParameters::FootstepClipping::Box)
+  {
+    step = parameters.box_clip(step);
+  }
 
   for (int k = 0; k < 32; k++)
   {

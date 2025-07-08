@@ -25,13 +25,13 @@ def _select_inputs(chip, step, index):
     inputs = _common._select_inputs(chip, step, index)
     if len(inputs) != 1:
         raise SiliconCompilerError(
-            f'{step}{index} receives {len(inputs)} inputs, but only supports one', chip=chip)
+            f'{step}/{index} receives {len(inputs)} inputs, but only supports one', chip=chip)
     inputs = inputs[0]
     flow = chip.get('option', 'flow')
     arguments = chip.get('flowgraph', flow, step, index, 'args')
 
     if len(arguments) == 0:
-        raise SiliconCompilerError(f'{step}{index} requires arguments for verify', chip=chip)
+        raise SiliconCompilerError(f'{step}/{index} requires arguments for verify', chip=chip)
 
     passes = True
     for criteria in arguments:
@@ -55,7 +55,7 @@ def _select_inputs(chip, step, index):
         metric_type = chip.get('metric', metric, field=None)
         goal = NodeType.normalize(goal, metric_type.get(field='type'))
         if not utils.safecompare(chip, value, op, goal):
-            chip.error(f"{step}{index} fails '{metric}' metric: {value}{op}{goal}")
+            chip.error(f"{step}/{index} fails '{metric}' metric: {value}{op}{goal}")
 
     if not passes:
         return []
@@ -69,10 +69,10 @@ def _gather_outputs(chip, step, index):
     in_nodes = chip.get('flowgraph', flow, step, index, 'input')
     in_task_outputs = []
     for in_step, in_index in in_nodes:
-        in_tool, _ = get_tool_task(chip, in_step, in_index, flow=flow)
-        task_class = chip.get("tool", in_tool, field="schema")
-        task_class.set_runtime(chip, step=in_step, index=in_index)
-        in_task_outputs.append(task_class.get_output_files())
+        in_tool, in_task = get_tool_task(chip, in_step, in_index, flow=flow)
+        task_class = chip.get("tool", in_tool, "task", in_task, field="schema")
+        with task_class.runtime(chip, step=in_step, index=in_index) as task:
+            in_task_outputs.append(task.get_output_files())
 
     if len(in_task_outputs) > 0:
         return in_task_outputs[0].intersection(*in_task_outputs[1:])

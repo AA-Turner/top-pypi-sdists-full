@@ -67,7 +67,7 @@ def _padding_mode_init(padding_mode: str) -> str:
     return padding_mode
 
 
-class Conv(Module, strict=True):
+class Conv(Module):
     """General N-dimensional convolution."""
 
     num_spatial_dims: int = field(static=True)
@@ -352,7 +352,7 @@ class Conv3d(Conv):
         )
 
 
-class ConvTranspose(Module, strict=True):
+class ConvTranspose(Module):
     """General N-dimensional transposed convolution."""
 
     num_spatial_dims: int = field(static=True)
@@ -576,7 +576,7 @@ class ConvTranspose(Module, strict=True):
         stride = np.expand_dims(self.stride, axis=1)
         pad_width = np.insert(padding_t // stride, 0, 0, axis=0)
         x = jnp.pad(x, pad_width, mode="wrap")
-        padding_t = tuple((p[0].item(), p[1].item()) for p in padding_t % stride)
+        padding_t = tuple((p[0].item(), p[1].item()) for p in padding_t % stride)  # pyright: ignore[reportIndexIssue]
         return x, padding_t
 
     @named_scope("eqx.nn.ConvTranspose")

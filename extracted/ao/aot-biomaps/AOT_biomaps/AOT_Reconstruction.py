@@ -27,6 +27,7 @@ from .AOT_Experiment import *
 from .AOT_Optic import *
 from .AOT_Acoustic import *
 import warnings
+import torch.nn.functional as F
 
 class ReconType(enum.Enum):
     """
@@ -48,6 +49,7 @@ class ReconType(enum.Enum):
     """A reconstruction method based on Bayesian statistical approaches."""
     DeepLearning = 'deep_learning'
     """A reconstruction method utilizing deep learning algorithms."""
+    Convex = 'convex'
 
 class AnalyticType(enum.Enum):
     iFOURIER = 'iFOURIER'
@@ -65,7 +67,7 @@ class AnalyticType(enum.Enum):
     It is not suitable for data that has not been transformed into the Radon domain.
     """
 
-class AlgebraicType(enum.Enum):
+class OptimizerType(enum.Enum):
     MLEM = 'MLEM'
     """
     This optimizer is the standard MLEM (for Maximum Likelihood Expectation Maximization).
@@ -265,6 +267,11 @@ class AlgebraicType(enum.Enum):
     - Non-negativity constraint: 0 if no constraint or 1 in order to apply the constraint during the image update.
 
     This optimizer is only compatible with histogram data, and with both emission and transmission data.
+    """
+
+    PGC = 'PGC'
+    """
+    This optimizer implements the PGC (for Penalized Gauss-Newton Conjugate Gradient) algorithm from J. Nuyts et al, IEEE TNS, Feb 2002, vol. 49, pp. 56-60.
     """
 
 class PotentialType(enum.Enum):
@@ -513,10 +520,10 @@ class AlgebraicRecon(Recon):
     This class implements the Algebraic reconstruction process.
     It currently does not perform any operations but serves as a template for future implementations.
     """
-    def __init__(self, opti = AlgebraicType.MLEM, numIterations = 10000, numSubsets = 1, isSavingEachIteration=True, **kwargs):
+    def __init__(self, opti = OptimizerType.MLEM, numIterations = 10000, numSubsets = 1, isSavingEachIteration=True, **kwargs):
         super().__init__(**kwargs)
         self.reconType = ReconType.Algebraic
-        self.opti = opti
+        self.optimizer = opti
         self.reconPhantom = []
         self.reconLaser = []
         self.numIterations = numIterations
@@ -531,6 +538,9 @@ class AlgebraicRecon(Recon):
             raise TypeError("Number of iterations must be an integer.")
         if type(self.numSubsets) is not int:
             raise TypeError("Number of subsets must be an integer.")
+        
+        print("Generating system matrix (processing acoustic fields)...")
+        self.SMatrix = np.stack([ac_field.field for ac_field in self.experiment.AcousticFields], axis=-1)
 
     # PUBLIC METHODS
 
@@ -1015,25 +1025,21 @@ class AlgebraicRecon(Recon):
     # PRIVATE METHODS
 
     def _AlgebraicReconPython(self,withTumor):
-
-        acoustic_fields = []
-        for i in trange(len(self.experiment.AcousticFields), desc="Generating system matrix (formating acoustic fields)"):
-            ac_field = self.experiment.AcousticFields[i]
-            acoustic_fields.append(ac_field.field)
-
-        # Convertir la liste en un tableau numpy
-        SMatrix = np.stack(acoustic_fields, axis=-1)
-
+    
         if withTumor:
             if self.experiment.AOsignal_withTumor is None:
                 raise ValueError("AO signal with tumor is not available. Please generate AO signal with tumor the experiment first in the experiment object.")
-            if self.opti.value == AlgebraicType.MLEM.value:
-                self.reconPhantom = self._MLEM(SMatrix=SMatrix, y=self.experiment.AOsignal_withTumor)
+            if self.optimizer.value == OptimizerType.MLEM.value:
+                self.reconPhantom = self._MLEM(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withTumor)
+            else:
+                raise ValueError(f"Only MLEM is supported for simple algebraic reconstruction. {self.optimizer.value} need Bayesian reconstruction")
         else:
             if self.experiment.AOsignal_withoutTumor is None:
                 raise ValueError("AO signal without tumor is not available. Please generate AO signal without tumor the experiment first in the experiment object.")
-            if self.opti.value == AlgebraicType.MLEM.value:
-                self.reconLaser = self._MLEM(SMatrix=SMatrix, y=self.experiment.AOsignal_withoutTumor)
+            if self.optimizer.value == OptimizerType.MLEM.value:
+                self.reconLaser = self._MLEM(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withoutTumor)
+            else:
+                raise ValueError(f"Only MLEM is supported for simple algebraic reconstruction. {self.optimizer.value} need Bayesian reconstruction")
 
     def _AlgebraicReconCASToR(self, withTumor):
         
@@ -1059,7 +1065,7 @@ class AlgebraicRecon(Recon):
         cmd = [
             self.experiment.params.reconstruction['castor_executable'],
             "-df", f"{self.saveDir}/{fileName}",
-            "-opti", self.opti.value,
+            "-opti", self.optimizer.value,
             "-it", f"{self.numIterations}:{self.numSubsets}"  ,
             "-proj", "matrix",
             "-dout", os.path.join(self.saveDir, 'results','recon'),
@@ -1559,8 +1565,8 @@ class BayesianRecon(AlgebraicRecon):
     It currently does not perform any operations but serves as a template for future implementations.
     """
     def __init__(self, 
-                potentialFunction, 
-                isPenalizedLogLikelyHood = False,  
+                opti = OptimizerType.PGC,
+                potentialFunction = PotentialType.HUBER_PIECEWISE,  
                 beta=None, 
                 delta=None, 
                 gamma=None, 
@@ -1571,14 +1577,13 @@ class BayesianRecon(AlgebraicRecon):
         super().__init__(**kwargs)
         self.reconType = ReconType.Bayesian
         self.potentialFunction = potentialFunction
-        self.isPenalizedLogLikelyHood = isPenalizedLogLikelyHood
+        self.optimizer = opti
         self.beta = beta           
         self.delta = delta          # typical value is 0.1
         self.gamma = gamma          # typical value is 0.01
         self.sigma = sigma          # typical value is 1.0
         self.corner = corner        # typical value is (0.5-np.sqrt(2)/4)/np.sqrt(2)
         self.face = face            # typical value is 0.5-np.sqrt(2)/4 
-        
 
         if not isinstance(self.potentialFunction, PotentialType):
             raise TypeError(f"Potential functions must be of type PotentialType, got {type(self.potentialFunction)}")  
@@ -1600,28 +1605,90 @@ class BayesianRecon(AlgebraicRecon):
 
     def _bayesianReconPython(self, withTumor):
 
-        acoustic_fields = []
-        for i in trange(len(self.experiment.AcousticFields), desc="Generating system matrix (formating acoustic fields)"):
-            ac_field = self.experiment.AcousticFields[i]
-            acoustic_fields.append(ac_field.field)
-
-        # Convertir la liste en un tableau numpy
-        SMatrix = np.stack(acoustic_fields, axis=-1)
-
         if withTumor:
             if self.experiment.AOsignal_withTumor is None:
                 raise ValueError("AO signal with tumor is not available. Please generate AO signal with tumor the experiment first in the experiment object.")
-            if self.isPenalizedLogLikelyHood:
-                self.reconPhantom = BayesianRecon._MAPEM_STOP(SMatrix=SMatrix, y=self.experiment.AOsignal_withTumor)
+            if self.optimizer.value ==  OptimizerType.PPGMLEM.value:
+                self.reconPhantom = self._MAPEM_STOP(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withTumor)
+            elif self.optimizer.value == OptimizerType.PGC.value:
+                self.reconPhantom = self._MAPEM(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withTumor)
+            elif self.optimizer.value == OptimizerType.DEPIERRO95.value:
+                self.reconPhantom = self._DEPIERRO(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withTumor)
             else:
-                self.reconPhantom = BayesianRecon._MAPEM(SMatrix=SMatrix, y=self.experiment.AOsignal_withTumor)
+                raise ValueError(f"Unknown optimizer type: {self.optimizer.value}")
         else:
             if self.experiment.AOsignal_withoutTumor is None:
                 raise ValueError("AO signal without tumor is not available. Please generate AO signal without tumor the experiment first in the experiment object.")
-            if self.isPenalizedLogLikelyHood:
-                self.reconLaser = BayesianRecon._MAPEM_STOP(SMatrix=SMatrix, y=self.experiment.AOsignal_withoutTumor)
+            if self.optimizer.value ==  OptimizerType.PPGMLEM.value:
+                self.reconLaser = self._MAPEM_STOP(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withoutTumor)
+            elif self.optimizer.value == OptimizerType.PGC.value:
+                self.reconLaser = self._MAPEM(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withoutTumor)
+            elif self.optimizer.value == OptimizerType.DEPIERRO95.value:
+                self.reconLaser = self._DEPIERRO(SMatrix=self.SMatrix, y=self.experiment.AOsignal_withoutTumor)
             else:
-                self.reconLaser = BayesianRecon._MAPEM(SMatrix=SMatrix, y=self.experiment.AOsignal_withoutTumor)
+                raise ValueError(f"Unknown optimizer type: {self.optimizer.value}")
+
+    def _MAPEM_STOP(self, SMatrix, y):
+
+        if self.isGPU and self.isMultiGPU:
+            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
+            try:
+                return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if self.isGPU and not self.isMultiGPU:
+            try:
+                return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if not self.isGPU and self.isMultiCPU:
+            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
+            return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if not self.isGPU and not self.isMultiCPU:
+            return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        
+    def _MAPEM(self, SMatrix, y):
+        
+        if self.isGPU and self.isMultiGPU:
+            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
+            try:
+                return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations ,beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if self.isGPU and not self.isMultiGPU:
+            try:
+                return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if not self.isGPU and self.isMultiCPU:
+            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
+            return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if not self.isGPU and not self.isMultiCPU:
+            return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+
+    def _DEPIERRO(self, SMatrix, y):
+        if self.isGPU and self.isMultiGPU:
+            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
+            try:
+                return BayesianRecon._DEPIERRO_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if self.isGPU and not self.isMultiGPU:
+            try:
+                return BayesianRecon._DEPIERRO_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+            except:
+                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
+                return BayesianRecon._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if not self.isGPU and self.isMultiCPU:
+            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
+            return BayesianRecon._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
+        if not self.isGPU and not self.isMultiCPU:
+            return BayesianRecon._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIteration=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
 
     # POTENTIAL FUNCTIONS
 
@@ -1861,100 +1928,165 @@ class BayesianRecon(AlgebraicRecon):
 
         # GRADIENT AND HESSIAN COMPUTATION
 
+    # Optimizers
+
     @staticmethod
-    @njit
-    def _build_adjacency_sparse_CPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face = 0.5-np.sqrt(2)/4):
-        rows = []
-        cols = []
-        weights = []
+    def _DEPIERRO_GPU(SMatrix, y, Omega, numIteration, beta, sigma, isSavingEachIteration=False):
 
-        for z in range(Z):
-            for x in range(X):
-                j = z * X + x
-                for dz in [-1, 0, 1]:
-                    for dx in [-1, 0, 1]:
-                        if dz == 0 and dx == 0:
-                            continue
-                        nz, nx = z + dz, x + dx
-                        if 0 <= nz < Z and 0 <= nx < X:
-                            k = nz * X + nx
-                            weight = corner if abs(dz) + abs(dx) == 2 else face
-                            rows.append(j)
-                            cols.append(k)
-                            weights.append(weight)
+        if Omega != PotentialType.QUADRATIC:
+            raise ValueError("Depierro95 optimizer only supports QUADRATIC potential function.")
+        if beta is None or sigma is None:
+            raise ValueError("Depierro95 optimizer requires beta and sigma parameters.")
 
-        index = (np.array(rows), np.array(cols))
-        values = np.array(weights, dtype=np.float32)
-        return index, values 
-    
+        device = torch.device(f"cuda:{config.select_best_gpu()}")
+
+        A_matrix_torch = torch.tensor(SMatrix, dtype=torch.float32).to(device)
+        y_torch = torch.tensor(y, dtype=torch.float32).to(device)
+
+        T, Z, X, N = SMatrix.shape
+        J = Z * X
+
+        A_flat = A_matrix_torch.permute(0, 3, 1, 2).reshape(T * N, Z * X)
+        y_flat = y_torch.reshape(-1)
+
+        theta_0 = torch.ones((Z, X), dtype=torch.float32, device=device)
+        matrix_theta_torch = []
+        matrix_theta_torch = [theta_0]
+        I_reconMatrix = [theta_0.cpu().numpy()]
+
+        normalization_factor = A_matrix_torch.sum(dim=(0, 3))                # (Z, X)
+        normalization_factor_flat = normalization_factor.reshape(-1)         # (Z*X,)
+
+        adj_index, adj_values = BayesianRecon._build_adjacency_sparse(Z, X)
+
+        for p in trange(numIteration, desc = f"AOT-BioMaps -- Bayesian Recontruction Tomography : DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- processing on single GPU no.{torch.cuda.current_device()} ----"):
+
+            theta_p = matrix_theta_torch[-1]
+
+            # Step 2: Forward projection of current estimate : q = A * theta + b (acc with GPU)
+            theta_p_flat = theta_p.reshape(-1)                               # shape: (Z * X, )
+            q_flat = A_flat @ theta_p_flat                                   # shape: (T * N, )
+
+            # Step 3: Current error estimate : compute ratio e = m / q
+            e_flat = y_flat / (q_flat + torch.finfo(torch.float32).tiny)     # shape: (T * N, )
+
+            # Step 4: Backward projection of the error estimate : c = A.T * e (acc with GPU)
+            c_flat = A_flat.T @ e_flat                                       # shape: (Z * X, )
+
+            # Step 5: Multiplicative update of current estimate
+            #theta_p_plus_1_flat = (theta_p_flat / (normalization_factor_flat)) * c_flat
+            #theta_EM_p_flat = (theta_p_flat / (normalization_factor_flat)) * c_flat
+            theta_EM_p_flat = (theta_p_flat) * c_flat
+
+            # --- Compute alpha_j ---
+            alpha_j = normalization_factor_flat                                                                     # (Z*X,)
+
+            # --- Compute W_j = (1/σ²) * ∑ ω_{kj} ---
+            W_j = scatter(adj_values, adj_index[0], dim=0, dim_size=J, reduce='sum') * (1.0 / sigma**2)             # (Z*X,)
+
+            # --- Compute γ_j = θ_j W_j + ∑_{k in N_j} θ_k ω_{kj} ---
+            theta_k = theta_p_flat[adj_index[1]]
+            weighted_theta_k = theta_k * adj_values
+            gamma_j = theta_p_flat * W_j + scatter(weighted_theta_k, adj_index[0], dim=0, dim_size=J, reduce='sum')  # (Z*X,)
+
+            # --- Pierro update ---
+            A = 2 * beta * W_j
+            B = - beta * gamma_j + alpha_j
+            C = - theta_EM_p_flat
+            '''
+            if (p+1)%100 ==0 :
+                print(f"torch.max(torch.abs(beta * gamma_j + alpha_j)- normalization_factor_flat ) = {torch.max(torch.abs(beta * gamma_j + alpha_j )- normalization_factor_flat) }")
+                #print(f"torch.max(torch.abs(-B + torch.abs(B))) = {torch.max(torch.abs(-B + torch.abs(B)))}")
+                val1 = torch.sqrt(B ** 2 - 4 * A * C)
+                val2 = torch.abs(B) * (1 + 0.5 * (- 4 * A * C / (B**2)))
+                print(torch.max(torch.abs(val1 - val2)))
+            '''
+            theta_p_plus_1_flat = (- B + torch.sqrt(B ** 2 - 4 * A * C)) / (2 * A + torch.finfo(torch.float32).tiny) 
+            theta_p_plus_1_flat = torch.clamp(theta_p_plus_1_flat, min=0)
+            
+            theta_next = theta_p_plus_1_flat.reshape(Z, X)
+            if (p+1)%100 ==0 :
+                print(torch.sum(torch.abs(theta_p_plus_1_flat - theta_EM_p_flat/normalization_factor_flat)))
+            #matrix_theta_torch.append(theta_next) # save theta in GPU
+            matrix_theta_torch[-1] = theta_next    # do not save theta in GPU
+
+            if p % 1 == 0:
+                I_reconMatrix.append(theta_next.cpu().numpy()) 
+            
+        if isSavingEachIteration:
+            return I_reconMatrix
+        else:
+            return I_reconMatrix[-1]
+
     @staticmethod
-    def _build_adjacency_sparse_GPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face = 0.5-np.sqrt(2)/4):
-        rows = []
-        cols = []
-        weights = []
+    def _DEPIERRO_CPU(SMatrix, y, Omega, numIteration, beta, sigma, isSavingEachIteration=False):
+        if Omega != PotentialType.QUADRATIC:
+            raise ValueError("Depierro95 optimizer only supports QUADRATIC potential function.")
+        if beta is None or sigma is None:
+            raise ValueError("Depierro95 optimizer requires beta and sigma parameters.")
 
-        for z in range(Z):
-            for x in range(X):
-                j = z * X + x
-                for dz in [-1, 0, 1]:
-                    for dx in [-1, 0, 1]:
-                        if dz == 0 and dx == 0:
-                            continue
-                        nz, nx = z + dz, x + dx
-                        if 0 <= nz < Z and 0 <= nx < X:
-                            k = nz * X + nx
-                            weight = corner if abs(dz) + abs(dx) == 2 else face
-                            rows.append(j)
-                            cols.append(k)
-                            weights.append(weight)
+        A_matrix = np.array(SMatrix, dtype=np.float32)
+        y_array = np.array(y, dtype=np.float32)
+        T, Z, X, N = SMatrix.shape
+        J = Z * X
+
+        A_flat = A_matrix.transpose(0, 3, 1, 2).reshape(T * N, Z * X)
+        y_flat = y_array.reshape(-1)
+        theta_0 = np.ones((Z, X), dtype=np.float32)
+        matrix_theta = [theta_0]
+        I_reconMatrix = [theta_0.copy()]
+
+        normalization_factor = A_matrix.sum(axis=(0, 3))
+        normalization_factor_flat = normalization_factor.reshape(-1)
+
+        adj_index, adj_values = BayesianRecon._build_adjacency_sparse(Z, X)
+
+        for p in trange(numIteration, desc=f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f})"):
+            theta_p = matrix_theta[-1]
+            theta_p_flat = theta_p.reshape(-1)
+
+            # Forward projection of current estimate: q = A * theta
+            q_flat = np.dot(A_flat, theta_p_flat)
+
+            # Current error estimate: compute ratio e = m / q
+            e_flat = y_flat / (q_flat + np.finfo(np.float32).tiny)
+
+            # Backward projection of the error estimate: c = A.T * e
+            c_flat = np.dot(A_flat.T, e_flat)
+
+            # Multiplicative update of current estimate
+            theta_EM_p_flat = theta_p_flat * c_flat
+
+            # Compute alpha_j
+            alpha_j = normalization_factor_flat
+
+            # Compute W_j = (1/σ²) * ∑ ω_{kj}
+            W_j = np.bincount(adj_index[0], weights=adj_values, minlength=J) * (1.0 / sigma**2)
+
+            # Compute γ_j = θ_j W_j + ∑_{k in N_j} θ_k ω_{kj}
+            theta_k = theta_p_flat[adj_index[1]]
+            weighted_theta_k = theta_k * adj_values
+            gamma_j = theta_p_flat * W_j + np.bincount(adj_index[0], weights=weighted_theta_k, minlength=J)
+
+            # Pierro update
+            A = 2 * beta * W_j
+            B = -beta * gamma_j + alpha_j
+            C = -theta_EM_p_flat
+
+            theta_p_plus_1_flat = (-B + np.sqrt(B**2 - 4 * A * C)) / (2 * A + np.finfo(np.float32).tiny)
+            theta_p_plus_1_flat = np.clip(theta_p_plus_1_flat, a_min=0, a_max=None)
+
+            theta_next = theta_p_plus_1_flat.reshape(Z, X)
+            matrix_theta[-1] = theta_next
+
+            if p % 1 == 0:
+                I_reconMatrix.append(theta_next.copy())
+
+        if isSavingEachIteration:
+            return I_reconMatrix
+        else:
+            return I_reconMatrix[-1]
     
-        index = torch.tensor([rows, cols], device= config.select_best_gpu())
-        values = torch.tensor(weights, dtype=torch.float32, device= config.select_best_gpu())
-        index, values = coalesce(index, values, m=Z*X, n=Z*X)
-        return index, values 
-
-    def _MAPEM_STOP(self, SMatrix, y):
-
-        if self.isGPU and self.isMultiGPU:
-            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
-            try:
-                return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        if self.isGPU and not self.isMultiGPU:
-            try:
-                return BayesianRecon._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        if not self.isGPU and self.isMultiCPU:
-            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
-            return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        if not self.isGPU and not self.isMultiCPU:
-            return BayesianRecon._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        
-    def _MAPEM(self, SMatrix, y):
-        
-        if self.isGPU and self.isMultiGPU:
-            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
-            try:
-                return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations ,beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        if self.isGPU and not self.isMultiGPU:
-            try:
-                return BayesianRecon._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        if not self.isGPU and self.isMultiCPU:
-            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
-            return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        if not self.isGPU and not self.isMultiCPU:
-            return BayesianRecon._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, iteration=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration)
-        
     @staticmethod
     def _MAPEM_CPU_STOP(SMatrix, y, Omega, numIteration, beta, delta, gamma, sigma, previous=-np.inf, isSavingEachIteration=False):
         """
@@ -2191,7 +2323,7 @@ class BayesianRecon(AlgebraicRecon):
         normalization_factor = SMatrix.sum(axis=(0, 3))
         normalization_factor_flat = normalization_factor.reshape(-1)
 
-        j_idx, k_idx, values = BayesianRecon._build_adjacency_sparse_CPU(Z, X)
+        adj_index, adj_values = BayesianRecon._build_adjacency_sparse_CPU(Z, X)
 
         if Omega == PotentialType.RELATIVE_DIFFERENCE:
             description = f"AOT-BioMaps -- Bayesian Recontruction Tomography : MAP-EM (Sparse RD β:{beta:.4f}, δ:{delta:4f}) ---- processing on single CPU ----"
@@ -2209,11 +2341,12 @@ class BayesianRecon(AlgebraicRecon):
             c_flat = A_flat.T @ e_flat
 
             if Omega == PotentialType.RELATIVE_DIFFERENCE:
-                grad_U, hess_U, _ = BayesianRecon._Omega_RELATIVE_DIFFERENCE_CPU(theta_p_flat, j_idx, k_idx, values, delta)
+                grad_U, hess_U, _ = BayesianRecon._Omega_RELATIVE_DIFFERENCE_CPU(theta_p_flat, adj_index, adj_values, delta)
             elif Omega == PotentialType.HUBER_PIECEWISE:
-                grad_U, hess_U, _ = BayesianRecon._Omega_HUBER_PIECEWISE_CPU(theta_p_flat, j_idx, k_idx, values, gamma)
+                grad_U, hess_U, _ = BayesianRecon._Omega_HUBER_PIECEWISE_CPU(theta_p_flat, adj_index, adj_values, gamma)
             elif Omega == PotentialType.QUADRATIC:
-                grad_U, hess_U, _ = BayesianRecon._Omega_QUADRATIC_CPU(theta_p_flat, j_idx, k_idx, values, sigma)
+                grad_U, hess_U, _ = BayesianRecon._Omega_QUADRATIC_CPU(theta_p_flat, adj_index, adj_values, sigma)
+
 
             denom = normalization_factor_flat + theta_p_flat * beta * hess_U
             num = theta_p_flat * (c_flat - beta * grad_U)
@@ -2280,8 +2413,7 @@ class BayesianRecon(AlgebraicRecon):
         theta_0 = torch.ones((Z, X), dtype=torch.float32, device=device)
         matrix_theta_torch = []
         matrix_theta_torch = [theta_0]
-        I_reconMatrix = []
-        matrix_theta_from_gpu_MAPEM = [theta_0.cpu().numpy()]
+        I_reconMatrix = [theta_0.cpu().numpy()]
 
         normalization_factor = A_matrix_torch.sum(dim=(0, 3))                # (Z, X)
         normalization_factor_flat = normalization_factor.reshape(-1)         # (Z*X,)
@@ -2329,14 +2461,69 @@ class BayesianRecon(AlgebraicRecon):
         else:
             return I_reconMatrix[-1]
 
-class ConvexRecon(Recon):
+    # Tools
+
+    @staticmethod
+    @njit
+    def _build_adjacency_sparse_CPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face = 0.5-np.sqrt(2)/4):
+        rows = []
+        cols = []
+        weights = []
+
+        for z in range(Z):
+            for x in range(X):
+                j = z * X + x
+                for dz in [-1, 0, 1]:
+                    for dx in [-1, 0, 1]:
+                        if dz == 0 and dx == 0:
+                            continue
+                        nz, nx = z + dz, x + dx
+                        if 0 <= nz < Z and 0 <= nx < X:
+                            k = nz * X + nx
+                            weight = corner if abs(dz) + abs(dx) == 2 else face
+                            rows.append(j)
+                            cols.append(k)
+                            weights.append(weight)
+
+        index = (np.array(rows), np.array(cols))
+        values = np.array(weights, dtype=np.float32)
+        return index, values 
+    
+    @staticmethod
+    def _build_adjacency_sparse_GPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face = 0.5-np.sqrt(2)/4):
+        rows = []
+        cols = []
+        weights = []
+
+        for z in range(Z):
+            for x in range(X):
+                j = z * X + x
+                for dz in [-1, 0, 1]:
+                    for dx in [-1, 0, 1]:
+                        if dz == 0 and dx == 0:
+                            continue
+                        nz, nx = z + dz, x + dx
+                        if 0 <= nz < Z and 0 <= nx < X:
+                            k = nz * X + nx
+                            weight = corner if abs(dz) + abs(dx) == 2 else face
+                            rows.append(j)
+                            cols.append(k)
+                            weights.append(weight)
+    
+        index = torch.tensor([rows, cols], device= config.select_best_gpu())
+        values = torch.tensor(weights, dtype=torch.float32, device= config.select_best_gpu())
+        index, values = coalesce(index, values, m=Z*X, n=Z*X)
+        return index, values 
+
+class ConvexRecon(AlgebraicRecon):
     """
     This class implements the convex reconstruction process.
     It currently does not perform any operations but serves as a template for future implementations.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, alpha, **kwargs):
         super().__init__(**kwargs)
         self.reconType = ReconType.Convex
+        self.alpha = alpha
 
     def run(self, processType=ProcessType.PYTHON):
         """
@@ -2354,90 +2541,109 @@ class ConvexRecon(Recon):
         pass
 
     def _convexReconPython(self):
-        pass
+        self.reconPhantom = ConvexRecon.chambolle_pock_TV(self.SMatrix,  y=self.experiment.AOsignal_withTumor, alpha=self.alpha, numIterations=self.numIterations, isSavingEachIteration=self.isSavingEachIteration)
 
     @staticmethod
-    def prox_l1_CPU(v, alpha):
-        return np.sign(v) * np.maximum(np.abs(v) - alpha, 0)
+    def div(x):
+        """Compute the divergence of x."""
+        kernel = torch.tensor([[[[1.0], [-1.0]]], [[[1.0], [-1.0]]]], dtype=torch.float32)
+        return -F.conv2d(x, kernel, padding=1)
 
     @staticmethod
-    def prox_l2_CPU(v, sigma):
-        return v / (1 + sigma)
-
-    @staticmethod
-    def gradient_operator_CPU(lambda_):
-        # Implémentez l'opérateur gradient ici
-        return np.gradient(lambda_)
-
-    @staticmethod
-    def divergence_operator_CPU(u):
-        # Implémentez l'opérateur divergence ici
-        return -np.gradient(u[0]) - np.gradient(u[1])
-    
-    @staticmethod
-    def prox_l1_GPU(v, alpha):
-        return torch.sign(v) * torch.clamp(torch.abs(v) - alpha, min=0)
-
-    @staticmethod
-    def prox_l2_GPU(v, sigma):
-        return v / (1 + sigma)
-
-    @staticmethod
-    def gradient_operator_GPU(lambda_):
-        # Implémentez l'opérateur gradient ici
-        grad_x = torch.gradient(lambda_, dim=0)[0]
-        grad_y = torch.gradient(lambda_, dim=1)[0]
+    def gradient(x):
+        """Compute the gradient of x."""
+        kernel_x = torch.tensor([[[[-1.0, 1.0]]]], dtype=torch.float32)
+        kernel_y = torch.tensor([[[[-1.0]], [[1.0]]]], dtype=torch.float32)
+        grad_x = F.conv2d(x.unsqueeze(0).unsqueeze(0), kernel_x, padding=1).squeeze()
+        grad_y = F.conv2d(x.unsqueeze(0).unsqueeze(0), kernel_y, padding=1).squeeze()
         return torch.stack((grad_x, grad_y), dim=0)
 
     @staticmethod
-    def divergence_operator_GPU(u):
-        # Implémentez l'opérateur divergence ici
-        div = -torch.gradient(u[0], dim=0)[0] - torch.gradient(u[1], dim=1)[0]
-        return div
+    def proj_l2(p, Lambda):
+        """Projection onto the L2 ball of radius Lambda."""
+        norm = torch.sqrt(torch.sum(p**2, dim=0, keepdim=True))
+        return p * Lambda / torch.max(norm, torch.tensor(Lambda))
+
+    @staticmethod
+    def norm2sq(x):
+        """Compute the squared L2 norm of x."""
+        return torch.sum(x**2)
+
+    @staticmethod
+    def norm1(x):
+        """Compute the L1 norm of x."""
+        return torch.sum(torch.abs(x))
+
+    @staticmethod
+    def power_method(P, PT, data, n_it=10):
+        """Calculate the norm of operator K = [grad, P]."""
+        x = PT(data)
+        for _ in range(n_it):
+            x = PT(P(x)) - ConvexRecon.div(ConvexRecon.gradient(x))
+            s = torch.sqrt(torch.sum(x**2))
+            x /= s
+        return torch.sqrt(s)
     
     @staticmethod
-    def primal_dual_chambolle_pock_CPU(A, y, alpha, tau, sigma, theta, iterations):
-        # Initialisation
-        lambda_ = np.zeros((A.shape[1], 1))
-        u = np.zeros((2, A.shape[1], 1))
+    def chambolle_pock_TV(SMatrix, y, alpha, numIterations, isSavingEachIteration=False):
+        '''
+        Chambolle-Pock algorithm for TV-based reconstruction using GPU.
+        This method computes the reconstruction using the Chambolle-Pock algorithm with Total Variation regularization.
 
-        for _ in trange(iterations):
-            # Mise à jour de lambda
-            lambda_new = ConvexRecon.prox_l1_CPU(lambda_ - tau * A.T @ (A @ lambda_ - y), tau * alpha)
+        Parameters:
+            SMatrix (numpy.ndarray): The system matrix of shape (T, Z, X, N).
+            y (numpy.ndarray): The observed data of shape (T, N).
+            alpha (float): The regularization parameter for TV.
+            numIteration (int): The number of iterations for the Chambolle-Pock algorithm.
+            isSavingEachIteration (bool): Whether to save each iteration's result.
 
-            # Mise à jour de u
-            u_new = u + sigma * ConvexRecon.gradient_operator_CPU(lambda_new)
-            u_new = ConvexRecon.prox_l2_CPU(u_new, sigma)
+        Returns:
+            I_reconMatrix (list or numpy.ndarray): A list of numpy arrays containing the estimated parameters at each iteration or just the final iteration.
+        '''
 
-            # Mise à jour avec relaxation
-            lambda_ = lambda_new + theta * (lambda_new - lambda_)
-            u = u_new + theta * (u_new - u)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        A_matrix_torch = torch.tensor(SMatrix, dtype=torch.float32).to(device)
+        y_torch = torch.tensor(y, dtype=torch.float32).to(device)
 
-        return lambda_
+        T, Z, X, N = SMatrix.shape
+        A_flat = A_matrix_torch.permute(0, 3, 1, 2).reshape(T * N, Z * X)
+        y_flat = y_torch.reshape(-1)
 
-    @staticmethod
-    def primal_dual_chambolle_pock_GPU(A, y, alpha, tau, sigma, theta, iterations):
-        # Initialisation sur GPU
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        lambda_ = torch.zeros((A.shape[1], 1), device=device)
-        u = torch.zeros((2, A.shape[1], 1), device=device)
+        P = lambda x: torch.matmul(A_flat, x.ravel())
+        PT = lambda y: torch.matmul(A_flat.T, y)
 
-        A = A.to(device)
-        y = y.to(device)
+        L = ConvexRecon.power_method(P, PT, y_flat)
+        sigma = 1.0 / L
+        tau = 1.0 / L
 
-        for _ in trange(iterations):
-            # Mise à jour de lambda
-            lambda_new = ConvexRecon.prox_l1_GPU(lambda_ - tau * torch.matmul(A.t(), torch.matmul(A, lambda_) - y), tau * alpha)
+        x = torch.zeros(Z * X, dtype=torch.float32, device=device)
+        p = torch.zeros((2, Z, X), dtype=torch.float32, device=device)
+        q = torch.zeros_like(y_flat, dtype=torch.float32, device=device)
+        x_tilde = torch.zeros_like(x)
+        theta = 1.0
 
-            # Mise à jour de u
-            u_new = u + sigma * ConvexRecon.gradient_operator_GPU(lambda_new)
-            u_new = ConvexRecon.prox_l2_GPU(u_new, sigma)
+        I_reconMatrix = [x.reshape(Z, X).cpu().numpy()]
 
-            # Mise à jour avec relaxation
-            lambda_ = lambda_new + theta * (lambda_new - lambda_)
-            u = u_new + theta * (u_new - u)
+        description = f"Chambolle-Pock TV Reconstruction (alpha: {alpha:.4f})"
 
-        return lambda_
+        for iteration in trange(numIterations, desc=description):
+            p = ConvexRecon.proj_l2(p + sigma * ConvexRecon.gradient(x_tilde.reshape(Z, X)), alpha)
+            q = (q + sigma * P(x_tilde) - sigma * y_flat) / (1.0 + sigma)
+
+            x_old = x
+            x = x + tau * ConvexRecon.div(p).ravel() - tau * PT(q)
+            x_tilde = x + theta * (x - x_old)
+
+            if iteration % 1 == 0:
+                I_reconMatrix.append(x.reshape(Z, X).cpu().numpy())
+
+        if isSavingEachIteration:
+            return I_reconMatrix
+        else:
+            return I_reconMatrix[-1]
+
+
+
 
 class DeepLearningRecon(Recon):
     """

@@ -216,6 +216,7 @@ class TestLedgerAccounts:
             ledger_id="ledger_id",
             metadata={"foo": "string"},
             name=["string"],
+            normal_balance="credit",
             pending_balance_amount={
                 "eq": 0,
                 "gt": 0,
@@ -297,7 +298,9 @@ class TestLedgerAccounts:
 
 
 class TestAsyncLedgerAccounts:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncModernTreasury) -> None:
@@ -494,6 +497,7 @@ class TestAsyncLedgerAccounts:
             ledger_id="ledger_id",
             metadata={"foo": "string"},
             name=["string"],
+            normal_balance="credit",
             pending_balance_amount={
                 "eq": 0,
                 "gt": 0,

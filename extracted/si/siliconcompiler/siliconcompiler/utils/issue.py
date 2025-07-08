@@ -41,7 +41,7 @@ def generate_testcase(chip,
             sc_type = chip.get(*key, field='type')
             if 'file' not in sc_type and 'dir' not in sc_type:
                 continue
-            for _, key_step, key_index in chip.schema.get(*key, field=None).getvalues():
+            for _, key_step, key_index in chip.get(*key, field=None).getvalues():
                 chip.hash_files(*key,
                                 check=False,
                                 allow_cache=True,
@@ -145,7 +145,6 @@ def generate_testcase(chip,
     chip.collect(directory=collection_dir, verbose=verbose_collect)
 
     # Set relative path to generate runnable files
-    chip._relative_path = new_work_dir
     chip.cwd = issue_dir.name
 
     current_work_dir = os.getcwd()
@@ -153,33 +152,28 @@ def generate_testcase(chip,
 
     flow = chip.get('option', 'flow')
 
-    task_class = chip.get("tool", tool, field="schema")
+    task_class = chip.get("tool", tool, "task", task, field="schema")
 
-    task_class.set_runtime(chip, step=step, index=index)
+    with task_class.runtime(chip, step=step, index=index, relpath=new_work_dir) as task:
+        # Rewrite replay.sh
+        prev_quiet = chip.get('option', 'quiet', step=step, index=index)
+        chip.set('option', 'quiet', True, step=step, index=index)
+        try:
+            # Rerun pre_process
+            task.pre_process()
+        except Exception:
+            pass
+        chip.set('option', 'quiet', prev_quiet, step=step, index=index)
 
-    # Rewrite replay.sh
-    prev_quiet = chip.get('option', 'quiet', step=step, index=index)
-    chip.set('option', 'quiet', True, step=step, index=index)
-    try:
-        # Rerun pre_process
-        task_class.pre_process()
-    except Exception:
-        pass
-    chip.set('option', 'quiet', prev_quiet, step=step, index=index)
+        is_python_tool = task.get_exe() is None
+        if not is_python_tool:
+            task.generate_replay_script(
+                f'{chip.getworkdir(step=step, index=index)}/replay.sh',
+                '.',
+                include_path=False)
 
-    is_python_tool = task_class.get_exe() is None
-
-    if not is_python_tool:
-        task_class.generate_replay_script(
-            f'{chip.getworkdir(step=step, index=index)}/replay.sh',
-            '.',
-            include_path=False)
-
-    # Rewrite tool manifest
-    task_class.write_task_manifest('.')
-
-    # Restore normal path behavior
-    chip._relative_path = None
+        # Rewrite tool manifest
+        task.write_task_manifest('.')
 
     # Restore current directory
     chip.cwd = original_cwd
@@ -234,7 +228,7 @@ def generate_testcase(chip,
         design = chip.design
         job = chip.get('option', 'jobname')
         file_time = datetime.fromtimestamp(issue_time).strftime('%Y%m%d-%H%M%S')
-        archive_name = f'sc_issue_{design}_{job}_{step}{index}_{file_time}.tar.gz'
+        archive_name = f'sc_issue_{design}_{job}_{step}_{index}_{file_time}.tar.gz'
 
     # Make support files
     issue_path = os.path.join(issue_dir.name, 'issue.json')
@@ -254,7 +248,7 @@ def generate_testcase(chip,
         with open(run_path, 'w') as f:
             replay_dir = os.path.relpath(chip.getworkdir(step=step, index=index),
                                          chip.cwd)
-            issue_title = f'{chip.design} for {step}{index} using {tool}/{task}'
+            issue_title = f'{chip.design} for {step}/{index} using {tool}/{task}'
             f.write(get_file_template('issue/run.sh').render(
                 title=issue_title,
                 exec_dir=replay_dir
@@ -288,7 +282,7 @@ def generate_testcase(chip,
 
     issue_dir.cleanup()
 
-    chip.logger.info(f'Generated testcase for {step}{index} in: '
+    chip.logger.info(f'Generated testcase for {step}/{index} in: '
                      f'{full_archive_path}')
 
     # Restore original schema

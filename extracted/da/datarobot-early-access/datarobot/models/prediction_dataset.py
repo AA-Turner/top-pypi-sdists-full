@@ -21,7 +21,7 @@ from datarobot.models.api_object import APIObject
 from datarobot.utils import parse_time
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class DataQualityWarning(TypedDict):
         has_kia_missing_values_in_forecast_window: bool

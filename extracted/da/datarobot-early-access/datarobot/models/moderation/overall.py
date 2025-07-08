@@ -26,7 +26,7 @@ Settings are:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional
 
 import trafaret as t
 
@@ -99,7 +99,7 @@ class OverallModerationConfig(APIObject):
         self: OverallModerationConfig, new_response: OverallModerationConfig
     ) -> None:
         # called by update() and refresh()
-        fields: Set[str] = self._fields()  # type: ignore[no-untyped-call]
+        fields = self._fields()
         for attr in fields:
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)

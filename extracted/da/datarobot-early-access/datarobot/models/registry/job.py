@@ -14,7 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 from requests_toolbelt import MultipartEncoder
 import trafaret as t
@@ -157,7 +157,7 @@ class Job(APIObject):
         return f"{self.__class__.__name__}({self.name or self.id!r})"
 
     def _update_values(self, new_response: Job) -> None:
-        fields: Set[str] = self._fields()  # type: ignore[no-untyped-call]
+        fields = self._fields()
         for attr in fields:
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)

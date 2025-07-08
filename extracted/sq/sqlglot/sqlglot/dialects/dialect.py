@@ -113,7 +113,10 @@ class NormalizationStrategy(str, AutoName):
     """Always case-sensitive, regardless of quotes."""
 
     CASE_INSENSITIVE = auto()
-    """Always case-insensitive, regardless of quotes."""
+    """Always case-insensitive (lowercase), regardless of quotes."""
+
+    CASE_INSENSITIVE_UPPERCASE = auto()
+    """Always case-insensitive (uppercase), regardless of quotes."""
 
 
 class Version(int):
@@ -268,6 +271,9 @@ class _Dialect(type):
             klass.parser_class.TABLE_ALIAS_TOKENS = klass.parser_class.TABLE_ALIAS_TOKENS | {
                 TokenType.STRAIGHT_JOIN,
             }
+
+        if enum not in ("", "databricks", "oracle", "redshift", "snowflake", "spark"):
+            klass.generator_class.SUPPORTS_DECODE_CASE = False
 
         if not klass.SUPPORTS_SEMI_ANTI_JOIN:
             klass.parser_class.TABLE_ALIAS_TOKENS = klass.parser_class.TABLE_ALIAS_TOKENS | {
@@ -639,13 +645,24 @@ class Dialect(metaclass=_Dialect):
         exp.DataType.Type.BIGINT: {
             exp.ApproxDistinct,
             exp.ArraySize,
+            exp.CountIf,
+            exp.Int64,
             exp.Length,
+            exp.UnixDate,
+            exp.UnixSeconds,
+        },
+        exp.DataType.Type.BINARY: {
+            exp.FromBase64,
         },
         exp.DataType.Type.BOOLEAN: {
             exp.Between,
             exp.Boolean,
+            exp.EndsWith,
             exp.In,
+            exp.LogicalAnd,
+            exp.LogicalOr,
             exp.RegexpLike,
+            exp.StartsWith,
         },
         exp.DataType.Type.DATE: {
             exp.CurrentDate,
@@ -693,6 +710,10 @@ class Dialect(metaclass=_Dialect):
             exp.StrPosition,
             exp.TsOrDiToDi,
         },
+        exp.DataType.Type.INTERVAL: {
+            exp.Interval,
+            exp.MakeInterval,
+        },
         exp.DataType.Type.JSON: {
             exp.ParseJSON,
         },
@@ -722,8 +743,10 @@ class Dialect(metaclass=_Dialect):
         },
         exp.DataType.Type.VARCHAR: {
             exp.ArrayConcat,
+            exp.ArrayToString,
             exp.Concat,
             exp.ConcatWs,
+            exp.Chr,
             exp.DateToDateStr,
             exp.DPipe,
             exp.GroupConcat,
@@ -734,6 +757,7 @@ class Dialect(metaclass=_Dialect):
             exp.TimeToStr,
             exp.TimeToTimeStr,
             exp.Trim,
+            exp.ToBase64,
             exp.TsOrDsToDateStr,
             exp.UnixToStr,
             exp.UnixToTimeStr,
@@ -758,10 +782,10 @@ class Dialect(metaclass=_Dialect):
         exp.Abs: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Anonymous: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.UNKNOWN),
         exp.Array: lambda self, e: self._annotate_by_args(e, "expressions", array=True),
+        exp.AnyValue: lambda self, e: self._annotate_by_args(e, "this"),
         exp.ArrayAgg: lambda self, e: self._annotate_by_args(e, "this", array=True),
         exp.ArrayConcat: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
         exp.ArrayConcatAgg: lambda self, e: self._annotate_by_args(e, "this"),
-        exp.ArrayToString: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TEXT),
         exp.ArrayFirst: lambda self, e: self._annotate_by_array_element(e),
         exp.ArrayLast: lambda self, e: self._annotate_by_array_element(e),
         exp.ArrayReverse: lambda self, e: self._annotate_by_args(e, "this"),
@@ -783,6 +807,9 @@ class Dialect(metaclass=_Dialect):
         exp.Explode: lambda self, e: self._annotate_explode(e),
         exp.Extract: lambda self, e: self._annotate_extract(e),
         exp.Filter: lambda self, e: self._annotate_by_args(e, "this"),
+        exp.GenerateSeries: lambda self, e: self._annotate_by_args(
+            e, "start", "end", "step", array=True
+        ),
         exp.GenerateDateArray: lambda self, e: self._annotate_with_type(
             e, exp.DataType.build("ARRAY<DATE>")
         ),
@@ -791,9 +818,9 @@ class Dialect(metaclass=_Dialect):
         ),
         exp.Greatest: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
         exp.If: lambda self, e: self._annotate_by_args(e, "true", "false"),
-        exp.Interval: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.INTERVAL),
         exp.Least: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
         exp.Literal: lambda self, e: self._annotate_literal(e),
+        exp.LastValue: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Map: lambda self, e: self._annotate_map(e),
         exp.Max: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
         exp.Min: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
@@ -812,6 +839,7 @@ class Dialect(metaclass=_Dialect):
         exp.TryCast: lambda self, e: self._annotate_with_type(e, e.args["to"]),
         exp.Unnest: lambda self, e: self._annotate_unnest(e),
         exp.VarMap: lambda self, e: self._annotate_map(e),
+        exp.Window: lambda self, e: self._annotate_by_args(e, "this"),
     }
 
     # Specifies what types a given type can be coerced into
@@ -941,17 +969,23 @@ class Dialect(metaclass=_Dialect):
             and self.normalization_strategy is not NormalizationStrategy.CASE_SENSITIVE
             and (
                 not expression.quoted
-                or self.normalization_strategy is NormalizationStrategy.CASE_INSENSITIVE
+                or self.normalization_strategy
+                in (
+                    NormalizationStrategy.CASE_INSENSITIVE,
+                    NormalizationStrategy.CASE_INSENSITIVE_UPPERCASE,
+                )
             )
         ):
-            expression.set(
-                "this",
-                (
-                    expression.this.upper()
-                    if self.normalization_strategy is NormalizationStrategy.UPPERCASE
-                    else expression.this.lower()
-                ),
+            normalized = (
+                expression.this.upper()
+                if self.normalization_strategy
+                in (
+                    NormalizationStrategy.UPPERCASE,
+                    NormalizationStrategy.CASE_INSENSITIVE_UPPERCASE,
+                )
+                else expression.this.lower()
             )
+            expression.set("this", normalized)
 
         return expression
 

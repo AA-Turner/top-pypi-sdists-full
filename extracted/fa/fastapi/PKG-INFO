@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastapi
-Version: 0.115.14
+Version: 0.116.0
 Summary: FastAPI framework, high performance, easy to learn, fast to code, ready for production
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 Classifier: Intended Audience :: Information Technology
@@ -42,14 +42,21 @@ Requires-Dist: starlette<0.47.0,>=0.40.0
 Requires-Dist: pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4
 Requires-Dist: typing-extensions>=4.8.0
 Provides-Extra: standard
-Requires-Dist: fastapi-cli[standard]>=0.0.5; extra == "standard"
+Requires-Dist: fastapi-cli[standard]>=0.0.8; extra == "standard"
 Requires-Dist: httpx>=0.23.0; extra == "standard"
 Requires-Dist: jinja2>=3.1.5; extra == "standard"
 Requires-Dist: python-multipart>=0.0.18; extra == "standard"
 Requires-Dist: email-validator>=2.0.0; extra == "standard"
 Requires-Dist: uvicorn[standard]>=0.12.0; extra == "standard"
+Provides-Extra: standard-no-fastapi-cloud-cli
+Requires-Dist: fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.8; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: httpx>=0.23.0; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: jinja2>=3.1.5; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: python-multipart>=0.0.18; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: email-validator>=2.0.0; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: uvicorn[standard]>=0.12.0; extra == "standard-no-fastapi-cloud-cli"
 Provides-Extra: all
-Requires-Dist: fastapi-cli[standard]>=0.0.5; extra == "all"
+Requires-Dist: fastapi-cli[standard]>=0.0.8; extra == "all"
 Requires-Dist: httpx>=0.23.0; extra == "all"
 Requires-Dist: jinja2>=3.1.5; extra == "all"
 Requires-Dist: python-multipart>=0.0.18; extra == "all"
@@ -535,14 +542,19 @@ Used by Starlette:
 * <a href="https://jinja.palletsprojects.com" target="_blank"><code>jinja2</code></a> - Required if you want to use the default template configuration.
 * <a href="https://github.com/Kludex/python-multipart" target="_blank"><code>python-multipart</code></a> - Required if you want to support form <abbr title="converting the string that comes from an HTTP request into Python data">"parsing"</abbr>, with `request.form()`.
 
-Used by FastAPI / Starlette:
+Used by FastAPI:
 
 * <a href="https://www.uvicorn.org" target="_blank"><code>uvicorn</code></a> - for the server that loads and serves your application. This includes `uvicorn[standard]`, which includes some dependencies (e.g. `uvloop`) needed for high performance serving.
-* `fastapi-cli` - to provide the `fastapi` command.
+* `fastapi-cli[standard]` - to provide the `fastapi` command.
+    * This includes `fastapi-cloud-cli`, which allows you to deploy your FastAPI application to <a href="https://fastapicloud.com" class="external-link" target="_blank">FastAPI Cloud</a>.
 
 ### Without `standard` Dependencies
 
 If you don't want to include the `standard` optional dependencies, you can install with `pip install fastapi` instead of `pip install "fastapi[standard]"`.
+
+### Without `fastapi-cloud-cli`
+
+If you want to install FastAPI with the standard dependencies but without the `fastapi-cloud-cli`, you can install with `pip install "fastapi[standard-no-fastapi-cloud-cli]"`.
 
 ### Additional Optional Dependencies
 

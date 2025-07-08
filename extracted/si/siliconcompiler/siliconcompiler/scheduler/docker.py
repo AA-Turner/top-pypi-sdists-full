@@ -112,6 +112,8 @@ class DockerSchedulerNode(SchedulerNode):
             chip.collect()
 
     def run(self):
+        self._init_run_logger()
+
         try:
             client = docker.from_env()
             client.version()
@@ -123,13 +125,6 @@ class DockerSchedulerNode(SchedulerNode):
 
         workdir = self.chip.getworkdir()
         start_cwd = os.getcwd()
-
-        # Remove handlers from logger
-        for handler in self.logger.handlers.copy():
-            self.logger.removeHandler(handler)
-
-        # Reinit logger
-        self.chip._init_logger(step=self.step, index=self.index, in_run=True)
 
         # Change working directory since the run may delete this folder
         os.makedirs(workdir, exist_ok=True)
@@ -215,7 +210,7 @@ class DockerSchedulerNode(SchedulerNode):
                 volumes=volumes,
                 labels=[
                     "siliconcompiler",
-                    f"sc_node:{self.chip.design}:{self.step}{self.index}"
+                    f"sc_node:{self.chip.design}:{self.step}:{self.index}"
                 ],
                 user=user,
                 detach=True,

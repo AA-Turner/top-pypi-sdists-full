@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: npe2
-Version: 0.7.8
+Version: 0.7.9
 Summary: napari plugin engine v2
 Project-URL: homepage, https://github.com/napari/npe2
 Project-URL: repository, https://github.com/napari/npe2
@@ -19,8 +19,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
-Requires-Dist: appdirs
 Requires-Dist: build>=1
+Requires-Dist: platformdirs
 Requires-Dist: psygnal>=0.3.0
 Requires-Dist: pydantic
 Requires-Dist: pyyaml

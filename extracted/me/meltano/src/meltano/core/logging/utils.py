@@ -64,7 +64,7 @@ def parse_log_level(log_level: str) -> int:
     return LEVELS.get(log_level, LEVELS[DEFAULT_LEVEL])
 
 
-def read_config(config_file: os.PathLike | None = None) -> dict | None:
+def read_config(config_file: os.PathLike[str] | None = None) -> dict | None:
     """Read a logging config yaml from disk.
 
     Args:
@@ -94,13 +94,22 @@ def default_config(
     Returns:
          A logging config suitable for use with `logging.config.dictConfig`.
     """
+    log_level = log_level.upper()
+    max_frames = 100 if log_level == "DEBUG" else 2
+
     if log_format == LogFormat.colored:
         no_color = get_no_color_flag()
 
         if no_color:
-            formatter = rich_exception_formatter_factory(no_color=True)
+            formatter = rich_exception_formatter_factory(
+                no_color=True,
+                max_frames=max_frames,
+            )
         else:
-            formatter = rich_exception_formatter_factory(color_system="truecolor")
+            formatter = rich_exception_formatter_factory(
+                color_system="truecolor",
+                max_frames=max_frames,
+            )
         formatter_config = {
             "()": structlog.stdlib.ProcessorFormatter,
             "processor": structlog.dev.ConsoleRenderer(
@@ -124,7 +133,7 @@ def default_config(
         formatter_config = {
             "()": structlog.stdlib.ProcessorFormatter,
             "processor": structlog.processors.KeyValueRenderer(
-                key_order=["timestamp", "level", "event", "logger"]
+                key_order=["timestamp", "level", "event", "logger"],
             ),
             "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
         }
@@ -133,7 +142,10 @@ def default_config(
             "()": structlog.stdlib.ProcessorFormatter,
             "processor": structlog.dev.ConsoleRenderer(
                 colors=False,
-                exception_formatter=rich_exception_formatter_factory(no_color=True),
+                exception_formatter=rich_exception_formatter_factory(
+                    no_color=True,
+                    max_frames=max_frames,
+                ),
             ),
             "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
         }
@@ -164,7 +176,7 @@ def default_config(
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "level": log_level.upper(),
+                "level": log_level,
                 "formatter": log_format,
                 "stream": "ext://sys.stderr",
             },
@@ -199,7 +211,7 @@ def default_config(
 def setup_logging(
     project: Project | None = None,
     log_level: str = DEFAULT_LEVEL,
-    log_config: os.PathLike | None = None,
+    log_config: os.PathLike[str] | None = None,
     log_format: LogFormat = LogFormat.colored,
 ) -> None:
     """Configure logging for a meltano project.
@@ -211,17 +223,18 @@ def setup_logging(
         log_format: set log format to provided format.
     """
     logging.basicConfig(force=True)
-    log_level = log_level.upper()
 
     if project:
         log_config = log_config or project.settings.get("cli.log_config")
         log_level = str(project.settings.get("cli.log_level"))
         log_format = LogFormat(project.settings.get("cli.log_format"))
 
+    log_level = log_level.upper()
     config = read_config(log_config) or default_config(log_level, log_format=log_format)
     logging_config.dictConfig(config)
     structlog.configure(
         processors=[
+            structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
             structlog.stdlib.PositionalArgumentsFormatter(),
             TIMESTAMPER,

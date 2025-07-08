@@ -24,6 +24,7 @@
 Currently implemented:
  * archive
  * add
+ * bisect{_start,_bad,_good,_skip,_reset,_log,_replay}
  * branch{_create,_delete,_list}
  * check_ignore
  * checkout
@@ -90,6 +91,7 @@ from typing import Optional, Union
 
 from . import replace_me
 from .archive import tar_stream
+from .bisect import BisectState
 from .client import get_transport_and_path
 from .config import Config, ConfigFile, StackedConfig, read_submodules
 from .diff_tree import (
@@ -530,6 +532,7 @@ def clone(
     config: Optional[Config] = None,
     filter_spec=None,
     protocol_version: Optional[int] = None,
+    recurse_submodules: bool = False,
     **kwargs,
 ):
     """Clone a local or remote git repository.
@@ -551,6 +554,7 @@ def clone(
         feature, and ignored otherwise.
       protocol_version: desired Git protocol version. By default the highest
         mutually supported protocol version will be used.
+      recurse_submodules: Whether to initialize and clone submodules
 
     Keyword Args:
       refspecs: refspecs to fetch. Can be a bytestring, a string, or a list of
@@ -589,7 +593,7 @@ def clone(
     if filter_spec:
         filter_spec = filter_spec.encode("ascii")
 
-    return client.clone(
+    repo = client.clone(
         path,
         target,
         mkdir=mkdir,
@@ -602,6 +606,28 @@ def clone(
         filter_spec=filter_spec,
         protocol_version=protocol_version,
     )
+
+    # Initialize and update submodules if requested
+    if recurse_submodules and not bare:
+        try:
+            submodule_init(repo)
+            submodule_update(repo, init=True)
+        except FileNotFoundError as e:
+            # .gitmodules file doesn't exist - no submodules to process
+            import logging
+
+            logging.debug("No .gitmodules file found: %s", e)
+        except KeyError as e:
+            # Submodule configuration missing
+            import logging
+
+            logging.warning("Submodule configuration error: %s", e)
+            if errstream:
+                errstream.write(
+                    f"Warning: Submodule configuration error: {e}\n".encode()
+                )
+
+    return repo
 
 
 def add(repo: Union[str, os.PathLike, BaseRepo] = ".", paths=None):
@@ -784,6 +810,8 @@ def remove(repo=".", paths=None, cached=False) -> None:
     """
     with open_repo_closing(repo) as r:
         index = r.open_index()
+        blob_normalizer = r.get_blob_normalizer()
+
         for p in paths:
             # If path is absolute, use it as-is. Otherwise, treat it as relative to repo
             if os.path.isabs(p):
@@ -807,6 +835,9 @@ def remove(repo=".", paths=None, cached=False) -> None:
                 else:
                     try:
                         blob = blob_from_path_and_stat(full_path_bytes, st)
+                        # Apply checkin normalization to compare apples to apples
+                        if blob_normalizer is not None:
+                            blob = blob_normalizer.checkin_normalize(blob, tree_path)
                     except OSError:
                         pass
                     else:
@@ -1209,6 +1240,7 @@ def submodule_add(repo, url, path=None, name=None) -> None:
       repo: Path to repository
       url: URL of repository to add as submodule
       path: Path where submodule should live
+      name: Name for the submodule
     """
     with open_repo_closing(repo) as r:
         if path is None:
@@ -1254,6 +1286,130 @@ def submodule_list(repo):
     with open_repo_closing(repo) as r:
         for path, sha in iter_cached_submodules(r.object_store, r[r.head()].tree):
             yield path, sha.decode(DEFAULT_ENCODING)
+
+
+def submodule_update(repo, paths=None, init=False, force=False, errstream=None) -> None:
+    """Update submodules.
+
+    Args:
+      repo: Path to repository
+      paths: Optional list of specific submodule paths to update. If None, updates all.
+      init: If True, initialize submodules first
+      force: Force update even if local changes exist
+    """
+    from .client import get_transport_and_path
+    from .index import build_index_from_tree
+    from .submodule import iter_cached_submodules
+
+    with open_repo_closing(repo) as r:
+        if init:
+            submodule_init(r)
+
+        config = r.get_config()
+        gitmodules_path = os.path.join(r.path, ".gitmodules")
+
+        # Get list of submodules to update
+        submodules_to_update = []
+        for path, sha in iter_cached_submodules(r.object_store, r[r.head()].tree):
+            path_str = (
+                path.decode(DEFAULT_ENCODING) if isinstance(path, bytes) else path
+            )
+            if paths is None or path_str in paths:
+                submodules_to_update.append((path, sha))
+
+        # Read submodule configuration
+        for path, target_sha in submodules_to_update:
+            path_str = (
+                path.decode(DEFAULT_ENCODING) if isinstance(path, bytes) else path
+            )
+
+            # Find the submodule name from .gitmodules
+            submodule_name = None
+            for sm_path, sm_url, sm_name in read_submodules(gitmodules_path):
+                if sm_path == path:
+                    submodule_name = sm_name
+                    break
+
+            if not submodule_name:
+                continue
+
+            # Get the URL from config
+            section = (
+                b"submodule",
+                submodule_name
+                if isinstance(submodule_name, bytes)
+                else submodule_name.encode(),
+            )
+            try:
+                url = config.get(section, b"url")
+                if isinstance(url, bytes):
+                    url = url.decode(DEFAULT_ENCODING)
+            except KeyError:
+                # URL not in config, skip this submodule
+                continue
+
+            # Get or create the submodule repository paths
+            submodule_path = os.path.join(r.path, path_str)
+            submodule_git_dir = os.path.join(r.path, ".git", "modules", path_str)
+
+            # Clone or fetch the submodule
+            if not os.path.exists(submodule_git_dir):
+                # Clone the submodule as bare repository
+                os.makedirs(os.path.dirname(submodule_git_dir), exist_ok=True)
+
+                # Clone to the git directory
+                sub_repo = clone(url, submodule_git_dir, bare=True, checkout=False)
+                sub_repo.close()
+
+                # Create the submodule directory if it doesn't exist
+                if not os.path.exists(submodule_path):
+                    os.makedirs(submodule_path)
+
+                # Create .git file in the submodule directory
+                depth = path_str.count("/") + 1
+                relative_git_dir = "../" * depth + ".git/modules/" + path_str
+                git_file_path = os.path.join(submodule_path, ".git")
+                with open(git_file_path, "w") as f:
+                    f.write(f"gitdir: {relative_git_dir}\n")
+
+                # Set up working directory configuration
+                with open_repo_closing(submodule_git_dir) as sub_repo:
+                    sub_config = sub_repo.get_config()
+                    sub_config.set(
+                        (b"core",),
+                        b"worktree",
+                        os.path.abspath(submodule_path).encode(),
+                    )
+                    sub_config.write_to_path()
+
+                    # Checkout the target commit
+                    sub_repo.refs[b"HEAD"] = target_sha
+
+                    # Build the index and checkout files
+                    tree = sub_repo[target_sha]
+                    if hasattr(tree, "tree"):  # If it's a commit, get the tree
+                        tree_id = tree.tree
+                    else:
+                        tree_id = target_sha
+
+                    build_index_from_tree(
+                        submodule_path,
+                        sub_repo.index_path(),
+                        sub_repo.object_store,
+                        tree_id,
+                    )
+            else:
+                # Fetch and checkout in existing submodule
+                with open_repo_closing(submodule_git_dir) as sub_repo:
+                    # Fetch from remote
+                    client, path_segments = get_transport_and_path(url)
+                    client.fetch(path_segments, sub_repo)
+
+                    # Update to the target commit
+                    sub_repo.refs[b"HEAD"] = target_sha
+
+                    # Reset the working directory
+                    reset(sub_repo, "hard", target_sha)
 
 
 def tag_create(
@@ -1316,8 +1472,27 @@ def tag_create(
             elif isinstance(tag_timezone, str):
                 tag_timezone = parse_timezone(tag_timezone.encode())
             tag_obj.tag_timezone = tag_timezone
-            if sign:
-                tag_obj.sign(sign if isinstance(sign, str) else None)
+
+            # Check if we should sign the tag
+            should_sign = sign
+            if sign is None:
+                # Check tag.gpgSign configuration when sign is not explicitly set
+                config = r.get_config_stack()
+                try:
+                    should_sign = config.get_boolean((b"tag",), b"gpgSign")
+                except KeyError:
+                    should_sign = False  # Default to not signing if no config
+            if should_sign:
+                keyid = sign if isinstance(sign, str) else None
+                # If sign is True but no keyid specified, check user.signingKey config
+                if should_sign is True and keyid is None:
+                    config = r.get_config_stack()
+                    try:
+                        keyid = config.get((b"user",), b"signingKey").decode("ascii")
+                    except KeyError:
+                        # No user.signingKey configured, will use default GPG key
+                        pass
+                tag_obj.sign(keyid)
 
             r.object_store.add_object(tag_obj)
             tag_id = tag_obj.id
@@ -1553,10 +1728,18 @@ def reset(repo, mode, treeish="HEAD") -> None:
             honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
 
             # Import validation functions
-            from .index import validate_path_element_default, validate_path_element_ntfs
+            from .index import (
+                validate_path_element_default,
+                validate_path_element_hfs,
+                validate_path_element_ntfs,
+            )
 
             if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
                 validate_path_element = validate_path_element_ntfs
+            elif config.get_boolean(
+                b"core", b"core.protectHFS", sys.platform == "darwin"
+            ):
+                validate_path_element = validate_path_element_hfs
             else:
                 validate_path_element = validate_path_element_default
 
@@ -1622,7 +1805,7 @@ def push(
     errstream=default_bytes_err_stream,
     force=False,
     **kwargs,
-) -> None:
+):
     """Remote push with dulwich via dulwich.client.
 
     Args:
@@ -1635,9 +1818,25 @@ def push(
     """
     # Open the repo
     with open_repo_closing(repo) as r:
-        if refspecs is None:
-            refspecs = [active_branch(r)]
         (remote_name, remote_location) = get_remote_repo(r, remote_location)
+        # Check if mirror mode is enabled
+        mirror_mode = False
+        if remote_name:
+            try:
+                mirror_mode = r.get_config_stack().get_boolean(
+                    (b"remote", remote_name.encode()), b"mirror"
+                )
+            except KeyError:
+                pass
+
+        if mirror_mode:
+            # Mirror mode: push all refs and delete non-existent ones
+            refspecs = []
+            for ref in r.refs.keys():
+                # Push all refs to the same name on remote
+                refspecs.append(ref + b":" + ref)
+        elif refspecs is None:
+            refspecs = [active_branch(r)]
 
         # Get the client and path
         client, path = get_transport_and_path(
@@ -1650,6 +1849,14 @@ def push(
         def update_refs(refs):
             selected_refs.extend(parse_reftuples(r.refs, refs, refspecs, force=force))
             new_refs = {}
+
+            # In mirror mode, delete remote refs that don't exist locally
+            if mirror_mode:
+                local_refs = set(r.refs.keys())
+                for remote_ref in refs.keys():
+                    if remote_ref not in local_refs:
+                        new_refs[remote_ref] = ZERO_SHA
+                        remote_changed_refs[remote_ref] = None
             # TODO: Handle selected_refs == {None: None}
             for lh, rh, force_ref in selected_refs:
                 if lh is None:
@@ -1694,6 +1901,8 @@ def push(
 
         if remote_name is not None:
             _import_remote_refs(r.refs, remote_name, remote_changed_refs)
+
+        return result
 
     # Trigger auto GC if needed
     from .gc import maybe_auto_gc
@@ -2172,14 +2381,83 @@ def branch_create(repo, name, objectish=None, force=False) -> None:
     with open_repo_closing(repo) as r:
         if objectish is None:
             objectish = "HEAD"
+
+        # Try to expand branch shorthand before parsing
+        original_objectish = objectish
+        objectish_bytes = (
+            objectish.encode(DEFAULT_ENCODING)
+            if isinstance(objectish, str)
+            else objectish
+        )
+        if b"refs/remotes/" + objectish_bytes in r.refs:
+            objectish = b"refs/remotes/" + objectish_bytes
+        elif b"refs/heads/" + objectish_bytes in r.refs:
+            objectish = b"refs/heads/" + objectish_bytes
+
         object = parse_object(r, objectish)
         refname = _make_branch_ref(name)
-        ref_message = b"branch: Created from " + objectish.encode(DEFAULT_ENCODING)
+        ref_message = (
+            b"branch: Created from " + original_objectish.encode(DEFAULT_ENCODING)
+            if isinstance(original_objectish, str)
+            else b"branch: Created from " + original_objectish
+        )
         if force:
             r.refs.set_if_equals(refname, None, object.id, message=ref_message)
         else:
             if not r.refs.add_if_new(refname, object.id, message=ref_message):
                 raise Error(f"Branch with name {name} already exists.")
+
+        # Check if we should set up tracking
+        config = r.get_config_stack()
+        try:
+            auto_setup_merge = config.get((b"branch",), b"autoSetupMerge").decode()
+        except KeyError:
+            auto_setup_merge = "true"  # Default value
+
+        # Determine if the objectish refers to a remote-tracking branch
+        objectish_ref = None
+        if original_objectish != "HEAD":
+            # Try to resolve objectish as a ref
+            objectish_bytes = (
+                original_objectish.encode(DEFAULT_ENCODING)
+                if isinstance(original_objectish, str)
+                else original_objectish
+            )
+            if objectish_bytes in r.refs:
+                objectish_ref = objectish_bytes
+            elif b"refs/remotes/" + objectish_bytes in r.refs:
+                objectish_ref = b"refs/remotes/" + objectish_bytes
+            elif b"refs/heads/" + objectish_bytes in r.refs:
+                objectish_ref = b"refs/heads/" + objectish_bytes
+        else:
+            # HEAD might point to a remote-tracking branch
+            head_ref = r.refs.follow(b"HEAD")[0][1]
+            if head_ref.startswith(b"refs/remotes/"):
+                objectish_ref = head_ref
+
+        # Set up tracking if appropriate
+        if objectish_ref and (
+            (auto_setup_merge == "always")
+            or (
+                auto_setup_merge == "true"
+                and objectish_ref.startswith(b"refs/remotes/")
+            )
+        ):
+            # Extract remote name and branch from the ref
+            if objectish_ref.startswith(b"refs/remotes/"):
+                parts = objectish_ref[len(b"refs/remotes/") :].split(b"/", 1)
+                if len(parts) == 2:
+                    remote_name = parts[0]
+                    remote_branch = b"refs/heads/" + parts[1]
+
+                    # Set up tracking
+                    config = r.get_config()
+                    branch_name_bytes = (
+                        name.encode(DEFAULT_ENCODING) if isinstance(name, str) else name
+                    )
+                    config.set((b"branch", branch_name_bytes), b"remote", remote_name)
+                    config.set((b"branch", branch_name_bytes), b"merge", remote_branch)
+                    config.write_to_path()
 
 
 def branch_list(repo):
@@ -2187,9 +2465,55 @@ def branch_list(repo):
 
     Args:
       repo: Path to the repository
+    Returns:
+      List of branch names (without refs/heads/ prefix)
     """
     with open_repo_closing(repo) as r:
-        return r.refs.keys(base=LOCAL_BRANCH_PREFIX)
+        branches = list(r.refs.keys(base=LOCAL_BRANCH_PREFIX))
+
+        # Check for branch.sort configuration
+        config = r.get_config_stack()
+        try:
+            sort_key = config.get((b"branch",), b"sort").decode()
+        except KeyError:
+            # Default is refname (alphabetical)
+            sort_key = "refname"
+
+        # Parse sort key
+        reverse = False
+        if sort_key.startswith("-"):
+            reverse = True
+            sort_key = sort_key[1:]
+
+        # Apply sorting
+        if sort_key == "refname":
+            # Simple alphabetical sort (default)
+            branches.sort(reverse=reverse)
+        elif sort_key in ("committerdate", "authordate"):
+            # Sort by date
+            def get_commit_date(branch_name):
+                ref = LOCAL_BRANCH_PREFIX + branch_name
+                sha = r.refs[ref]
+                commit = r.object_store[sha]
+                if sort_key == "committerdate":
+                    return commit.commit_time
+                else:  # authordate
+                    return commit.author_time
+
+            # Sort branches by date
+            # Note: Python's sort naturally orders smaller values first (ascending)
+            # For dates, this means oldest first by default
+            # Use a stable sort with branch name as secondary key for consistent ordering
+            if reverse:
+                # For reverse sort, we want newest dates first but alphabetical names second
+                branches.sort(key=lambda b: (-get_commit_date(b), b))
+            else:
+                branches.sort(key=lambda b: (get_commit_date(b), b))
+        else:
+            # Unknown sort key, fall back to default
+            branches.sort()
+
+        return branches
 
 
 def active_branch(repo):
@@ -2228,6 +2552,42 @@ def get_branch_remote(repo):
         except KeyError:
             remote_name = b"origin"
     return remote_name
+
+
+def get_branch_merge(repo, branch_name=None):
+    """Return the branch's merge reference (upstream branch), if any.
+
+    Args:
+      repo: Repository to open
+      branch_name: Name of the branch (defaults to active branch)
+
+    Returns:
+      merge reference name (e.g. b"refs/heads/main")
+
+    Raises:
+      KeyError: if the branch does not have a merge configuration
+    """
+    with open_repo_closing(repo) as r:
+        if branch_name is None:
+            branch_name = active_branch(r.path)
+        config = r.get_config()
+        return config.get((b"branch", branch_name), b"merge")
+
+
+def set_branch_tracking(repo, branch_name, remote_name, remote_ref):
+    """Set up branch tracking configuration.
+
+    Args:
+      repo: Repository to open
+      branch_name: Name of the local branch
+      remote_name: Name of the remote (e.g. b"origin")
+      remote_ref: Remote reference to track (e.g. b"refs/heads/main")
+    """
+    with open_repo_closing(repo) as r:
+        config = r.get_config()
+        config.set((b"branch", branch_name), b"remote", remote_name)
+        config.set((b"branch", branch_name), b"merge", remote_ref)
+        config.write_to_path()
 
 
 def fetch(
@@ -2680,6 +3040,9 @@ def checkout(
                 with open(target, mode) as f:
                     f.write(source)
 
+        # Get blob normalizer for line ending conversion
+        blob_normalizer = r.get_blob_normalizer()
+
         # Update working tree
         update_working_tree(
             r,
@@ -2689,6 +3052,7 @@ def checkout(
             validate_path_element=validate_path_element,
             symlink_fn=symlink_fn,
             force_remove_untracked=force,
+            blob_normalizer=blob_normalizer,
         )
 
         # Update HEAD
@@ -2696,6 +3060,20 @@ def checkout(
             # Create new branch and switch to it
             branch_create(r, new_branch, objectish=target_commit.id.decode("ascii"))
             update_head(r, new_branch)
+
+            # Set up tracking if creating from a remote branch
+            from .refs import LOCAL_REMOTE_PREFIX, parse_remote_ref
+
+            if target.startswith(LOCAL_REMOTE_PREFIX):
+                try:
+                    remote_name, branch_name = parse_remote_ref(target)
+                    # Set tracking to refs/heads/<branch> on the remote
+                    set_branch_tracking(
+                        r, new_branch, remote_name, b"refs/heads/" + branch_name
+                    )
+                except ValueError:
+                    # Invalid remote ref format, skip tracking setup
+                    pass
         else:
             # Check if target is a branch name (with or without refs/heads/ prefix)
             branch_ref = None
@@ -2958,11 +3336,41 @@ def ls_files(repo):
         return sorted(r.open_index())
 
 
-def find_unique_abbrev(object_store, object_id):
-    """For now, just return 7 characters."""
-    # TODO(jelmer): Add some logic here to return a number of characters that
-    # scales relative with the size of the repository
-    return object_id.decode("ascii")[:7]
+def find_unique_abbrev(object_store, object_id, min_length=7):
+    """Find the shortest unique abbreviation for an object ID.
+
+    Args:
+      object_store: Object store to search in
+      object_id: The full object ID to abbreviate
+      min_length: Minimum length of abbreviation (default 7)
+
+    Returns:
+      The shortest unique prefix of the object ID (at least min_length chars)
+    """
+    if isinstance(object_id, bytes):
+        hex_id = object_id.decode("ascii")
+    else:
+        hex_id = object_id
+
+    # Start with minimum length
+    for length in range(min_length, len(hex_id) + 1):
+        prefix = hex_id[:length]
+        matches = 0
+
+        # Check if this prefix is unique
+        for obj_id in object_store:
+            if obj_id.decode("ascii").startswith(prefix):
+                matches += 1
+                if matches > 1:
+                    # Not unique, need more characters
+                    break
+
+        if matches == 1:
+            # Found unique prefix
+            return prefix
+
+    # If we get here, return the full ID
+    return hex_id
 
 
 def describe(repo, abbrev=None):
@@ -3027,16 +3435,20 @@ def describe(repo, abbrev=None):
                     if commit_count == 0:
                         return tag_name
                     else:
-                        return "{}-{}-g{}".format(
-                            tag_name,
-                            commit_count,
-                            latest_commit.id.decode("ascii")[abbrev_slice],
-                        )
+                        if abbrev is not None:
+                            abbrev_hash = latest_commit.id.decode("ascii")[abbrev_slice]
+                        else:
+                            abbrev_hash = find_unique_abbrev(
+                                r.object_store, latest_commit.id
+                            )
+                        return f"{tag_name}-{commit_count}-g{abbrev_hash}"
 
             commit_count += 1
 
         # Return plain commit if no parent tag can be found
-        return "g{}".format(latest_commit.id.decode("ascii")[abbrev_slice])
+        if abbrev is not None:
+            return "g{}".format(latest_commit.id.decode("ascii")[abbrev_slice])
+        return f"g{find_unique_abbrev(r.object_store, latest_commit.id)}"
 
 
 def get_object_by_path(repo, path, committish=None):
@@ -3942,3 +4354,193 @@ def filter_branch(
             )
         except ValueError as e:
             raise Error(str(e)) from e
+
+
+def bisect_start(
+    repo=".",
+    bad=None,
+    good=None,
+    paths=None,
+    no_checkout=False,
+    term_bad="bad",
+    term_good="good",
+):
+    """Start a new bisect session.
+
+    Args:
+        repo: Path to repository or a Repo object
+        bad: The bad commit (defaults to HEAD)
+        good: List of good commits or a single good commit
+        paths: Optional paths to limit bisect to
+        no_checkout: If True, don't checkout commits during bisect
+        term_bad: Term to use for bad commits (default: "bad")
+        term_good: Term to use for good commits (default: "good")
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+
+        # Convert single good commit to list
+        if good is not None and not isinstance(good, list):
+            good = [good]
+
+        # Parse commits
+        bad_sha = parse_commit(r, bad).id if bad else None
+        good_shas = [parse_commit(r, g).id for g in good] if good else None
+
+        state.start(bad_sha, good_shas, paths, no_checkout, term_bad, term_good)
+
+        # Return the next commit to test if we have both good and bad
+        if bad_sha and good_shas:
+            next_sha = state._find_next_commit()
+            if next_sha and not no_checkout:
+                # Checkout the next commit
+                old_tree = r[r.head()].tree if r.head() else None
+                r.refs[b"HEAD"] = next_sha
+                commit = r[next_sha]
+                update_working_tree(r, old_tree, commit.tree)
+            return next_sha
+
+
+def bisect_bad(repo=".", rev=None):
+    """Mark a commit as bad.
+
+    Args:
+        repo: Path to repository or a Repo object
+        rev: Commit to mark as bad (defaults to HEAD)
+
+    Returns:
+        The SHA of the next commit to test, or None if bisect is complete
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+        rev_sha = parse_commit(r, rev).id if rev else None
+        next_sha = state.mark_bad(rev_sha)
+
+        if next_sha:
+            # Checkout the next commit
+            old_tree = r[r.head()].tree if r.head() else None
+            r.refs[b"HEAD"] = next_sha
+            commit = r[next_sha]
+            update_working_tree(r, old_tree, commit.tree)
+
+        return next_sha
+
+
+def bisect_good(repo=".", rev=None):
+    """Mark a commit as good.
+
+    Args:
+        repo: Path to repository or a Repo object
+        rev: Commit to mark as good (defaults to HEAD)
+
+    Returns:
+        The SHA of the next commit to test, or None if bisect is complete
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+        rev_sha = parse_commit(r, rev).id if rev else None
+        next_sha = state.mark_good(rev_sha)
+
+        if next_sha:
+            # Checkout the next commit
+            old_tree = r[r.head()].tree if r.head() else None
+            r.refs[b"HEAD"] = next_sha
+            commit = r[next_sha]
+            update_working_tree(r, old_tree, commit.tree)
+
+        return next_sha
+
+
+def bisect_skip(repo=".", revs=None):
+    """Skip one or more commits.
+
+    Args:
+        repo: Path to repository or a Repo object
+        revs: List of commits to skip (defaults to [HEAD])
+
+    Returns:
+        The SHA of the next commit to test, or None if bisect is complete
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+
+        if revs is None:
+            rev_shas = None
+        else:
+            # Convert single rev to list
+            if not isinstance(revs, list):
+                revs = [revs]
+            rev_shas = [parse_commit(r, rev).id for rev in revs]
+
+        next_sha = state.skip(rev_shas)
+
+        if next_sha:
+            # Checkout the next commit
+            old_tree = r[r.head()].tree if r.head() else None
+            r.refs[b"HEAD"] = next_sha
+            commit = r[next_sha]
+            update_working_tree(r, old_tree, commit.tree)
+
+        return next_sha
+
+
+def bisect_reset(repo=".", commit=None):
+    """Reset bisect state and return to original branch/commit.
+
+    Args:
+        repo: Path to repository or a Repo object
+        commit: Optional commit to reset to (defaults to original branch/commit)
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+        # Get old tree before reset
+        try:
+            old_tree = r[r.head()].tree
+        except KeyError:
+            old_tree = None
+
+        commit_sha = parse_commit(r, commit).id if commit else None
+        state.reset(commit_sha)
+
+        # Update working tree to new HEAD
+        try:
+            new_head = r.head()
+            if new_head:
+                new_commit = r[new_head]
+                update_working_tree(r, old_tree, new_commit.tree)
+        except KeyError:
+            # No HEAD after reset
+            pass
+
+
+def bisect_log(repo="."):
+    """Get the bisect log.
+
+    Args:
+        repo: Path to repository or a Repo object
+
+    Returns:
+        The bisect log as a string
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+        return state.get_log()
+
+
+def bisect_replay(repo, log_file):
+    """Replay a bisect log.
+
+    Args:
+        repo: Path to repository or a Repo object
+        log_file: Path to the log file or file-like object
+    """
+    with open_repo_closing(repo) as r:
+        state = BisectState(r)
+
+        if isinstance(log_file, str):
+            with open(log_file) as f:
+                log_content = f.read()
+        else:
+            log_content = log_file.read()
+
+        state.replay(log_content)

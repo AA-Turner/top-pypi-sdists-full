@@ -20,6 +20,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
@@ -28,7 +29,6 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_path::ModulePath;
 use crate::types::equality::TypeEq;
 use crate::types::qname::QName;
 use crate::types::types::Substitution;
@@ -137,13 +137,15 @@ impl Debug for ClassInner {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum ClassKind {
     StaticMethod,
     ClassMethod,
     Property,
     Class,
     EnumMember,
+    DataclassField,
 }
 
 impl ClassKind {
@@ -157,6 +159,7 @@ impl ClassKind {
             ("cinder", "cached_property") => Self::Property,
             ("cinder", "async_cached_property") => Self::Property,
             ("enum", "member") => Self::EnumMember,
+            ("dataclasses", "Field") => Self::DataclassField,
             _ => Self::Class,
         }
     }

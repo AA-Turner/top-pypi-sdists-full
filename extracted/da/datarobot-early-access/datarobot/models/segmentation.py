@@ -22,8 +22,7 @@ from datarobot.utils.pagination import unpaginate
 from datarobot.utils.waiters import wait_for_async_resolution
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.api_object import ServerDataDictType
 
     class SegmentationData(TypedDict):

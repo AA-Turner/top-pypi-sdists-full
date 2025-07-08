@@ -514,7 +514,8 @@ async def login_emsys_fiscal(
         )
 
 
-async def login_emsys(
+#Login antigo
+async def login_emsys_old(
     config: dict, app, task: RpaProcessoEntradaDTO, **kwargs
 ) -> RpaRetornoProcessoDTO:
     """
@@ -576,6 +577,7 @@ async def login_emsys(
             )
 
             if disconect_database:
+                
                 # Realiza login no Emsys
                 console.print("Realizando login no Emsys...")
                 type_text_into_field(
@@ -699,7 +701,149 @@ async def login_emsys(
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
 
+#Login novo
+async def login_emsys(config: dict, app, task: RpaProcessoEntradaDTO, **kwargs):
+    # Para processos onde a config_entrada é enviada vazia, obtemos
+    # o número da filial através do **kwargs
+    filial_origem = kwargs.get("filial_origem", None)
+    warnings.filterwarnings(
+        "ignore",
+        category=UserWarning,
+        message="32-bit application should be automated using 32-bit Python",
+    )
+    
+    # Aguarda emsys abrir
+    max_attempts = 10
+    current_attempt = 0
+    while current_attempt <= max_attempts:
+        try:
+            app_login = Application(backend="win32").connect(class_name="TFrmLogin")
+            window_login_emsys = app_login["TFrmLogin"]
+            window_login_emsys.set_focus()
+            console.print("Login emsys iniciado...", style="bold green")
+            break
+        except Exception as e:
+            console.print("Janela de login nao encontrada...", style="bold red")
+            current_attempt += 1
+            await worker_sleep(5)
+    
+    if current_attempt > max_attempts:
+        console.print("Login emsys nao iniciado...", style="bold red")
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno="Login emsys nao iniciado",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+        )
+        
+    # Testa se existe alguma mensagem no Emsys
+    console.print("Testando se existe alguma mensagem no Emsys...")
+    window_message_login_emsys = await find_element_center(
+        "assets/emsys/window_message_login_emsys.png", (560, 487, 1121, 746), 15
+    )
 
+    # Clica no "Não mostrar novamente" se existir
+    console.print("Clicando no 'Não mostrar novamente' se existir...")
+    if window_message_login_emsys:
+        pyautogui.click(window_message_login_emsys.x, window_message_login_emsys.y)
+        pyautogui.click(
+            window_message_login_emsys.x + 383, window_message_login_emsys.y + 29
+        )
+        console.print("Mensagem de login encontrada e fechada.", style="bold green")
+
+    console.print("Aguardando a janela de login ficar pronta...")
+    if not await wait_element_ready_win(app["Login"]["Edit2"], 80):
+        console.print("Elemento de Login emsys nao iniciado...", style="bold red")
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno="Elemento de Login emsys nao iniciado",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+        )
+    
+    console.print("Procurando o icone disconect_database...")
+    disconect_database = await find_element_center(
+        "assets/emsys/disconect_database.png", (1123, 452, 1400, 578), 60
+    )
+    if disconect_database:
+        # Realiza login no Emsys
+        try:
+            console.print("Realizando login no Emsys...")
+            window_login_emsys.set_focus()
+            window_login_emsys.child_window(class_name="TEdit", found_index=1).type_keys(config.get("user"))
+            pyautogui.press("tab")
+            window_login_emsys.child_window(class_name="TEdit", found_index=0).type_keys(config.get("pass"))
+            pyautogui.press("enter")
+            await worker_sleep(3)
+        except Exception as ex:
+            console.print(f"Erro ao realizar login no Emsys: {ex}", style="bold red")
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno="Erro ao realizar login no Emsys",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+            )
+    
+    # Aguarda tela de seleção de filial
+    console.print("Aguardando tela de seleção de filial...")
+    max_attempts = 10
+    current_attempt = 0
+    while current_attempt <= max_attempts:
+        try:
+            app_select_company = Application(backend="win32").connect(class_name="TFrmSelecaoEmpresa")
+            window_select_company = app_select_company["TFrmSelecaoEmpresa"]
+            window_select_company.set_focus()
+            console.print("Tela de seleção de filial encontrada...", style="bold green")
+            break
+        except Exception as e:
+            console.print("Janela de Seleção de filial nao encontrada...", style="bold red")
+            current_attempt += 1
+            await worker_sleep(5)
+    
+    if current_attempt > max_attempts:
+        console.print("Tela de seleção de filial para o login nao encontrada...", style="bold red")
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno="Tela de seleção de filial para o login nao encontrada",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+        )
+            
+    try:
+        if not filial_origem:
+            window_select_company.child_window(class_name="TEdit", found_index=0).type_keys(
+                task.configEntrada.get("filialEmpresaOrigem") or task.configEntrada.get("codigoEmpresa"))
+        else:
+            window_select_company.child_window(class_name="TEdit", found_index=0).type_keys(filial_origem)
+    except Exception as error:
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno=f"Error ao digitar filial: {error}",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+        )
+
+    pyautogui.press("enter")
+    await worker_sleep(6)
+    
+    # Warning apos selecao da filial
+    try:
+        app = Application(backend="win32").connect(title="Warning")
+        warning_window = app["Warning"]
+        warning_window.child_window(title="OK", class_name="TButton").click()
+    except:
+        console.print("Sem tela de warning aparente seguindo processo...", style="bold yellow")
+    
+    button_logout = await find_element_center("assets/emsys/button_logout.png", (0, 0, 130, 150), 60)
+
+    if button_logout:
+        console.print("Login realizado com sucesso.", style="bold green")
+        return RpaRetornoProcessoDTO(
+            sucesso=True,
+            retorno="Logou com sucesso no emsys!",
+            status=RpaHistoricoStatusEnum.Sucesso,
+        )
+        
 async def send_to_webhook(
     urlSimplifica: str,
     status: str,

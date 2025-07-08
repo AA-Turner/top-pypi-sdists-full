@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddapm-test-agent
-Version: 1.27.3
+Version: 1.27.4
 Summary: Test agent for Datadog APM client libraries
 Home-page: https://github.com/Datadog/dd-apm-test-agent
 Author: Kyle Verhoog

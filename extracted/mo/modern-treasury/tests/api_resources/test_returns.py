@@ -34,6 +34,14 @@ class TestReturns:
             returnable_type="incoming_payment_detail",
             additional_information="additional_information",
             code="901",
+            corrections={
+                "account_number": "account_number",
+                "company_id": "company_id",
+                "company_name": "company_name",
+                "individual_identification_number": "individual_identification_number",
+                "routing_number": "routing_number",
+                "transaction_code": "transaction_code",
+            },
             data={},
             date_of_death=parse_date("2019-12-27"),
             reason="reason",
@@ -143,7 +151,9 @@ class TestReturns:
 
 
 class TestAsyncReturns:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncModernTreasury) -> None:
@@ -160,6 +170,14 @@ class TestAsyncReturns:
             returnable_type="incoming_payment_detail",
             additional_information="additional_information",
             code="901",
+            corrections={
+                "account_number": "account_number",
+                "company_id": "company_id",
+                "company_name": "company_name",
+                "individual_identification_number": "individual_identification_number",
+                "routing_number": "routing_number",
+                "transaction_code": "transaction_code",
+            },
             data={},
             date_of_death=parse_date("2019-12-27"),
             reason="reason",

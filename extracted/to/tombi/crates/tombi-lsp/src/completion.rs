@@ -12,6 +12,7 @@ use tombi_config::TomlVersion;
 use tombi_document_tree::TryIntoDocumentTree;
 use tombi_extension::{CompletionContent, CompletionEdit, CompletionHint, CompletionKind};
 use tombi_future::Boxable;
+use tombi_rg_tree::TokenAtOffset;
 use tombi_schema_store::{
     Accessor, CurrentSchema, ReferableValueSchemas, SchemaDefinitions, SchemaStore, SchemaUrl,
     ValueSchema,
@@ -25,6 +26,18 @@ pub fn extract_keys_and_hint(
 ) -> Option<(Vec<tombi_document_tree::Key>, Option<CompletionHint>)> {
     let mut keys: Vec<tombi_document_tree::Key> = vec![];
     let mut completion_hint = None;
+
+    match root.syntax().token_at_position(position) {
+        TokenAtOffset::Single(token) if token.kind() == SyntaxKind::COMMENT => {
+            return None;
+        }
+        TokenAtOffset::Between(token1, token2)
+            if token1.kind() == SyntaxKind::COMMENT || token2.kind() == SyntaxKind::COMMENT =>
+        {
+            return None;
+        }
+        _ => {}
+    }
 
     for node in ancestors_at_position(root.syntax(), position) {
         let ast_keys = if tombi_ast::Keys::cast(node.to_owned()).is_some() {

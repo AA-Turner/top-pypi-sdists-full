@@ -6,6 +6,7 @@ import json
 import warnings
 from collections import ChainMap
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import field
 from datetime import datetime
 from functools import cached_property
@@ -275,7 +276,13 @@ class Question:
                     result = self.render_value(
                         self.settings.defaults.get(self.var_name, self.default)
                     )
-        result = self.cast_answer(result)
+        result = self.parse_answer(result)
+        # Computed values (i.e., `when: false`) are intentionally not validated
+        # at the moment.
+        # https://github.com/copier-org/copier/issues/1779#issuecomment-2365006990
+        # https://github.com/copier-org/copier/pull/1785
+        if self.get_when():
+            self.validate_answer(result)
         return result
 
     def get_default_rendered(self) -> bool | str | Choice | None | MissingType:
@@ -283,7 +290,7 @@ class Question:
 
         The questionary lib expects some specific data types, and returns
         it when the user answers. Sometimes you need to compare the response
-        to the rendered one, or viceversa.
+        to the rendered one, or vice-versa.
 
         This helper allows such usages.
         """
@@ -319,7 +326,6 @@ class Question:
         """Obtain choices rendered and properly formatted."""
         result = []
         choices = self.choices
-        default = self.get_default()
         if isinstance(choices, str):
             choices = parse_yaml_string(self.render_value(self.choices))
         if isinstance(choices, dict):
@@ -344,15 +350,7 @@ class Question:
 
                 disabled = self.render_value(value.get("validator", ""))
                 value = value["value"]
-            # The value can be templated
-            value = self.render_value(value)
-            checked = (
-                self.multiselect
-                and isinstance(default, list)
-                and self.cast_answer(value) in default
-                or None
-            )
-            c = Choice(name, value, disabled=disabled, checked=checked)
+            c = Choice(name, self.render_value(value), disabled=disabled)
             # Try to cast the value according to the question's type to raise
             # an error in case the value is incompatible.
             self.cast_answer(c.value)
@@ -382,7 +380,11 @@ class Question:
                 ans = self.parse_answer(answer)
             except Exception:
                 return "Invalid input"
-            return self.validate_answer(ans) or True
+            try:
+                self.validate_answer(ans)
+            except Exception as exc:
+                return str(exc)
+            return True
 
         lexer = None
         result: AnyByStrDict = {
@@ -405,7 +407,14 @@ class Question:
                 result["default"] = False
         if self.choices:
             questionary_type = "checkbox" if self.multiselect else "select"
-            result["choices"] = self._formatted_choices
+            choices = self._formatted_choices
+            # Select default choices for a multiselect question.
+            if self.multiselect and isinstance(
+                default_choices := self.get_default(), list
+            ):
+                for choice in (choices := deepcopy(choices)):
+                    choice.checked = self.cast_answer(choice.value) in default_choices
+            result["choices"] = choices
         if questionary_type == "input":
             if self.secret:
                 questionary_type = "password"
@@ -436,15 +445,16 @@ class Question:
         """Get the value for multiline."""
         return cast_to_bool(self.render_value(self.multiline))
 
-    def validate_answer(self, answer: Any) -> str:
+    def validate_answer(self, answer: Any) -> None:
         """Validate user answer."""
         try:
             err_msg = self.render_value(self.validator, {self.var_name: answer}).strip()
         except Exception as error:
-            return str(error)
+            err_msg = str(error)
         if err_msg:
-            return err_msg
-        return ""
+            raise ValueError(
+                f"Validation error for question '{self.var_name}': {err_msg}"
+            )
 
     def get_when(self) -> bool:
         """Get skip condition for question."""
@@ -476,6 +486,12 @@ class Question:
     def parse_answer(self, answer: Any) -> Any:
         """Parse the answer according to the question's type."""
         if self.multiselect:
+            # If the answer to a multiselect question is a string (typically because
+            # the default value is templated), then it must be a serialized YAML-style
+            # list of choice items. Thus, we shallowly parse the outermost list first,
+            # then we parse the items according to the `type: <type>` field.
+            if isinstance(answer, str):
+                answer = parse_yaml_list(answer)
             answer = [self._parse_answer(a) for a in answer]
             choices = (
                 self.cast_answer(choice.value) for choice in self._formatted_choices
@@ -511,6 +527,44 @@ def parse_yaml_string(string: str) -> Any:
         return yaml.safe_load(string)
     except yaml.error.YAMLError as error:
         raise ValueError(str(error))
+
+
+def parse_yaml_list(string: str) -> list[str]:
+    """Shallowly parse a YAML string that contains a list of items.
+
+    All items remain raw strings, only the outermost list is parsed.
+
+    Args:
+        string: The YAML string.
+
+    Returns:
+        The parsed list of raw items.
+
+    Raises:
+        ValueError: If the YAML string is not a list.
+    """
+    node = yaml.compose(string, Loader=yaml.SafeLoader)
+
+    if not isinstance(node, yaml.nodes.SequenceNode):
+        raise ValueError(f"Not a YAML list: {string!r}")
+
+    items = []
+    for item in node.value:
+        raw = string[item.start_mark.index : item.end_mark.index].strip()
+
+        if (
+            isinstance(item, yaml.nodes.ScalarNode)
+            and item.tag == "tag:yaml.org,2002:str"
+        ):
+            # Strip quotes if the value is quoted to avoid double-quoting.
+            if (raw.startswith('"') and raw.endswith('"')) or (
+                raw.startswith("'") and raw.endswith("'")
+            ):
+                raw = raw[1:-1]
+
+        items.append(raw)
+
+    return items
 
 
 def load_answersfile_data(

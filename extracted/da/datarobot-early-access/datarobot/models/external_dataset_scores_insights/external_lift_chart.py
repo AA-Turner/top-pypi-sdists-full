@@ -23,7 +23,7 @@ from datarobot.models.lift_chart import LiftChartBinsTrafaret
 from datarobot.utils.pagination import unpaginate
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class Bin(TypedDict):
         actual: float

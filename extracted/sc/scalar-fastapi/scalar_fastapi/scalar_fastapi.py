@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from enum import Enum
 from typing_extensions import Annotated, Doc
@@ -68,31 +70,31 @@ scalar_theme = """
 }
 /* Document Sidebar */
 .light-mode .t-doc__sidebar {
-  --sidebar-background-1: var(--scalar-background-1);
-  --sidebar-item-hover-color: currentColor;
-  --sidebar-item-hover-background: var(--scalar-background-2);
-  --sidebar-item-active-background: var(--scalar-background-accent);
-  --sidebar-border-color: var(--scalar-border-color);
-  --sidebar-color-1: var(--scalar-color-1);
-  --sidebar-color-2: var(--scalar-color-2);
-  --sidebar-color-active: var(--scalar-color-accent);
-  --sidebar-search-background: transparent;
-  --sidebar-search-border-color: var(--scalar-border-color);
-  --sidebar-search--color: var(--scalar-color-3);
+  --scalar-sidebar-background-1: var(--scalar-background-1);
+  --scalar-sidebar-item-hover-color: currentColor;
+  --scalar-sidebar-item-hover-background: var(--scalar-background-2);
+  --scalar-sidebar-item-active-background: var(--scalar-background-accent);
+  --scalar-sidebar-border-color: var(--scalar-border-color);
+  --scalar-sidebar-color-1: var(--scalar-color-1);
+  --scalar-sidebar-color-2: var(--scalar-color-2);
+  --scalar-sidebar-color-active: var(--scalar-color-accent);
+  --scalar-sidebar-search-background: transparent;
+  --scalar-sidebar-search-border-color: var(--scalar-border-color);
+  --scalar-sidebar-search--color: var(--scalar-color-3);
 }
 
 .dark-mode .sidebar {
-  --sidebar-background-1: var(--scalar-background-1);
-  --sidebar-item-hover-color: currentColor;
-  --sidebar-item-hover-background: var(--scalar-background-2);
-  --sidebar-item-active-background: var(--scalar-background-accent);
-  --sidebar-border-color: var(--scalar-border-color);
-  --sidebar-color-1: var(--scalar-color-1);
-  --sidebar-color-2: var(--scalar-color-2);
-  --sidebar-color-active: var(--scalar-color-accent);
-  --sidebar-search-background: transparent;
-  --sidebar-search-border-color: var(--scalar-border-color);
-  --sidebar-search--color: var(--scalar-color-3);
+  --scalar-sidebar-background-1: var(--scalar-background-1);
+  --scalar-sidebar-item-hover-color: currentColor;
+  --scalar-sidebar-item-hover-background: var(--scalar-background-2);
+  --scalar-sidebar-item-active-background: var(--scalar-background-accent);
+  --scalar-sidebar-border-color: var(--scalar-border-color);
+  --scalar-sidebar-color-1: var(--scalar-color-1);
+  --scalar-sidebar-color-2: var(--scalar-color-2);
+  --scalar-sidebar-color-active: var(--scalar-color-accent);
+  --scalar-sidebar-search-background: transparent;
+  --scalar-sidebar-search-border-color: var(--scalar-border-color);
+  --scalar-sidebar-search--color: var(--scalar-color-3);
 }
 
 /* advanced */
@@ -272,6 +274,33 @@ def get_scalar_api_reference(
             """
         ),
     ] = False,
+    authentication: Annotated[
+        dict,
+        Doc(
+            """
+            A dictionary of additional authentication information.
+            Default is {} which means no authentication information is provided.
+            """
+        ),
+    ] = {},
+    hide_client_button: Annotated[
+        bool,
+        Doc(
+            """
+            Whether to show the client button from the reference sidebar and modal
+            Default is False which means the client button is shown.
+            """
+        ),
+    ] = False,
+    integration: Annotated[
+        str | None,
+        Doc(
+            """
+            The integration type. Default is 'fastapi'.
+            Set to None or a different value to override.
+            """
+        ),
+    ] = 'fastapi',
 ) -> HTMLResponse:
     html = f"""
     <!DOCTYPE html>
@@ -311,6 +340,9 @@ def get_scalar_api_reference(
         hiddenClients: {json.dumps(hidden_clients)},
         servers: {json.dumps(servers)},
         defaultOpenAllTags: {json.dumps(default_open_all_tags)},
+        authentication: {json.dumps(authentication)},
+        hideClientButton: {json.dumps(hide_client_button)},
+        _integration: {json.dumps(integration)},
       }}
 
       document.getElementById('api-reference').dataset.configuration =

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15.0)
-project(c-questdb-client VERSION 4.0.2)
+project(c-questdb-client VERSION 5.0.0)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
@@ -16,7 +16,13 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-set(CMAKE_CXX_STANDARD 17)
+set(MINIMUM_REQUIRED_CXX_STANDARD 17)
+
+if((NOT CMAKE_CXX_STANDARD) OR (CMAKE_CXX_STANDARD LESS MINIMUM_REQUIRED_CXX_STANDARD))
+    set(CMAKE_CXX_STANDARD ${MINIMUM_REQUIRED_CXX_STANDARD})
+endif()
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -93,6 +99,18 @@ if (QUESTDB_TESTS_AND_EXAMPLES)
         examples/concat.c
         examples/line_sender_c_example.c)
     compile_example(
+        line_sender_c_example_array_byte_strides
+        examples/concat.c
+        examples/line_sender_c_example_array_byte_strides.c)
+    compile_example(
+        line_sender_c_example_array_elem_strides
+        examples/concat.c
+        examples/line_sender_c_example_array_elem_strides.c)
+    compile_example(
+        line_sender_c_example_array_c_major
+        examples/concat.c
+        examples/line_sender_c_example_array_c_major.c)
+    compile_example(
         line_sender_c_example_auth
         examples/concat.c
         examples/line_sender_c_example_auth.c)
@@ -118,8 +136,20 @@ if (QUESTDB_TESTS_AND_EXAMPLES)
         line_sender_cpp_example
         examples/line_sender_cpp_example.cpp)
     compile_example(
+        line_sender_cpp_example_array_byte_strides
+        examples/line_sender_cpp_example_array_byte_strides.cpp)
+    compile_example(
+        line_sender_cpp_example_array_elem_strides
+        examples/line_sender_cpp_example_array_elem_strides.cpp)
+    compile_example(
+        line_sender_cpp_example_array_custom
+        examples/line_sender_cpp_example_array_custom.cpp)
+    compile_example(
         line_sender_cpp_example_auth
         examples/line_sender_cpp_example_auth.cpp)
+    compile_example(
+        line_sender_cpp_example_array_c_major
+        examples/line_sender_cpp_example_array_c_major.cpp)
     compile_example(
         line_sender_cpp_example_tls_ca
         examples/line_sender_cpp_example_tls_ca.cpp)

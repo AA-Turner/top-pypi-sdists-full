@@ -24,7 +24,7 @@ from ..api_object import APIObject
 from .external_scores import DEFAULT_BATCH_SIZE
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class LiftChartBin(TypedDict):
         actual: float

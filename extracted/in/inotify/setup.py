@@ -1,26 +1,21 @@
 import setuptools
 import os
 
-import inotify
+with open(os.path.join('inotify', 'resources', 'README.md')) as f:
+    _LONG_DESCRIPTION = f.read()
 
-APP_PATH = os.path.dirname(inotify.__file__)
-
-with open(os.path.join(APP_PATH, 'resources', 'README.rst')) as f:
-      _LONG_DESCRIPTION = f.read()
-
-with open(os.path.join(APP_PATH, 'resources', 'requirements.txt')) as f:
-      _INSTALL_REQUIRES = list(map(lambda s: s.strip(), f.readlines()))
+with open(os.path.join('inotify', 'resources', 'requirements.txt')) as f:
+    _INSTALL_REQUIRES = list(map(lambda s: s.strip(), f.readlines()))
 
 _DESCRIPTION = \
     "An adapter to Linux kernel support for inotify directory-watching."
 
 setuptools.setup(
     name='inotify',
-    version=inotify.__version__,
+    version='0.2.12',
     description=_DESCRIPTION,
     long_description=_LONG_DESCRIPTION,
-    classifiers=[
-    ],
+    long_description_content_type='text/markdown',
     keywords='inotify',
     author='Dustin Oprea',
     author_email='myselfasunder@gmail.com',
@@ -32,8 +27,8 @@ setuptools.setup(
     install_requires=_INSTALL_REQUIRES,
     package_data={
         'inotify': [
-            'resources/README.rst',
+            'resources/README.md',
             'resources/requirements.txt',
         ]
-    }
+    },
 )

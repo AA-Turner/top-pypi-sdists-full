@@ -24,7 +24,7 @@ from datarobot.models.deployment.mixins import MonitoringDataQueryBuilderMixin
 from datarobot.utils import from_api
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class Period(TypedDict, total=False):
         start: datetime

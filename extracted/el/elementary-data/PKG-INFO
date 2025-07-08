@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: elementary-data
-Version: 0.19.2
+Version: 0.19.3
 Summary: Data monitoring and lineage
 License: Apache-2.0
 Keywords: data,lineage,data lineage,data warehouse,DWH,observability,data monitoring,data observability,Snowflake,BigQuery,Redshift,data reliability,analytics engineering

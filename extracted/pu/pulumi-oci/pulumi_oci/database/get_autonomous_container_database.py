@@ -28,10 +28,13 @@ class GetAutonomousContainerDatabaseResult:
     """
     A collection of values returned by getAutonomousContainerDatabase.
     """
-    def __init__(__self__, associated_backup_configuration_details=None, autonomous_container_database_id=None, autonomous_exadata_infrastructure_id=None, autonomous_vm_cluster_id=None, availability_domain=None, available_cpus=None, backup_configs=None, backup_destination_properties_lists=None, cloud_autonomous_vm_cluster_id=None, compartment_id=None, compute_model=None, database_software_image_id=None, dataguard_group_members=None, dataguards=None, db_name=None, db_split_threshold=None, db_unique_name=None, db_version=None, defined_tags=None, display_name=None, distribution_affinity=None, dst_file_version=None, failover_trigger=None, fast_start_fail_over_lag_limit_in_seconds=None, freeform_tags=None, id=None, infrastructure_type=None, is_automatic_failover_enabled=None, is_data_guard_enabled=None, is_dst_file_update_enabled=None, is_multiple_standby=None, key_history_entries=None, key_store_id=None, key_store_wallet_name=None, key_version_id=None, kms_key_id=None, largest_provisionable_autonomous_database_in_cpus=None, last_maintenance_run_id=None, lifecycle_details=None, list_one_off_patches=None, maintenance_window_details=None, maintenance_windows=None, memory_per_oracle_compute_unit_in_gbs=None, net_services_architecture=None, next_maintenance_run_id=None, patch_id=None, patch_model=None, peer_autonomous_container_database_backup_configs=None, peer_autonomous_container_database_compartment_id=None, peer_autonomous_container_database_display_name=None, peer_autonomous_exadata_infrastructure_id=None, peer_autonomous_vm_cluster_id=None, peer_cloud_autonomous_vm_cluster_id=None, peer_db_unique_name=None, protection_mode=None, provisionable_cpuses=None, provisioned_cpus=None, reclaimable_cpus=None, recovery_appliance_details=None, reinstate_trigger=None, reserved_cpus=None, role=None, rotate_key_trigger=None, service_level_agreement_type=None, standby_maintenance_buffer_in_days=None, state=None, switchover_trigger=None, time_created=None, time_of_last_backup=None, time_snapshot_standby_revert=None, total_cpus=None, vault_id=None, version_preference=None, vm_failover_reservation=None):
+    def __init__(__self__, associated_backup_configuration_details=None, autonomous_container_database_backup_id=None, autonomous_container_database_id=None, autonomous_exadata_infrastructure_id=None, autonomous_vm_cluster_id=None, availability_domain=None, available_cpus=None, backup_configs=None, backup_destination_properties_lists=None, cloud_autonomous_vm_cluster_id=None, compartment_id=None, compute_model=None, database_software_image_id=None, dataguard_group_members=None, dataguards=None, db_name=None, db_split_threshold=None, db_unique_name=None, db_version=None, defined_tags=None, display_name=None, distribution_affinity=None, dst_file_version=None, failover_trigger=None, fast_start_fail_over_lag_limit_in_seconds=None, freeform_tags=None, id=None, infrastructure_type=None, is_automatic_failover_enabled=None, is_data_guard_enabled=None, is_dst_file_update_enabled=None, is_multiple_standby=None, key_history_entries=None, key_store_id=None, key_store_wallet_name=None, key_version_id=None, kms_key_id=None, kms_key_version_id=None, largest_provisionable_autonomous_database_in_cpus=None, last_maintenance_run_id=None, lifecycle_details=None, list_one_off_patches=None, maintenance_window_details=None, maintenance_windows=None, memory_per_oracle_compute_unit_in_gbs=None, net_services_architecture=None, next_maintenance_run_id=None, patch_id=None, patch_model=None, peer_autonomous_container_database_backup_configs=None, peer_autonomous_container_database_compartment_id=None, peer_autonomous_container_database_display_name=None, peer_autonomous_exadata_infrastructure_id=None, peer_autonomous_vm_cluster_id=None, peer_cloud_autonomous_vm_cluster_id=None, peer_db_unique_name=None, protection_mode=None, provisionable_cpuses=None, provisioned_cpus=None, reclaimable_cpus=None, recovery_appliance_details=None, reinstate_trigger=None, reserved_cpus=None, role=None, rotate_key_trigger=None, service_level_agreement_type=None, source=None, standby_maintenance_buffer_in_days=None, state=None, switchover_trigger=None, system_tags=None, time_created=None, time_of_last_backup=None, time_snapshot_standby_revert=None, total_cpus=None, vault_id=None, version_preference=None, vm_failover_reservation=None):
         if associated_backup_configuration_details and not isinstance(associated_backup_configuration_details, list):
             raise TypeError("Expected argument 'associated_backup_configuration_details' to be a list")
         pulumi.set(__self__, "associated_backup_configuration_details", associated_backup_configuration_details)
+        if autonomous_container_database_backup_id and not isinstance(autonomous_container_database_backup_id, str):
+            raise TypeError("Expected argument 'autonomous_container_database_backup_id' to be a str")
+        pulumi.set(__self__, "autonomous_container_database_backup_id", autonomous_container_database_backup_id)
         if autonomous_container_database_id and not isinstance(autonomous_container_database_id, str):
             raise TypeError("Expected argument 'autonomous_container_database_id' to be a str")
         pulumi.set(__self__, "autonomous_container_database_id", autonomous_container_database_id)
@@ -137,6 +140,9 @@ class GetAutonomousContainerDatabaseResult:
         if kms_key_id and not isinstance(kms_key_id, str):
             raise TypeError("Expected argument 'kms_key_id' to be a str")
         pulumi.set(__self__, "kms_key_id", kms_key_id)
+        if kms_key_version_id and not isinstance(kms_key_version_id, str):
+            raise TypeError("Expected argument 'kms_key_version_id' to be a str")
+        pulumi.set(__self__, "kms_key_version_id", kms_key_version_id)
         if largest_provisionable_autonomous_database_in_cpus and not isinstance(largest_provisionable_autonomous_database_in_cpus, float):
             raise TypeError("Expected argument 'largest_provisionable_autonomous_database_in_cpus' to be a float")
         pulumi.set(__self__, "largest_provisionable_autonomous_database_in_cpus", largest_provisionable_autonomous_database_in_cpus)
@@ -221,6 +227,9 @@ class GetAutonomousContainerDatabaseResult:
         if service_level_agreement_type and not isinstance(service_level_agreement_type, str):
             raise TypeError("Expected argument 'service_level_agreement_type' to be a str")
         pulumi.set(__self__, "service_level_agreement_type", service_level_agreement_type)
+        if source and not isinstance(source, str):
+            raise TypeError("Expected argument 'source' to be a str")
+        pulumi.set(__self__, "source", source)
         if standby_maintenance_buffer_in_days and not isinstance(standby_maintenance_buffer_in_days, int):
             raise TypeError("Expected argument 'standby_maintenance_buffer_in_days' to be a int")
         pulumi.set(__self__, "standby_maintenance_buffer_in_days", standby_maintenance_buffer_in_days)
@@ -230,6 +239,9 @@ class GetAutonomousContainerDatabaseResult:
         if switchover_trigger and not isinstance(switchover_trigger, int):
             raise TypeError("Expected argument 'switchover_trigger' to be a int")
         pulumi.set(__self__, "switchover_trigger", switchover_trigger)
+        if system_tags and not isinstance(system_tags, dict):
+            raise TypeError("Expected argument 'system_tags' to be a dict")
+        pulumi.set(__self__, "system_tags", system_tags)
         if time_created and not isinstance(time_created, str):
             raise TypeError("Expected argument 'time_created' to be a str")
         pulumi.set(__self__, "time_created", time_created)
@@ -259,6 +271,11 @@ class GetAutonomousContainerDatabaseResult:
         A backup config object holds information about preferred backup destinations only. This object holds information about the associated backup destinations, such as secondary backup destinations created for local backups or remote replicated backups.
         """
         return pulumi.get(self, "associated_backup_configuration_details")
+
+    @property
+    @pulumi.getter(name="autonomousContainerDatabaseBackupId")
+    def autonomous_container_database_backup_id(self) -> builtins.str:
+        return pulumi.get(self, "autonomous_container_database_backup_id")
 
     @property
     @pulumi.getter(name="autonomousContainerDatabaseId")
@@ -487,7 +504,7 @@ class GetAutonomousContainerDatabaseResult:
     @pulumi.getter(name="isMultipleStandby")
     def is_multiple_standby(self) -> builtins.bool:
         """
-        Whether it is multiple standby Autonomous Dataguard
+        Indicates if it is multiple standby Autonomous Dataguard
         """
         return pulumi.get(self, "is_multiple_standby")
 
@@ -530,6 +547,14 @@ class GetAutonomousContainerDatabaseResult:
         The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
         """
         return pulumi.get(self, "kms_key_id")
+
+    @property
+    @pulumi.getter(name="kmsKeyVersionId")
+    def kms_key_version_id(self) -> builtins.str:
+        """
+        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
+        """
+        return pulumi.get(self, "kms_key_version_id")
 
     @property
     @pulumi.getter(name="largestProvisionableAutonomousDatabaseInCpus")
@@ -726,6 +751,11 @@ class GetAutonomousContainerDatabaseResult:
         return pulumi.get(self, "service_level_agreement_type")
 
     @property
+    @pulumi.getter
+    def source(self) -> builtins.str:
+        return pulumi.get(self, "source")
+
+    @property
     @pulumi.getter(name="standbyMaintenanceBufferInDays")
     def standby_maintenance_buffer_in_days(self) -> builtins.int:
         """
@@ -745,6 +775,14 @@ class GetAutonomousContainerDatabaseResult:
     @pulumi.getter(name="switchoverTrigger")
     def switchover_trigger(self) -> builtins.int:
         return pulumi.get(self, "switchover_trigger")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -810,6 +848,7 @@ class AwaitableGetAutonomousContainerDatabaseResult(GetAutonomousContainerDataba
             yield self
         return GetAutonomousContainerDatabaseResult(
             associated_backup_configuration_details=self.associated_backup_configuration_details,
+            autonomous_container_database_backup_id=self.autonomous_container_database_backup_id,
             autonomous_container_database_id=self.autonomous_container_database_id,
             autonomous_exadata_infrastructure_id=self.autonomous_exadata_infrastructure_id,
             autonomous_vm_cluster_id=self.autonomous_vm_cluster_id,
@@ -845,6 +884,7 @@ class AwaitableGetAutonomousContainerDatabaseResult(GetAutonomousContainerDataba
             key_store_wallet_name=self.key_store_wallet_name,
             key_version_id=self.key_version_id,
             kms_key_id=self.kms_key_id,
+            kms_key_version_id=self.kms_key_version_id,
             largest_provisionable_autonomous_database_in_cpus=self.largest_provisionable_autonomous_database_in_cpus,
             last_maintenance_run_id=self.last_maintenance_run_id,
             lifecycle_details=self.lifecycle_details,
@@ -873,9 +913,11 @@ class AwaitableGetAutonomousContainerDatabaseResult(GetAutonomousContainerDataba
             role=self.role,
             rotate_key_trigger=self.rotate_key_trigger,
             service_level_agreement_type=self.service_level_agreement_type,
+            source=self.source,
             standby_maintenance_buffer_in_days=self.standby_maintenance_buffer_in_days,
             state=self.state,
             switchover_trigger=self.switchover_trigger,
+            system_tags=self.system_tags,
             time_created=self.time_created,
             time_of_last_backup=self.time_of_last_backup,
             time_snapshot_standby_revert=self.time_snapshot_standby_revert,
@@ -911,6 +953,7 @@ def get_autonomous_container_database(autonomous_container_database_id: Optional
 
     return AwaitableGetAutonomousContainerDatabaseResult(
         associated_backup_configuration_details=pulumi.get(__ret__, 'associated_backup_configuration_details'),
+        autonomous_container_database_backup_id=pulumi.get(__ret__, 'autonomous_container_database_backup_id'),
         autonomous_container_database_id=pulumi.get(__ret__, 'autonomous_container_database_id'),
         autonomous_exadata_infrastructure_id=pulumi.get(__ret__, 'autonomous_exadata_infrastructure_id'),
         autonomous_vm_cluster_id=pulumi.get(__ret__, 'autonomous_vm_cluster_id'),
@@ -946,6 +989,7 @@ def get_autonomous_container_database(autonomous_container_database_id: Optional
         key_store_wallet_name=pulumi.get(__ret__, 'key_store_wallet_name'),
         key_version_id=pulumi.get(__ret__, 'key_version_id'),
         kms_key_id=pulumi.get(__ret__, 'kms_key_id'),
+        kms_key_version_id=pulumi.get(__ret__, 'kms_key_version_id'),
         largest_provisionable_autonomous_database_in_cpus=pulumi.get(__ret__, 'largest_provisionable_autonomous_database_in_cpus'),
         last_maintenance_run_id=pulumi.get(__ret__, 'last_maintenance_run_id'),
         lifecycle_details=pulumi.get(__ret__, 'lifecycle_details'),
@@ -974,9 +1018,11 @@ def get_autonomous_container_database(autonomous_container_database_id: Optional
         role=pulumi.get(__ret__, 'role'),
         rotate_key_trigger=pulumi.get(__ret__, 'rotate_key_trigger'),
         service_level_agreement_type=pulumi.get(__ret__, 'service_level_agreement_type'),
+        source=pulumi.get(__ret__, 'source'),
         standby_maintenance_buffer_in_days=pulumi.get(__ret__, 'standby_maintenance_buffer_in_days'),
         state=pulumi.get(__ret__, 'state'),
         switchover_trigger=pulumi.get(__ret__, 'switchover_trigger'),
+        system_tags=pulumi.get(__ret__, 'system_tags'),
         time_created=pulumi.get(__ret__, 'time_created'),
         time_of_last_backup=pulumi.get(__ret__, 'time_of_last_backup'),
         time_snapshot_standby_revert=pulumi.get(__ret__, 'time_snapshot_standby_revert'),
@@ -1009,6 +1055,7 @@ def get_autonomous_container_database_output(autonomous_container_database_id: O
     __ret__ = pulumi.runtime.invoke_output('oci:Database/getAutonomousContainerDatabase:getAutonomousContainerDatabase', __args__, opts=opts, typ=GetAutonomousContainerDatabaseResult)
     return __ret__.apply(lambda __response__: GetAutonomousContainerDatabaseResult(
         associated_backup_configuration_details=pulumi.get(__response__, 'associated_backup_configuration_details'),
+        autonomous_container_database_backup_id=pulumi.get(__response__, 'autonomous_container_database_backup_id'),
         autonomous_container_database_id=pulumi.get(__response__, 'autonomous_container_database_id'),
         autonomous_exadata_infrastructure_id=pulumi.get(__response__, 'autonomous_exadata_infrastructure_id'),
         autonomous_vm_cluster_id=pulumi.get(__response__, 'autonomous_vm_cluster_id'),
@@ -1044,6 +1091,7 @@ def get_autonomous_container_database_output(autonomous_container_database_id: O
         key_store_wallet_name=pulumi.get(__response__, 'key_store_wallet_name'),
         key_version_id=pulumi.get(__response__, 'key_version_id'),
         kms_key_id=pulumi.get(__response__, 'kms_key_id'),
+        kms_key_version_id=pulumi.get(__response__, 'kms_key_version_id'),
         largest_provisionable_autonomous_database_in_cpus=pulumi.get(__response__, 'largest_provisionable_autonomous_database_in_cpus'),
         last_maintenance_run_id=pulumi.get(__response__, 'last_maintenance_run_id'),
         lifecycle_details=pulumi.get(__response__, 'lifecycle_details'),
@@ -1072,9 +1120,11 @@ def get_autonomous_container_database_output(autonomous_container_database_id: O
         role=pulumi.get(__response__, 'role'),
         rotate_key_trigger=pulumi.get(__response__, 'rotate_key_trigger'),
         service_level_agreement_type=pulumi.get(__response__, 'service_level_agreement_type'),
+        source=pulumi.get(__response__, 'source'),
         standby_maintenance_buffer_in_days=pulumi.get(__response__, 'standby_maintenance_buffer_in_days'),
         state=pulumi.get(__response__, 'state'),
         switchover_trigger=pulumi.get(__response__, 'switchover_trigger'),
+        system_tags=pulumi.get(__response__, 'system_tags'),
         time_created=pulumi.get(__response__, 'time_created'),
         time_of_last_backup=pulumi.get(__response__, 'time_of_last_backup'),
         time_snapshot_standby_revert=pulumi.get(__response__, 'time_snapshot_standby_revert'),

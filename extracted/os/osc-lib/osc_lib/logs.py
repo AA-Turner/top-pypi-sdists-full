@@ -14,6 +14,7 @@
 """Application logging"""
 
 import argparse
+import collections.abc
 import logging
 import sys
 import typing as ty
@@ -22,7 +23,7 @@ import warnings
 from openstack.config import cloud_config
 
 
-def get_loggers() -> ty.Dict[str, str]:
+def get_loggers() -> dict[str, str]:
     loggers = {}
     for logkey in logging.Logger.manager.loggerDict.keys():
         loggers[logkey] = logging.getLevelName(logging.getLogger(logkey).level)
@@ -56,7 +57,7 @@ def log_level_from_string(level_string: str) -> int:
     return log_level
 
 
-def log_level_from_config(config: ty.Mapping[str, ty.Any]) -> int:
+def log_level_from_config(config: collections.abc.Mapping[str, ty.Any]) -> int:
     # Check the command line option
     verbose_level = config.get('verbose_level')
     if config.get('debug', False):
@@ -95,8 +96,8 @@ class _FileFormatter(logging.Formatter):
 
     def __init__(
         self,
-        options: ty.Optional[argparse.Namespace] = None,
-        config: ty.Optional[cloud_config.CloudConfig] = None,
+        options: argparse.Namespace | None = None,
+        config: cloud_config.CloudConfig | None = None,
         **kwargs: ty.Any,
     ) -> None:
         context = {}

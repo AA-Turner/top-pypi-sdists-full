@@ -24,7 +24,12 @@ import jsonpath
 # https://blog.csdn.net/weixin_44799217/article/details/127590589
 
 from meutils.pipe import *
-from json_repair import repair_json
+from json_repair import repair_json as _repair_json
+
+
+@lru_cache()
+def repair_json(json_str, **kwargs):
+    return _repair_json(json_str, **kwargs)
 
 
 def json2class(dic, class_name='Test'):
@@ -71,11 +76,10 @@ def json_path(obj, expr):  # todo: 缓存
 
 
 if __name__ == '__main__':
-    print(json_path({"a": 1}, expr='$.a'))
-    print(json_path("""{"a": 1}""", expr='$.a'))
-
-    json_string = """{"a": 1}"""
-
+    # print(json_path({"a": 1}, expr='$.a'))
+    # print(json_path("""{"a": 1}""", expr='$.a'))
+    #
+    # json_string = """{"a": 1}"""
 
     class A(BaseModel):
         a: int = 1
@@ -96,5 +100,7 @@ if __name__ == '__main__':
         "updated_at": 1749807294
     }
 
+    # print(json_path(data, expr='$..[url,image_url,video_url]'))
 
-    print(json_path(data, expr='$..[url,image_url,video_url]'))
+    print(repair_json('{a: 1}', return_objects=True))
+    print(type(repair_json('{a: 1}', return_objects=True)))

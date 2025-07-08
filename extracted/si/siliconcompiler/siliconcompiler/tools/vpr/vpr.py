@@ -43,7 +43,7 @@ def setup_tool(chip, clobber=True):
 
     chip.set('tool', 'vpr', 'exe', 'vpr', clobber=clobber)
     chip.set('tool', 'vpr', 'vswitch', '--version')
-    chip.set('tool', 'vpr', 'version', '>=9.0.0', clobber=clobber)
+    chip.set('tool', 'vpr', 'version', '>=v8.0.0-12677', clobber=clobber)
 
     step = chip.get('arg', 'step')
     index = chip.get('arg', 'index')
@@ -184,6 +184,7 @@ def runtime_options(chip):
         options.append("--sdc_file")
         options.append(sdc_file)
 
+    if use_timing_analysis(chip):
         report_type = chip.get('tool', tool, 'task', task, 'var', 'timing_report_type',
                                step=step, index=index)[0]
         options.extend(['--timing_report_detail', report_type])
@@ -297,18 +298,34 @@ def parse_version(stdout):
     # This is free open source code under MIT license.
     #
     #
-    return stdout.split()[6]
 
+    # Grab the revision. Which will be of the form:
+    #       v8.0.0-7887-gc4156f225
+    revision = stdout.split()[8]
 
-def normalize_version(version):
-    if '-' in version:
-        return version.split('-')[0]
+    # VTR infrequently makes even minor releases, use the number of commits
+    # since the last release of VTR as another part of the release segment.
+    pieces = revision.split("-")
+    if len(pieces) == 3:
+        # Strip off the hash if it exists.
+        return "-".join(pieces[:-1])
     else:
-        return version
+        return revision
 
 
 def auto_constraints():
     return 'inputs/sc_constraints.xml'
+
+
+def use_timing_analysis(chip):
+    '''
+    Return true if the given chip should use timing analysis in the VPR flow.
+    '''
+    step = chip.get('arg', 'step')
+    index = chip.get('arg', 'index')
+    return \
+        chip.valid('input', 'constraint', 'sdc') and \
+        chip.get('input', 'constraint', 'sdc', step=step, index=index)
 
 
 def vpr_post_process(chip):

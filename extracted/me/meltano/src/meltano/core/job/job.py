@@ -71,7 +71,7 @@ class State(Enum):
         return self.name
 
 
-class StateComparator(Comparator):
+class StateComparator(Comparator[State]):
     """Compare Job._state to State enums."""
 
     def __eq__(self, other: State) -> t.Any:  # type: ignore[override] # noqa: ANN401
@@ -116,17 +116,13 @@ class Job(SystemModel):
     id: Mapped[IntPK]
     job_name: Mapped[str]
     run_id: Mapped[GUIDType]
-    _state: Mapped[t.Optional[str]] = mapped_column(name="state")  # noqa: UP007
+    _state: Mapped[t.Optional[str]] = mapped_column(name="state")  # noqa: UP045
     started_at: Mapped[datetime] = mapped_column(DateTimeUTC)
-    last_heartbeat_at: Mapped[t.Optional[datetime]] = mapped_column(  # noqa: UP007
-        DateTimeUTC,
-    )
-    ended_at: Mapped[t.Optional[datetime]] = mapped_column(DateTimeUTC)  # noqa: UP007
+    last_heartbeat_at: Mapped[t.Optional[datetime]] = mapped_column(DateTimeUTC)  # noqa: UP045
+    ended_at: Mapped[t.Optional[datetime]] = mapped_column(DateTimeUTC)  # noqa: UP045
     payload: Mapped[dict] = mapped_column(MutableDict.as_mutable(JSONEncodedDict))
     payload_flags: Mapped[Payload] = mapped_column(IntFlag, default=0)
-    trigger: Mapped[t.Optional[str]] = mapped_column(  # noqa: UP007
-        default=current_trigger,
-    )
+    trigger: Mapped[t.Optional[str]] = mapped_column(default=current_trigger)  # noqa: UP045
 
     def __init__(self, **kwargs: t.Any) -> None:
         """Construct a Job.

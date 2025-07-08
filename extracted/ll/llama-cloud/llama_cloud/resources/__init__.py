@@ -17,7 +17,6 @@ from . import (
     pipelines,
     projects,
     reports,
-    responses,
     retrievers,
 )
 from .data_sinks import DataSinkUpdateComponent
@@ -109,6 +108,5 @@ __all__ = [
     "pipelines",
     "projects",
     "reports",
-    "responses",
     "retrievers",
 ]

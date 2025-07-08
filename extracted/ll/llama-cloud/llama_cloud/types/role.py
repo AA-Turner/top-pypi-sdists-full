@@ -24,7 +24,6 @@ class Role(pydantic.BaseModel):
     created_at: typing.Optional[dt.datetime]
     updated_at: typing.Optional[dt.datetime]
     name: str = pydantic.Field(description="A name for the role.")
-    organization_id: typing.Optional[str]
     permissions: typing.List[Permission] = pydantic.Field(description="The actual permissions of the role.")
 
     def json(self, **kwargs: typing.Any) -> str:

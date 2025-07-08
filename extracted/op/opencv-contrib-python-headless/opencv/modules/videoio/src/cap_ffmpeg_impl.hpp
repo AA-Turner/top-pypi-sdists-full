@@ -1137,7 +1137,7 @@ bool CvCapture_FFMPEG::open(const char* _filename, const Ptr<IStreamReader>& str
 #endif
 
     std::string options = utils::getConfigurationParameterString("OPENCV_FFMPEG_CAPTURE_OPTIONS");
-    if(!options.empty())
+    if (options.empty())
     {
 #if LIBAVFORMAT_VERSION_MICRO >= 100  && LIBAVFORMAT_BUILD >= CALC_FFMPEG_VERSION(55, 48, 100)
         av_dict_set(&dict, "rtsp_flags", "prefer_tcp", 0);
@@ -2525,11 +2525,13 @@ bool CvVideoWriter_FFMPEG::writeFrame( const unsigned char* data, int step, int 
     // check parameters
     if (input_pix_fmt == AV_PIX_FMT_BGR24) {
         if (cn != 3) {
+            CV_LOG_WARNING(NULL, "write frame skipped - expected 3 channels but got " << cn);
             return false;
         }
     }
     else if (input_pix_fmt == AV_PIX_FMT_GRAY8 || input_pix_fmt == AV_PIX_FMT_GRAY16LE) {
         if (cn != 1) {
+            CV_LOG_WARNING(NULL, "write frame skipped - expected 1 channel but got " << cn);
             return false;
         }
     }
@@ -2640,14 +2642,16 @@ bool CvVideoWriter_FFMPEG::writeFrame( const unsigned char* data, int step, int 
         }
         hw_frame->pts = frame_idx;
         int ret_write = icv_av_write_frame_FFMPEG(oc, video_st, context, outbuf, outbuf_size, hw_frame, frame_idx);
-        ret = ret_write >= 0 ? true : false;
+        // AVERROR(EAGAIN): continue sending input, not an error
+        ret = (ret_write >= 0 || ret_write == AVERROR(EAGAIN));
         av_frame_free(&hw_frame);
     } else
 #endif
     {
         picture->pts = frame_idx;
         int ret_write = icv_av_write_frame_FFMPEG(oc, video_st, context, outbuf, outbuf_size, picture, frame_idx);
-        ret = ret_write >= 0 ? true : false;
+        // AVERROR(EAGAIN): continue sending input, not an error
+        ret = (ret_write >= 0 || ret_write == AVERROR(EAGAIN));
     }
 
     frame_idx++;

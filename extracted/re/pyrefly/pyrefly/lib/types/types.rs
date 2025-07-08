@@ -344,7 +344,8 @@ impl TypeAlias {
 
 assert_words!(Type, 4);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum CalleeKind {
     Callable,
     Function(FunctionKind),
@@ -1264,6 +1265,7 @@ impl Type {
     pub fn as_decomposed_tuple_or_union(&self, stdlib: &Stdlib) -> Option<Vec<Type>> {
         match self {
             Type::Tuple(Tuple::Concrete(ts)) => Some(ts.clone()),
+            Type::Tuple(Tuple::Unbounded(box t)) => Some(vec![t.clone()]),
             Type::Type(box Type::Union(ts)) => Some(ts.map(|t| Type::type_form(t.clone()))),
             Type::TypeAlias(ta) => ta.as_value(stdlib).as_decomposed_tuple_or_union(stdlib),
             _ => None,

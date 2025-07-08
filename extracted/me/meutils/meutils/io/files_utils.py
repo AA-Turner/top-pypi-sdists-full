@@ -213,6 +213,9 @@ async def to_file(file: Union[UploadFile, str, bytes], filename: Optional[str] =
 async def markdown_base64_to_url(text, pattern=r'!\[Image_\d+\]\((.+?)\)'):
     base64_strings = re.findall(pattern, text)
 
+    # logger.debug(text)
+    # logger.debug(base64_strings)
+
     tasks = [to_url(base64_string, filename=f"{shortuuid.random()}.png") for base64_string in base64_strings]
     urls = await asyncio.gather(*tasks)
 
@@ -278,7 +281,7 @@ if __name__ == '__main__':
     file = "/Users/betterme/PycharmProjects/AI/ppt.txt"
     # arun(to_url(Path(file).read_bytes(), filename='ppt.txt'))
 
-    # arun(markdown_base64_to_url("![Image_0](data:image)"))
+    arun(markdown_base64_to_url("![image](data:imagexxxxx)", pattern=r'!\[image\]\((.+?)\)'))
 
     # arun(to_bytes("https://oss.ffire.cc/files/kling_watermark.png"))
 
@@ -291,4 +294,4 @@ if __name__ == '__main__':
 
     # r = arun(to_bytes(url))
 
-    print(mimetypes.guess_type(url)[0])
+    # print(mimetypes.guess_type(url)[0])

@@ -71,7 +71,7 @@ def _debug_logging_handler(
     plugin_invoker: PluginInvoker,
     stderr: StreamReader,
     *other_dsts,  # noqa: ANN002
-) -> asyncio.Task:
+) -> asyncio.Task[None]:
     """Route debug log lines.
 
     Routes to stderr, or an `OutputLogger` if one is present in our invocation
@@ -397,7 +397,7 @@ class SingerTap(SingerPlugin):
             return catalog_path
 
         use_cached_catalog = (
-            not (elt_context and elt_context.refresh_catalog)
+            not (elt_context and elt_context.should_refresh_catalog())
             and plugin_invoker.plugin_config_extras["_use_cached_catalog"]
         )
 

@@ -39,6 +39,7 @@ func newRunCommand() *cobra.Command {
 	addFastFlag(cmd)
 	addLocalImage(cmd)
 	addConfigFlag(cmd)
+	addPipelineImage(cmd)
 
 	flags := cmd.Flags()
 	// Flags after first argument are considered args and passed to command
@@ -67,7 +68,7 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	var imageName string
-	if cfg.Build.Fast || buildFast {
+	if cfg.Build.Fast || buildFast || pipelinesImage {
 		imageName = config.DockerImageName(projectDir)
 		err = image.Build(
 			ctx,
@@ -88,12 +89,13 @@ func run(cmd *cobra.Command, args []string) error {
 			nil,
 			buildLocalImage,
 			dockerClient,
-			client)
+			client,
+			pipelinesImage)
 		if err != nil {
 			return err
 		}
 	} else {
-		imageName, err = image.BuildBase(ctx, dockerClient, cfg, projectDir, buildUseCudaBaseImage, DetermineUseCogBaseImage(cmd), buildProgressOutput, client)
+		imageName, err = image.BuildBase(ctx, dockerClient, cfg, projectDir, buildUseCudaBaseImage, DetermineUseCogBaseImage(cmd), buildProgressOutput, client, true)
 		if err != nil {
 			return err
 		}

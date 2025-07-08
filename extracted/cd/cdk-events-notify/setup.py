@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-events-notify",
-    "version": "2.2.529",
+    "version": "2.2.530",
     "description": "The Events Notify AWS Construct lib for AWS CDK",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-events-notify.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_events_notify._jsii": [
-            "cdk-events-notify@2.2.529.jsii.tgz"
+            "cdk-events-notify@2.2.530.jsii.tgz"
         ],
         "cdk_events_notify": [
             "py.typed"

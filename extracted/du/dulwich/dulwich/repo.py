@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     # There are no circular imports here, but we try to defer imports as long
     # as possible to reduce start-up time for anything that doesn't need
     # these imports.
+    from .attrs import GitAttributes
     from .config import ConditionMatcher, ConfigFile, StackedConfig
     from .index import Index
     from .notes import Notes
@@ -980,7 +981,7 @@ class BaseRepo:
         author_timezone=None,
         tree: Optional[ObjectID] = None,
         encoding: Optional[bytes] = None,
-        ref: Ref = b"HEAD",
+        ref: Optional[Ref] = b"HEAD",
         merge_heads: Optional[list[ObjectID]] = None,
         no_verify: bool = False,
         sign: bool = False,
@@ -1004,7 +1005,8 @@ class BaseRepo:
           tree: SHA1 of the tree root to use (if not specified the
             current index will be committed).
           encoding: Encoding
-          ref: Optional ref to commit to (defaults to current branch)
+          ref: Optional ref to commit to (defaults to current branch).
+            If None, creates a dangling commit without updating any ref.
           merge_heads: Merge heads (defaults to .git/MERGE_HEAD)
           no_verify: Skip pre-commit and commit-msg hooks
           sign: GPG Sign the commit (bool, defaults to False,
@@ -1080,19 +1082,28 @@ class BaseRepo:
         except KeyError:  # no hook defined, message not modified
             c.message = message
 
+        # Check if we should sign the commit
+        should_sign = sign
+        if sign is None:
+            # Check commit.gpgSign configuration when sign is not explicitly set
+            config = self.get_config_stack()
+            try:
+                should_sign = config.get_boolean((b"commit",), b"gpgSign")
+            except KeyError:
+                should_sign = False  # Default to not signing if no config
         keyid = sign if isinstance(sign, str) else None
 
         if ref is None:
             # Create a dangling commit
             c.parents = merge_heads
-            if sign:
+            if should_sign:
                 c.sign(keyid)
             self.object_store.add_object(c)
         else:
             try:
                 old_head = self.refs[ref]
                 c.parents = [old_head, *merge_heads]
-                if sign:
+                if should_sign:
                     c.sign(keyid)
                 self.object_store.add_object(c)
                 ok = self.refs.set_if_equals(
@@ -1106,7 +1117,7 @@ class BaseRepo:
                 )
             except KeyError:
                 c.parents = merge_heads
-                if sign:
+                if should_sign:
                     c.sign(keyid)
                 self.object_store.add_object(c)
                 ok = self.refs.add_if_new(
@@ -1261,14 +1272,27 @@ class Repo(BaseRepo):
         if format_version not in (0, 1):
             raise UnsupportedVersion(format_version)
 
-        for extension, _value in config.items((b"extensions",)):
-            if extension.lower() not in (b"worktreeconfig",):
+        # Track extensions we encounter
+        has_reftable_extension = False
+        for extension, value in config.items((b"extensions",)):
+            if extension.lower() == b"refstorage":
+                if value == b"reftable":
+                    has_reftable_extension = True
+                else:
+                    raise UnsupportedExtension(f"refStorage = {value.decode()}")
+            elif extension.lower() not in (b"worktreeconfig",):
                 raise UnsupportedExtension(extension)
 
         if object_store is None:
             object_store = DiskObjectStore.from_config(
                 os.path.join(self.commondir(), OBJECTDIR), config
             )
+
+        # Use reftable if extension is configured
+        if has_reftable_extension:
+            from .reftable import ReftableRefsContainer
+
+            self.refs = ReftableRefsContainer(self.commondir())
         BaseRepo.__init__(self, object_store, self.refs)
 
         self._graftpoints = {}
@@ -1695,6 +1719,7 @@ class Repo(BaseRepo):
             build_index_from_tree,
             symlink,
             validate_path_element_default,
+            validate_path_element_hfs,
             validate_path_element_ntfs,
         )
 
@@ -1708,6 +1733,8 @@ class Repo(BaseRepo):
         honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
         if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
             validate_path_element = validate_path_element_ntfs
+        elif config.get_boolean(b"core", b"core.protectHFS", sys.platform == "darwin"):
+            validate_path_element = validate_path_element_hfs
         else:
             validate_path_element = validate_path_element_default
         if config.get_boolean(b"core", b"symlinks", True):
@@ -2051,6 +2078,63 @@ class Repo(BaseRepo):
             )
         except KeyError:
             return BlobNormalizer(config_stack, git_attributes)
+
+    def get_gitattributes(self, tree: Optional[bytes] = None) -> "GitAttributes":
+        """Read gitattributes for the repository.
+
+        Args:
+            tree: Tree SHA to read .gitattributes from (defaults to HEAD)
+
+        Returns:
+            GitAttributes object that can be used to match paths
+        """
+        from .attrs import (
+            GitAttributes,
+            Pattern,
+            parse_git_attributes,
+        )
+
+        patterns = []
+
+        # Read system gitattributes (TODO: implement this)
+        # Read global gitattributes (TODO: implement this)
+
+        # Read repository .gitattributes from index/tree
+        if tree is None:
+            try:
+                # Try to get from HEAD
+                head = self[b"HEAD"]
+                if isinstance(head, Tag):
+                    _cls, obj = head.object
+                    head = self.get_object(obj)
+                tree = head.tree
+            except KeyError:
+                # No HEAD, no attributes from tree
+                pass
+
+        if tree is not None:
+            try:
+                tree_obj = self[tree]
+                if b".gitattributes" in tree_obj:
+                    _, attrs_sha = tree_obj[b".gitattributes"]
+                    attrs_blob = self[attrs_sha]
+                    if isinstance(attrs_blob, Blob):
+                        attrs_data = BytesIO(attrs_blob.data)
+                        for pattern_bytes, attrs in parse_git_attributes(attrs_data):
+                            pattern = Pattern(pattern_bytes)
+                            patterns.append((pattern, attrs))
+            except (KeyError, NotTreeError):
+                pass
+
+        # Read .git/info/attributes
+        info_attrs_path = os.path.join(self.controldir(), "info", "attributes")
+        if os.path.exists(info_attrs_path):
+            with open(info_attrs_path, "rb") as f:
+                for pattern_bytes, attrs in parse_git_attributes(f):
+                    pattern = Pattern(pattern_bytes)
+                    patterns.append((pattern, attrs))
+
+        return GitAttributes(patterns)
 
     def _sparse_checkout_file_path(self) -> str:
         """Return the path of the sparse-checkout file in this repo's control dir."""

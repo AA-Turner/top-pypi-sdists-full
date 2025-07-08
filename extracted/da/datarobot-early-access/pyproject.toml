@@ -66,8 +66,6 @@ module = [
     "datarobot.models.custom_task_version",
     "datarobot.models.data_engine_query_generator",
     "datarobot.models.datetime_trend_plots",
-    "datarobot.models.execution_environment",
-    "datarobot.models.execution_environment_version",
     "datarobot.models.feature",
     "datarobot.models.feature_effect",
     "datarobot.models.job",

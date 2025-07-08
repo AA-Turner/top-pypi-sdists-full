@@ -48,7 +48,16 @@ from modin.core.storage_formats.pandas.query_compiler_caster import (
 from modin.logging import DEFAULT_LOGGER_NAME
 from modin.logging.metrics import add_metric_handler, clear_metric_handler
 from modin.pandas.api.extensions import register_pd_accessor
-from modin.tests.pandas.utils import create_test_dfs, df_equals, eval_general
+from modin.tests.pandas.utils import (
+    create_test_dfs,
+    default_to_pandas_ignore_string,
+    df_equals,
+    eval_general,
+)
+
+# Some modin methods warn about defaulting to pandas at the API layer. That's
+# expected and not an error as it would be normally.
+pytestmark = pytest.mark.filterwarnings(default_to_pandas_ignore_string)
 
 BIG_DATA_CLOUD_MIN_NUM_ROWS = 10
 SMALL_DATA_NUM_ROWS = 5
@@ -97,6 +106,7 @@ class CloudQC(CalculatorTestQc):
         ]
         return {
             CloudQC: QCCoercionCost.COST_ZERO,
+            CloudQCHighSelf: QCCoercionCost.COST_LOW,
             ClusterQC: QCCoercionCost.COST_MEDIUM,
             DefaultQC: QCCoercionCost.COST_MEDIUM,
             LocalMachineQC: QCCoercionCost.COST_HIGH,
@@ -104,6 +114,14 @@ class CloudQC(CalculatorTestQc):
             OmniscientEagerQC: None,
             OmniscientLazyQC: None,
         }[other_qc_cls]
+
+    def stay_cost(self, api_cls_name, op, arguments):
+        return QCCoercionCost.COST_ZERO
+
+
+class CloudQCHighSelf(CloudQC):
+    def get_backend(self):
+        return "Cloud_High_Self"
 
     def stay_cost(self, api_cls_name, op, arguments):
         return QCCoercionCost.COST_HIGH
@@ -121,6 +139,7 @@ class ClusterQC(CalculatorTestQc):
     def move_to_cost(self, other_qc_cls, api_cls_name, op, arguments):
         return {
             CloudQC: QCCoercionCost.COST_MEDIUM,
+            CloudQCHighSelf: QCCoercionCost.COST_MEDIUM,
             ClusterQC: QCCoercionCost.COST_ZERO,
             DefaultQC: None,  # cluster qc knows nothing about default qc
             LocalMachineQC: QCCoercionCost.COST_MEDIUM,
@@ -140,6 +159,7 @@ class LocalMachineQC(CalculatorTestQc):
     def move_to_cost(self, other_qc_cls, api_cls_name, op, arguments):
         return {
             CloudQC: QCCoercionCost.COST_MEDIUM,
+            CloudQCHighSelf: QCCoercionCost.COST_MEDIUM,
             ClusterQC: QCCoercionCost.COST_LOW,
             LocalMachineQC: QCCoercionCost.COST_ZERO,
             PicoQC: QCCoercionCost.COST_MEDIUM,
@@ -158,6 +178,7 @@ class PicoQC(CalculatorTestQc):
     def move_to_cost(self, other_qc_cls, api_cls_name, op, arguments):
         return {
             CloudQC: QCCoercionCost.COST_LOW,
+            CloudQCHighSelf: QCCoercionCost.COST_LOW,
             ClusterQC: QCCoercionCost.COST_LOW,
             LocalMachineQC: QCCoercionCost.COST_LOW,
             PicoQC: QCCoercionCost.COST_ZERO,
@@ -173,6 +194,7 @@ class AdversarialQC(CalculatorTestQc):
     def move_to_cost(self, other_qc_cls, api_cls_name, op, arguments):
         return {
             CloudQC: -1000,
+            CloudQCHighSelf: -1000,
             ClusterQC: 10000,
             AdversarialQC: QCCoercionCost.COST_ZERO,
         }[other_qc_cls]
@@ -255,6 +277,9 @@ class CloudForBigDataQC(BaseTestAutoMover):
     def get_backend(self) -> str:
         return "Big_Data_Cloud"
 
+    def max_cost(self):
+        return QCCoercionCost.COST_IMPOSSIBLE * 10
+
     @classmethod
     def move_to_me_cost(cls, other_qc, api_cls_name, operation, arguments):
         if api_cls_name in ("DataFrame", "Series") and operation == "__init__":
@@ -288,6 +313,9 @@ class LocalForSmallDataQC(BaseTestAutoMover):
     def get_backend(self) -> str:
         return "Small_Data_Local"
 
+    def max_cost(self):
+        return QCCoercionCost.COST_IMPOSSIBLE * 10
+
 
 def register_backend(name, qc):
     class TestCasterIO(BaseIO):
@@ -310,6 +338,7 @@ def register_backend(name, qc):
 register_backend("Pico", PicoQC)
 register_backend("Cluster", ClusterQC)
 register_backend("Cloud", CloudQC)
+register_backend("Cloud_High_Self", CloudQCHighSelf)
 register_backend("Local_Machine", LocalMachineQC)
 register_backend("Adversarial", AdversarialQC)
 register_backend("Eager", OmniscientEagerQC)
@@ -323,6 +352,11 @@ register_backend("Small_Data_Local", LocalForSmallDataQC)
 @pytest.fixture()
 def cloud_df():
     return pd.DataFrame(query_compiler=CloudQC(pandas.DataFrame([0, 1, 2])))
+
+
+@pytest.fixture()
+def cloud_high_self_df():
+    return pd.DataFrame(query_compiler=CloudQCHighSelf(pandas.DataFrame([0, 1, 2])))
 
 
 @pytest.fixture()
@@ -447,6 +481,30 @@ def test_cast_to_first_backend_with___init__(pico_df, cluster_df):
 def test_no_solution(pico_df, local_df, cluster_df, cloud_df):
     with pytest.raises(ValueError, match=r"Pico,Local_machine,Cluster,Cloud"):
         pd.concat(axis=1, objs=[pico_df, local_df, cluster_df, cloud_df])
+
+
+def test_self_cost_causes_move(cloud_high_self_df, cluster_df):
+    """
+    Test that ``self_cost`` is being properly considered.
+
+    Cost to stay on cloud_high_self is HIGH, but moving to cluster is MEDIUM.
+    Cost to stay on cluster is ZERO, and moving to cloud_high_self is MEDIUM.
+
+    With two dataframes, one on each backend, the total cost of using
+    ``cloud_high_self`` as the final backend is:
+    ``stay_cost(cloud_high_self) + move_cost(cluster->cloud_high_self)``
+    which is ``HIGH + MEDIUM``.
+    The total cost of using ``cluster`` as the final backend is:
+    ``stay_cost(cluster) + move_cost(cloud_high_self->cluster)``
+    which is ``ZERO + MEDIUM``.
+
+    So we should select ``cluster``.
+    """
+    result = pd.concat([cloud_high_self_df, cluster_df])
+    assert result.get_backend() == "Cluster"
+
+    result = pd.concat([cluster_df, cloud_high_self_df])
+    assert result.get_backend() == "Cluster"
 
 
 @pytest.mark.parametrize(
@@ -633,23 +691,19 @@ def test_switch_local_to_cloud_with_iloc___setitem__(local_df, cloud_df, pin_loc
     assert local_df.get_backend() == "Local_machine" if pin_local else "Cloud"
 
 
-# Outlines a future generic function for determining when to stay
-# or move to different engines. In the current state it is pretty
-# trivial, but added for completeness
-def test_stay_or_move_evaluation(cloud_df, default_df):
+def test_stay_or_move_evaluation(cloud_high_self_df, default_df):
     default_cls = type(default_df._get_query_compiler())
-    cloud_cls = type(cloud_df._get_query_compiler())
+    cloud_cls = type(cloud_high_self_df._get_query_compiler())
     empty_arguments = MappingProxyType({})
 
-    stay_cost = cloud_df._get_query_compiler().stay_cost(
+    stay_cost = cloud_high_self_df._get_query_compiler().stay_cost(
         "Series", "myop", arguments=empty_arguments
     )
-    move_cost = cloud_df._get_query_compiler().move_to_cost(
+    move_cost = cloud_high_self_df._get_query_compiler().move_to_cost(
         default_cls, "Series", "myop", arguments=empty_arguments
     )
-    df = cloud_df
     if stay_cost > move_cost:
-        df = cloud_df.move_to("Test_casting_default")
+        df = cloud_high_self_df.move_to("Test_casting_default")
     else:
         assert False
 
@@ -727,7 +781,7 @@ class TestSwitchBackendPostOpDependingOnDataSize:
         assert log_records[0].name == DEFAULT_LOGGER_NAME
         assert log_records[0].levelno == logging.INFO
         assert log_records[0].message.startswith(
-            "After None function read_json, considered moving to backend Small_Data_Local with"
+            "After modin.pandas function read_json, considered moving to backend Small_Data_Local with"
         )
 
         assert log_records[1].name == DEFAULT_LOGGER_NAME
@@ -759,7 +813,7 @@ class TestSwitchBackendPostOpDependingOnDataSize:
         assert log_records[0].name == DEFAULT_LOGGER_NAME
         assert log_records[0].levelno == logging.INFO
         assert log_records[0].message.startswith(
-            "After None function read_json, considered moving to backend Small_Data_Local with"
+            "After modin.pandas function read_json, considered moving to backend Small_Data_Local with"
         )
 
         assert log_records[1].name == DEFAULT_LOGGER_NAME
@@ -767,6 +821,38 @@ class TestSwitchBackendPostOpDependingOnDataSize:
         assert log_records[1].message.startswith(
             "Chose not to switch backends after operation read_json"
         )
+
+    @backend_test_context(
+        test_backend="Big_Data_Cloud",
+        choices=("Big_Data_Cloud", "Small_Data_Local"),
+    )
+    def test_progress_bar_shows_modin_pandas_for_general_functions(self):
+        """Test that progress bar messages show 'modin.pandas.read_json' instead of 'None.read_json' for general functions."""
+        with mock.patch("tqdm.auto.trange") as mock_trange:
+            mock_trange.return_value = range(2)
+
+            # Register a post-op switch for read_json (general function with class_name=None)
+            register_function_for_post_op_switch(
+                class_name=None, backend="Big_Data_Cloud", method="read_json"
+            )
+
+            # Create a small dataset that will trigger backend switch and show progress bar
+            json_input = json.dumps(
+                {"col0": list(range(BIG_DATA_CLOUD_MIN_NUM_ROWS - 1))}
+            )
+
+            # This should trigger a backend switch and show progress bar
+            result_df = pd.read_json(StringIO(json_input))
+            assert result_df.get_backend() == "Small_Data_Local"
+
+            # Verify that trange was called with correct progress bar message
+            mock_trange.assert_called_once()
+            call_args = mock_trange.call_args
+            desc = call_args[1]["desc"]  # Get the 'desc' keyword argument
+
+            assert desc.startswith(
+                "Transferring data from Big_Data_Cloud to Small_Data_Local for 'modin.pandas.read_json'"
+            )
 
     def test_agg(self):
         with backend_test_context(
@@ -931,6 +1017,119 @@ class TestSwitchBackendPostOpDependingOnDataSize:
                 "Small_Data_Local" if auto_switch_backend else "Big_Data_Cloud"
             )
             assert modin_groupby.get_backend() == "Big_Data_Cloud"
+
+    @pytest.mark.parametrize(
+        "groupby_class,groupby_operation,agg_operation",
+        [
+            param(
+                "DataFrameGroupBy",
+                lambda df: df.groupby("col0"),
+                lambda groupby: groupby.sum(),
+                id="DataFrameGroupBy",
+            ),
+            param(
+                "SeriesGroupBy",
+                lambda df: df.groupby("col0")["col1"],
+                lambda groupby: groupby.sum(),
+                id="SeriesGroupBy",
+            ),
+        ],
+    )
+    @backend_test_context(
+        test_backend="Big_Data_Cloud",
+        choices=("Big_Data_Cloud", "Small_Data_Local"),
+    )
+    def test_pinned_dataframe_prevents_groupby_backend_switch(
+        self, groupby_class, groupby_operation, agg_operation
+    ):
+        """Test that pinning a DataFrame prevents groupby operations from switching backends."""
+        modin_df, pandas_df = create_test_dfs(
+            {
+                "col0": list(range(BIG_DATA_CLOUD_MIN_NUM_ROWS - 1)),
+                "col1": list(range(1, BIG_DATA_CLOUD_MIN_NUM_ROWS)),
+            }
+        )
+
+        assert modin_df.get_backend() == "Big_Data_Cloud"
+
+        # Pin the DataFrame
+        modin_df.pin_backend(inplace=True)
+        assert modin_df.is_backend_pinned()
+
+        # Create groupby object - should inherit pin status from dataframe
+        modin_groupby = groupby_operation(modin_df)
+        pandas_groupby = groupby_operation(pandas_df)
+        assert modin_groupby.is_backend_pinned()  # Inherited from DataFrame
+
+        # Register a post-op switch that would normally move to Small_Data_Local
+        register_function_for_post_op_switch(
+            class_name=groupby_class, backend="Big_Data_Cloud", method="sum"
+        )
+
+        # The operation should stay on Big_Data_Cloud due to inherited pinning
+        modin_result = agg_operation(modin_groupby)
+        pandas_result = agg_operation(pandas_groupby)
+        df_equals(modin_result, pandas_result)
+        assert modin_result.get_backend() == "Big_Data_Cloud"
+
+    @pytest.mark.parametrize(
+        "groupby_class,groupby_operation,agg_operation",
+        [
+            param(
+                "DataFrameGroupBy",
+                lambda df: df.groupby("col0"),
+                lambda groupby: groupby.sum(),
+                id="DataFrameGroupBy",
+            ),
+            param(
+                "SeriesGroupBy",
+                lambda df: df.groupby("col0")["col1"],
+                lambda groupby: groupby.sum(),
+                id="SeriesGroupBy",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("inplace", [True, False], ids=["inplace", "not_inplace"])
+    @backend_test_context(
+        test_backend="Big_Data_Cloud",
+        choices=("Big_Data_Cloud", "Small_Data_Local"),
+    )
+    def test_pinned_groupby_prevents_backend_switch(
+        self, groupby_class, groupby_operation, agg_operation, inplace
+    ):
+        """Test that pinning a GroupBy object prevents operations from switching backends."""
+        modin_df, pandas_df = create_test_dfs(
+            {
+                "col0": list(range(BIG_DATA_CLOUD_MIN_NUM_ROWS - 1)),
+                "col1": list(range(1, BIG_DATA_CLOUD_MIN_NUM_ROWS)),
+            }
+        )
+
+        assert modin_df.get_backend() == "Big_Data_Cloud"
+
+        # Create groupby object and pin it
+        modin_groupby = groupby_operation(modin_df)
+        pandas_groupby = groupby_operation(pandas_df)
+
+        if inplace:
+            modin_groupby.pin_backend(inplace=True)
+            assert modin_groupby.is_backend_pinned()
+        else:
+            pinned_groupby = modin_groupby.pin_backend(inplace=False)
+            assert not modin_groupby.is_backend_pinned()
+            assert pinned_groupby.is_backend_pinned()
+            modin_groupby = pinned_groupby
+
+        # Register a post-op switch that would normally move to Small_Data_Local
+        register_function_for_post_op_switch(
+            class_name=groupby_class, backend="Big_Data_Cloud", method="sum"
+        )
+
+        # The operation should stay on Big_Data_Cloud due to pinning
+        modin_result = agg_operation(modin_groupby)
+        pandas_result = agg_operation(pandas_groupby)
+        df_equals(modin_result, pandas_result)
+        assert modin_result.get_backend() == "Big_Data_Cloud"
 
 
 class TestSwitchBackendPreOp:
@@ -1217,11 +1416,6 @@ class TestSwitchBackendPreOp:
             param(
                 BIG_DATA_CLOUD_MIN_NUM_ROWS - 1,
                 "Small_Data_Local",
-                marks=pytest.mark.xfail(
-                    strict=True,
-                    raises=NotImplementedError,
-                    reason="https://github.com/modin-project/modin/issues/7542",
-                ),
             ),
             (BIG_DATA_CLOUD_MIN_NUM_ROWS, "Big_Data_Cloud"),
         ],
@@ -1339,6 +1533,139 @@ def test_concat_with_pin(pin_backends, expected_backend):
             df_equals(
                 result, pandas.concat([pandas.DataFrame([1] * 10)] * len(pin_backends))
             )
+
+
+@pytest.mark.parametrize(
+    "groupby_operation",
+    [
+        param(
+            lambda df: df.groupby("col0"),
+            id="DataFrameGroupBy",
+        ),
+        param(
+            lambda df: df.groupby("col0")["col1"],
+            id="SeriesGroupBy",
+        ),
+    ],
+)
+def test_pin_groupby_in_place(groupby_operation):
+    """Test that groupby objects can be pinned with inplace=True."""
+    modin_df = pd.DataFrame(
+        {
+            "col0": list(range(BIG_DATA_CLOUD_MIN_NUM_ROWS - 1)),
+            "col1": list(range(1, BIG_DATA_CLOUD_MIN_NUM_ROWS)),
+        }
+    )
+
+    groupby_object = groupby_operation(modin_df)
+    assert not groupby_object.is_backend_pinned()
+
+    groupby_object.pin_backend(inplace=True)
+    assert groupby_object.is_backend_pinned()
+
+    groupby_object.unpin_backend(inplace=True)
+    assert not groupby_object.is_backend_pinned()
+
+
+@pytest.mark.parametrize(
+    "groupby_operation",
+    [
+        param(
+            lambda df: df.groupby("col0"),
+            id="DataFrameGroupBy",
+        ),
+        param(
+            lambda df: df.groupby("col0")["col1"],
+            id="SeriesGroupBy",
+        ),
+    ],
+)
+def test_pin_groupby_not_in_place(groupby_operation):
+    """Test that pin_backend works with inplace=False for groupby objects."""
+    original_groupby = groupby_operation(pd.DataFrame(columns=["col0", "col1"]))
+    assert not original_groupby.is_backend_pinned()
+    new_groupby = original_groupby.pin_backend(inplace=False)
+    assert not original_groupby.is_backend_pinned()
+    assert new_groupby.is_backend_pinned()
+
+
+@pytest.mark.parametrize(
+    "groupby_operation",
+    [
+        param(
+            lambda df: df.groupby("col0"),
+            id="DataFrameGroupBy",
+        ),
+        param(
+            lambda df: df.groupby("col0")["col1"],
+            id="SeriesGroupBy",
+        ),
+    ],
+)
+def test_unpin_groupby_not_in_place(groupby_operation):
+    """Test that unpin_backend works with inplace=False for groupby objects."""
+    original_groupby = groupby_operation(pd.DataFrame(columns=["col0", "col1"]))
+    original_groupby.pin_backend(inplace=True)
+    assert original_groupby.is_backend_pinned()
+    new_groupby = original_groupby.unpin_backend(inplace=False)
+    assert original_groupby.is_backend_pinned()
+    assert not new_groupby.is_backend_pinned()
+
+
+@pytest.mark.parametrize(
+    "data_type,data_factory,groupby_factory",
+    [
+        param(
+            "DataFrame",
+            lambda: pd.DataFrame(
+                {
+                    "col0": list(range(BIG_DATA_CLOUD_MIN_NUM_ROWS - 1)),
+                    "col1": list(range(1, BIG_DATA_CLOUD_MIN_NUM_ROWS)),
+                }
+            ),
+            lambda obj: obj.groupby("col0"),
+            id="DataFrame",
+        ),
+        param(
+            "Series",
+            lambda: pd.Series(list(range(1, BIG_DATA_CLOUD_MIN_NUM_ROWS)), name="data"),
+            lambda obj: obj.groupby([0] * (BIG_DATA_CLOUD_MIN_NUM_ROWS - 1)),
+            id="Series",
+        ),
+    ],
+)
+def test_groupby_pinning_reflects_parent_object_pin_status(
+    data_type, data_factory, groupby_factory
+):
+    """Test that groupby pinning inherits from parent object (DataFrame/Series) pin status but can be modified independently."""
+    modin_obj = data_factory()
+
+    old_groupby_obj = groupby_factory(modin_obj)
+
+    # Initially not pinned
+    assert not old_groupby_obj.is_backend_pinned()
+    assert not modin_obj.is_backend_pinned()
+
+    # Pin the parent object - new groupby objects should inherit this
+    modin_obj.pin_backend(inplace=True)
+
+    # Create a new groupby object after pinning parent object
+    new_groupby_obj = groupby_factory(modin_obj)
+
+    # New groupby should inherit the pinned status
+    assert new_groupby_obj.is_backend_pinned()
+    assert modin_obj.is_backend_pinned()
+
+    # But we can still modify groupby pinning independently
+    new_groupby_obj.unpin_backend(inplace=True)
+
+    # Parent object should remain pinned, groupby should be unpinned
+    assert not new_groupby_obj.is_backend_pinned()
+    assert modin_obj.is_backend_pinned()
+
+    assert not old_groupby_obj.is_backend_pinned()
+    old_groupby_obj.pin_backend(inplace=True)
+    assert old_groupby_obj.is_backend_pinned()
 
 
 def test_second_init_only_calls_from_pandas_once_github_issue_7559():

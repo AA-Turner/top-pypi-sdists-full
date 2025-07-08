@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ebmlite
-Version: 3.3.1
+Version: 3.4.0
 Summary: A lightweight, "pure Python" library for parsing EBML (Extensible Binary Markup Language) data.
 Home-page: https://github.com/MideTechnology/ebmlite/tree/master
 Author: Mide Technology
@@ -10,17 +10,35 @@ Keywords: ebml binary matroska webm
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
-Provides-Extra: test
 License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: pytest>=4.6; extra == "test"
+Requires-Dist: codecov; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: flake8<5.0; extra == "test"
+Requires-Dist: pytest-flake8; extra == "test"
+Requires-Dist: pytest-console-scripts; extra == "test"
+Requires-Dist: pytest-xdist[psutil]; extra == "test"
+Requires-Dist: filelock; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
-![example workflow](https://github.com/MideTechnology/ebmlite/actions/workflows/unit-tests.yml/badge.svg) [![codecov](https://codecov.io/gh/MideTechnology/ebmlite/branch/master/graph/badge.svg)](https://codecov.io/gh/MideTechnology/ebmlite) 
+[![PyPI Latest Release](https://img.shields.io/pypi/v/ebmlite.svg)](https://pypi.org/project/ebmlite/) ![example workflow](https://github.com/MideTechnology/ebmlite/actions/workflows/unit-tests.yml/badge.svg) [![codecov](https://codecov.io/gh/MideTechnology/ebmlite/branch/master/graph/badge.svg)](https://codecov.io/gh/MideTechnology/ebmlite) 
 
 
 

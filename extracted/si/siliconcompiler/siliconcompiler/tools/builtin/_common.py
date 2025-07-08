@@ -83,10 +83,10 @@ def _minmax(chip, *nodes, op=None):
                     real = chip.get('metric', metric, step=step, index=index)
                     if real is None:
                         raise SiliconCompilerError(
-                            f'Metric {metric} has goal for {step}{index} '
+                            f'Metric {metric} has goal for {step}/{index} '
                             'but it has not been set.', chip=chip)
                     if abs(real) > goal:
-                        chip.logger.warning(f"Step {step}{index} failed "
+                        chip.logger.warning(f"Step {step}/{index} failed "
                                             f"because it didn't meet goals for '{metric}' "
                                             "metric.")
                         failed[step][index] = True
@@ -122,7 +122,7 @@ def _minmax(chip, *nodes, op=None):
             real = chip.get('metric', metric, step=step, index=index)
             if real is None:
                 raise SiliconCompilerError(
-                    f'Metric {metric} has weight for {step}{index} '
+                    f'Metric {metric} has weight for {step}/{index} '
                     'but it has not been set.', chip=chip)
 
             if not (max_val[metric] - min_val[metric]) == 0:
@@ -153,10 +153,10 @@ def _select_inputs(chip, step, index):
 
     flow = chip.get('option', 'flow')
 
-    flow_schema = chip.schema.get("flowgraph", flow, field="schema")
+    flow_schema = chip.get("flowgraph", flow, field="schema")
     runtime = RuntimeFlowgraph(
         flow_schema,
         from_steps=set([step for step, _ in flow_schema.get_entry_nodes()]),
         prune_nodes=chip.get('option', 'prune'))
 
-    return runtime.get_node_inputs(step, index, record=chip.schema.get("record", field="schema"))
+    return runtime.get_node_inputs(step, index, record=chip.get("record", field="schema"))

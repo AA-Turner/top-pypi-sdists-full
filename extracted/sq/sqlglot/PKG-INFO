@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlglot
-Version: 26.33.0
+Version: 27.0.0
 Summary: An easily customizable SQL parser and transpiler
 Author-email: Toby Mao <toby.mao@gmail.com>
 License: MIT License
@@ -36,7 +36,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: SQL
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev

@@ -745,4 +745,3 @@ class VehicleMonitoringUseCase(BaseProcessor):
         }
         return canonical_id
 
-

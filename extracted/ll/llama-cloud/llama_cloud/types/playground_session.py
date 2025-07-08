@@ -4,9 +4,9 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
-from .app_schema_chat_chat_message import AppSchemaChatChatMessage
 from .llm_parameters import LlmParameters
 from .preset_retrieval_params import PresetRetrievalParams
+from .src_app_schema_chat_chat_message import SrcAppSchemaChatChatMessage
 
 try:
     import pydantic
@@ -33,7 +33,7 @@ class PlaygroundSession(pydantic.BaseModel):
     retrieval_params: typing.Optional[PresetRetrievalParams] = pydantic.Field(
         description="Preset retrieval parameters last used in this session."
     )
-    chat_messages: typing.Optional[typing.List[AppSchemaChatChatMessage]] = pydantic.Field(
+    chat_messages: typing.Optional[typing.List[SrcAppSchemaChatChatMessage]] = pydantic.Field(
         description="Chat message history for this session."
     )
 

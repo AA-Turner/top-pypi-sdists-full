@@ -22,7 +22,6 @@ from .resources.parsing.client import AsyncParsingClient, ParsingClient
 from .resources.pipelines.client import AsyncPipelinesClient, PipelinesClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.reports.client import AsyncReportsClient, ReportsClient
-from .resources.responses.client import AsyncResponsesClient, ResponsesClient
 from .resources.retrievers.client import AsyncRetrieversClient, RetrieversClient
 
 
@@ -48,7 +47,6 @@ class LlamaCloud:
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.files = FilesClient(client_wrapper=self._client_wrapper)
         self.pipelines = PipelinesClient(client_wrapper=self._client_wrapper)
-        self.responses = ResponsesClient(client_wrapper=self._client_wrapper)
         self.retrievers = RetrieversClient(client_wrapper=self._client_wrapper)
         self.jobs = JobsClient(client_wrapper=self._client_wrapper)
         self.evals = EvalsClient(client_wrapper=self._client_wrapper)
@@ -83,7 +81,6 @@ class AsyncLlamaCloud:
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.files = AsyncFilesClient(client_wrapper=self._client_wrapper)
         self.pipelines = AsyncPipelinesClient(client_wrapper=self._client_wrapper)
-        self.responses = AsyncResponsesClient(client_wrapper=self._client_wrapper)
         self.retrievers = AsyncRetrieversClient(client_wrapper=self._client_wrapper)
         self.jobs = AsyncJobsClient(client_wrapper=self._client_wrapper)
         self.evals = AsyncEvalsClient(client_wrapper=self._client_wrapper)

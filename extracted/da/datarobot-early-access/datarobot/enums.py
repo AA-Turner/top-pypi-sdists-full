@@ -1479,6 +1479,8 @@ class VectorDatabaseSource(StrEnum):
 
     DATAROBOT = "DataRobot"
     EXTERNAL = "External"
+    PINECONE = "Pinecone"
+    ELASTICSEARCH = "Elasticsearch"
 
 
 class VectorDatabaseExecutionStatus(StrEnum):
@@ -1686,6 +1688,21 @@ class VectorDatabaseRetrievers(StrEnum):
     MULTI_STEP_RETRIEVER = "MULTI_STEP_RETRIEVER"
 
 
+class PineconeCloud(StrEnum):
+    """Pinecone cloud values."""
+
+    AWS = "aws"
+    GCP = "gcp"
+    AZURE = "azure"
+
+
+class VectorDatabaseMetadataCombinationStrategy(StrEnum):
+    """Strategy for combining metadata from multiple files when adding data to a vector database."""
+
+    REPLACE = "replace"
+    MERGE = "merge"
+
+
 class GuardConditionComparator(StrEnum):
     """The comparator used in a guard condition."""
 
@@ -1856,3 +1873,10 @@ class ChunkingPartitionMethod(StrEnum):
 class PlaygroundType(StrEnum):
     RAG = "rag"
     AGENTIC = "agentic"
+
+
+class ToolCallAccuracyArgumentComparisonMode(StrEnum):
+    """Defines how to compare tool call arguments in the tool call accuracy metric."""
+
+    EXACT_MATCH = "exact_match"
+    IGNORE_ARGUMENTS = "ignore_arguments"

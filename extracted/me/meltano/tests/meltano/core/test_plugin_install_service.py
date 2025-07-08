@@ -155,10 +155,13 @@ class TestPluginInstallService:
         ]
 
     @pytest.mark.xfail(
-        platform.system() == "Windows" and sys.version_info >= (3, 13),
+        platform.system() == "Windows"
+        and sys.version_info >= (3, 13, 4)
+        and sys.version_info < (3, 13, 5),
         reason=(
-            "The test fails on Windows and Python 3.13+ because of missing wheels. "
-            "See https://github.com/closeio/ciso8601/issues/155."
+            "The test fails on Windows with Python 3.13.4 because the build "
+            "is broken and points to a free-threaded binary."
+            "See https://github.com/python/cpython/issues/135151."
         ),
     )
     @pytest.mark.slow
@@ -208,7 +211,7 @@ class TestPluginInstallService:
             "python-json-logger",
         ]
 
-    @patch("meltano.core.venv_service.VenvService.install_pip_args", AsyncMock())
+    @patch("meltano.core.venv_service.UvVenvService.install_pip_args", AsyncMock())
     @pytest.mark.usefixtures("reset_project_context")
     async def test_auto_install(
         self,
@@ -300,7 +303,7 @@ class TestPluginInstallService:
             "EXTERNAL_VAR": "value",
         }
 
-    @patch("meltano.core.venv_service.VenvService.install_pip_args", AsyncMock())
+    @patch("meltano.core.venv_service.UvVenvService.install_pip_args", AsyncMock())
     @pytest.mark.usefixtures("reset_project_context")
     async def test_auto_install_mapper_by_mapping(
         self,

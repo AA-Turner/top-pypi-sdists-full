@@ -24,6 +24,7 @@ class AutonomousContainerDatabaseArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[builtins.str],
                  patch_model: pulumi.Input[builtins.str],
+                 autonomous_container_database_backup_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_exadata_infrastructure_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_vm_cluster_id: Optional[pulumi.Input[builtins.str]] = None,
                  backup_config: Optional[pulumi.Input['AutonomousContainerDatabaseBackupConfigArgs']] = None,
@@ -57,6 +58,7 @@ class AutonomousContainerDatabaseArgs:
                  reinstate_trigger: Optional[pulumi.Input[builtins.int]] = None,
                  rotate_key_trigger: Optional[pulumi.Input[builtins.bool]] = None,
                  service_level_agreement_type: Optional[pulumi.Input[builtins.str]] = None,
+                 source: Optional[pulumi.Input[builtins.str]] = None,
                  standby_maintenance_buffer_in_days: Optional[pulumi.Input[builtins.int]] = None,
                  switchover_trigger: Optional[pulumi.Input[builtins.int]] = None,
                  vault_id: Optional[pulumi.Input[builtins.str]] = None,
@@ -99,6 +101,7 @@ class AutonomousContainerDatabaseArgs:
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[builtins.str] service_level_agreement_type: The service level agreement type of the Autonomous Container Database. The default is STANDARD. For an autonomous dataguard Autonomous Container Database, the specified Autonomous Exadata Infrastructure must be associated with a remote Autonomous Exadata Infrastructure.
+        :param pulumi.Input[builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
         :param pulumi.Input[builtins.int] standby_maintenance_buffer_in_days: (Updatable) The scheduling detail for the quarterly maintenance window of the standby Autonomous Container Database. This value represents the number of days before scheduled maintenance of the primary database.
         :param pulumi.Input[builtins.int] switchover_trigger: (Updatable) An optional property when incremented triggers Switchover. Could be set to any integer value.
         :param pulumi.Input[builtins.str] vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
@@ -107,6 +110,8 @@ class AutonomousContainerDatabaseArgs:
         """
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "patch_model", patch_model)
+        if autonomous_container_database_backup_id is not None:
+            pulumi.set(__self__, "autonomous_container_database_backup_id", autonomous_container_database_backup_id)
         if autonomous_exadata_infrastructure_id is not None:
             pulumi.set(__self__, "autonomous_exadata_infrastructure_id", autonomous_exadata_infrastructure_id)
         if autonomous_vm_cluster_id is not None:
@@ -173,6 +178,8 @@ class AutonomousContainerDatabaseArgs:
             pulumi.set(__self__, "rotate_key_trigger", rotate_key_trigger)
         if service_level_agreement_type is not None:
             pulumi.set(__self__, "service_level_agreement_type", service_level_agreement_type)
+        if source is not None:
+            pulumi.set(__self__, "source", source)
         if standby_maintenance_buffer_in_days is not None:
             pulumi.set(__self__, "standby_maintenance_buffer_in_days", standby_maintenance_buffer_in_days)
         if switchover_trigger is not None:
@@ -207,6 +214,15 @@ class AutonomousContainerDatabaseArgs:
     @patch_model.setter
     def patch_model(self, value: pulumi.Input[builtins.str]):
         pulumi.set(self, "patch_model", value)
+
+    @property
+    @pulumi.getter(name="autonomousContainerDatabaseBackupId")
+    def autonomous_container_database_backup_id(self) -> Optional[pulumi.Input[builtins.str]]:
+        return pulumi.get(self, "autonomous_container_database_backup_id")
+
+    @autonomous_container_database_backup_id.setter
+    def autonomous_container_database_backup_id(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "autonomous_container_database_backup_id", value)
 
     @property
     @pulumi.getter(name="autonomousExadataInfrastructureId")
@@ -599,6 +615,18 @@ class AutonomousContainerDatabaseArgs:
         pulumi.set(self, "service_level_agreement_type", value)
 
     @property
+    @pulumi.getter
+    def source(self) -> Optional[pulumi.Input[builtins.str]]:
+        """
+        The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
+        """
+        return pulumi.get(self, "source")
+
+    @source.setter
+    def source(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "source", value)
+
+    @property
     @pulumi.getter(name="standbyMaintenanceBufferInDays")
     def standby_maintenance_buffer_in_days(self) -> Optional[pulumi.Input[builtins.int]]:
         """
@@ -663,6 +691,7 @@ class AutonomousContainerDatabaseArgs:
 class _AutonomousContainerDatabaseState:
     def __init__(__self__, *,
                  associated_backup_configuration_details: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousContainerDatabaseAssociatedBackupConfigurationDetailArgs']]]] = None,
+                 autonomous_container_database_backup_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_exadata_infrastructure_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_vm_cluster_id: Optional[pulumi.Input[builtins.str]] = None,
                  availability_domain: Optional[pulumi.Input[builtins.str]] = None,
@@ -696,6 +725,7 @@ class _AutonomousContainerDatabaseState:
                  key_store_wallet_name: Optional[pulumi.Input[builtins.str]] = None,
                  key_version_id: Optional[pulumi.Input[builtins.str]] = None,
                  kms_key_id: Optional[pulumi.Input[builtins.str]] = None,
+                 kms_key_version_id: Optional[pulumi.Input[builtins.str]] = None,
                  largest_provisionable_autonomous_database_in_cpus: Optional[pulumi.Input[builtins.float]] = None,
                  last_maintenance_run_id: Optional[pulumi.Input[builtins.str]] = None,
                  lifecycle_details: Optional[pulumi.Input[builtins.str]] = None,
@@ -724,9 +754,11 @@ class _AutonomousContainerDatabaseState:
                  role: Optional[pulumi.Input[builtins.str]] = None,
                  rotate_key_trigger: Optional[pulumi.Input[builtins.bool]] = None,
                  service_level_agreement_type: Optional[pulumi.Input[builtins.str]] = None,
+                 source: Optional[pulumi.Input[builtins.str]] = None,
                  standby_maintenance_buffer_in_days: Optional[pulumi.Input[builtins.int]] = None,
                  state: Optional[pulumi.Input[builtins.str]] = None,
                  switchover_trigger: Optional[pulumi.Input[builtins.int]] = None,
+                 system_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[builtins.str]]]] = None,
                  time_created: Optional[pulumi.Input[builtins.str]] = None,
                  time_of_last_backup: Optional[pulumi.Input[builtins.str]] = None,
                  time_snapshot_standby_revert: Optional[pulumi.Input[builtins.str]] = None,
@@ -763,12 +795,13 @@ class _AutonomousContainerDatabaseState:
         :param pulumi.Input[builtins.bool] is_automatic_failover_enabled: Indicates whether Automatic Failover is enabled for Autonomous Container Database Dataguard Association. Input DataType: boolean. Example : is_automatic_failover_enabled = true.
         :param pulumi.Input[builtins.bool] is_data_guard_enabled: **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[builtins.bool] is_dst_file_update_enabled: (Updatable) Indicates if an automatic DST Time Zone file update is enabled for the Autonomous Container Database. If enabled along with Release Update, patching will be done in a Non-Rolling manner.
-        :param pulumi.Input[builtins.bool] is_multiple_standby: Whether it is multiple standby Autonomous Dataguard
+        :param pulumi.Input[builtins.bool] is_multiple_standby: Indicates if it is multiple standby Autonomous Dataguard
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousContainerDatabaseKeyHistoryEntryArgs']]] key_history_entries: Key History Entry.
         :param pulumi.Input[builtins.str] key_store_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the key store.
         :param pulumi.Input[builtins.str] key_store_wallet_name: The wallet name for Oracle Key Vault.
         :param pulumi.Input[builtins.str] key_version_id: The OCID of the key version that is used in rotate key operations.
         :param pulumi.Input[builtins.str] kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
+        :param pulumi.Input[builtins.str] kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
         :param pulumi.Input[builtins.float] largest_provisionable_autonomous_database_in_cpus: The largest Autonomous Database (CPU) that can be created in a new Autonomous Container Database.
         :param pulumi.Input[builtins.str] last_maintenance_run_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the last maintenance run.
         :param pulumi.Input[builtins.str] lifecycle_details: Additional information about the current lifecycle state.
@@ -788,11 +821,9 @@ class _AutonomousContainerDatabaseState:
         :param pulumi.Input[builtins.str] protection_mode: (Updatable) The protection mode of this Autonomous Data Guard association. For more information, see [Oracle Data Guard Protection Modes](http://docs.oracle.com/database/122/SBYDB/oracle-data-guard-protection-modes.htm#SBYDB02000) in the Oracle Data Guard documentation.
         :param pulumi.Input[Sequence[pulumi.Input[builtins.float]]] provisionable_cpuses: An array of CPU values that can be used to successfully provision a single Autonomous Database.
         :param pulumi.Input[builtins.float] provisioned_cpus: The number of CPUs provisioned in an Autonomous Container Database.
-               <<<<<<< ours
         :param pulumi.Input[builtins.float] reclaimable_cpus: For Autonomous Databases on Dedicated Exadata Infrastructure:
                * These are the CPUs that continue to be included in the count of CPUs available to the Autonomous Container Database even after one of its Autonomous Database is terminated or scaled down. You can release them to the available CPUs at its parent Autonomous VM Cluster level by restarting the Autonomous Container Database.
                * The CPU type (OCPUs or ECPUs) is determined by the parent Autonomous Exadata VM Cluster's compute model.
-               >>>>>>> theirs
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousContainerDatabaseRecoveryApplianceDetailArgs']]] recovery_appliance_details: Information about the recovery appliance configuration associated with the Autonomous Container Database.
         :param pulumi.Input[builtins.int] reinstate_trigger: (Updatable) An optional property when incremented triggers Reinstate. Could be set to any integer value.
         :param pulumi.Input[builtins.float] reserved_cpus: The number of CPUs reserved in an Autonomous Container Database.
@@ -804,9 +835,11 @@ class _AutonomousContainerDatabaseState:
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[builtins.str] service_level_agreement_type: The service level agreement type of the Autonomous Container Database. The default is STANDARD. For an autonomous dataguard Autonomous Container Database, the specified Autonomous Exadata Infrastructure must be associated with a remote Autonomous Exadata Infrastructure.
+        :param pulumi.Input[builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
         :param pulumi.Input[builtins.int] standby_maintenance_buffer_in_days: (Updatable) The scheduling detail for the quarterly maintenance window of the standby Autonomous Container Database. This value represents the number of days before scheduled maintenance of the primary database.
         :param pulumi.Input[builtins.str] state: The current state of the Autonomous Container Database.
         :param pulumi.Input[builtins.int] switchover_trigger: (Updatable) An optional property when incremented triggers Switchover. Could be set to any integer value.
+        :param pulumi.Input[Mapping[str, pulumi.Input[builtins.str]]] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param pulumi.Input[builtins.str] time_created: The date and time the Autonomous Container Database was created.
         :param pulumi.Input[builtins.str] time_of_last_backup: The timestamp of last successful backup. Here NULL value represents either there are no successful backups or backups are not configured for this Autonomous Container Database.
         :param pulumi.Input[builtins.str] time_snapshot_standby_revert: The date and time the Autonomous Container Database will be reverted to Standby from Snapshot Standby.
@@ -817,6 +850,8 @@ class _AutonomousContainerDatabaseState:
         """
         if associated_backup_configuration_details is not None:
             pulumi.set(__self__, "associated_backup_configuration_details", associated_backup_configuration_details)
+        if autonomous_container_database_backup_id is not None:
+            pulumi.set(__self__, "autonomous_container_database_backup_id", autonomous_container_database_backup_id)
         if autonomous_exadata_infrastructure_id is not None:
             pulumi.set(__self__, "autonomous_exadata_infrastructure_id", autonomous_exadata_infrastructure_id)
         if autonomous_vm_cluster_id is not None:
@@ -883,6 +918,8 @@ class _AutonomousContainerDatabaseState:
             pulumi.set(__self__, "key_version_id", key_version_id)
         if kms_key_id is not None:
             pulumi.set(__self__, "kms_key_id", kms_key_id)
+        if kms_key_version_id is not None:
+            pulumi.set(__self__, "kms_key_version_id", kms_key_version_id)
         if largest_provisionable_autonomous_database_in_cpus is not None:
             pulumi.set(__self__, "largest_provisionable_autonomous_database_in_cpus", largest_provisionable_autonomous_database_in_cpus)
         if last_maintenance_run_id is not None:
@@ -939,12 +976,16 @@ class _AutonomousContainerDatabaseState:
             pulumi.set(__self__, "rotate_key_trigger", rotate_key_trigger)
         if service_level_agreement_type is not None:
             pulumi.set(__self__, "service_level_agreement_type", service_level_agreement_type)
+        if source is not None:
+            pulumi.set(__self__, "source", source)
         if standby_maintenance_buffer_in_days is not None:
             pulumi.set(__self__, "standby_maintenance_buffer_in_days", standby_maintenance_buffer_in_days)
         if state is not None:
             pulumi.set(__self__, "state", state)
         if switchover_trigger is not None:
             pulumi.set(__self__, "switchover_trigger", switchover_trigger)
+        if system_tags is not None:
+            pulumi.set(__self__, "system_tags", system_tags)
         if time_created is not None:
             pulumi.set(__self__, "time_created", time_created)
         if time_of_last_backup is not None:
@@ -971,6 +1012,15 @@ class _AutonomousContainerDatabaseState:
     @associated_backup_configuration_details.setter
     def associated_backup_configuration_details(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousContainerDatabaseAssociatedBackupConfigurationDetailArgs']]]]):
         pulumi.set(self, "associated_backup_configuration_details", value)
+
+    @property
+    @pulumi.getter(name="autonomousContainerDatabaseBackupId")
+    def autonomous_container_database_backup_id(self) -> Optional[pulumi.Input[builtins.str]]:
+        return pulumi.get(self, "autonomous_container_database_backup_id")
+
+    @autonomous_container_database_backup_id.setter
+    def autonomous_container_database_backup_id(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "autonomous_container_database_backup_id", value)
 
     @property
     @pulumi.getter(name="autonomousExadataInfrastructureId")
@@ -1297,7 +1347,7 @@ class _AutonomousContainerDatabaseState:
     @pulumi.getter(name="isMultipleStandby")
     def is_multiple_standby(self) -> Optional[pulumi.Input[builtins.bool]]:
         """
-        Whether it is multiple standby Autonomous Dataguard
+        Indicates if it is multiple standby Autonomous Dataguard
         """
         return pulumi.get(self, "is_multiple_standby")
 
@@ -1364,6 +1414,18 @@ class _AutonomousContainerDatabaseState:
     @kms_key_id.setter
     def kms_key_id(self, value: Optional[pulumi.Input[builtins.str]]):
         pulumi.set(self, "kms_key_id", value)
+
+    @property
+    @pulumi.getter(name="kmsKeyVersionId")
+    def kms_key_version_id(self) -> Optional[pulumi.Input[builtins.str]]:
+        """
+        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
+        """
+        return pulumi.get(self, "kms_key_version_id")
+
+    @kms_key_version_id.setter
+    def kms_key_version_id(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "kms_key_version_id", value)
 
     @property
     @pulumi.getter(name="largestProvisionableAutonomousDatabaseInCpus")
@@ -1604,7 +1666,6 @@ class _AutonomousContainerDatabaseState:
     def provisioned_cpus(self) -> Optional[pulumi.Input[builtins.float]]:
         """
         The number of CPUs provisioned in an Autonomous Container Database.
-        <<<<<<< ours
         """
         return pulumi.get(self, "provisioned_cpus")
 
@@ -1619,7 +1680,6 @@ class _AutonomousContainerDatabaseState:
         For Autonomous Databases on Dedicated Exadata Infrastructure:
         * These are the CPUs that continue to be included in the count of CPUs available to the Autonomous Container Database even after one of its Autonomous Database is terminated or scaled down. You can release them to the available CPUs at its parent Autonomous VM Cluster level by restarting the Autonomous Container Database.
         * The CPU type (OCPUs or ECPUs) is determined by the parent Autonomous Exadata VM Cluster's compute model.
-        >>>>>>> theirs
         """
         return pulumi.get(self, "reclaimable_cpus")
 
@@ -1705,6 +1765,18 @@ class _AutonomousContainerDatabaseState:
         pulumi.set(self, "service_level_agreement_type", value)
 
     @property
+    @pulumi.getter
+    def source(self) -> Optional[pulumi.Input[builtins.str]]:
+        """
+        The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
+        """
+        return pulumi.get(self, "source")
+
+    @source.setter
+    def source(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "source", value)
+
+    @property
     @pulumi.getter(name="standbyMaintenanceBufferInDays")
     def standby_maintenance_buffer_in_days(self) -> Optional[pulumi.Input[builtins.int]]:
         """
@@ -1739,6 +1811,18 @@ class _AutonomousContainerDatabaseState:
     @switchover_trigger.setter
     def switchover_trigger(self, value: Optional[pulumi.Input[builtins.int]]):
         pulumi.set(self, "switchover_trigger", value)
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[builtins.str]]]]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
+
+    @system_tags.setter
+    def system_tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[builtins.str]]]]):
+        pulumi.set(self, "system_tags", value)
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -1831,6 +1915,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
+                 autonomous_container_database_backup_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_exadata_infrastructure_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_vm_cluster_id: Optional[pulumi.Input[builtins.str]] = None,
                  backup_config: Optional[pulumi.Input[Union['AutonomousContainerDatabaseBackupConfigArgs', 'AutonomousContainerDatabaseBackupConfigArgsDict']]] = None,
@@ -1866,6 +1951,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
                  reinstate_trigger: Optional[pulumi.Input[builtins.int]] = None,
                  rotate_key_trigger: Optional[pulumi.Input[builtins.bool]] = None,
                  service_level_agreement_type: Optional[pulumi.Input[builtins.str]] = None,
+                 source: Optional[pulumi.Input[builtins.str]] = None,
                  standby_maintenance_buffer_in_days: Optional[pulumi.Input[builtins.int]] = None,
                  switchover_trigger: Optional[pulumi.Input[builtins.int]] = None,
                  vault_id: Optional[pulumi.Input[builtins.str]] = None,
@@ -1922,6 +2008,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[builtins.str] service_level_agreement_type: The service level agreement type of the Autonomous Container Database. The default is STANDARD. For an autonomous dataguard Autonomous Container Database, the specified Autonomous Exadata Infrastructure must be associated with a remote Autonomous Exadata Infrastructure.
+        :param pulumi.Input[builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
         :param pulumi.Input[builtins.int] standby_maintenance_buffer_in_days: (Updatable) The scheduling detail for the quarterly maintenance window of the standby Autonomous Container Database. This value represents the number of days before scheduled maintenance of the primary database.
         :param pulumi.Input[builtins.int] switchover_trigger: (Updatable) An optional property when incremented triggers Switchover. Could be set to any integer value.
         :param pulumi.Input[builtins.str] vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
@@ -1962,6 +2049,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
+                 autonomous_container_database_backup_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_exadata_infrastructure_id: Optional[pulumi.Input[builtins.str]] = None,
                  autonomous_vm_cluster_id: Optional[pulumi.Input[builtins.str]] = None,
                  backup_config: Optional[pulumi.Input[Union['AutonomousContainerDatabaseBackupConfigArgs', 'AutonomousContainerDatabaseBackupConfigArgsDict']]] = None,
@@ -1997,6 +2085,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
                  reinstate_trigger: Optional[pulumi.Input[builtins.int]] = None,
                  rotate_key_trigger: Optional[pulumi.Input[builtins.bool]] = None,
                  service_level_agreement_type: Optional[pulumi.Input[builtins.str]] = None,
+                 source: Optional[pulumi.Input[builtins.str]] = None,
                  standby_maintenance_buffer_in_days: Optional[pulumi.Input[builtins.int]] = None,
                  switchover_trigger: Optional[pulumi.Input[builtins.int]] = None,
                  vault_id: Optional[pulumi.Input[builtins.str]] = None,
@@ -2011,6 +2100,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = AutonomousContainerDatabaseArgs.__new__(AutonomousContainerDatabaseArgs)
 
+            __props__.__dict__["autonomous_container_database_backup_id"] = autonomous_container_database_backup_id
             __props__.__dict__["autonomous_exadata_infrastructure_id"] = autonomous_exadata_infrastructure_id
             __props__.__dict__["autonomous_vm_cluster_id"] = autonomous_vm_cluster_id
             __props__.__dict__["backup_config"] = backup_config
@@ -2050,6 +2140,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
             __props__.__dict__["reinstate_trigger"] = reinstate_trigger
             __props__.__dict__["rotate_key_trigger"] = rotate_key_trigger
             __props__.__dict__["service_level_agreement_type"] = service_level_agreement_type
+            __props__.__dict__["source"] = source
             __props__.__dict__["standby_maintenance_buffer_in_days"] = standby_maintenance_buffer_in_days
             __props__.__dict__["switchover_trigger"] = switchover_trigger
             __props__.__dict__["vault_id"] = vault_id
@@ -2068,6 +2159,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
             __props__.__dict__["is_multiple_standby"] = None
             __props__.__dict__["key_history_entries"] = None
             __props__.__dict__["key_store_wallet_name"] = None
+            __props__.__dict__["kms_key_version_id"] = None
             __props__.__dict__["largest_provisionable_autonomous_database_in_cpus"] = None
             __props__.__dict__["last_maintenance_run_id"] = None
             __props__.__dict__["lifecycle_details"] = None
@@ -2083,6 +2175,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
             __props__.__dict__["reserved_cpus"] = None
             __props__.__dict__["role"] = None
             __props__.__dict__["state"] = None
+            __props__.__dict__["system_tags"] = None
             __props__.__dict__["time_created"] = None
             __props__.__dict__["time_of_last_backup"] = None
             __props__.__dict__["time_snapshot_standby_revert"] = None
@@ -2098,6 +2191,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             associated_backup_configuration_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousContainerDatabaseAssociatedBackupConfigurationDetailArgs', 'AutonomousContainerDatabaseAssociatedBackupConfigurationDetailArgsDict']]]]] = None,
+            autonomous_container_database_backup_id: Optional[pulumi.Input[builtins.str]] = None,
             autonomous_exadata_infrastructure_id: Optional[pulumi.Input[builtins.str]] = None,
             autonomous_vm_cluster_id: Optional[pulumi.Input[builtins.str]] = None,
             availability_domain: Optional[pulumi.Input[builtins.str]] = None,
@@ -2131,6 +2225,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
             key_store_wallet_name: Optional[pulumi.Input[builtins.str]] = None,
             key_version_id: Optional[pulumi.Input[builtins.str]] = None,
             kms_key_id: Optional[pulumi.Input[builtins.str]] = None,
+            kms_key_version_id: Optional[pulumi.Input[builtins.str]] = None,
             largest_provisionable_autonomous_database_in_cpus: Optional[pulumi.Input[builtins.float]] = None,
             last_maintenance_run_id: Optional[pulumi.Input[builtins.str]] = None,
             lifecycle_details: Optional[pulumi.Input[builtins.str]] = None,
@@ -2159,9 +2254,11 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
             role: Optional[pulumi.Input[builtins.str]] = None,
             rotate_key_trigger: Optional[pulumi.Input[builtins.bool]] = None,
             service_level_agreement_type: Optional[pulumi.Input[builtins.str]] = None,
+            source: Optional[pulumi.Input[builtins.str]] = None,
             standby_maintenance_buffer_in_days: Optional[pulumi.Input[builtins.int]] = None,
             state: Optional[pulumi.Input[builtins.str]] = None,
             switchover_trigger: Optional[pulumi.Input[builtins.int]] = None,
+            system_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[builtins.str]]]] = None,
             time_created: Optional[pulumi.Input[builtins.str]] = None,
             time_of_last_backup: Optional[pulumi.Input[builtins.str]] = None,
             time_snapshot_standby_revert: Optional[pulumi.Input[builtins.str]] = None,
@@ -2203,12 +2300,13 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         :param pulumi.Input[builtins.bool] is_automatic_failover_enabled: Indicates whether Automatic Failover is enabled for Autonomous Container Database Dataguard Association. Input DataType: boolean. Example : is_automatic_failover_enabled = true.
         :param pulumi.Input[builtins.bool] is_data_guard_enabled: **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[builtins.bool] is_dst_file_update_enabled: (Updatable) Indicates if an automatic DST Time Zone file update is enabled for the Autonomous Container Database. If enabled along with Release Update, patching will be done in a Non-Rolling manner.
-        :param pulumi.Input[builtins.bool] is_multiple_standby: Whether it is multiple standby Autonomous Dataguard
+        :param pulumi.Input[builtins.bool] is_multiple_standby: Indicates if it is multiple standby Autonomous Dataguard
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousContainerDatabaseKeyHistoryEntryArgs', 'AutonomousContainerDatabaseKeyHistoryEntryArgsDict']]]] key_history_entries: Key History Entry.
         :param pulumi.Input[builtins.str] key_store_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the key store.
         :param pulumi.Input[builtins.str] key_store_wallet_name: The wallet name for Oracle Key Vault.
         :param pulumi.Input[builtins.str] key_version_id: The OCID of the key version that is used in rotate key operations.
         :param pulumi.Input[builtins.str] kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
+        :param pulumi.Input[builtins.str] kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
         :param pulumi.Input[builtins.float] largest_provisionable_autonomous_database_in_cpus: The largest Autonomous Database (CPU) that can be created in a new Autonomous Container Database.
         :param pulumi.Input[builtins.str] last_maintenance_run_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the last maintenance run.
         :param pulumi.Input[builtins.str] lifecycle_details: Additional information about the current lifecycle state.
@@ -2228,11 +2326,9 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         :param pulumi.Input[builtins.str] protection_mode: (Updatable) The protection mode of this Autonomous Data Guard association. For more information, see [Oracle Data Guard Protection Modes](http://docs.oracle.com/database/122/SBYDB/oracle-data-guard-protection-modes.htm#SBYDB02000) in the Oracle Data Guard documentation.
         :param pulumi.Input[Sequence[pulumi.Input[builtins.float]]] provisionable_cpuses: An array of CPU values that can be used to successfully provision a single Autonomous Database.
         :param pulumi.Input[builtins.float] provisioned_cpus: The number of CPUs provisioned in an Autonomous Container Database.
-               <<<<<<< ours
         :param pulumi.Input[builtins.float] reclaimable_cpus: For Autonomous Databases on Dedicated Exadata Infrastructure:
                * These are the CPUs that continue to be included in the count of CPUs available to the Autonomous Container Database even after one of its Autonomous Database is terminated or scaled down. You can release them to the available CPUs at its parent Autonomous VM Cluster level by restarting the Autonomous Container Database.
                * The CPU type (OCPUs or ECPUs) is determined by the parent Autonomous Exadata VM Cluster's compute model.
-               >>>>>>> theirs
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousContainerDatabaseRecoveryApplianceDetailArgs', 'AutonomousContainerDatabaseRecoveryApplianceDetailArgsDict']]]] recovery_appliance_details: Information about the recovery appliance configuration associated with the Autonomous Container Database.
         :param pulumi.Input[builtins.int] reinstate_trigger: (Updatable) An optional property when incremented triggers Reinstate. Could be set to any integer value.
         :param pulumi.Input[builtins.float] reserved_cpus: The number of CPUs reserved in an Autonomous Container Database.
@@ -2244,9 +2340,11 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[builtins.str] service_level_agreement_type: The service level agreement type of the Autonomous Container Database. The default is STANDARD. For an autonomous dataguard Autonomous Container Database, the specified Autonomous Exadata Infrastructure must be associated with a remote Autonomous Exadata Infrastructure.
+        :param pulumi.Input[builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
         :param pulumi.Input[builtins.int] standby_maintenance_buffer_in_days: (Updatable) The scheduling detail for the quarterly maintenance window of the standby Autonomous Container Database. This value represents the number of days before scheduled maintenance of the primary database.
         :param pulumi.Input[builtins.str] state: The current state of the Autonomous Container Database.
         :param pulumi.Input[builtins.int] switchover_trigger: (Updatable) An optional property when incremented triggers Switchover. Could be set to any integer value.
+        :param pulumi.Input[Mapping[str, pulumi.Input[builtins.str]]] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param pulumi.Input[builtins.str] time_created: The date and time the Autonomous Container Database was created.
         :param pulumi.Input[builtins.str] time_of_last_backup: The timestamp of last successful backup. Here NULL value represents either there are no successful backups or backups are not configured for this Autonomous Container Database.
         :param pulumi.Input[builtins.str] time_snapshot_standby_revert: The date and time the Autonomous Container Database will be reverted to Standby from Snapshot Standby.
@@ -2260,6 +2358,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         __props__ = _AutonomousContainerDatabaseState.__new__(_AutonomousContainerDatabaseState)
 
         __props__.__dict__["associated_backup_configuration_details"] = associated_backup_configuration_details
+        __props__.__dict__["autonomous_container_database_backup_id"] = autonomous_container_database_backup_id
         __props__.__dict__["autonomous_exadata_infrastructure_id"] = autonomous_exadata_infrastructure_id
         __props__.__dict__["autonomous_vm_cluster_id"] = autonomous_vm_cluster_id
         __props__.__dict__["availability_domain"] = availability_domain
@@ -2293,6 +2392,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         __props__.__dict__["key_store_wallet_name"] = key_store_wallet_name
         __props__.__dict__["key_version_id"] = key_version_id
         __props__.__dict__["kms_key_id"] = kms_key_id
+        __props__.__dict__["kms_key_version_id"] = kms_key_version_id
         __props__.__dict__["largest_provisionable_autonomous_database_in_cpus"] = largest_provisionable_autonomous_database_in_cpus
         __props__.__dict__["last_maintenance_run_id"] = last_maintenance_run_id
         __props__.__dict__["lifecycle_details"] = lifecycle_details
@@ -2321,9 +2421,11 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         __props__.__dict__["role"] = role
         __props__.__dict__["rotate_key_trigger"] = rotate_key_trigger
         __props__.__dict__["service_level_agreement_type"] = service_level_agreement_type
+        __props__.__dict__["source"] = source
         __props__.__dict__["standby_maintenance_buffer_in_days"] = standby_maintenance_buffer_in_days
         __props__.__dict__["state"] = state
         __props__.__dict__["switchover_trigger"] = switchover_trigger
+        __props__.__dict__["system_tags"] = system_tags
         __props__.__dict__["time_created"] = time_created
         __props__.__dict__["time_of_last_backup"] = time_of_last_backup
         __props__.__dict__["time_snapshot_standby_revert"] = time_snapshot_standby_revert
@@ -2340,6 +2442,11 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         A backup config object holds information about preferred backup destinations only. This object holds information about the associated backup destinations, such as secondary backup destinations created for local backups or remote replicated backups.
         """
         return pulumi.get(self, "associated_backup_configuration_details")
+
+    @property
+    @pulumi.getter(name="autonomousContainerDatabaseBackupId")
+    def autonomous_container_database_backup_id(self) -> pulumi.Output[builtins.str]:
+        return pulumi.get(self, "autonomous_container_database_backup_id")
 
     @property
     @pulumi.getter(name="autonomousExadataInfrastructureId")
@@ -2558,7 +2665,7 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isMultipleStandby")
     def is_multiple_standby(self) -> pulumi.Output[builtins.bool]:
         """
-        Whether it is multiple standby Autonomous Dataguard
+        Indicates if it is multiple standby Autonomous Dataguard
         """
         return pulumi.get(self, "is_multiple_standby")
 
@@ -2601,6 +2708,14 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
         """
         return pulumi.get(self, "kms_key_id")
+
+    @property
+    @pulumi.getter(name="kmsKeyVersionId")
+    def kms_key_version_id(self) -> pulumi.Output[builtins.str]:
+        """
+        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
+        """
+        return pulumi.get(self, "kms_key_version_id")
 
     @property
     @pulumi.getter(name="largestProvisionableAutonomousDatabaseInCpus")
@@ -2761,7 +2876,6 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
     def provisioned_cpus(self) -> pulumi.Output[builtins.float]:
         """
         The number of CPUs provisioned in an Autonomous Container Database.
-        <<<<<<< ours
         """
         return pulumi.get(self, "provisioned_cpus")
 
@@ -2772,7 +2886,6 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         For Autonomous Databases on Dedicated Exadata Infrastructure:
         * These are the CPUs that continue to be included in the count of CPUs available to the Autonomous Container Database even after one of its Autonomous Database is terminated or scaled down. You can release them to the available CPUs at its parent Autonomous VM Cluster level by restarting the Autonomous Container Database.
         * The CPU type (OCPUs or ECPUs) is determined by the parent Autonomous Exadata VM Cluster's compute model.
-        >>>>>>> theirs
         """
         return pulumi.get(self, "reclaimable_cpus")
 
@@ -2830,6 +2943,14 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         return pulumi.get(self, "service_level_agreement_type")
 
     @property
+    @pulumi.getter
+    def source(self) -> pulumi.Output[builtins.str]:
+        """
+        The source of the database: Use `NONE` for creating a new Autonomous Container Database. Use `BACKUP_FROM_ID` for creating a new Autonomous Container Database from a specified backup.
+        """
+        return pulumi.get(self, "source")
+
+    @property
     @pulumi.getter(name="standbyMaintenanceBufferInDays")
     def standby_maintenance_buffer_in_days(self) -> pulumi.Output[builtins.int]:
         """
@@ -2852,6 +2973,14 @@ class AutonomousContainerDatabase(pulumi.CustomResource):
         (Updatable) An optional property when incremented triggers Switchover. Could be set to any integer value.
         """
         return pulumi.get(self, "switchover_trigger")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> pulumi.Output[Mapping[str, builtins.str]]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")

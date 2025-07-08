@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, TYPE_CHECKING, Union
 from ..enums import SNAPSHOT_POLICY
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class SecondaryDatasetDict(TypedDict):
         identifier: str

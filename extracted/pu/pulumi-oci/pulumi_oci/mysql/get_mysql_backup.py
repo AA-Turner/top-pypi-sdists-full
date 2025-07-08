@@ -28,7 +28,7 @@ class GetMysqlBackupResult:
     """
     A collection of values returned by getMysqlBackup.
     """
-    def __init__(__self__, backup_id=None, backup_size_in_gbs=None, backup_type=None, compartment_id=None, creation_type=None, data_storage_size_in_gb=None, db_system_id=None, db_system_snapshot_summaries=None, db_system_snapshots=None, defined_tags=None, description=None, display_name=None, freeform_tags=None, id=None, immediate_source_backup_id=None, lifecycle_details=None, mysql_version=None, original_source_backup_id=None, retention_in_days=None, shape_name=None, source_details=None, state=None, system_tags=None, time_copy_created=None, time_created=None, time_updated=None):
+    def __init__(__self__, backup_id=None, backup_size_in_gbs=None, backup_type=None, compartment_id=None, creation_type=None, data_storage_size_in_gb=None, db_system_id=None, db_system_snapshot_summaries=None, db_system_snapshots=None, defined_tags=None, description=None, display_name=None, encrypt_datas=None, freeform_tags=None, id=None, immediate_source_backup_id=None, lifecycle_details=None, mysql_version=None, original_source_backup_id=None, retention_in_days=None, shape_name=None, soft_delete=None, source_details=None, state=None, system_tags=None, time_copy_created=None, time_created=None, time_updated=None):
         if backup_id and not isinstance(backup_id, str):
             raise TypeError("Expected argument 'backup_id' to be a str")
         pulumi.set(__self__, "backup_id", backup_id)
@@ -65,6 +65,9 @@ class GetMysqlBackupResult:
         if display_name and not isinstance(display_name, str):
             raise TypeError("Expected argument 'display_name' to be a str")
         pulumi.set(__self__, "display_name", display_name)
+        if encrypt_datas and not isinstance(encrypt_datas, list):
+            raise TypeError("Expected argument 'encrypt_datas' to be a list")
+        pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         if freeform_tags and not isinstance(freeform_tags, dict):
             raise TypeError("Expected argument 'freeform_tags' to be a dict")
         pulumi.set(__self__, "freeform_tags", freeform_tags)
@@ -89,6 +92,9 @@ class GetMysqlBackupResult:
         if shape_name and not isinstance(shape_name, str):
             raise TypeError("Expected argument 'shape_name' to be a str")
         pulumi.set(__self__, "shape_name", shape_name)
+        if soft_delete and not isinstance(soft_delete, str):
+            raise TypeError("Expected argument 'soft_delete' to be a str")
+        pulumi.set(__self__, "soft_delete", soft_delete)
         if source_details and not isinstance(source_details, list):
             raise TypeError("Expected argument 'source_details' to be a list")
         pulumi.set(__self__, "source_details", source_details)
@@ -199,6 +205,14 @@ class GetMysqlBackupResult:
         return pulumi.get(self, "display_name")
 
     @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Sequence['outputs.GetMysqlBackupEncryptDataResult']:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
+
+    @property
     @pulumi.getter(name="freeformTags")
     def freeform_tags(self) -> Mapping[str, builtins.str]:
         """
@@ -261,6 +275,14 @@ class GetMysqlBackupResult:
         The shape of the DB System instance used for backup.
         """
         return pulumi.get(self, "shape_name")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> builtins.str:
+        """
+        Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="sourceDetails")
@@ -326,6 +348,7 @@ class AwaitableGetMysqlBackupResult(GetMysqlBackupResult):
             defined_tags=self.defined_tags,
             description=self.description,
             display_name=self.display_name,
+            encrypt_datas=self.encrypt_datas,
             freeform_tags=self.freeform_tags,
             id=self.id,
             immediate_source_backup_id=self.immediate_source_backup_id,
@@ -334,6 +357,7 @@ class AwaitableGetMysqlBackupResult(GetMysqlBackupResult):
             original_source_backup_id=self.original_source_backup_id,
             retention_in_days=self.retention_in_days,
             shape_name=self.shape_name,
+            soft_delete=self.soft_delete,
             source_details=self.source_details,
             state=self.state,
             system_tags=self.system_tags,
@@ -379,6 +403,7 @@ def get_mysql_backup(backup_id: Optional[builtins.str] = None,
         defined_tags=pulumi.get(__ret__, 'defined_tags'),
         description=pulumi.get(__ret__, 'description'),
         display_name=pulumi.get(__ret__, 'display_name'),
+        encrypt_datas=pulumi.get(__ret__, 'encrypt_datas'),
         freeform_tags=pulumi.get(__ret__, 'freeform_tags'),
         id=pulumi.get(__ret__, 'id'),
         immediate_source_backup_id=pulumi.get(__ret__, 'immediate_source_backup_id'),
@@ -387,6 +412,7 @@ def get_mysql_backup(backup_id: Optional[builtins.str] = None,
         original_source_backup_id=pulumi.get(__ret__, 'original_source_backup_id'),
         retention_in_days=pulumi.get(__ret__, 'retention_in_days'),
         shape_name=pulumi.get(__ret__, 'shape_name'),
+        soft_delete=pulumi.get(__ret__, 'soft_delete'),
         source_details=pulumi.get(__ret__, 'source_details'),
         state=pulumi.get(__ret__, 'state'),
         system_tags=pulumi.get(__ret__, 'system_tags'),
@@ -429,6 +455,7 @@ def get_mysql_backup_output(backup_id: Optional[pulumi.Input[builtins.str]] = No
         defined_tags=pulumi.get(__response__, 'defined_tags'),
         description=pulumi.get(__response__, 'description'),
         display_name=pulumi.get(__response__, 'display_name'),
+        encrypt_datas=pulumi.get(__response__, 'encrypt_datas'),
         freeform_tags=pulumi.get(__response__, 'freeform_tags'),
         id=pulumi.get(__response__, 'id'),
         immediate_source_backup_id=pulumi.get(__response__, 'immediate_source_backup_id'),
@@ -437,6 +464,7 @@ def get_mysql_backup_output(backup_id: Optional[pulumi.Input[builtins.str]] = No
         original_source_backup_id=pulumi.get(__response__, 'original_source_backup_id'),
         retention_in_days=pulumi.get(__response__, 'retention_in_days'),
         shape_name=pulumi.get(__response__, 'shape_name'),
+        soft_delete=pulumi.get(__response__, 'soft_delete'),
         source_details=pulumi.get(__response__, 'source_details'),
         state=pulumi.get(__response__, 'state'),
         system_tags=pulumi.get(__response__, 'system_tags'),

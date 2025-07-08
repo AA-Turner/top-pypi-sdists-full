@@ -951,6 +951,7 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `S3_METADATA_EVENTS`: S3 Metadata Events
     * `S3_QL_EVENTS`: S3 Query Log Events
     * `SALESFORCE_CRM`: Salesforce CRM
+    * `SALESFORCE_DATA_CLOUD`: Salesforce Data Cloud
     * `SELF_HOSTED_KAFKA`: Self Hosted Kafka
     * `SELF_HOSTED_KAFKA_CONNECT`: Self Hosted Kafka Connect
     * `SNOWFLAKE`: Snowflake
@@ -999,6 +1000,7 @@ class ConnectionModelType(sgqlc.types.Enum):
         "S3_METADATA_EVENTS",
         "S3_QL_EVENTS",
         "SALESFORCE_CRM",
+        "SALESFORCE_DATA_CLOUD",
         "SELF_HOSTED_KAFKA",
         "SELF_HOSTED_KAFKA_CONNECT",
         "SNOWFLAKE",
@@ -1079,6 +1081,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `S3_METADATA_EVENTS`None
     * `S3_QL_EVENTS`None
     * `SALESFORCE_CRM`None
+    * `SALESFORCE_DATA_CLOUD`None
     * `SELF_HOSTED_KAFKA`None
     * `SELF_HOSTED_KAFKA_CONNECT`None
     * `SNOWFLAKE`None
@@ -1127,6 +1130,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "S3_METADATA_EVENTS",
         "S3_QL_EVENTS",
         "SALESFORCE_CRM",
+        "SALESFORCE_DATA_CLOUD",
         "SELF_HOSTED_KAFKA",
         "SELF_HOSTED_KAFKA_CONNECT",
         "SNOWFLAKE",
@@ -3095,6 +3099,44 @@ class JobPerformanceFacet(sgqlc.types.Enum):
     __choices__ = ("DBT_PROJECT", "DOMAIN", "JOB_NAME", "JOB_TYPE", "LAST_RUN_STATUS", "TAGS")
 
 
+class JobTypeEnum(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AGENT_REACHABILITY`None
+    * `DIRECT_LINEAGE`None
+    * `ETL`None
+    * `JSON_SCHEMA`None
+    * `METADATA`None
+    * `QUERY_LOGS`None
+    * `QUERY_LOGS_BOOTSTRAP`None
+    * `REPORTS`None
+    * `S3_METADATA_EVENTS`None
+    * `S3_QL_EVENTS`None
+    * `SLO`None
+    * `SQL_QUERY`None
+    * `STREAM_METADATA`None
+    * `TABLEAU_GQL`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AGENT_REACHABILITY",
+        "DIRECT_LINEAGE",
+        "ETL",
+        "JSON_SCHEMA",
+        "METADATA",
+        "QUERY_LOGS",
+        "QUERY_LOGS_BOOTSTRAP",
+        "REPORTS",
+        "S3_METADATA_EVENTS",
+        "S3_QL_EVENTS",
+        "SLO",
+        "SQL_QUERY",
+        "STREAM_METADATA",
+        "TABLEAU_GQL",
+    )
+
+
 class JobsPerformanceSummarySort(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -3721,6 +3763,7 @@ class Permission(sgqlc.types.Enum):
     * `SettingsMutedDataAccess`None
     * `SettingsMutedDataEdit`None
     * `SettingsNotificationsAccess`None
+    * `SettingsNotificationsEdit`None
     * `SettingsPiiFiltersEdit`None
     * `SettingsPiiFiltersList`None
     * `SettingsPiiFiltersViewMetrics`None
@@ -3783,6 +3826,7 @@ class Permission(sgqlc.types.Enum):
         "SettingsMutedDataAccess",
         "SettingsMutedDataEdit",
         "SettingsNotificationsAccess",
+        "SettingsNotificationsEdit",
         "SettingsPiiFiltersEdit",
         "SettingsPiiFiltersList",
         "SettingsPiiFiltersViewMetrics",
@@ -4520,6 +4564,7 @@ class SqlDialect(sgqlc.types.Enum):
     * `PRESTO`None
     * `REDSHIFT`None
     * `SALESFORCE_CRM`None
+    * `SALESFORCE_DATA_CLOUD`None
     * `SAPHANA`None
     * `SNOWFLAKE`None
     * `SPARK`None
@@ -4543,6 +4588,7 @@ class SqlDialect(sgqlc.types.Enum):
         "PRESTO",
         "REDSHIFT",
         "SALESFORCE_CRM",
+        "SALESFORCE_DATA_CLOUD",
         "SAPHANA",
         "SNOWFLAKE",
         "SPARK",
@@ -5247,6 +5293,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
     * `REDSHIFT`: Amazon Redshift
     * `S3_METADATA_EVENTS`: S3 Metadata Events
     * `SALESFORCE_CRM`: salesforce-crm
+    * `SALESFORCE_DATA_CLOUD`: Salesforce Data Cloud
     * `SNOWFLAKE`: Snowflake
     * `TERADATA`: Teradata
     * `TRANSACTIONAL_DB`: Transactional DB
@@ -5264,6 +5311,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
         "REDSHIFT",
         "S3_METADATA_EVENTS",
         "SALESFORCE_CRM",
+        "SALESFORCE_DATA_CLOUD",
         "SNOWFLAKE",
         "TERADATA",
         "TRANSACTIONAL_DB",
@@ -9529,6 +9577,9 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
         "user",
         "password",
         "token",
+        "consumer_key",
+        "consumer_secret",
+        "domain",
         "connection_settings",
         "ssl_options",
     )
@@ -9552,6 +9603,15 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
 
     token = sgqlc.types.Field(String, graphql_name="token")
     """Token to access the database"""
+
+    consumer_key = sgqlc.types.Field(String, graphql_name="consumerKey")
+    """OAuth client ID or consumer key"""
+
+    consumer_secret = sgqlc.types.Field(String, graphql_name="consumerSecret")
+    """OAuth client secret or consumer secret"""
+
+    domain = sgqlc.types.Field(String, graphql_name="domain")
+    """Domain to use for the connection"""
 
     connection_settings = sgqlc.types.Field(
         "TransactionalDbUpdateConnectionSettings", graphql_name="connectionSettings"
@@ -16288,6 +16348,29 @@ class DataCollectorSchedule(sgqlc.types.Type):
     """
 
 
+class DataCollectorScheduleInfo(sgqlc.types.Type):
+    """Detailed information about a data collector schedule"""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "resource_id", "job_type", "limits", "interval_in_seconds")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """UUID of the schedule"""
+
+    resource_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="resourceId")
+    """Resource ID (warehouse UUID) this schedule belongs to"""
+
+    job_type = sgqlc.types.Field(sgqlc.types.non_null(JobTypeEnum), graphql_name="jobType")
+    """Type of job (metadata, query_logs, etc.)"""
+
+    limits = sgqlc.types.Field(JSONString, graphql_name="limits")
+    """Limits configuration for the job"""
+
+    interval_in_seconds = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="intervalInSeconds"
+    )
+    """Interval between job runs in seconds"""
+
+
 class DataExplorerComparisonDashboardTypeConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -21347,6 +21430,9 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         "exceptions_detail",
         "runtime_variables",
         "comparison_data_source_type",
+        "total_invocations_count",
+        "total_result_count",
+        "total_execution_duration",
     )
     job_execution_uuid = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="jobExecutionUuid"
@@ -21381,6 +21467,21 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         ComparisonDataSourceType, graphql_name="comparisonDataSourceType"
     )
     """Comparison Source type in the job execution"""
+
+    total_invocations_count = sgqlc.types.Field(Int, graphql_name="totalInvocationsCount")
+    """Total number of invocations for the job execution. May be null if
+    execution has not completed.
+    """
+
+    total_result_count = sgqlc.types.Field(Int, graphql_name="totalResultCount")
+    """Total number of objects returned by the job execution. May be null
+    if execution has not completed.
+    """
+
+    total_execution_duration = sgqlc.types.Field(Float, graphql_name="totalExecutionDuration")
+    """Total execution duration in seconds. May be null if execution has
+    not completed.
+    """
 
 
 class JobExecutionHistoryLogConnection(sgqlc.types.relay.Connection):
@@ -41295,6 +41396,7 @@ class Query(sgqlc.types.Type):
         "get_data_product_asset_data",
         "get_data_product_upstream_counts",
         "get_data_product_audiences",
+        "get_top_warehouse_for_data_product_mcons",
         "parse_query",
         "ping_data_collector",
         "get_ms_teams_integrations",
@@ -41480,6 +41582,7 @@ class Query(sgqlc.types.Type):
         "evaluate_comparison_monitor_alert_conditions",
         "evaluate_comparisons",
         "get_delta_logs",
+        "get_warehouse_job_schedules",
         "get_data_assets_dashboard",
         "get_incident_dashboard_data",
         "get_incident_data_weekly",
@@ -41592,6 +41695,7 @@ class Query(sgqlc.types.Type):
         "get_user",
         "get_user_by_id",
         "get_warehouses",
+        "get_should_show_onboarding",
         "get_warehouse",
         "get_collection_properties",
         "get_custom_volume_datapoints",
@@ -43663,6 +43767,30 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `data_product_uuid` (`UUID!`): Data product UUID
+    """
+
+    get_top_warehouse_for_data_product_mcons = sgqlc.types.Field(
+        UUID,
+        graphql_name="getTopWarehouseForDataProductMcons",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(String)),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the warehouse UUID with the most associated
+    MCONs
+
+    Arguments:
+
+    * `mcons` (`[String]!`): List of MCONs to analyze
     """
 
     parse_query = sgqlc.types.Field(
@@ -49986,6 +50114,49 @@ class Query(sgqlc.types.Type):
     * `after` (`String`): Cursor of the last item on the previous page
     """
 
+    get_warehouse_job_schedules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DataCollectorScheduleInfo))),
+        graphql_name="getWarehouseJobSchedules",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+                (
+                    "job_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(JobTypeEnum)),
+                        graphql_name="jobTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "schedule_type",
+                    sgqlc.types.Arg(String, graphql_name="scheduleType", default=None),
+                ),
+                (
+                    "include_deleted",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeDeleted", default=False),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get data collector schedules for a warehouse
+
+    Arguments:
+
+    * `warehouse_uuid` (`String!`): Warehouse UUID
+    * `job_types` (`[JobTypeEnum!]`): List of job types to filter by
+      (e.g., METADATA, QUERY_LOGS)
+    * `schedule_type` (`String`): Schedule type to filter by (e.g.,
+      'loose')
+    * `include_deleted` (`Boolean`): Include deleted schedules
+      (default: `false`)
+    """
+
     get_data_assets_dashboard = sgqlc.types.Field(
         DataAssetDashboard,
         graphql_name="getDataAssetsDashboard",
@@ -54085,6 +54256,9 @@ class Query(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID`): Filter warehouses by domain UUID
     """
+
+    get_should_show_onboarding = sgqlc.types.Field(Boolean, graphql_name="getShouldShowOnboarding")
+    """(experimental) Get whether the user should see the onboarding flow"""
 
     get_warehouse = sgqlc.types.Field(
         "Warehouse",

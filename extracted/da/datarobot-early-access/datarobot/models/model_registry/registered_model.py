@@ -13,9 +13,9 @@ import datetime
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 import dateutil
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.enums import (
     RegisteredModelDeploymentSortKey,
     RegisteredModelSortDirection,

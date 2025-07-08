@@ -16,6 +16,7 @@
 """argparse Custom Actions"""
 
 import argparse
+import collections.abc
 import typing as ty
 
 from osc_lib.i18n import _
@@ -33,8 +34,8 @@ class KeyValueAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: ty.Union[str, ty.Sequence[ty.Any], None],
-        option_string: ty.Optional[str] = None,
+        values: str | ty.Sequence[ty.Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if not isinstance(values, str):
             raise TypeError('expected str')
@@ -67,8 +68,8 @@ class KeyValueAppendAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: ty.Union[str, ty.Sequence[ty.Any], None],
-        option_string: ty.Optional[str] = None,
+        values: str | ty.Sequence[ty.Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if not isinstance(values, str):
             raise TypeError('expected str')
@@ -109,16 +110,16 @@ class MultiKeyValueAction(argparse.Action):
         self,
         option_strings: ty.Sequence[str],
         dest: str,
-        nargs: ty.Union[int, str, None] = None,
-        required_keys: ty.Optional[ty.Sequence[str]] = None,
-        optional_keys: ty.Optional[ty.Sequence[str]] = None,
-        const: ty.Optional[_T] = None,
-        default: ty.Union[_T, str, None] = None,
-        type: ty.Optional[ty.Callable[[str], _T]] = None,
-        choices: ty.Optional[ty.Iterable[_T]] = None,
+        nargs: int | str | None = None,
+        required_keys: ty.Sequence[str] | None = None,
+        optional_keys: ty.Sequence[str] | None = None,
+        const: _T | None = None,
+        default: _T | str | None = None,
+        type: collections.abc.Callable[[str], _T] | None = None,
+        choices: collections.abc.Iterable[_T] | None = None,
         required: bool = False,
-        help: ty.Optional[str] = None,
-        metavar: ty.Union[str, ty.Tuple[str, ...], None] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         """Initialize the action object, and parse customized options
 
@@ -202,8 +203,8 @@ class MultiKeyValueAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: ty.Union[str, ty.Sequence[ty.Any], None],
-        option_string: ty.Optional[str] = None,
+        values: str | ty.Sequence[ty.Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if not isinstance(values, str):
             raise TypeError('expected str')
@@ -212,7 +213,7 @@ class MultiKeyValueAction(argparse.Action):
         if getattr(namespace, self.dest, None) is None:
             setattr(namespace, self.dest, [])
 
-        params: ty.Dict[str, str] = {}
+        params: dict[str, str] = {}
         for kv in values.split(','):
             # Add value if an assignment else raise ArgumentError
             if '=' in kv:
@@ -248,8 +249,8 @@ class MultiKeyValueCommaAction(MultiKeyValueAction):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: ty.Union[str, ty.Sequence[ty.Any], None],
-        option_string: ty.Optional[str] = None,
+        values: str | ty.Sequence[ty.Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Overwrite the __call__ function of MultiKeyValueAction
 
@@ -264,7 +265,7 @@ class MultiKeyValueCommaAction(MultiKeyValueAction):
         if getattr(namespace, self.dest, None) is None:
             setattr(namespace, self.dest, [])
 
-        params: ty.Dict[str, str] = {}
+        params: dict[str, str] = {}
         key = ''
         for kv in values.split(','):
             # Add value if an assignment else raise ArgumentError
@@ -307,8 +308,8 @@ class RangeAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: ty.Union[str, ty.Sequence[ty.Any], None],
-        option_string: ty.Optional[str] = None,
+        values: str | ty.Sequence[ty.Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if not isinstance(values, str):
             msg = _("Invalid range, non-string value provided")
@@ -351,10 +352,10 @@ class NonNegativeAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: ty.Union[str, ty.Sequence[ty.Any], None],
-        option_string: ty.Optional[str] = None,
+        values: str | ty.Sequence[ty.Any] | None,
+        option_string: str | None = None,
     ) -> None:
-        if not isinstance(values, (str, int, float)):
+        if not isinstance(values, str | int | float):
             msg = _("%s expected a non-negative integer")
             raise argparse.ArgumentError(self, msg % str(option_string))
 

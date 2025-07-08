@@ -24,6 +24,9 @@ class Exasol(Dialect):
                 position=seq_get(args, 3),
                 occurrence=seq_get(args, 4),
             ),
+            "VAR_POP": exp.VariancePop.from_arg_list,
+            "APPROXIMATE_COUNT_DISTINCT": exp.ApproxDistinct.from_arg_list,
+            "TO_CHAR": exp.ToChar.from_arg_list,
         }
 
     class Generator(generator.Generator):
@@ -85,5 +88,14 @@ class Exasol(Dialect):
             ),
             # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/mod.htm
             exp.Mod: rename_func("MOD"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/regexp_replace.htm
             exp.RegexpReplace: unsupported_args("modifiers")(rename_func("REGEXP_REPLACE")),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/var_pop.htm
+            exp.VariancePop: rename_func("VAR_POP"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/approximate_count_distinct.htm
+            exp.ApproxDistinct: unsupported_args("accuracy")(
+                rename_func("APPROXIMATE_COUNT_DISTINCT")
+            ),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/to_char%20(datetime).htm
+            exp.ToChar: rename_func("TO_CHAR"),
         }

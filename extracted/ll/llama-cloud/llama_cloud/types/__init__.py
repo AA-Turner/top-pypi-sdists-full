@@ -15,10 +15,10 @@ from .advanced_mode_transform_config_segmentation_config import (
     AdvancedModeTransformConfigSegmentationConfig_None,
     AdvancedModeTransformConfigSegmentationConfig_Page,
 )
+from .agent_data import AgentData
 from .agent_deployment_list import AgentDeploymentList
 from .agent_deployment_summary import AgentDeploymentSummary
-from .app_schema_chat_chat_message import AppSchemaChatChatMessage
-from .app_schema_responses_message_role import AppSchemaResponsesMessageRole
+from .aggregate_group import AggregateGroup
 from .audio_block import AudioBlock
 from .auto_transform_config import AutoTransformConfig
 from .azure_open_ai_embedding import AzureOpenAiEmbedding
@@ -142,6 +142,13 @@ from .file_parse_public import FileParsePublic
 from .file_permission_info_value import FilePermissionInfoValue
 from .file_resource_info_value import FileResourceInfoValue
 from .filter_condition import FilterCondition
+from .filter_operation import FilterOperation
+from .filter_operation_eq import FilterOperationEq
+from .filter_operation_gt import FilterOperationGt
+from .filter_operation_gte import FilterOperationGte
+from .filter_operation_includes_item import FilterOperationIncludesItem
+from .filter_operation_lt import FilterOperationLt
+from .filter_operation_lte import FilterOperationLte
 from .filter_operator import FilterOperator
 from .free_credits_usage import FreeCreditsUsage
 from .gemini_embedding import GeminiEmbedding
@@ -181,7 +188,6 @@ from .llama_index_core_base_llms_types_chat_message_blocks_item import (
     LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Image,
     LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text,
 )
-from .llama_index_core_base_llms_types_message_role import LlamaIndexCoreBaseLlmsTypesMessageRole
 from .llama_parse_parameters import LlamaParseParameters
 from .llama_parse_parameters_priority import LlamaParseParametersPriority
 from .llama_parse_supported_file_extensions import LlamaParseSupportedFileExtensions
@@ -190,13 +196,12 @@ from .llm_parameters import LlmParameters
 from .load_files_job_config import LoadFilesJobConfig
 from .managed_ingestion_status import ManagedIngestionStatus
 from .managed_ingestion_status_response import ManagedIngestionStatusResponse
-from .message import Message
 from .message_annotation import MessageAnnotation
+from .message_role import MessageRole
 from .metadata_filter import MetadataFilter
 from .metadata_filter_value import MetadataFilterValue
 from .metadata_filters import MetadataFilters
 from .metadata_filters_filters_item import MetadataFiltersFiltersItem
-from .model_configuration import ModelConfiguration
 from .node_relationship import NodeRelationship
 from .none_chunking_config import NoneChunkingConfig
 from .none_segmentation_config import NoneSegmentationConfig
@@ -215,6 +220,8 @@ from .paginated_jobs_history_with_metrics import PaginatedJobsHistoryWithMetrics
 from .paginated_list_cloud_documents_response import PaginatedListCloudDocumentsResponse
 from .paginated_list_pipeline_files_response import PaginatedListPipelineFilesResponse
 from .paginated_report_response import PaginatedReportResponse
+from .paginated_response_agent_data import PaginatedResponseAgentData
+from .paginated_response_aggregate_group import PaginatedResponseAggregateGroup
 from .parse_job_config import ParseJobConfig
 from .parse_job_config_priority import ParseJobConfigPriority
 from .parse_plan_level import ParsePlanLevel
@@ -328,13 +335,13 @@ from .role import Role
 from .schema_relax_mode import SchemaRelaxMode
 from .semantic_chunking_config import SemanticChunkingConfig
 from .sentence_chunking_config import SentenceChunkingConfig
+from .src_app_schema_chat_chat_message import SrcAppSchemaChatChatMessage
 from .status_enum import StatusEnum
 from .struct_mode import StructMode
 from .struct_parse_conf import StructParseConf
 from .supported_llm_model import SupportedLlmModel
 from .supported_llm_model_names import SupportedLlmModelNames
 from .text_block import TextBlock
-from .text_content_block import TextContentBlock
 from .text_node import TextNode
 from .text_node_relationships_value import TextNodeRelationshipsValue
 from .text_node_with_score import TextNodeWithScore
@@ -368,10 +375,10 @@ __all__ = [
     "AdvancedModeTransformConfigSegmentationConfig_Element",
     "AdvancedModeTransformConfigSegmentationConfig_None",
     "AdvancedModeTransformConfigSegmentationConfig_Page",
+    "AgentData",
     "AgentDeploymentList",
     "AgentDeploymentSummary",
-    "AppSchemaChatChatMessage",
-    "AppSchemaResponsesMessageRole",
+    "AggregateGroup",
     "AudioBlock",
     "AutoTransformConfig",
     "AzureOpenAiEmbedding",
@@ -491,6 +498,13 @@ __all__ = [
     "FilePermissionInfoValue",
     "FileResourceInfoValue",
     "FilterCondition",
+    "FilterOperation",
+    "FilterOperationEq",
+    "FilterOperationGt",
+    "FilterOperationGte",
+    "FilterOperationIncludesItem",
+    "FilterOperationLt",
+    "FilterOperationLte",
     "FilterOperator",
     "FreeCreditsUsage",
     "GeminiEmbedding",
@@ -526,7 +540,6 @@ __all__ = [
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Document",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Image",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text",
-    "LlamaIndexCoreBaseLlmsTypesMessageRole",
     "LlamaParseParameters",
     "LlamaParseParametersPriority",
     "LlamaParseSupportedFileExtensions",
@@ -535,13 +548,12 @@ __all__ = [
     "LoadFilesJobConfig",
     "ManagedIngestionStatus",
     "ManagedIngestionStatusResponse",
-    "Message",
     "MessageAnnotation",
+    "MessageRole",
     "MetadataFilter",
     "MetadataFilterValue",
     "MetadataFilters",
     "MetadataFiltersFiltersItem",
-    "ModelConfiguration",
     "NodeRelationship",
     "NoneChunkingConfig",
     "NoneSegmentationConfig",
@@ -560,6 +572,8 @@ __all__ = [
     "PaginatedListCloudDocumentsResponse",
     "PaginatedListPipelineFilesResponse",
     "PaginatedReportResponse",
+    "PaginatedResponseAgentData",
+    "PaginatedResponseAggregateGroup",
     "ParseJobConfig",
     "ParseJobConfigPriority",
     "ParsePlanLevel",
@@ -663,13 +677,13 @@ __all__ = [
     "SchemaRelaxMode",
     "SemanticChunkingConfig",
     "SentenceChunkingConfig",
+    "SrcAppSchemaChatChatMessage",
     "StatusEnum",
     "StructMode",
     "StructParseConf",
     "SupportedLlmModel",
     "SupportedLlmModelNames",
     "TextBlock",
-    "TextContentBlock",
     "TextNode",
     "TextNodeRelationshipsValue",
     "TextNodeWithScore",

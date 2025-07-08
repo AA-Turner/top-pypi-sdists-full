@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: parsl
-Version: 2025.6.30
+Version: 2025.7.7
 Summary: Simple data dependent workflows in Python
 Home-page: https://github.com/Parsl/parsl
-Download-URL: https://github.com/Parsl/parsl/archive/2025.06.30.tar.gz
+Download-URL: https://github.com/Parsl/parsl/archive/2025.07.07.tar.gz
 Author: The Parsl Team
 Author-email: parsl@googlegroups.com
 License: Apache 2.0

@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: mapbox-vector-tile
-Version: 2.1.0
+Version: 2.2.0
 Summary: Mapbox Vector Tile encoding and decoding.
-Home-page: https://github.com/tilezen/mapbox-vector-tile
 License: MIT
 Author: Rob Marianski
 Author-email: rob@marianski.com
@@ -12,12 +11,10 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: proj
-Requires-Dist: protobuf (>=5.26.1,<6.0.0)
+Requires-Dist: protobuf (>=6.31.1,<7.0.0)
 Requires-Dist: pyclipper (>=1.3.0,<2.0.0)
 Requires-Dist: pyproj (>=3.4.1,<4.0.0) ; extra == "proj"
 Requires-Dist: shapely (>=2.0.0,<3.0.0)
@@ -53,7 +50,6 @@ following keys
 
 - `name`: layer name
 - `features`: an array of features. A feature is a dictionary with the following keys:
-
   - `geometry`: representation of the feature geometry in WKT, WKB, or a shapely geometry. Coordinates are relative to the tile, scaled in the range `[0, 4096)`. See below for example code to perform the necessary transformation. _Note_ that `GeometryCollection` types are not supported, and will trigger a `ValueError`.
   - `properties`: a dictionary with a few keys and their corresponding values.
 

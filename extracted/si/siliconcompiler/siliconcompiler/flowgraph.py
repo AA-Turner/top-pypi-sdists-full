@@ -1,4 +1,5 @@
 import inspect
+import importlib
 
 from siliconcompiler import Schema
 from siliconcompiler.schema import BaseSchema, NamedSchema
@@ -9,8 +10,9 @@ from siliconcompiler import NodeStatus
 
 
 class FlowgraphSchema(NamedSchema):
-    def __init__(self, name):
-        super().__init__(name=name)
+    def __init__(self, name=None):
+        super().__init__()
+        self.set_name(name)
 
         schema = EditableSchema(self)
         schema.insert("default", "default", FlowgraphNodeSchema())
@@ -29,6 +31,8 @@ class FlowgraphSchema(NamedSchema):
         self.__cache_execution_order_reverse = None
 
         self.__cache_node_outputs = None
+
+        self.__cache_tasks = None
 
     def node(self, step, task, index=0):
         '''
@@ -79,6 +83,11 @@ class FlowgraphSchema(NamedSchema):
             raise ValueError(f"{task} is not a valid task, it must be associated with "
                              "a tool '<tool>.<task>'.")
 
+        if '/' in step:
+            raise ValueError(f"{step} is not a valid step, it cannot contain '/'")
+        if '/' in index:
+            raise ValueError(f"{index} is not a valid index, it cannot contain '/'")
+
         tool_name, task_name = task_parts[-2:]
 
         # bind tool to node
@@ -114,7 +123,7 @@ class FlowgraphSchema(NamedSchema):
 
         for step, index in [(head, head_index), (tail, tail_index)]:
             if not self.valid(step, index):
-                raise ValueError(f"{step}{index} is not a defined node in {self.name()}.")
+                raise ValueError(f"{step}/{index} is not a defined node in {self.name()}.")
 
         tail_node = (tail, tail_index)
         if tail_node in self.get(head, head_index, 'input'):
@@ -183,7 +192,7 @@ class FlowgraphSchema(NamedSchema):
         before_index = str(before_index)
 
         if (before_step, before_index) not in self.get_nodes():
-            raise ValueError(f'{before_step}{before_index} is not a valid node in {self.name()}')
+            raise ValueError(f'{before_step}/{before_index} is not a valid node in {self.name()}')
 
         # add the node
         self.node(step, task, index=index)
@@ -388,7 +397,7 @@ class FlowgraphSchema(NamedSchema):
         index = str(index)
 
         if (step, index) not in self.get_nodes():
-            raise ValueError(f"{step}{index} is not a valid node")
+            raise ValueError(f"{step}/{index} is not a valid node")
 
         if self.__cache_node_outputs is not None:
             return self.__cache_node_outputs[(step, index)]
@@ -464,15 +473,15 @@ class FlowgraphSchema(NamedSchema):
                 if input_nodes.count(node) > 1:
                     in_step, in_index = node
                     if logger:
-                        logger.error(f'Duplicate edge from {in_step}{in_index} to '
-                                     f'{step}{index} in the {self.name()} flowgraph')
+                        logger.error(f'Duplicate edge from {in_step}/{in_index} to '
+                                     f'{step}/{index} in the {self.name()} flowgraph')
                     error = True
 
         diff_nodes = check_nodes.difference(self.get_nodes())
         if diff_nodes:
             if logger:
                 for step, index in diff_nodes:
-                    logger.error(f'{step}{index} is missing in the {self.name()} flowgraph')
+                    logger.error(f'{step}/{index} is missing in the {self.name()} flowgraph')
             error = True
 
         # Detect missing definitions
@@ -480,7 +489,7 @@ class FlowgraphSchema(NamedSchema):
             for item in ('tool', 'task', 'taskmodule'):
                 if not self.get(step, index, item):
                     if logger:
-                        logger.error(f'{step}{index} is missing a {item} definition in the '
+                        logger.error(f'{step}/{index} is missing a {item} definition in the '
                                      f'{self.name()} flowgraph')
                     error = True
 
@@ -490,10 +499,36 @@ class FlowgraphSchema(NamedSchema):
             if loop_path:
                 error = True
                 if logger:
-                    loop_path = [f"{step}{index}" for step, index in loop_path]
+                    loop_path = [f"{step}/{index}" for step, index in loop_path]
                     logger.error(f"{' -> '.join(loop_path)} forms a loop in {self.name()}")
 
         return not error
+
+    def get_task_module(self, step, index):
+        """
+        Returns the module for a given task
+
+        Args:
+            step (str): Step name
+            index (int/str): Step index
+        """
+
+        index = str(index)
+
+        if (step, index) not in self.get_nodes():
+            raise ValueError(f"{step}/{index} is not a valid node in {self.name()}.")
+
+        taskmodule = self.get(step, index, 'taskmodule')
+
+        # Create cache
+        if self.__cache_tasks is None:
+            self.__cache_tasks = {}
+
+        if taskmodule in self.__cache_tasks:
+            return self.__cache_tasks[taskmodule]
+
+        self.__cache_tasks[taskmodule] = importlib.import_module(taskmodule)
+        return self.__cache_tasks[taskmodule]
 
 
 class RuntimeFlowgraph:
@@ -649,13 +684,13 @@ class RuntimeFlowgraph:
         index = str(index)
 
         if (step, index) not in self.get_nodes():
-            raise ValueError(f"{step}{index} is not a valid node")
+            raise ValueError(f"{step}/{index} is not a valid node")
 
         return tuple(sorted(self.__walk_graph((step, str(index)), reverse=False)))
 
     def get_node_inputs(self, step, index, record=None):
         if (step, index) not in self.get_nodes():
-            raise ValueError(f"{step}{index} is not a valid node")
+            raise ValueError(f"{step}/{index} is not a valid node")
 
         if record is None:
             inputs = set()
@@ -722,7 +757,7 @@ class RuntimeFlowgraph:
         # Check for undefined prunes
         for step, index in sorted(prune_nodes.difference(flow.get_nodes())):
             if logger:
-                logger.error(f'{step}{index} is not defined in the {flow.name()} flowgraph')
+                logger.error(f'{step}/{index} is not defined in the {flow.name()} flowgraph')
             error = True
 
         if not error:
@@ -763,9 +798,9 @@ class RuntimeFlowgraph:
                         if entrynode in runtime.__walk_graph(exitnode):
                             found = True
                     if not found:
-                        exits = ",".join([f"{step}{index}"
+                        exits = ",".join([f"{step}/{index}"
                                           for step, index in runtime.get_exit_nodes()])
-                        missing.append(f'no path from {entrynode[0]}{entrynode[1]} to {exits} '
+                        missing.append(f'no path from {entrynode[0]}/{entrynode[1]} to {exits} '
                                        f'in the {flow.name()} flowgraph')
                     if found:
                         found_any = True

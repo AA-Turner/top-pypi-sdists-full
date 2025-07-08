@@ -4,6 +4,7 @@ from typing import Optional
 
 from swift.llm import safe_snapshot_download
 from swift.utils import find_free_port, get_logger
+from .base_args import BaseArguments
 from .infer_args import InferArguments
 
 logger = get_logger()
@@ -66,7 +67,7 @@ class DeployArguments(InferArguments):
         return super()._init_ckpt_dir(self.adapters + list(self.adapter_mapping.values()))
 
     def _init_stream(self):
-        pass
+        return BaseArguments._init_stream(self)
 
     def _init_eval_human(self):
         pass
@@ -75,3 +76,20 @@ class DeployArguments(InferArguments):
         if folder_name == 'infer_result':
             folder_name = 'deploy_result'
         return super()._init_result_path(folder_name)
+
+
+@dataclass
+class RolloutArguments(DeployArguments):
+    use_async_engine: Optional[bool] = None
+    # only for GRPO rollout with AsyncEngine, see details in swift/plugin/multi_turn
+    multi_turn_scheduler: Optional[str] = None
+    max_turns: Optional[int] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.use_async_engine is None:
+            if self.multi_turn_scheduler:
+                self.use_async_engine = True
+            else:
+                self.use_async_engine = False

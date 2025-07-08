@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Iterable, Literal, Optional
 
+from slugify import slugify
+
 from wbcore.metadata.configs.display.formatting import Formatting, FormattingRule
 
 
@@ -34,7 +36,7 @@ class Tooltip:
 
 @dataclass(unsafe_hash=True)
 class Field:
-    key: str
+    key: str | None
     label: str
     formatting_rules: Iterable[FormattingRule] = field(default_factory=list)
     width: int | None = None
@@ -56,6 +58,10 @@ class Field:
     menu: bool = True
     size_to_fit: bool = True
 
+    def __post_init__(self):
+        if not self.key and len(self.children) == 0:
+            self.key = slugify(str(self.label))  # we cast to str explicitly in case label is in a translation wrapper
+
     def iterate_leaf_fields(self, aggregated_parent_label: str = ""):
         label = self.label
         if aggregated_parent_label:
@@ -66,50 +72,55 @@ class Field:
         else:
             yield self.key, label
 
-    def __iter__(self):
-        yield "key", self.key
-        yield "label", self.label
-        yield "formatting_rules", [dict(rule) for rule in self.formatting_rules]
+    def serialize(self, parent_identifier: str | None = None):
+        identifier = parent_identifier + "_" + self.key if parent_identifier else self.key
+        repr = {
+            "identifier": identifier,
+            "key": self.key,
+            "label": self.label,
+            "formatting_rules": [dict(rule) for rule in self.formatting_rules],
+        }
 
         if self.width:
-            yield "width", self.width
+            repr["width"] = self.width
 
         if self.hide:
-            yield "hide", self.hide
+            repr["hide"] = self.hide
 
         if self.pinned and self.pinned in ["left", "right"]:
-            yield "pinned", self.pinned
+            repr["pinned"] = self.pinned
 
         if self.children:
-            yield "children", [dict(child) for child in self.children]
-            yield "marry_children", self.marry_children is True  # Convert None into False
+            repr["children"] = [child.serialize(identifier) for child in self.children]
+            repr["marry_children"] = self.marry_children is True  # Convert None into False
 
         if self.show:
-            yield "show", self.show
+            repr["show"] = self.show
 
         if self.open_by_default is not None:
-            yield "open_by_default", self.open_by_default
+            repr["open_by_default"] = self.open_by_default
 
         if not self.movable:
-            yield "movable", self.movable
+            repr["movable"] = self.movable
 
         if not self.resizable:
-            yield "resizable", self.resizable
+            repr["resizable"] = self.resizable
 
         if self.lock_position:
-            yield "lock_position", self.lock_position
+            repr["lock_position"] = self.lock_position
 
         if not self.auto_size:
-            yield "auto_size", self.auto_size
+            repr["auto_size"] = self.auto_size
 
         if not self.menu:
-            yield "menu", self.menu
+            repr["menu"] = self.menu
 
         if not self.size_to_fit:
-            yield "size_to_fit", self.size_to_fit
+            repr["size_to_fit"] = self.size_to_fit
 
         if self.tooltip:
-            yield "tooltip", self.tooltip.serialize()
+            repr["tooltip"] = self.tooltip.serialize()
+        return repr
 
 
 @dataclass(unsafe_hash=True)
@@ -225,7 +236,7 @@ class ListDisplay:
 
     def __iter__(self):
         yield "editable", self.editable
-        yield "fields", [dict(field) for field in self.fields if field]
+        yield "fields", [field.serialize() for field in self.fields if field]
         yield "legends", [dict(legend) for legend in self.legends if legend]
         yield "formatting", [dict(formatting) for formatting in self.formatting if formatting]
         yield "hide_control_bar", self.hide_control_bar

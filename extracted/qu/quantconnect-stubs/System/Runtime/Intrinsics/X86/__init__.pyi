@@ -8289,6 +8289,100 @@ class AvxVnni(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         ...
 
 
+class AvxVnniInt16(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
+    """Provides access to the x86 AVXVNNI hardware instructions via intrinsics."""
+
+    class X64(System.Runtime.Intrinsics.X86.Avx2.X64, metaclass=abc.ABCMeta):
+        """Provides access to the x86 AVX-VNNI-INT8 hardware instructions, that are only available to 64-bit processes, via intrinsics."""
+
+        IS_SUPPORTED: bool
+        """Gets a value that indicates whether the APIs in this class are supported."""
+
+    class V512(System.Object, metaclass=abc.ABCMeta):
+        """Provides access to the x86 AVX10.2/512 hardware instructions for AVX-VNNI-INT16 via intrinsics."""
+
+        IS_SUPPORTED: bool
+        """Gets a value that indicates whether the APIs in this class are supported."""
+
+        @staticmethod
+        def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+        @staticmethod
+        def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+    IS_SUPPORTED: bool
+    """Gets a value that indicates whether the APIs in this class are supported."""
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+
+class AvxVnniInt8(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
+    """Provides access to the x86 AVXVNNI hardware instructions via intrinsics."""
+
+    class X64(System.Runtime.Intrinsics.X86.Avx2.X64, metaclass=abc.ABCMeta):
+        """Provides access to the x86 AVX-VNNI-INT8 hardware instructions, that are only available to 64-bit processes, via intrinsics."""
+
+        IS_SUPPORTED: bool
+        """Gets a value that indicates whether the APIs in this class are supported."""
+
+    class V512(System.Object, metaclass=abc.ABCMeta):
+        """Provides access to the x86 AVX10.2/512 hardware instructions for AVX-VNNI-INT8 via intrinsics."""
+
+        IS_SUPPORTED: bool
+        """Gets a value that indicates whether the APIs in this class are supported."""
+
+        @staticmethod
+        def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+        @staticmethod
+        def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+    IS_SUPPORTED: bool
+    """Gets a value that indicates whether the APIs in this class are supported."""
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+
 class Gfni(System.Runtime.Intrinsics.X86.Sse41, metaclass=abc.ABCMeta):
     """Provides access to X86 GFNI hardware instructions via intrinsics."""
 

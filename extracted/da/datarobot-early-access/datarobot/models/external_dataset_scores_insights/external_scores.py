@@ -23,8 +23,7 @@ from datarobot.utils.pagination import unpaginate
 from ..api_object import APIObject
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models import Job
 
     class Score(TypedDict):

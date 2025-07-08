@@ -1816,6 +1816,15 @@ venv = Venv(
             ],
         ),
         Venv(
+            name="pytest:flaky",
+            pys=select_pys(min_version="3.8", max_version="3.12"),
+            command="pytest {cmdargs} --no-ddtrace --no-cov -p no:flaky tests/contrib/pytest_flaky/",
+            pkgs={
+                "flaky": latest,
+                "pytest-randomly": latest,
+            },
+        ),
+        Venv(
             name="grpc",
             command="python -m pytest -v {cmdargs} tests/contrib/grpc",
             pkgs={
@@ -2755,10 +2764,7 @@ venv = Venv(
             name="langgraph",
             command="pytest {cmdargs} tests/contrib/langgraph",
             pys=select_pys(min_version="3.9"),
-            pkgs={
-                "pytest-asyncio": latest,
-                "langgraph": "~=0.2.60",
-            },
+            pkgs={"pytest-asyncio": latest, "langgraph": ["==0.2.23", "==0.3.21", "==0.3.22", latest]},
         ),
         Venv(
             name="litellm",

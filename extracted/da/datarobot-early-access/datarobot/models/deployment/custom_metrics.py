@@ -37,7 +37,7 @@ from datarobot.utils import from_api, to_api, underscorize
 from datarobot.utils.waiters import wait_for_async_resolution
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class BaselineValues(TypedDict, total=False):
         value: float

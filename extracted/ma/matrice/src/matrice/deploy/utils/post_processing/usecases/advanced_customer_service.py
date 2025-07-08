@@ -22,10 +22,34 @@ from ..utils import (
     match_results_structure
 )
 
+def assign_person_by_area(detections, customer_areas, staff_areas):
+    """
+    Assigns category 'person' detections to 'staff' or 'customer' based on their location in area polygons.
+    Modifies the detection list in-place.
+    Args:
+        detections: List of detection dicts.
+        customer_areas: Dict of area_name -> polygon (list of [x, y]).
+        staff_areas: Dict of area_name -> polygon (list of [x, y]).
+    """
+    from ..utils import get_bbox_center, point_in_polygon
+    for det in detections:
+        if det.get('category') == 'person':
+            bbox = det.get('bbox', det.get('bounding_box', None))
+            if bbox and len(bbox) == 4:
+                center = get_bbox_center(bbox)
+                # Check staff areas first
+                for polygon in staff_areas.values():
+                    if point_in_polygon(center, polygon):
+                        det['category'] = 'staff'
+                        break
+                else:
+                    # Check customer areas
+                    for polygon in customer_areas.values():
+                        if point_in_polygon(center, polygon):
+                            det['category'] = 'customer'
+                            break
 
 class AdvancedCustomerServiceUseCase(BaseProcessor):
-    """Advanced customer service analytics with comprehensive business intelligence and journey tracking."""
-    
     def __init__(self):
         """Initialize advanced customer service use case."""
         super().__init__("advanced_customer_service")
@@ -187,12 +211,13 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "service_proximity_threshold": 100.0,
             "max_service_time": 1800.0,
             "buffer_time": 2.0,
+            "stream_info": {},  
         }
         defaults.update(overrides)
         return CustomerServiceConfig(**defaults)
     
     def process(self, data: Any, config: ConfigProtocol,
-                context: Optional[ProcessingContext] = None) -> ProcessingResult:
+                context: Optional[ProcessingContext] = None, stream_info: Optional[dict] = None) -> ProcessingResult:
         """
         Process advanced customer service analytics.
         
@@ -215,60 +240,73 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     category=self.category,
                     context=context
                 )
-            
+
+            # Attach stream_info to context if provided
+            if stream_info is not None:
+                if context is None:
+                    context = ProcessingContext()
+                context.stream_info = stream_info
+
             # Initialize processing context if not provided
             if context is None:
                 context = ProcessingContext()
-            
+
+            # Store service_proximity_threshold for use in instance methods
+            self._service_proximity_threshold = config.service_proximity_threshold
+
             # Detect input format
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
             context.enable_tracking = config.enable_tracking
-            
+
             self.logger.info(f"Processing advanced customer service with format: {input_format.value}")
-            
+
             # Initialize area tracking
             self._initialize_areas(config.customer_areas, config.staff_areas, config.service_areas)
-            
+
             # Step 1: Apply confidence filtering
             processed_data = data
             if config.confidence_threshold is not None:
                 processed_data = filter_by_confidence(processed_data, config.confidence_threshold)
                 self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
-            
+
             # Step 2: Apply category mapping if provided
             if hasattr(config, 'index_to_category') and config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 self.logger.debug("Applied category mapping")
-            
-            # Step 3: Extract and categorize detections
+
+            # Step 3: Extract detections and assign 'person' by area if needed
             detections = self._extract_detections(processed_data)
+            assign_person_by_area(
+                detections,
+                getattr(config, 'customer_areas', {}),
+                getattr(config, 'staff_areas', {})
+            )
             staff_detections, customer_detections = self._categorize_detections(
                 detections, config.staff_categories, config.customer_categories
             )
-            
             self.logger.debug(f"Extracted {len(staff_detections)} staff and {len(customer_detections)} customer detections")
-            
+
             # Step 4: Process comprehensive analytics
             current_time = time.time()
             analytics_results = self._process_comprehensive_analytics(
                 staff_detections, customer_detections, config, current_time
             )
-            
+
             # Step 5: Generate insights and alerts
             insights = self._generate_insights(analytics_results, config)
             alerts = self._check_alerts(analytics_results, config)
-            
+
             # Step 6: Generate human-readable summary
             summary = self._generate_summary(analytics_results, alerts)
-            
+
             # Step 7: Extract predictions for API compatibility
             predictions = self._extract_predictions(processed_data)
-            
+
             # Mark processing as completed
             context.mark_completed()
-            
+
             # Create successful result
             result = self.create_result(
                 data=analytics_results,
@@ -276,29 +314,29 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 category=self.category,
                 context=context
             )
-            
+
             # Add human-readable information
             result.summary = summary
             result.insights = insights
             result.predictions = predictions
             result.metrics = analytics_results.get("business_metrics", {})
-            
+
             # Add warnings for configuration issues
             if not config.customer_areas and not config.staff_areas:
                 result.add_warning("No customer or staff areas defined - using global analysis only")
-            
+
             if config.service_proximity_threshold > 200:
                 result.add_warning(f"High service proximity threshold ({config.service_proximity_threshold}) may miss interactions")
-            
+
             self.logger.info(f"Advanced customer service analysis completed successfully in {result.processing_time:.2f}s")
             return result
-            
+
         except Exception as e:
             self.logger.error(f"Advanced customer service analysis failed: {str(e)}", exc_info=True)
-            
+
             if context:
                 context.mark_completed()
-            
+
             return self.create_error_result(
                 str(e),
                 type(e).__name__,
@@ -491,15 +529,15 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         customer_journey = self.customer_journey.get(customer_track_id)
         if not customer_journey or not customer_journey['positions']:
             return False
-        
+
         customer_center = customer_journey['positions'][-1]['center']
-        
+
         # Find nearest staff
         nearest_staff = self._find_nearest_staff(customer_center)
         if nearest_staff:
             staff_id, distance = nearest_staff
-            return distance <= self.service_proximity_threshold
-        
+            return distance <= self._service_proximity_threshold
+
         return False
     
     def _find_nearest_staff(self, customer_center: Tuple[float, float]) -> Optional[Tuple[int, float]]:
@@ -902,4 +940,4 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         except Exception as e:
             self.logger.warning(f"Failed to extract predictions: {str(e)}")
         
-        return predictions 
+        return predictions

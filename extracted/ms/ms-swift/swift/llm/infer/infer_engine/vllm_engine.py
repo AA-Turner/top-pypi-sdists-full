@@ -14,7 +14,7 @@ from transformers.utils import is_torch_npu_available
 
 from swift.llm import InferRequest, Template, TemplateMeta, get_model_tokenizer
 from swift.plugin import Metric
-from swift.utils import get_dist_setting, get_logger, get_seed, is_dist
+from swift.utils import get_dist_setting, is_dist
 from ..protocol import (ChatCompletionResponse, ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice,
                         ChatCompletionStreamResponse, ChatMessage, DeltaMessage, RequestConfig, random_uuid)
 from .infer_engine import InferEngine
@@ -24,13 +24,12 @@ from .utils import AdapterRequest, InferStreamer, patch_npu_vllm, patch_vllm_mem
 try:
     # After setting the environment variables, import vllm. This way of writing allows lint to pass.
     os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
-    os.environ['VLLM_ENGINE_ITERATION_TIMEOUT_S'] = '3600'
+    os.environ['VLLM_ENGINE_ITERATION_TIMEOUT_S'] = '86400'
     import vllm
     from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams, EngineArgs, LLMEngine
 except Exception:
     raise
 
-logger = get_logger()
 dtype_mapping = {torch.float16: 'float16', torch.bfloat16: 'bfloat16', torch.float32: 'float32'}
 
 

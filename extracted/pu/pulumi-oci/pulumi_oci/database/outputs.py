@@ -100,6 +100,7 @@ __all__ = [
     'CloudVmClusterIormConfigCach',
     'CloudVmClusterIormConfigCachDbPlan',
     'CloudVmClusterIormConfigDbPlan',
+    'CloudVmClusterMultiCloudIdentityConnectorConfig',
     'DataGuardAssociationDataCollectionOptions',
     'DatabaseConnectionString',
     'DatabaseDataGuardGroup',
@@ -238,6 +239,10 @@ __all__ = [
     'GetAutonomousContainerDatabaseBackupConfigResult',
     'GetAutonomousContainerDatabaseBackupConfigBackupDestinationDetailResult',
     'GetAutonomousContainerDatabaseBackupDestinationPropertiesListResult',
+    'GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionResult',
+    'GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemResult',
+    'GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemAutonomousDatabaseResult',
+    'GetAutonomousContainerDatabaseBackupsFilterResult',
     'GetAutonomousContainerDatabaseDataguardResult',
     'GetAutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerDatabaseBackupConfigResult',
     'GetAutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerDatabaseBackupConfigBackupDestinationDetailResult',
@@ -307,6 +312,9 @@ __all__ = [
     'GetAutonomousDatabaseRefreshableClonesRefreshableCloneCollectionResult',
     'GetAutonomousDatabaseRefreshableClonesRefreshableCloneCollectionItemResult',
     'GetAutonomousDatabaseRemoteDisasterRecoveryConfigurationResult',
+    'GetAutonomousDatabaseResourcePoolMembersFilterResult',
+    'GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionResult',
+    'GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionItemResult',
     'GetAutonomousDatabaseResourcePoolSummaryResult',
     'GetAutonomousDatabaseScheduledOperationResult',
     'GetAutonomousDatabaseScheduledOperationDayOfWeekResult',
@@ -447,6 +455,7 @@ __all__ = [
     'GetCloudVmClusterIormConfigCachResult',
     'GetCloudVmClusterIormConfigCachDbPlanResult',
     'GetCloudVmClusterIormConfigDbPlanResult',
+    'GetCloudVmClusterMultiCloudIdentityConnectorConfigResult',
     'GetCloudVmClustersCloudVmClusterResult',
     'GetCloudVmClustersCloudVmClusterCloudAutomationUpdateDetailResult',
     'GetCloudVmClustersCloudVmClusterCloudAutomationUpdateDetailApplyUpdateTimePreferenceResult',
@@ -455,6 +464,7 @@ __all__ = [
     'GetCloudVmClustersCloudVmClusterFileSystemConfigurationDetailResult',
     'GetCloudVmClustersCloudVmClusterIormConfigCachResult',
     'GetCloudVmClustersCloudVmClusterIormConfigCachDbPlanResult',
+    'GetCloudVmClustersCloudVmClusterMultiCloudIdentityConnectorConfigResult',
     'GetCloudVmClustersFilterResult',
     'GetDataGuardAssociationDataCollectionOptionResult',
     'GetDataGuardAssociationsDataGuardAssociationResult',
@@ -2067,6 +2077,10 @@ class AutonomousContainerDatabaseBackupConfigBackupDestinationDetails(dict):
         suggest = None
         if key == "internetProxy":
             suggest = "internet_proxy"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
         elif key == "vpcPassword":
             suggest = "vpc_password"
         elif key == "vpcUser":
@@ -2087,12 +2101,18 @@ class AutonomousContainerDatabaseBackupConfigBackupDestinationDetails(dict):
                  type: builtins.str,
                  id: Optional[builtins.str] = None,
                  internet_proxy: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
         """
         :param builtins.str type: (Updatable) Type of the database backup destination.
         :param builtins.str id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
         :param builtins.str internet_proxy: (Updatable) Proxy URL to connect to object store.
+        :param builtins.bool is_remote: (Updatable) Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: (Updatable) The name of the remote region where the remote automatic incremental backups will be stored.
+               
+               For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
         :param builtins.str vpc_password: (Updatable) For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: (Updatable) For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
@@ -2101,6 +2121,10 @@ class AutonomousContainerDatabaseBackupConfigBackupDestinationDetails(dict):
             pulumi.set(__self__, "id", id)
         if internet_proxy is not None:
             pulumi.set(__self__, "internet_proxy", internet_proxy)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if vpc_password is not None:
             pulumi.set(__self__, "vpc_password", vpc_password)
         if vpc_user is not None:
@@ -2129,6 +2153,24 @@ class AutonomousContainerDatabaseBackupConfigBackupDestinationDetails(dict):
         (Updatable) Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        (Updatable) Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        (Updatable) The name of the remote region where the remote automatic incremental backups will be stored.
+
+        For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter(name="vpcPassword")
@@ -2526,6 +2568,10 @@ class AutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerData
             suggest = "dbrs_policy_id"
         elif key == "internetProxy":
             suggest = "internet_proxy"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
         elif key == "vpcPassword":
             suggest = "vpc_password"
         elif key == "vpcUser":
@@ -2547,6 +2593,8 @@ class AutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerData
                  dbrs_policy_id: Optional[builtins.str] = None,
                  id: Optional[builtins.str] = None,
                  internet_proxy: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
         """
@@ -2554,6 +2602,10 @@ class AutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerData
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
+               
+               For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
@@ -2564,6 +2616,10 @@ class AutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerData
             pulumi.set(__self__, "id", id)
         if internet_proxy is not None:
             pulumi.set(__self__, "internet_proxy", internet_proxy)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if vpc_password is not None:
             pulumi.set(__self__, "vpc_password", vpc_password)
         if vpc_user is not None:
@@ -2600,6 +2656,24 @@ class AutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerData
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+
+        For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter(name="vpcPassword")
@@ -3433,6 +3507,10 @@ class AutonomousContainerDatabasePeerAutonomousContainerDatabaseBackupConfigBack
         suggest = None
         if key == "internetProxy":
             suggest = "internet_proxy"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
         elif key == "vpcPassword":
             suggest = "vpc_password"
         elif key == "vpcUser":
@@ -3453,12 +3531,18 @@ class AutonomousContainerDatabasePeerAutonomousContainerDatabaseBackupConfigBack
                  type: builtins.str,
                  id: Optional[builtins.str] = None,
                  internet_proxy: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
         """
         :param builtins.str type: Type of the database backup destination.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
+               
+               For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
@@ -3467,6 +3551,10 @@ class AutonomousContainerDatabasePeerAutonomousContainerDatabaseBackupConfigBack
             pulumi.set(__self__, "id", id)
         if internet_proxy is not None:
             pulumi.set(__self__, "internet_proxy", internet_proxy)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if vpc_password is not None:
             pulumi.set(__self__, "vpc_password", vpc_password)
         if vpc_user is not None:
@@ -3495,6 +3583,24 @@ class AutonomousContainerDatabasePeerAutonomousContainerDatabaseBackupConfigBack
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+
+        For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter(name="vpcPassword")
@@ -3544,7 +3650,6 @@ class AutonomousContainerDatabaseRecoveryApplianceDetail(dict):
         :param builtins.int allocated_storage_size_in_gbs: The storage size of the backup destination allocated for an Autonomous Container Database to store backups on the recovery appliance, in GBs, rounded to the nearest integer.
         :param builtins.int recovery_window_in_days: Number of days between the current and earliest point of recoverability covered by automatic backups.
         :param builtins.str time_recovery_appliance_details_updated: The time when the recovery appliance details are updated.
-               =======
         """
         if allocated_storage_size_in_gbs is not None:
             pulumi.set(__self__, "allocated_storage_size_in_gbs", allocated_storage_size_in_gbs)
@@ -3574,7 +3679,6 @@ class AutonomousContainerDatabaseRecoveryApplianceDetail(dict):
     def time_recovery_appliance_details_updated(self) -> Optional[builtins.str]:
         """
         The time when the recovery appliance details are updated.
-        =======
         """
         return pulumi.get(self, "time_recovery_appliance_details_updated")
 
@@ -3636,6 +3740,10 @@ class AutonomousDatabaseBackupBackupDestinationDetails(dict):
         suggest = None
         if key == "internetProxy":
             suggest = "internet_proxy"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
         elif key == "vpcPassword":
             suggest = "vpc_password"
         elif key == "vpcUser":
@@ -3656,12 +3764,16 @@ class AutonomousDatabaseBackupBackupDestinationDetails(dict):
                  type: builtins.str,
                  id: Optional[builtins.str] = None,
                  internet_proxy: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
         """
         :param builtins.str type: The type of backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database backup.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
@@ -3670,6 +3782,10 @@ class AutonomousDatabaseBackupBackupDestinationDetails(dict):
             pulumi.set(__self__, "id", id)
         if internet_proxy is not None:
             pulumi.set(__self__, "internet_proxy", internet_proxy)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if vpc_password is not None:
             pulumi.set(__self__, "vpc_password", vpc_password)
         if vpc_user is not None:
@@ -3698,6 +3814,22 @@ class AutonomousDatabaseBackupBackupDestinationDetails(dict):
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter(name="vpcPassword")
@@ -6456,7 +6588,9 @@ class BackupEncryptionKeyLocationDetail(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "hsmPassword":
+        if key == "azureEncryptionKeyId":
+            suggest = "azure_encryption_key_id"
+        elif key == "hsmPassword":
             suggest = "hsm_password"
         elif key == "providerType":
             suggest = "provider_type"
@@ -6473,16 +6607,28 @@ class BackupEncryptionKeyLocationDetail(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 azure_encryption_key_id: Optional[builtins.str] = None,
                  hsm_password: Optional[builtins.str] = None,
                  provider_type: Optional[builtins.str] = None):
         """
+        :param builtins.str azure_encryption_key_id: The key OCID of a registered Azure key.
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
+        if azure_encryption_key_id is not None:
+            pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
         if hsm_password is not None:
             pulumi.set(__self__, "hsm_password", hsm_password)
         if provider_type is not None:
             pulumi.set(__self__, "provider_type", provider_type)
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> Optional[builtins.str]:
+        """
+        The key OCID of a registered Azure key.
+        """
+        return pulumi.get(self, "azure_encryption_key_id")
 
     @property
     @pulumi.getter(name="hsmPassword")
@@ -6496,7 +6642,7 @@ class BackupEncryptionKeyLocationDetail(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> Optional[builtins.str]:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -7771,6 +7917,54 @@ class CloudVmClusterIormConfigDbPlan(dict):
 
 
 @pulumi.output_type
+class CloudVmClusterMultiCloudIdentityConnectorConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cloudProvider":
+            suggest = "cloud_provider"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CloudVmClusterMultiCloudIdentityConnectorConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CloudVmClusterMultiCloudIdentityConnectorConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CloudVmClusterMultiCloudIdentityConnectorConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cloud_provider: Optional[builtins.str] = None,
+                 id: Optional[builtins.str] = None):
+        """
+        :param builtins.str cloud_provider: Cloud provider
+        :param builtins.str id: The OCID of the identity connector
+        """
+        if cloud_provider is not None:
+            pulumi.set(__self__, "cloud_provider", cloud_provider)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
+
+    @property
+    @pulumi.getter(name="cloudProvider")
+    def cloud_provider(self) -> Optional[builtins.str]:
+        """
+        Cloud provider
+        """
+        return pulumi.get(self, "cloud_provider")
+
+    @property
+    @pulumi.getter
+    def id(self) -> Optional[builtins.str]:
+        """
+        The OCID of the identity connector
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
 class DataGuardAssociationDataCollectionOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -8665,6 +8859,12 @@ class DatabaseDatabaseDbBackupConfigBackupDestinationDetail(dict):
         suggest = None
         if key == "dbrsPolicyId":
             suggest = "dbrs_policy_id"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
+        elif key == "vpcPassword":
+            suggest = "vpc_password"
         elif key == "vpcUser":
             suggest = "vpc_user"
 
@@ -8682,19 +8882,34 @@ class DatabaseDatabaseDbBackupConfigBackupDestinationDetail(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: Optional[builtins.str] = None,
                  id: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  type: Optional[builtins.str] = None,
+                 vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
+               
+               For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
         :param builtins.str type: Type of the database backup destination.
+        :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         if dbrs_policy_id is not None:
             pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         if id is not None:
             pulumi.set(__self__, "id", id)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if type is not None:
             pulumi.set(__self__, "type", type)
+        if vpc_password is not None:
+            pulumi.set(__self__, "vpc_password", vpc_password)
         if vpc_user is not None:
             pulumi.set(__self__, "vpc_user", vpc_user)
 
@@ -8715,6 +8930,24 @@ class DatabaseDatabaseDbBackupConfigBackupDestinationDetail(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+
+        For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> Optional[builtins.str]:
         """
@@ -8723,8 +8956,19 @@ class DatabaseDatabaseDbBackupConfigBackupDestinationDetail(dict):
         return pulumi.get(self, "type")
 
     @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> Optional[builtins.str]:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        """
+        return pulumi.get(self, "vpc_password")
+
+    @property
     @pulumi.getter(name="vpcUser")
     def vpc_user(self) -> Optional[builtins.str]:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
+        """
         return pulumi.get(self, "vpc_user")
 
 
@@ -8733,10 +8977,12 @@ class DatabaseDatabaseEncryptionKeyLocationDetails(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "hsmPassword":
-            suggest = "hsm_password"
-        elif key == "providerType":
+        if key == "providerType":
             suggest = "provider_type"
+        elif key == "azureEncryptionKeyId":
+            suggest = "azure_encryption_key_id"
+        elif key == "hsmPassword":
+            suggest = "hsm_password"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DatabaseDatabaseEncryptionKeyLocationDetails. Access the value via the '{suggest}' property getter instead.")
@@ -8750,30 +8996,43 @@ class DatabaseDatabaseEncryptionKeyLocationDetails(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 hsm_password: builtins.str,
-                 provider_type: builtins.str):
+                 provider_type: builtins.str,
+                 azure_encryption_key_id: Optional[builtins.str] = None,
+                 hsm_password: Optional[builtins.str] = None):
         """
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
+        :param builtins.str azure_encryption_key_id: Provide the key OCID of a registered Azure key.
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
         """
-        pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
-
-    @property
-    @pulumi.getter(name="hsmPassword")
-    def hsm_password(self) -> builtins.str:
-        """
-        Provide the HSM password as you would in RDBMS for External HSM.
-        """
-        return pulumi.get(self, "hsm_password")
+        if azure_encryption_key_id is not None:
+            pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
+        if hsm_password is not None:
+            pulumi.set(__self__, "hsm_password", hsm_password)
 
     @property
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> Optional[builtins.str]:
+        """
+        Provide the key OCID of a registered Azure key.
+        """
+        return pulumi.get(self, "azure_encryption_key_id")
+
+    @property
+    @pulumi.getter(name="hsmPassword")
+    def hsm_password(self) -> Optional[builtins.str]:
+        """
+        Provide the HSM password as you would in RDBMS for External HSM.
+        """
+        return pulumi.get(self, "hsm_password")
 
 
 @pulumi.output_type
@@ -8852,7 +9111,7 @@ class DatabaseDatabaseSourceEncryptionKeyLocationDetails(dict):
                  provider_type: builtins.str):
         """
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
@@ -8869,7 +9128,7 @@ class DatabaseDatabaseSourceEncryptionKeyLocationDetails(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -9015,6 +9274,12 @@ class DatabaseDbBackupConfigBackupDestinationDetail(dict):
         suggest = None
         if key == "dbrsPolicyId":
             suggest = "dbrs_policy_id"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
+        elif key == "vpcPassword":
+            suggest = "vpc_password"
         elif key == "vpcUser":
             suggest = "vpc_user"
 
@@ -9032,19 +9297,32 @@ class DatabaseDbBackupConfigBackupDestinationDetail(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: Optional[builtins.str] = None,
                  id: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  type: Optional[builtins.str] = None,
+                 vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the database.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
+        :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         if dbrs_policy_id is not None:
             pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         if id is not None:
             pulumi.set(__self__, "id", id)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if type is not None:
             pulumi.set(__self__, "type", type)
+        if vpc_password is not None:
+            pulumi.set(__self__, "vpc_password", vpc_password)
         if vpc_user is not None:
             pulumi.set(__self__, "vpc_user", vpc_user)
 
@@ -9065,6 +9343,22 @@ class DatabaseDbBackupConfigBackupDestinationDetail(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> Optional[builtins.str]:
         """
@@ -9073,8 +9367,19 @@ class DatabaseDbBackupConfigBackupDestinationDetail(dict):
         return pulumi.get(self, "type")
 
     @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> Optional[builtins.str]:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        """
+        return pulumi.get(self, "vpc_password")
+
+    @property
     @pulumi.getter(name="vpcUser")
     def vpc_user(self) -> Optional[builtins.str]:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
+        """
         return pulumi.get(self, "vpc_user")
 
 
@@ -9575,6 +9880,10 @@ class DatabaseUpgradeDbBackupConfigBackupDestinationDetail(dict):
             suggest = "dbrs_policy_id"
         elif key == "internetProxy":
             suggest = "internet_proxy"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
         elif key == "vpcPassword":
             suggest = "vpc_password"
         elif key == "vpcUser":
@@ -9595,6 +9904,8 @@ class DatabaseUpgradeDbBackupConfigBackupDestinationDetail(dict):
                  dbrs_policy_id: Optional[builtins.str] = None,
                  id: Optional[builtins.str] = None,
                  internet_proxy: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  type: Optional[builtins.str] = None,
                  vpc_password: Optional[builtins.str] = None,
                  vpc_user: Optional[builtins.str] = None):
@@ -9602,6 +9913,8 @@ class DatabaseUpgradeDbBackupConfigBackupDestinationDetail(dict):
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the database.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
@@ -9612,6 +9925,10 @@ class DatabaseUpgradeDbBackupConfigBackupDestinationDetail(dict):
             pulumi.set(__self__, "id", id)
         if internet_proxy is not None:
             pulumi.set(__self__, "internet_proxy", internet_proxy)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if type is not None:
             pulumi.set(__self__, "type", type)
         if vpc_password is not None:
@@ -9642,6 +9959,22 @@ class DatabaseUpgradeDbBackupConfigBackupDestinationDetail(dict):
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -10282,6 +10615,14 @@ class DbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
         suggest = None
         if key == "dbrsPolicyId":
             suggest = "dbrs_policy_id"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
+        elif key == "vpcPassword":
+            suggest = "vpc_password"
+        elif key == "vpcUser":
+            suggest = "vpc_user"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DbHomeDatabaseDbBackupConfigBackupDestinationDetail. Access the value via the '{suggest}' property getter instead.")
@@ -10297,18 +10638,34 @@ class DbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: Optional[builtins.str] = None,
                  id: Optional[builtins.str] = None,
-                 type: Optional[builtins.str] = None):
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
+                 type: Optional[builtins.str] = None,
+                 vpc_password: Optional[builtins.str] = None,
+                 vpc_user: Optional[builtins.str] = None):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
+               
+               For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
         :param builtins.str type: Type of the database backup destination. Supported values: `NFS`.
         """
         if dbrs_policy_id is not None:
             pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         if id is not None:
             pulumi.set(__self__, "id", id)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if type is not None:
             pulumi.set(__self__, "type", type)
+        if vpc_password is not None:
+            pulumi.set(__self__, "vpc_password", vpc_password)
+        if vpc_user is not None:
+            pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
     @pulumi.getter(name="dbrsPolicyId")
@@ -10327,6 +10684,24 @@ class DbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+
+        For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> Optional[builtins.str]:
         """
@@ -10334,16 +10709,28 @@ class DbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
         """
         return pulumi.get(self, "type")
 
+    @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> Optional[builtins.str]:
+        return pulumi.get(self, "vpc_password")
+
+    @property
+    @pulumi.getter(name="vpcUser")
+    def vpc_user(self) -> Optional[builtins.str]:
+        return pulumi.get(self, "vpc_user")
+
 
 @pulumi.output_type
 class DbHomeDatabaseEncryptionKeyLocationDetails(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "hsmPassword":
-            suggest = "hsm_password"
-        elif key == "providerType":
+        if key == "providerType":
             suggest = "provider_type"
+        elif key == "azureEncryptionKeyId":
+            suggest = "azure_encryption_key_id"
+        elif key == "hsmPassword":
+            suggest = "hsm_password"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DbHomeDatabaseEncryptionKeyLocationDetails. Access the value via the '{suggest}' property getter instead.")
@@ -10357,30 +10744,43 @@ class DbHomeDatabaseEncryptionKeyLocationDetails(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 hsm_password: builtins.str,
-                 provider_type: builtins.str):
+                 provider_type: builtins.str,
+                 azure_encryption_key_id: Optional[builtins.str] = None,
+                 hsm_password: Optional[builtins.str] = None):
         """
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
+        :param builtins.str azure_encryption_key_id: Provide the key OCID of a registered Azure key.
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
         """
-        pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
-
-    @property
-    @pulumi.getter(name="hsmPassword")
-    def hsm_password(self) -> builtins.str:
-        """
-        Provide the HSM password as you would in RDBMS for External HSM.
-        """
-        return pulumi.get(self, "hsm_password")
+        if azure_encryption_key_id is not None:
+            pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
+        if hsm_password is not None:
+            pulumi.set(__self__, "hsm_password", hsm_password)
 
     @property
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> Optional[builtins.str]:
+        """
+        Provide the key OCID of a registered Azure key.
+        """
+        return pulumi.get(self, "azure_encryption_key_id")
+
+    @property
+    @pulumi.getter(name="hsmPassword")
+    def hsm_password(self) -> Optional[builtins.str]:
+        """
+        Provide the HSM password as you would in RDBMS for External HSM.
+        """
+        return pulumi.get(self, "hsm_password")
 
 
 @pulumi.output_type
@@ -11234,6 +11634,10 @@ class DbSystemDbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
         suggest = None
         if key == "dbrsPolicyId":
             suggest = "dbrs_policy_id"
+        elif key == "isRemote":
+            suggest = "is_remote"
+        elif key == "remoteRegion":
+            suggest = "remote_region"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DbSystemDbHomeDatabaseDbBackupConfigBackupDestinationDetail. Access the value via the '{suggest}' property getter instead.")
@@ -11249,16 +11653,26 @@ class DbSystemDbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: Optional[builtins.str] = None,
                  id: Optional[builtins.str] = None,
+                 is_remote: Optional[builtins.bool] = None,
+                 remote_region: Optional[builtins.str] = None,
                  type: Optional[builtins.str] = None):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
+               
+               For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
         :param builtins.str type: Type of the database backup destination.
         """
         if dbrs_policy_id is not None:
             pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         if id is not None:
             pulumi.set(__self__, "id", id)
+        if is_remote is not None:
+            pulumi.set(__self__, "is_remote", is_remote)
+        if remote_region is not None:
+            pulumi.set(__self__, "remote_region", remote_region)
         if type is not None:
             pulumi.set(__self__, "type", type)
 
@@ -11277,6 +11691,24 @@ class DbSystemDbHomeDatabaseDbBackupConfigBackupDestinationDetail(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the backup destination.
         """
         return pulumi.get(self, "id")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> Optional[builtins.bool]:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> Optional[builtins.str]:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+
+        For information about valid region names, see [Regions and Availability Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm).
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -17823,18 +18255,24 @@ class GetAutonomousContainerDatabaseBackupConfigBackupDestinationDetailResult(di
     def __init__(__self__, *,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str id: The id of the Autonomous Database [Vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts) service key management history entry.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -17854,6 +18292,22 @@ class GetAutonomousContainerDatabaseBackupConfigBackupDestinationDetailResult(di
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -17918,6 +18372,285 @@ class GetAutonomousContainerDatabaseBackupDestinationPropertiesListResult(dict):
         The latest timestamp when the backup destination details, such as 'spaceUtilized,' are updated.
         """
         return pulumi.get(self, "time_at_which_storage_details_are_updated")
+
+
+@pulumi.output_type
+class GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionResult(dict):
+    def __init__(__self__, *,
+                 items: Sequence['outputs.GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemResult']):
+        """
+        :param Sequence['GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemArgs'] items: List of Autonomous container database backups.
+        """
+        pulumi.set(__self__, "items", items)
+
+    @property
+    @pulumi.getter
+    def items(self) -> Sequence['outputs.GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemResult']:
+        """
+        List of Autonomous container database backups.
+        """
+        return pulumi.get(self, "items")
+
+
+@pulumi.output_type
+class GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemResult(dict):
+    def __init__(__self__, *,
+                 acd_display_name: builtins.str,
+                 autonomous_container_database_id: builtins.str,
+                 autonomous_databases: Sequence['outputs.GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemAutonomousDatabaseResult'],
+                 compartment_id: builtins.str,
+                 defined_tags: Mapping[str, builtins.str],
+                 display_name: builtins.str,
+                 freeform_tags: Mapping[str, builtins.str],
+                 id: builtins.str,
+                 infrastructure_type: builtins.str,
+                 is_automatic: builtins.bool,
+                 is_remote_backup: builtins.bool,
+                 lifecycle_details: builtins.str,
+                 retention_period_in_days: builtins.int,
+                 state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
+                 time_ended: builtins.str,
+                 time_started: builtins.str,
+                 type: builtins.str):
+        """
+        :param builtins.str acd_display_name: The user-friendly name for the Autonomous Container Database when the Backup was initiated. This name need not be unique. This field captures the name at the time of backup creation, accounting for possible later updates to the display name.
+        :param builtins.str autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param Sequence['GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemAutonomousDatabaseArgs'] autonomous_databases: List of Autonomous Databases that is part of this Autonomous Container Database Backup
+        :param builtins.str compartment_id: The compartment [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param Mapping[str, builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        :param builtins.str display_name: A filter to return only resources that match the entire display name given. The match is not case sensitive.
+        :param Mapping[str, builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
+        :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database backup.
+        :param builtins.str infrastructure_type: A filter to return only resources that match the given Infrastructure Type.
+        :param builtins.bool is_automatic: Indicates whether the backup is user-initiated or automatic.
+        :param builtins.bool is_remote_backup: Whether backup is for remote-region or local region
+        :param builtins.str lifecycle_details: Additional information about the current lifecycle state.
+        :param builtins.int retention_period_in_days: Retention period, in days, for long-term backups
+        :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        :param builtins.str time_ended: The date and time the backup completed.
+        :param builtins.str time_started: The date and time the backup started.
+        :param builtins.str type: The type of backup.
+        """
+        pulumi.set(__self__, "acd_display_name", acd_display_name)
+        pulumi.set(__self__, "autonomous_container_database_id", autonomous_container_database_id)
+        pulumi.set(__self__, "autonomous_databases", autonomous_databases)
+        pulumi.set(__self__, "compartment_id", compartment_id)
+        pulumi.set(__self__, "defined_tags", defined_tags)
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "freeform_tags", freeform_tags)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "infrastructure_type", infrastructure_type)
+        pulumi.set(__self__, "is_automatic", is_automatic)
+        pulumi.set(__self__, "is_remote_backup", is_remote_backup)
+        pulumi.set(__self__, "lifecycle_details", lifecycle_details)
+        pulumi.set(__self__, "retention_period_in_days", retention_period_in_days)
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
+        pulumi.set(__self__, "time_ended", time_ended)
+        pulumi.set(__self__, "time_started", time_started)
+        pulumi.set(__self__, "type", type)
+
+    @property
+    @pulumi.getter(name="acdDisplayName")
+    def acd_display_name(self) -> builtins.str:
+        """
+        The user-friendly name for the Autonomous Container Database when the Backup was initiated. This name need not be unique. This field captures the name at the time of backup creation, accounting for possible later updates to the display name.
+        """
+        return pulumi.get(self, "acd_display_name")
+
+    @property
+    @pulumi.getter(name="autonomousContainerDatabaseId")
+    def autonomous_container_database_id(self) -> builtins.str:
+        """
+        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        """
+        return pulumi.get(self, "autonomous_container_database_id")
+
+    @property
+    @pulumi.getter(name="autonomousDatabases")
+    def autonomous_databases(self) -> Sequence['outputs.GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemAutonomousDatabaseResult']:
+        """
+        List of Autonomous Databases that is part of this Autonomous Container Database Backup
+        """
+        return pulumi.get(self, "autonomous_databases")
+
+    @property
+    @pulumi.getter(name="compartmentId")
+    def compartment_id(self) -> builtins.str:
+        """
+        The compartment [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        """
+        return pulumi.get(self, "compartment_id")
+
+    @property
+    @pulumi.getter(name="definedTags")
+    def defined_tags(self) -> Mapping[str, builtins.str]:
+        """
+        Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "defined_tags")
+
+    @property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> builtins.str:
+        """
+        A filter to return only resources that match the entire display name given. The match is not case sensitive.
+        """
+        return pulumi.get(self, "display_name")
+
+    @property
+    @pulumi.getter(name="freeformTags")
+    def freeform_tags(self) -> Mapping[str, builtins.str]:
+        """
+        Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
+        """
+        return pulumi.get(self, "freeform_tags")
+
+    @property
+    @pulumi.getter
+    def id(self) -> builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database backup.
+        """
+        return pulumi.get(self, "id")
+
+    @property
+    @pulumi.getter(name="infrastructureType")
+    def infrastructure_type(self) -> builtins.str:
+        """
+        A filter to return only resources that match the given Infrastructure Type.
+        """
+        return pulumi.get(self, "infrastructure_type")
+
+    @property
+    @pulumi.getter(name="isAutomatic")
+    def is_automatic(self) -> builtins.bool:
+        """
+        Indicates whether the backup is user-initiated or automatic.
+        """
+        return pulumi.get(self, "is_automatic")
+
+    @property
+    @pulumi.getter(name="isRemoteBackup")
+    def is_remote_backup(self) -> builtins.bool:
+        """
+        Whether backup is for remote-region or local region
+        """
+        return pulumi.get(self, "is_remote_backup")
+
+    @property
+    @pulumi.getter(name="lifecycleDetails")
+    def lifecycle_details(self) -> builtins.str:
+        """
+        Additional information about the current lifecycle state.
+        """
+        return pulumi.get(self, "lifecycle_details")
+
+    @property
+    @pulumi.getter(name="retentionPeriodInDays")
+    def retention_period_in_days(self) -> builtins.int:
+        """
+        Retention period, in days, for long-term backups
+        """
+        return pulumi.get(self, "retention_period_in_days")
+
+    @property
+    @pulumi.getter
+    def state(self) -> builtins.str:
+        """
+        A filter to return only resources that match the given lifecycle state exactly.
+        """
+        return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
+
+    @property
+    @pulumi.getter(name="timeEnded")
+    def time_ended(self) -> builtins.str:
+        """
+        The date and time the backup completed.
+        """
+        return pulumi.get(self, "time_ended")
+
+    @property
+    @pulumi.getter(name="timeStarted")
+    def time_started(self) -> builtins.str:
+        """
+        The date and time the backup started.
+        """
+        return pulumi.get(self, "time_started")
+
+    @property
+    @pulumi.getter
+    def type(self) -> builtins.str:
+        """
+        The type of backup.
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetAutonomousContainerDatabaseBackupsAutonomousContainerDatabaseBackupCollectionItemAutonomousDatabaseResult(dict):
+    def __init__(__self__, *,
+                 compartment_id: builtins.str,
+                 display_name: builtins.str):
+        """
+        :param builtins.str compartment_id: The compartment [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param builtins.str display_name: A filter to return only resources that match the entire display name given. The match is not case sensitive.
+        """
+        pulumi.set(__self__, "compartment_id", compartment_id)
+        pulumi.set(__self__, "display_name", display_name)
+
+    @property
+    @pulumi.getter(name="compartmentId")
+    def compartment_id(self) -> builtins.str:
+        """
+        The compartment [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        """
+        return pulumi.get(self, "compartment_id")
+
+    @property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> builtins.str:
+        """
+        A filter to return only resources that match the entire display name given. The match is not case sensitive.
+        """
+        return pulumi.get(self, "display_name")
+
+
+@pulumi.output_type
+class GetAutonomousContainerDatabaseBackupsFilterResult(dict):
+    def __init__(__self__, *,
+                 name: builtins.str,
+                 values: Sequence[builtins.str],
+                 regex: Optional[builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @property
+    @pulumi.getter
+    def name(self) -> builtins.str:
+        return pulumi.get(self, "name")
+
+    @property
+    @pulumi.getter
+    def values(self) -> Sequence[builtins.str]:
+        return pulumi.get(self, "values")
+
+    @property
+    @pulumi.getter
+    def regex(self) -> Optional[builtins.bool]:
+        return pulumi.get(self, "regex")
 
 
 @pulumi.output_type
@@ -18139,6 +18872,8 @@ class GetAutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerD
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
@@ -18148,6 +18883,8 @@ class GetAutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerD
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -18169,6 +18906,16 @@ class GetAutonomousContainerDatabaseDataguardAssociationPeerAutonomousContainerD
     @pulumi.getter(name="internetProxy")
     def internet_proxy(self) -> builtins.str:
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -18479,6 +19226,8 @@ class GetAutonomousContainerDatabaseDataguardAssociationsAutonomousContainerData
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
@@ -18488,6 +19237,8 @@ class GetAutonomousContainerDatabaseDataguardAssociationsAutonomousContainerData
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -18509,6 +19260,16 @@ class GetAutonomousContainerDatabaseDataguardAssociationsAutonomousContainerData
     @pulumi.getter(name="internetProxy")
     def internet_proxy(self) -> builtins.str:
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -19164,18 +19925,24 @@ class GetAutonomousContainerDatabasePeerAutonomousContainerDatabaseBackupConfigB
     def __init__(__self__, *,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str id: The id of the Autonomous Database [Vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts) service key management history entry.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -19195,6 +19962,22 @@ class GetAutonomousContainerDatabasePeerAutonomousContainerDatabaseBackupConfigB
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -19456,6 +20239,7 @@ class GetAutonomousContainerDatabaseVersionsFilterResult(dict):
 class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
     def __init__(__self__, *,
                  associated_backup_configuration_details: Sequence['outputs.GetAutonomousContainerDatabasesAutonomousContainerDatabaseAssociatedBackupConfigurationDetailResult'],
+                 autonomous_container_database_backup_id: builtins.str,
                  autonomous_exadata_infrastructure_id: builtins.str,
                  autonomous_vm_cluster_id: builtins.str,
                  availability_domain: builtins.str,
@@ -19490,6 +20274,7 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
                  key_store_wallet_name: builtins.str,
                  key_version_id: builtins.str,
                  kms_key_id: builtins.str,
+                 kms_key_version_id: builtins.str,
                  largest_provisionable_autonomous_database_in_cpus: builtins.float,
                  last_maintenance_run_id: builtins.str,
                  lifecycle_details: builtins.str,
@@ -19518,9 +20303,11 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
                  role: builtins.str,
                  rotate_key_trigger: builtins.bool,
                  service_level_agreement_type: builtins.str,
+                 source: builtins.str,
                  standby_maintenance_buffer_in_days: builtins.int,
                  state: builtins.str,
                  switchover_trigger: builtins.int,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_of_last_backup: builtins.str,
                  time_snapshot_standby_revert: builtins.str,
@@ -19555,11 +20342,12 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         :param builtins.bool is_automatic_failover_enabled: Indicates whether Automatic Failover is enabled for Autonomous Container Database Dataguard Association
         :param builtins.bool is_data_guard_enabled: **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param builtins.bool is_dst_file_update_enabled: Indicates if an automatic DST Time Zone file update is enabled for the Autonomous Container Database. If enabled along with Release Update, patching will be done in a Non-Rolling manner.
-        :param builtins.bool is_multiple_standby: Whether it is multiple standby Autonomous Dataguard
+        :param builtins.bool is_multiple_standby: Indicates if it is multiple standby Autonomous Dataguard
         :param Sequence['GetAutonomousContainerDatabasesAutonomousContainerDatabaseKeyHistoryEntryArgs'] key_history_entries: Key History Entry.
         :param builtins.str key_store_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the key store of Oracle Vault.
         :param builtins.str key_store_wallet_name: The wallet name for Oracle Key Vault.
         :param builtins.str kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
+        :param builtins.str kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
         :param builtins.float largest_provisionable_autonomous_database_in_cpus: The largest Autonomous Database (CPU) that can be created in a new Autonomous Container Database.
         :param builtins.str last_maintenance_run_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the last maintenance run.
         :param builtins.str lifecycle_details: Additional information about the current lifecycle state.
@@ -19580,6 +20368,7 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         :param builtins.str service_level_agreement_type: A filter to return only resources that match the given service level agreement type exactly.
         :param builtins.int standby_maintenance_buffer_in_days: The scheduling detail for the quarterly maintenance window of the standby Autonomous Container Database. This value represents the number of days before scheduled maintenance of the primary database.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the Autonomous Container Database was created.
         :param builtins.str time_of_last_backup: The timestamp of last successful backup. Here NULL value represents either there are no successful backups or backups are not configured for this Autonomous Container Database.
         :param builtins.str time_snapshot_standby_revert: The date and time the Autonomous Container Database will be reverted to Standby from Snapshot Standby.
@@ -19589,6 +20378,7 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         :param builtins.int vm_failover_reservation: The percentage of CPUs reserved across nodes to support node failover. Allowed values are 0%, 25%, and 50%, with 50% being the default option.
         """
         pulumi.set(__self__, "associated_backup_configuration_details", associated_backup_configuration_details)
+        pulumi.set(__self__, "autonomous_container_database_backup_id", autonomous_container_database_backup_id)
         pulumi.set(__self__, "autonomous_exadata_infrastructure_id", autonomous_exadata_infrastructure_id)
         pulumi.set(__self__, "autonomous_vm_cluster_id", autonomous_vm_cluster_id)
         pulumi.set(__self__, "availability_domain", availability_domain)
@@ -19623,6 +20413,7 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         pulumi.set(__self__, "key_store_wallet_name", key_store_wallet_name)
         pulumi.set(__self__, "key_version_id", key_version_id)
         pulumi.set(__self__, "kms_key_id", kms_key_id)
+        pulumi.set(__self__, "kms_key_version_id", kms_key_version_id)
         pulumi.set(__self__, "largest_provisionable_autonomous_database_in_cpus", largest_provisionable_autonomous_database_in_cpus)
         pulumi.set(__self__, "last_maintenance_run_id", last_maintenance_run_id)
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
@@ -19651,9 +20442,11 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         pulumi.set(__self__, "role", role)
         pulumi.set(__self__, "rotate_key_trigger", rotate_key_trigger)
         pulumi.set(__self__, "service_level_agreement_type", service_level_agreement_type)
+        pulumi.set(__self__, "source", source)
         pulumi.set(__self__, "standby_maintenance_buffer_in_days", standby_maintenance_buffer_in_days)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "switchover_trigger", switchover_trigger)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_of_last_backup", time_of_last_backup)
         pulumi.set(__self__, "time_snapshot_standby_revert", time_snapshot_standby_revert)
@@ -19669,6 +20462,11 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         A backup config object holds information about preferred backup destinations only. This object holds information about the associated backup destinations, such as secondary backup destinations created for local backups or remote replicated backups.
         """
         return pulumi.get(self, "associated_backup_configuration_details")
+
+    @property
+    @pulumi.getter(name="autonomousContainerDatabaseBackupId")
+    def autonomous_container_database_backup_id(self) -> builtins.str:
+        return pulumi.get(self, "autonomous_container_database_backup_id")
 
     @property
     @pulumi.getter(name="autonomousExadataInfrastructureId")
@@ -19889,7 +20687,7 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
     @pulumi.getter(name="isMultipleStandby")
     def is_multiple_standby(self) -> builtins.bool:
         """
-        Whether it is multiple standby Autonomous Dataguard
+        Indicates if it is multiple standby Autonomous Dataguard
         """
         return pulumi.get(self, "is_multiple_standby")
 
@@ -19929,6 +20727,14 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
         """
         return pulumi.get(self, "kms_key_id")
+
+    @property
+    @pulumi.getter(name="kmsKeyVersionId")
+    def kms_key_version_id(self) -> builtins.str:
+        """
+        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
+        """
+        return pulumi.get(self, "kms_key_version_id")
 
     @property
     @pulumi.getter(name="largestProvisionableAutonomousDatabaseInCpus")
@@ -20125,6 +20931,11 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
         return pulumi.get(self, "service_level_agreement_type")
 
     @property
+    @pulumi.getter
+    def source(self) -> builtins.str:
+        return pulumi.get(self, "source")
+
+    @property
     @pulumi.getter(name="standbyMaintenanceBufferInDays")
     def standby_maintenance_buffer_in_days(self) -> builtins.int:
         """
@@ -20144,6 +20955,14 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseResult(dict):
     @pulumi.getter(name="switchoverTrigger")
     def switchover_trigger(self) -> builtins.int:
         return pulumi.get(self, "switchover_trigger")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -20353,18 +21172,24 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseBackupConfigBack
     def __init__(__self__, *,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str id: The id of the Autonomous Database [Vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts) service key management history entry.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -20384,6 +21209,22 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabaseBackupConfigBack
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -21255,18 +22096,24 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabasePeerAutonomousCo
     def __init__(__self__, *,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str id: The id of the Autonomous Database [Vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts) service key management history entry.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -21286,6 +22133,22 @@ class GetAutonomousContainerDatabasesAutonomousContainerDatabasePeerAutonomousCo
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -21574,18 +22437,24 @@ class GetAutonomousDatabaseBackupBackupDestinationDetailResult(dict):
     def __init__(__self__, *,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database backup.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: The type of backup.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -21605,6 +22474,22 @@ class GetAutonomousDatabaseBackupBackupDestinationDetailResult(dict):
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -21921,18 +22806,24 @@ class GetAutonomousDatabaseBackupsAutonomousDatabaseBackupBackupDestinationDetai
     def __init__(__self__, *,
                  id: builtins.str,
                  internet_proxy: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
                  vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database backup.
         :param builtins.str internet_proxy: Proxy URL to connect to object store.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: A filter to return only backups that matches with the given type of Backup.
         :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
         :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "internet_proxy", internet_proxy)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
@@ -21952,6 +22843,22 @@ class GetAutonomousDatabaseBackupsAutonomousDatabaseBackupBackupDestinationDetai
         Proxy URL to connect to object store.
         """
         return pulumi.get(self, "internet_proxy")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -23402,6 +24309,69 @@ class GetAutonomousDatabaseRemoteDisasterRecoveryConfigurationResult(dict):
 
 
 @pulumi.output_type
+class GetAutonomousDatabaseResourcePoolMembersFilterResult(dict):
+    def __init__(__self__, *,
+                 name: builtins.str,
+                 values: Sequence[builtins.str],
+                 regex: Optional[builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @property
+    @pulumi.getter
+    def name(self) -> builtins.str:
+        return pulumi.get(self, "name")
+
+    @property
+    @pulumi.getter
+    def values(self) -> Sequence[builtins.str]:
+        return pulumi.get(self, "values")
+
+    @property
+    @pulumi.getter
+    def regex(self) -> Optional[builtins.bool]:
+        return pulumi.get(self, "regex")
+
+
+@pulumi.output_type
+class GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionResult(dict):
+    def __init__(__self__, *,
+                 items: Sequence['outputs.GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionItemResult']):
+        """
+        :param Sequence['GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionItemArgs'] items: List of resource pool member summary.
+        """
+        pulumi.set(__self__, "items", items)
+
+    @property
+    @pulumi.getter
+    def items(self) -> Sequence['outputs.GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionItemResult']:
+        """
+        List of resource pool member summary.
+        """
+        return pulumi.get(self, "items")
+
+
+@pulumi.output_type
+class GetAutonomousDatabaseResourcePoolMembersResourcePoolMemberCollectionItemResult(dict):
+    def __init__(__self__, *,
+                 id: builtins.str):
+        """
+        :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database.
+        """
+        pulumi.set(__self__, "id", id)
+
+    @property
+    @pulumi.getter
+    def id(self) -> builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Autonomous Database.
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
 class GetAutonomousDatabaseResourcePoolSummaryResult(dict):
     def __init__(__self__, *,
                  is_disabled: builtins.bool,
@@ -23515,6 +24485,7 @@ class GetAutonomousDatabaseSoftwareImagesAutonomousDatabaseSoftwareImageCollecti
                  release_update: builtins.str,
                  source_cdb_id: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str):
         """
         :param Sequence[builtins.str] autonomous_dsi_one_off_patches: One-off patches included in the Autonomous Database Software Image
@@ -23528,6 +24499,7 @@ class GetAutonomousDatabaseSoftwareImagesAutonomousDatabaseSoftwareImageCollecti
         :param builtins.str lifecycle_details: Detailed message for the lifecycle state.
         :param builtins.str release_update: The Release Updates.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the Autonomous Database Software Image was created.
         """
         pulumi.set(__self__, "autonomous_dsi_one_off_patches", autonomous_dsi_one_off_patches)
@@ -23542,6 +24514,7 @@ class GetAutonomousDatabaseSoftwareImagesAutonomousDatabaseSoftwareImageCollecti
         pulumi.set(__self__, "release_update", release_update)
         pulumi.set(__self__, "source_cdb_id", source_cdb_id)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
 
     @property
@@ -23636,6 +24609,14 @@ class GetAutonomousDatabaseSoftwareImagesAutonomousDatabaseSoftwareImageCollecti
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -31607,6 +32588,7 @@ class GetAutonomousVmClustersAutonomousVmClusterResult(dict):
                  scan_listener_port_non_tls: builtins.int,
                  scan_listener_port_tls: builtins.int,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_database_ssl_certificate_expires: builtins.str,
                  time_ords_certificate_expires: builtins.str,
@@ -31657,6 +32639,7 @@ class GetAutonomousVmClustersAutonomousVmClusterResult(dict):
         :param builtins.int scan_listener_port_non_tls: The SCAN Listener Non TLS port number. Default value is 1521.
         :param builtins.int scan_listener_port_tls: The SCAN Listener TLS port number. Default value is 2484.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time that the Autonomous VM cluster was created.
         :param builtins.str time_database_ssl_certificate_expires: The date and time of Database SSL certificate expiration.
         :param builtins.str time_ords_certificate_expires: The date and time of ORDS certificate expiration.
@@ -31708,6 +32691,7 @@ class GetAutonomousVmClustersAutonomousVmClusterResult(dict):
         pulumi.set(__self__, "scan_listener_port_non_tls", scan_listener_port_non_tls)
         pulumi.set(__self__, "scan_listener_port_tls", scan_listener_port_tls)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_database_ssl_certificate_expires", time_database_ssl_certificate_expires)
         pulumi.set(__self__, "time_ords_certificate_expires", time_ords_certificate_expires)
@@ -32057,6 +33041,14 @@ class GetAutonomousVmClustersAutonomousVmClusterResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -32530,6 +33522,7 @@ class GetBackupDestinationsBackupDestinationResult(dict):
                  nfs_server_export: builtins.str,
                  nfs_servers: Sequence[builtins.str],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_at_which_storage_details_are_updated: builtins.str,
                  time_created: builtins.str,
                  total_storage_size_in_gbs: builtins.int,
@@ -32550,6 +33543,7 @@ class GetBackupDestinationsBackupDestinationResult(dict):
         :param builtins.str nfs_server_export: Specifies the directory on which to mount the file system
         :param Sequence[builtins.str] nfs_servers: Host names or IP addresses for NFS Auto mount.
         :param builtins.str state: The current lifecycle state of the backup destination.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_at_which_storage_details_are_updated: The time when the total storage size and the utilized storage size of the backup destination are updated.
         :param builtins.str time_created: The date and time the backup destination was created.
         :param builtins.int total_storage_size_in_gbs: The total storage size of the backup destination in GBs, rounded to the nearest integer.
@@ -32571,6 +33565,7 @@ class GetBackupDestinationsBackupDestinationResult(dict):
         pulumi.set(__self__, "nfs_server_export", nfs_server_export)
         pulumi.set(__self__, "nfs_servers", nfs_servers)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_at_which_storage_details_are_updated", time_at_which_storage_details_are_updated)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "total_storage_size_in_gbs", total_storage_size_in_gbs)
@@ -32687,6 +33682,14 @@ class GetBackupDestinationsBackupDestinationResult(dict):
         The current lifecycle state of the backup destination.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeAtWhichStorageDetailsAreUpdated")
@@ -33136,14 +34139,25 @@ class GetBackupsBackupResult(dict):
 @pulumi.output_type
 class GetBackupsBackupEncryptionKeyLocationDetailResult(dict):
     def __init__(__self__, *,
+                 azure_encryption_key_id: builtins.str,
                  hsm_password: builtins.str,
                  provider_type: builtins.str):
         """
+        :param builtins.str azure_encryption_key_id: Provide the key OCID of a registered Azure key.
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
+        pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> builtins.str:
+        """
+        Provide the key OCID of a registered Azure key.
+        """
+        return pulumi.get(self, "azure_encryption_key_id")
 
     @property
     @pulumi.getter(name="hsmPassword")
@@ -33157,7 +34171,7 @@ class GetBackupsBackupEncryptionKeyLocationDetailResult(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -33983,6 +34997,7 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
                  nsg_ids: Sequence[builtins.str],
                  ocpu_count: builtins.float,
                  ocpus_lowest_scaled_value: builtins.int,
+                 opc_dry_run: builtins.bool,
                  provisionable_autonomous_container_databases: builtins.int,
                  provisioned_autonomous_container_databases: builtins.int,
                  provisioned_cpus: builtins.float,
@@ -33994,6 +35009,8 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
                  shape: builtins.str,
                  state: builtins.str,
                  subnet_id: builtins.str,
+                 subscription_id: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_database_ssl_certificate_expires: builtins.str,
                  time_ords_certificate_expires: builtins.str,
@@ -34056,6 +35073,8 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
         :param builtins.str shape: The model name of the Exadata hardware running the cloud Autonomous VM cluster.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
         :param builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the cloud Autonomous VM Cluster is associated with.
+        :param builtins.str subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time that the cloud Autonomous VM cluster was created.
         :param builtins.str time_database_ssl_certificate_expires: The date and time of Database SSL certificate expiration.
         :param builtins.str time_ords_certificate_expires: The date and time of ORDS certificate expiration.
@@ -34105,6 +35124,7 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
         pulumi.set(__self__, "nsg_ids", nsg_ids)
         pulumi.set(__self__, "ocpu_count", ocpu_count)
         pulumi.set(__self__, "ocpus_lowest_scaled_value", ocpus_lowest_scaled_value)
+        pulumi.set(__self__, "opc_dry_run", opc_dry_run)
         pulumi.set(__self__, "provisionable_autonomous_container_databases", provisionable_autonomous_container_databases)
         pulumi.set(__self__, "provisioned_autonomous_container_databases", provisioned_autonomous_container_databases)
         pulumi.set(__self__, "provisioned_cpus", provisioned_cpus)
@@ -34116,6 +35136,8 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
         pulumi.set(__self__, "shape", shape)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "subnet_id", subnet_id)
+        pulumi.set(__self__, "subscription_id", subscription_id)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_database_ssl_certificate_expires", time_database_ssl_certificate_expires)
         pulumi.set(__self__, "time_ords_certificate_expires", time_ords_certificate_expires)
@@ -34451,6 +35473,11 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
         return pulumi.get(self, "ocpus_lowest_scaled_value")
 
     @property
+    @pulumi.getter(name="opcDryRun")
+    def opc_dry_run(self) -> builtins.bool:
+        return pulumi.get(self, "opc_dry_run")
+
+    @property
     @pulumi.getter(name="provisionableAutonomousContainerDatabases")
     def provisionable_autonomous_container_databases(self) -> builtins.int:
         """
@@ -34539,6 +35566,22 @@ class GetCloudAutonomousVmClustersCloudAutonomousVmClusterResult(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the cloud Autonomous VM Cluster is associated with.
         """
         return pulumi.get(self, "subnet_id")
+
+    @property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
+        """
+        return pulumi.get(self, "subscription_id")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -36243,6 +37286,35 @@ class GetCloudVmClusterIormConfigDbPlanResult(dict):
 
 
 @pulumi.output_type
+class GetCloudVmClusterMultiCloudIdentityConnectorConfigResult(dict):
+    def __init__(__self__, *,
+                 cloud_provider: builtins.str,
+                 id: builtins.str):
+        """
+        :param builtins.str cloud_provider: Cloud provider
+        :param builtins.str id: The OCID of the identity connector
+        """
+        pulumi.set(__self__, "cloud_provider", cloud_provider)
+        pulumi.set(__self__, "id", id)
+
+    @property
+    @pulumi.getter(name="cloudProvider")
+    def cloud_provider(self) -> builtins.str:
+        """
+        Cloud provider
+        """
+        return pulumi.get(self, "cloud_provider")
+
+    @property
+    @pulumi.getter
+    def id(self) -> builtins.str:
+        """
+        The OCID of the identity connector
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
 class GetCloudVmClustersCloudVmClusterResult(dict):
     def __init__(__self__, *,
                  availability_domain: builtins.str,
@@ -36277,6 +37349,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
                  lifecycle_details: builtins.str,
                  listener_port: builtins.str,
                  memory_size_in_gbs: builtins.int,
+                 multi_cloud_identity_connector_configs: Sequence['outputs.GetCloudVmClustersCloudVmClusterMultiCloudIdentityConnectorConfigResult'],
                  node_count: builtins.int,
                  nsg_ids: Sequence[builtins.str],
                  ocpu_count: builtins.float,
@@ -36296,6 +37369,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
                  subscription_id: builtins.str,
                  system_tags: Mapping[str, builtins.str],
                  system_version: builtins.str,
+                 tde_key_store_type: builtins.str,
                  time_created: builtins.str,
                  time_zone: builtins.str,
                  vip_ids: Sequence[builtins.str],
@@ -36325,7 +37399,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         :param Mapping[str, builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param builtins.str gi_version: A valid Oracle Grid Infrastructure (GI) software version.
         :param builtins.str hostname: The hostname for the cloud VM cluster.
-        :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cloud VM cluster.
+        :param builtins.str id: The OCID of the identity connector
         :param builtins.bool is_local_backup_enabled: If true, database backup on local Exadata storage is configured for the cloud VM cluster. If false, database backup on local Exadata storage is not available in the cloud VM cluster.
         :param builtins.bool is_sparse_diskgroup_enabled: If true, sparse disk group is configured for the cloud VM cluster. If false, sparse disk group is not created.
         :param builtins.str last_update_history_entry_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the last maintenance update history entry. This value is updated when a maintenance update starts.
@@ -36333,6 +37407,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         :param builtins.str lifecycle_details: Additional information about the current lifecycle state.
         :param builtins.str listener_port: The port number configured for the listener on the cloud VM cluster.
         :param builtins.int memory_size_in_gbs: The memory to be allocated in GBs.
+        :param Sequence['GetCloudVmClustersCloudVmClusterMultiCloudIdentityConnectorConfigArgs'] multi_cloud_identity_connector_configs: Details of the multi cloud identity connectors of the VM cluster.
         :param builtins.int node_count: The number of nodes in the cloud VM cluster.
         :param Sequence[builtins.str] nsg_ids: The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
                * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
@@ -36352,6 +37427,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         :param builtins.str subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
         :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str system_version: Operating system version of the image.
+        :param builtins.str tde_key_store_type: TDE keystore type
         :param builtins.str time_created: The date and time that the cloud VM cluster was created.
         :param builtins.str time_zone: The time zone of the cloud VM cluster. For details, see [Exadata Infrastructure Time Zones](https://docs.cloud.oracle.com/iaas/Content/Database/References/timezones.htm).
         :param Sequence[builtins.str] vip_ids: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the virtual IP (VIP) IPv4 addresses associated with the cloud VM cluster. The Cluster Ready Services (CRS) creates and maintains one VIP IPv4 address for each node in the Exadata Cloud Service instance to enable failover. If one node fails, the VIP is reassigned to another active node in the cluster.
@@ -36391,6 +37467,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "listener_port", listener_port)
         pulumi.set(__self__, "memory_size_in_gbs", memory_size_in_gbs)
+        pulumi.set(__self__, "multi_cloud_identity_connector_configs", multi_cloud_identity_connector_configs)
         pulumi.set(__self__, "node_count", node_count)
         pulumi.set(__self__, "nsg_ids", nsg_ids)
         pulumi.set(__self__, "ocpu_count", ocpu_count)
@@ -36410,6 +37487,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         pulumi.set(__self__, "subscription_id", subscription_id)
         pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "system_version", system_version)
+        pulumi.set(__self__, "tde_key_store_type", tde_key_store_type)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
         pulumi.set(__self__, "vip_ids", vip_ids)
@@ -36602,7 +37680,7 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
     @pulumi.getter
     def id(self) -> builtins.str:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cloud VM cluster.
+        The OCID of the identity connector
         """
         return pulumi.get(self, "id")
 
@@ -36666,6 +37744,14 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         The memory to be allocated in GBs.
         """
         return pulumi.get(self, "memory_size_in_gbs")
+
+    @property
+    @pulumi.getter(name="multiCloudIdentityConnectorConfigs")
+    def multi_cloud_identity_connector_configs(self) -> Sequence['outputs.GetCloudVmClustersCloudVmClusterMultiCloudIdentityConnectorConfigResult']:
+        """
+        Details of the multi cloud identity connectors of the VM cluster.
+        """
+        return pulumi.get(self, "multi_cloud_identity_connector_configs")
 
     @property
     @pulumi.getter(name="nodeCount")
@@ -36816,6 +37902,14 @@ class GetCloudVmClustersCloudVmClusterResult(dict):
         Operating system version of the image.
         """
         return pulumi.get(self, "system_version")
+
+    @property
+    @pulumi.getter(name="tdeKeyStoreType")
+    def tde_key_store_type(self) -> builtins.str:
+        """
+        TDE keystore type
+        """
+        return pulumi.get(self, "tde_key_store_type")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -37111,6 +38205,35 @@ class GetCloudVmClustersCloudVmClusterIormConfigCachDbPlanResult(dict):
     @pulumi.getter
     def share(self) -> builtins.int:
         return pulumi.get(self, "share")
+
+
+@pulumi.output_type
+class GetCloudVmClustersCloudVmClusterMultiCloudIdentityConnectorConfigResult(dict):
+    def __init__(__self__, *,
+                 cloud_provider: builtins.str,
+                 id: builtins.str):
+        """
+        :param builtins.str cloud_provider: Cloud provider
+        :param builtins.str id: The OCID of the identity connector
+        """
+        pulumi.set(__self__, "cloud_provider", cloud_provider)
+        pulumi.set(__self__, "id", id)
+
+    @property
+    @pulumi.getter(name="cloudProvider")
+    def cloud_provider(self) -> builtins.str:
+        """
+        Cloud provider
+        """
+        return pulumi.get(self, "cloud_provider")
+
+    @property
+    @pulumi.getter
+    def id(self) -> builtins.str:
+        """
+        The OCID of the identity connector
+        """
+        return pulumi.get(self, "id")
 
 
 @pulumi.output_type
@@ -38174,16 +39297,26 @@ class GetDatabaseDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
+                 vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the database.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
+        :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
@@ -38203,6 +39336,22 @@ class GetDatabaseDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> builtins.str:
         """
@@ -38211,22 +39360,44 @@ class GetDatabaseDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "type")
 
     @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> builtins.str:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        """
+        return pulumi.get(self, "vpc_password")
+
+    @property
     @pulumi.getter(name="vpcUser")
     def vpc_user(self) -> builtins.str:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
+        """
         return pulumi.get(self, "vpc_user")
 
 
 @pulumi.output_type
 class GetDatabaseDatabaseEncryptionKeyLocationDetailResult(dict):
     def __init__(__self__, *,
+                 azure_encryption_key_id: builtins.str,
                  hsm_password: builtins.str,
                  provider_type: builtins.str):
         """
+        :param builtins.str azure_encryption_key_id: Provide the key OCID of a registered Azure key.
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
+        pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> builtins.str:
+        """
+        Provide the key OCID of a registered Azure key.
+        """
+        return pulumi.get(self, "azure_encryption_key_id")
 
     @property
     @pulumi.getter(name="hsmPassword")
@@ -38240,7 +39411,7 @@ class GetDatabaseDatabaseEncryptionKeyLocationDetailResult(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -38281,7 +39452,7 @@ class GetDatabaseDatabaseSourceEncryptionKeyLocationDetailResult(dict):
                  provider_type: builtins.str):
         """
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
@@ -38298,7 +39469,7 @@ class GetDatabaseDatabaseSourceEncryptionKeyLocationDetailResult(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -38403,16 +39574,26 @@ class GetDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
+                 vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the database.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
+        :param builtins.str vpc_password: For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        :param builtins.str vpc_user: For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
@@ -38432,6 +39613,22 @@ class GetDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> builtins.str:
         """
@@ -38440,8 +39637,19 @@ class GetDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "type")
 
     @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> builtins.str:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the password for the VPC user that is used to access the Recovery Appliance.
+        """
+        return pulumi.get(self, "vpc_password")
+
+    @property
     @pulumi.getter(name="vpcUser")
     def vpc_user(self) -> builtins.str:
+        """
+        For a RECOVERY_APPLIANCE backup destination, the Virtual Private Catalog (VPC) user that is used to access the Recovery Appliance.
+        """
         return pulumi.get(self, "vpc_user")
 
 
@@ -39190,6 +40398,7 @@ class GetDatabaseMaintenanceRunHistoriesMaintenanceRunHistoryMaintenanceRunDetai
                  peer_maintenance_run_id: builtins.str,
                  peer_maintenance_run_ids: Sequence[builtins.str],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  target_db_server_version: builtins.str,
                  target_resource_id: builtins.str,
                  target_resource_type: builtins.str,
@@ -39224,6 +40433,7 @@ class GetDatabaseMaintenanceRunHistoriesMaintenanceRunHistoryMaintenanceRunDetai
         :param builtins.str peer_maintenance_run_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the maintenance run for the Autonomous Data Guard association's peer container database.
         :param Sequence[builtins.str] peer_maintenance_run_ids: The list of OCIDs for the maintenance runs associated with their Autonomous Data Guard peer container databases.
         :param builtins.str state: The state of the maintenance run history.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str target_db_server_version: The target software version for the database server patching operation.
         :param builtins.str target_resource_id: The target resource ID.
         :param builtins.str target_resource_type: The type of the target resource.
@@ -39258,6 +40468,7 @@ class GetDatabaseMaintenanceRunHistoriesMaintenanceRunHistoryMaintenanceRunDetai
         pulumi.set(__self__, "peer_maintenance_run_id", peer_maintenance_run_id)
         pulumi.set(__self__, "peer_maintenance_run_ids", peer_maintenance_run_ids)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "target_db_server_version", target_db_server_version)
         pulumi.set(__self__, "target_resource_id", target_resource_id)
         pulumi.set(__self__, "target_resource_type", target_resource_type)
@@ -39466,6 +40677,14 @@ class GetDatabaseMaintenanceRunHistoriesMaintenanceRunHistoryMaintenanceRunDetai
         The state of the maintenance run history.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="targetDbServerVersion")
@@ -40239,6 +41458,7 @@ class GetDatabaseMaintenanceRunHistoryMaintenanceRunDetailResult(dict):
                  peer_maintenance_run_id: builtins.str,
                  peer_maintenance_run_ids: Sequence[builtins.str],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  target_db_server_version: builtins.str,
                  target_resource_id: builtins.str,
                  target_resource_type: builtins.str,
@@ -40273,6 +41493,7 @@ class GetDatabaseMaintenanceRunHistoryMaintenanceRunDetailResult(dict):
         :param builtins.str peer_maintenance_run_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the maintenance run for the Autonomous Data Guard association's peer container database.
         :param Sequence[builtins.str] peer_maintenance_run_ids: The list of OCIDs for the maintenance runs associated with their Autonomous Data Guard peer container databases.
         :param builtins.str state: The current state of the maintenance run. For Autonomous Database Serverless instances, valid states are IN_PROGRESS, SUCCEEDED, and FAILED.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str target_db_server_version: The target software version for the database server patching operation.
         :param builtins.str target_resource_id: The ID of the target resource on which the maintenance run occurs.
         :param builtins.str target_resource_type: The type of the target resource on which the maintenance run occurs.
@@ -40307,6 +41528,7 @@ class GetDatabaseMaintenanceRunHistoryMaintenanceRunDetailResult(dict):
         pulumi.set(__self__, "peer_maintenance_run_id", peer_maintenance_run_id)
         pulumi.set(__self__, "peer_maintenance_run_ids", peer_maintenance_run_ids)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "target_db_server_version", target_db_server_version)
         pulumi.set(__self__, "target_resource_id", target_resource_id)
         pulumi.set(__self__, "target_resource_type", target_resource_type)
@@ -40515,6 +41737,14 @@ class GetDatabaseMaintenanceRunHistoryMaintenanceRunDetailResult(dict):
         The current state of the maintenance run. For Autonomous Database Serverless instances, valid states are IN_PROGRESS, SUCCEEDED, and FAILED.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="targetDbServerVersion")
@@ -40817,6 +42047,7 @@ class GetDatabaseSoftwareImagesDatabaseSoftwareImageResult(dict):
                  patch_set: builtins.str,
                  source_db_home_id: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str):
         """
         :param builtins.str compartment_id: The compartment [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
@@ -40835,6 +42066,7 @@ class GetDatabaseSoftwareImagesDatabaseSoftwareImageResult(dict):
         :param builtins.str ls_inventory: The output from the OPatch lsInventory command, which is passed as a string.
         :param builtins.str patch_set: The PSU or PBP or Release Updates. To get a list of supported versions, use the [ListDbVersions](https://docs.cloud.oracle.com/iaas/api/#/en/database/latest/DbVersionSummary/ListDbVersions) operation.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the database software image was created.
         """
         pulumi.set(__self__, "compartment_id", compartment_id)
@@ -40854,6 +42086,7 @@ class GetDatabaseSoftwareImagesDatabaseSoftwareImageResult(dict):
         pulumi.set(__self__, "patch_set", patch_set)
         pulumi.set(__self__, "source_db_home_id", source_db_home_id)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
 
     @property
@@ -40988,6 +42221,14 @@ class GetDatabaseSoftwareImagesDatabaseSoftwareImageResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -41234,6 +42475,7 @@ class GetDatabasesDatabaseResult(dict):
                  source: builtins.str,
                  source_database_point_in_time_recovery_timestamp: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  vault_id: builtins.str,
                  vm_cluster_id: builtins.str):
@@ -41267,6 +42509,7 @@ class GetDatabasesDatabaseResult(dict):
         :param builtins.str sid_prefix: Specifies a prefix for the `Oracle SID` of the database to be created.
         :param builtins.str source_database_point_in_time_recovery_timestamp: Point in time recovery timeStamp of the source database at which cloned database system is cloned from the source database system, as described in [RFC 3339](https://tools.ietf.org/rfc/rfc3339)
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the database was created.
         :param builtins.str vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
         :param builtins.str vm_cluster_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the VM cluster.
@@ -41307,6 +42550,7 @@ class GetDatabasesDatabaseResult(dict):
         pulumi.set(__self__, "source", source)
         pulumi.set(__self__, "source_database_point_in_time_recovery_timestamp", source_database_point_in_time_recovery_timestamp)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "vault_id", vault_id)
         pulumi.set(__self__, "vm_cluster_id", vm_cluster_id)
@@ -41577,6 +42821,14 @@ class GetDatabasesDatabaseResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -42158,16 +43410,24 @@ class GetDatabasesDatabaseDatabaseDbBackupConfigBackupDestinationDetailResult(di
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
+                 vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the database.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
@@ -42187,12 +43447,33 @@ class GetDatabasesDatabaseDatabaseDbBackupConfigBackupDestinationDetailResult(di
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> builtins.str:
         """
         Type of the database backup destination.
         """
         return pulumi.get(self, "type")
+
+    @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> builtins.str:
+        return pulumi.get(self, "vpc_password")
 
     @property
     @pulumi.getter(name="vpcUser")
@@ -42203,14 +43484,25 @@ class GetDatabasesDatabaseDatabaseDbBackupConfigBackupDestinationDetailResult(di
 @pulumi.output_type
 class GetDatabasesDatabaseDatabaseEncryptionKeyLocationDetailResult(dict):
     def __init__(__self__, *,
+                 azure_encryption_key_id: builtins.str,
                  hsm_password: builtins.str,
                  provider_type: builtins.str):
         """
+        :param builtins.str azure_encryption_key_id: Provide the key OCID of a registered Azure key.
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
+        pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> builtins.str:
+        """
+        Provide the key OCID of a registered Azure key.
+        """
+        return pulumi.get(self, "azure_encryption_key_id")
 
     @property
     @pulumi.getter(name="hsmPassword")
@@ -42224,7 +43516,7 @@ class GetDatabasesDatabaseDatabaseEncryptionKeyLocationDetailResult(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -42265,7 +43557,7 @@ class GetDatabasesDatabaseDatabaseSourceEncryptionKeyLocationDetailResult(dict):
                  provider_type: builtins.str):
         """
         :param builtins.str hsm_password: Provide the HSM password as you would in RDBMS for External HSM.
-        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        :param builtins.str provider_type: Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
@@ -42282,7 +43574,7 @@ class GetDatabasesDatabaseDatabaseSourceEncryptionKeyLocationDetailResult(dict):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> builtins.str:
         """
-        Use 'EXTERNAL' for creating a new database or migrate database key with External HSM.
+        Use 'EXTERNAL' for creating a new database or migrating a database key to an External HSM. Use 'AZURE' for creating a new database or migrating a database key to Azure.
         """
         return pulumi.get(self, "provider_type")
 
@@ -42387,16 +43679,24 @@ class GetDatabasesDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str,
+                 vpc_password: builtins.str,
                  vpc_user: builtins.str):
         """
         :param builtins.str dbrs_policy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DBRS policy used for backup.
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the database.
+        :param builtins.bool is_remote: Indicates whether the backup destination is cross-region or local region.
+        :param builtins.str remote_region: The name of the remote region where the remote automatic incremental backups will be stored.
         :param builtins.str type: Type of the database backup destination.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "vpc_password", vpc_password)
         pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
@@ -42416,12 +43716,33 @@ class GetDatabasesDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        """
+        Indicates whether the backup destination is cross-region or local region.
+        """
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        """
+        The name of the remote region where the remote automatic incremental backups will be stored.
+        """
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> builtins.str:
         """
         Type of the database backup destination.
         """
         return pulumi.get(self, "type")
+
+    @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> builtins.str:
+        return pulumi.get(self, "vpc_password")
 
     @property
     @pulumi.getter(name="vpcUser")
@@ -42794,13 +44115,21 @@ class GetDbHomeDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
-                 type: builtins.str):
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
+                 type: builtins.str,
+                 vpc_password: builtins.str,
+                 vpc_user: builtins.str):
         """
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Database Home.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "vpc_password", vpc_password)
+        pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
     @pulumi.getter(name="dbrsPolicyId")
@@ -42816,18 +44145,45 @@ class GetDbHomeDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> builtins.str:
         return pulumi.get(self, "type")
+
+    @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> builtins.str:
+        return pulumi.get(self, "vpc_password")
+
+    @property
+    @pulumi.getter(name="vpcUser")
+    def vpc_user(self) -> builtins.str:
+        return pulumi.get(self, "vpc_user")
 
 
 @pulumi.output_type
 class GetDbHomeDatabaseEncryptionKeyLocationDetailResult(dict):
     def __init__(__self__, *,
+                 azure_encryption_key_id: builtins.str,
                  hsm_password: builtins.str,
                  provider_type: builtins.str):
+        pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> builtins.str:
+        return pulumi.get(self, "azure_encryption_key_id")
 
     @property
     @pulumi.getter(name="hsmPassword")
@@ -43107,6 +44463,7 @@ class GetDbHomesDbHomeResult(dict):
                  lifecycle_details: builtins.str,
                  source: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  vm_cluster_id: builtins.str):
         """
@@ -43124,6 +44481,7 @@ class GetDbHomesDbHomeResult(dict):
         :param builtins.str last_patch_history_entry_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the last patch history. This value is updated as soon as a patch operation is started.
         :param builtins.str lifecycle_details: Additional information about the current lifecycle state.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the Database Home was created.
         :param builtins.str vm_cluster_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the VM cluster.
         """
@@ -43147,6 +44505,7 @@ class GetDbHomesDbHomeResult(dict):
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "source", source)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "vm_cluster_id", vm_cluster_id)
 
@@ -43291,6 +44650,14 @@ class GetDbHomesDbHomeResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -43651,13 +45018,21 @@ class GetDbHomesDbHomeDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
-                 type: builtins.str):
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
+                 type: builtins.str,
+                 vpc_password: builtins.str,
+                 vpc_user: builtins.str):
         """
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Database Home.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "vpc_password", vpc_password)
+        pulumi.set(__self__, "vpc_user", vpc_user)
 
     @property
     @pulumi.getter(name="dbrsPolicyId")
@@ -43673,18 +45048,45 @@ class GetDbHomesDbHomeDatabaseDbBackupConfigBackupDestinationDetailResult(dict):
         return pulumi.get(self, "id")
 
     @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        return pulumi.get(self, "remote_region")
+
+    @property
     @pulumi.getter
     def type(self) -> builtins.str:
         return pulumi.get(self, "type")
+
+    @property
+    @pulumi.getter(name="vpcPassword")
+    def vpc_password(self) -> builtins.str:
+        return pulumi.get(self, "vpc_password")
+
+    @property
+    @pulumi.getter(name="vpcUser")
+    def vpc_user(self) -> builtins.str:
+        return pulumi.get(self, "vpc_user")
 
 
 @pulumi.output_type
 class GetDbHomesDbHomeDatabaseEncryptionKeyLocationDetailResult(dict):
     def __init__(__self__, *,
+                 azure_encryption_key_id: builtins.str,
                  hsm_password: builtins.str,
                  provider_type: builtins.str):
+        pulumi.set(__self__, "azure_encryption_key_id", azure_encryption_key_id)
         pulumi.set(__self__, "hsm_password", hsm_password)
         pulumi.set(__self__, "provider_type", provider_type)
+
+    @property
+    @pulumi.getter(name="azureEncryptionKeyId")
+    def azure_encryption_key_id(self) -> builtins.str:
+        return pulumi.get(self, "azure_encryption_key_id")
 
     @property
     @pulumi.getter(name="hsmPassword")
@@ -44045,6 +45447,7 @@ class GetDbNodesDbNodeResult(dict):
                  memory_size_in_gbs: builtins.int,
                  software_storage_size_in_gb: builtins.int,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_maintenance_window_end: builtins.str,
                  time_maintenance_window_start: builtins.str,
@@ -44073,6 +45476,7 @@ class GetDbNodesDbNodeResult(dict):
         :param builtins.int memory_size_in_gbs: The allocated memory in GBs on the Db node.
         :param builtins.int software_storage_size_in_gb: The size (in GB) of the block storage volume allocation for the DB system. This attribute applies only for virtual machine DB systems.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time that the database node was created.
         :param builtins.str time_maintenance_window_end: End date and time of maintenance window.
         :param builtins.str time_maintenance_window_start: Start date and time of maintenance window.
@@ -44102,6 +45506,7 @@ class GetDbNodesDbNodeResult(dict):
         pulumi.set(__self__, "memory_size_in_gbs", memory_size_in_gbs)
         pulumi.set(__self__, "software_storage_size_in_gb", software_storage_size_in_gb)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_maintenance_window_end", time_maintenance_window_end)
         pulumi.set(__self__, "time_maintenance_window_start", time_maintenance_window_start)
@@ -44283,6 +45688,14 @@ class GetDbNodesDbNodeResult(dict):
         return pulumi.get(self, "state")
 
     @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
+
+    @property
     @pulumi.getter(name="timeCreated")
     def time_created(self) -> builtins.str:
         """
@@ -44432,6 +45845,7 @@ class GetDbServersDbServerResult(dict):
                  memory_size_in_gbs: builtins.int,
                  shape: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  vm_cluster_ids: Sequence[builtins.str]):
         """
@@ -44455,6 +45869,7 @@ class GetDbServersDbServerResult(dict):
         :param builtins.int memory_size_in_gbs: The allocated memory in GBs on the Db server.
         :param builtins.str shape: The shape of the Db server. The shape determines the amount of CPU, storage, and memory resources available.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time that the Db Server was created.
         :param Sequence[builtins.str] vm_cluster_ids: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the VM Clusters associated with the Db server.
         """
@@ -44478,6 +45893,7 @@ class GetDbServersDbServerResult(dict):
         pulumi.set(__self__, "memory_size_in_gbs", memory_size_in_gbs)
         pulumi.set(__self__, "shape", shape)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "vm_cluster_ids", vm_cluster_ids)
 
@@ -44640,6 +46056,14 @@ class GetDbServersDbServerResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -45732,6 +47156,7 @@ class GetDbSystemsDbSystemResult(dict):
                  state: builtins.str,
                  storage_volume_performance_mode: builtins.str,
                  subnet_id: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_zone: builtins.str,
                  version: builtins.str,
@@ -45787,6 +47212,7 @@ class GetDbSystemsDbSystemResult(dict):
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
         :param builtins.str storage_volume_performance_mode: The block storage volume performance level. Valid values are `BALANCED` and `HIGH_PERFORMANCE`. See [Block Volume Performance](https://docs.cloud.oracle.com/iaas/Content/Block/Concepts/blockvolumeperformance.htm) for more information.
         :param builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the DB system is associated with.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the DB system was created.
         :param builtins.str time_zone: The time zone of the DB system. For details, see [DB System Time Zones](https://docs.cloud.oracle.com/iaas/Content/Database/References/timezones.htm).
         :param builtins.str version: The Oracle Database version of the DB system.
@@ -45846,6 +47272,7 @@ class GetDbSystemsDbSystemResult(dict):
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "storage_volume_performance_mode", storage_volume_performance_mode)
         pulumi.set(__self__, "subnet_id", subnet_id)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
         pulumi.set(__self__, "version", version)
@@ -46250,6 +47677,14 @@ class GetDbSystemsDbSystemResult(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the DB system is associated with.
         """
         return pulumi.get(self, "subnet_id")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -46790,12 +48225,16 @@ class GetDbSystemsDbSystemDbHomeDatabaseDbBackupConfigBackupDestinationDetailRes
     def __init__(__self__, *,
                  dbrs_policy_id: builtins.str,
                  id: builtins.str,
+                 is_remote: builtins.bool,
+                 remote_region: builtins.str,
                  type: builtins.str):
         """
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DB system.
         """
         pulumi.set(__self__, "dbrs_policy_id", dbrs_policy_id)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_remote", is_remote)
+        pulumi.set(__self__, "remote_region", remote_region)
         pulumi.set(__self__, "type", type)
 
     @property
@@ -46810,6 +48249,16 @@ class GetDbSystemsDbSystemDbHomeDatabaseDbBackupConfigBackupDestinationDetailRes
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the DB system.
         """
         return pulumi.get(self, "id")
+
+    @property
+    @pulumi.getter(name="isRemote")
+    def is_remote(self) -> builtins.bool:
+        return pulumi.get(self, "is_remote")
+
+    @property
+    @pulumi.getter(name="remoteRegion")
+    def remote_region(self) -> builtins.str:
+        return pulumi.get(self, "remote_region")
 
     @property
     @pulumi.getter
@@ -47940,6 +49389,7 @@ class GetExadataInfrastructuresExadataInfrastructureResult(dict):
                  storage_count: builtins.int,
                  storage_server_type: builtins.str,
                  storage_server_version: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_zone: builtins.str):
         """
@@ -47993,6 +49443,7 @@ class GetExadataInfrastructuresExadataInfrastructureResult(dict):
         :param builtins.int storage_count: The number of Exadata storage servers for the Exadata infrastructure.
         :param builtins.str storage_server_type: The storage server type of the Exadata infrastructure.
         :param builtins.str storage_server_version: The software version of the storage servers (cells) in the Exadata infrastructure.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the Exadata infrastructure was created.
         :param builtins.str time_zone: The time zone of the Exadata infrastructure. For details, see [Exadata Infrastructure Time Zones](https://docs.cloud.oracle.com/iaas/Content/Database/References/timezones.htm).
         """
@@ -48048,6 +49499,7 @@ class GetExadataInfrastructuresExadataInfrastructureResult(dict):
         pulumi.set(__self__, "storage_count", storage_count)
         pulumi.set(__self__, "storage_server_type", storage_server_type)
         pulumi.set(__self__, "storage_server_version", storage_server_version)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
 
@@ -48460,6 +49912,14 @@ class GetExadataInfrastructuresExadataInfrastructureResult(dict):
         The software version of the storage servers (cells) in the Exadata infrastructure.
         """
         return pulumi.get(self, "storage_server_version")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -51192,6 +52652,7 @@ class GetExternalContainerDatabasesExternalContainerDatabaseResult(dict):
                  ncharacter_set: builtins.str,
                  stack_monitoring_configs: Sequence['outputs.GetExternalContainerDatabasesExternalContainerDatabaseStackMonitoringConfigResult'],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_zone: builtins.str):
         """
@@ -51212,6 +52673,7 @@ class GetExternalContainerDatabasesExternalContainerDatabaseResult(dict):
         :param builtins.str ncharacter_set: The national character of the external database.
         :param Sequence['GetExternalContainerDatabasesExternalContainerDatabaseStackMonitoringConfigArgs'] stack_monitoring_configs: The configuration of Stack Monitoring for the external database.
         :param builtins.str state: A filter to return only resources that match the specified lifecycle state.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the database was created.
         :param builtins.str time_zone: The time zone of the external database. It is a time zone offset (a character type in the format '[+|-]TZH:TZM') or a time zone region name, depending on how the time zone value was specified when the database was created / last altered.
         """
@@ -51232,6 +52694,7 @@ class GetExternalContainerDatabasesExternalContainerDatabaseResult(dict):
         pulumi.set(__self__, "ncharacter_set", ncharacter_set)
         pulumi.set(__self__, "stack_monitoring_configs", stack_monitoring_configs)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
 
@@ -51370,6 +52833,14 @@ class GetExternalContainerDatabasesExternalContainerDatabaseResult(dict):
         A filter to return only resources that match the specified lifecycle state.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -51624,6 +53095,7 @@ class GetExternalDatabaseConnectorsExternalDatabaseConnectorResult(dict):
                  id: builtins.str,
                  lifecycle_details: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_connection_status_last_updated: builtins.str,
                  time_created: builtins.str):
         """
@@ -51640,6 +53112,7 @@ class GetExternalDatabaseConnectorsExternalDatabaseConnectorResult(dict):
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the [external database connector](https://docs.cloud.oracle.com/iaas/api/#/en/database/latest/datatypes/CreateExternalDatabaseConnectorDetails).
         :param builtins.str lifecycle_details: Additional information about the current lifecycle state.
         :param builtins.str state: A filter to return only resources that match the specified lifecycle state.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_connection_status_last_updated: The date and time the `connectionStatus` of this external connector was last updated.
         :param builtins.str time_created: The date and time the external connector was created.
         """
@@ -51656,6 +53129,7 @@ class GetExternalDatabaseConnectorsExternalDatabaseConnectorResult(dict):
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_connection_status_last_updated", time_connection_status_last_updated)
         pulumi.set(__self__, "time_created", time_created)
 
@@ -51762,6 +53236,14 @@ class GetExternalDatabaseConnectorsExternalDatabaseConnectorResult(dict):
         A filter to return only resources that match the specified lifecycle state.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeConnectionStatusLastUpdated")
@@ -52050,6 +53532,7 @@ class GetExternalNonContainerDatabasesExternalNonContainerDatabaseResult(dict):
                  operations_insights_configs: Sequence['outputs.GetExternalNonContainerDatabasesExternalNonContainerDatabaseOperationsInsightsConfigResult'],
                  stack_monitoring_configs: Sequence['outputs.GetExternalNonContainerDatabasesExternalNonContainerDatabaseStackMonitoringConfigResult'],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_zone: builtins.str):
         """
@@ -52071,6 +53554,7 @@ class GetExternalNonContainerDatabasesExternalNonContainerDatabaseResult(dict):
         :param Sequence['GetExternalNonContainerDatabasesExternalNonContainerDatabaseOperationsInsightsConfigArgs'] operations_insights_configs: The configuration of Operations Insights for the external database
         :param Sequence['GetExternalNonContainerDatabasesExternalNonContainerDatabaseStackMonitoringConfigArgs'] stack_monitoring_configs: The configuration of Stack Monitoring for the external database.
         :param builtins.str state: A filter to return only resources that match the specified lifecycle state.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the database was created.
         :param builtins.str time_zone: The time zone of the external database. It is a time zone offset (a character type in the format '[+|-]TZH:TZM') or a time zone region name, depending on how the time zone value was specified when the database was created / last altered.
         """
@@ -52092,6 +53576,7 @@ class GetExternalNonContainerDatabasesExternalNonContainerDatabaseResult(dict):
         pulumi.set(__self__, "operations_insights_configs", operations_insights_configs)
         pulumi.set(__self__, "stack_monitoring_configs", stack_monitoring_configs)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
 
@@ -52238,6 +53723,14 @@ class GetExternalNonContainerDatabasesExternalNonContainerDatabaseResult(dict):
         A filter to return only resources that match the specified lifecycle state.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -52502,6 +53995,7 @@ class GetExternalPluggableDatabasesExternalPluggableDatabaseResult(dict):
                  source_id: builtins.str,
                  stack_monitoring_configs: Sequence['outputs.GetExternalPluggableDatabasesExternalPluggableDatabaseStackMonitoringConfigResult'],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_zone: builtins.str):
         """
@@ -52525,6 +54019,7 @@ class GetExternalPluggableDatabasesExternalPluggableDatabaseResult(dict):
         :param builtins.str source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the the non-container database that was converted to a pluggable database to create this resource.
         :param Sequence['GetExternalPluggableDatabasesExternalPluggableDatabaseStackMonitoringConfigArgs'] stack_monitoring_configs: The configuration of Stack Monitoring for the external database.
         :param builtins.str state: A filter to return only resources that match the specified lifecycle state.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the database was created.
         :param builtins.str time_zone: The time zone of the external database. It is a time zone offset (a character type in the format '[+|-]TZH:TZM') or a time zone region name, depending on how the time zone value was specified when the database was created / last altered.
         """
@@ -52548,6 +54043,7 @@ class GetExternalPluggableDatabasesExternalPluggableDatabaseResult(dict):
         pulumi.set(__self__, "source_id", source_id)
         pulumi.set(__self__, "stack_monitoring_configs", stack_monitoring_configs)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
 
@@ -52710,6 +54206,14 @@ class GetExternalPluggableDatabasesExternalPluggableDatabaseResult(dict):
         A filter to return only resources that match the specified lifecycle state.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -53257,6 +54761,7 @@ class GetKeyStoresKeyStoreResult(dict):
                  id: builtins.str,
                  lifecycle_details: builtins.str,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  type_details: Sequence['outputs.GetKeyStoresKeyStoreTypeDetailResult']):
         """
@@ -53268,6 +54773,7 @@ class GetKeyStoresKeyStoreResult(dict):
         :param builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the key store.
         :param builtins.str lifecycle_details: Additional information about the current lifecycle state.
         :param builtins.str state: The current state of the key store.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time that the key store was created.
         :param Sequence['GetKeyStoresKeyStoreTypeDetailArgs'] type_details: Key store type details.
         """
@@ -53280,6 +54786,7 @@ class GetKeyStoresKeyStoreResult(dict):
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "type_details", type_details)
 
@@ -53351,6 +54858,14 @@ class GetKeyStoresKeyStoreResult(dict):
         The current state of the key store.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -53567,6 +55082,7 @@ class GetMaintenanceRunsMaintenanceRunResult(dict):
                  peer_maintenance_run_id: builtins.str,
                  peer_maintenance_run_ids: Sequence[builtins.str],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  target_db_server_version: builtins.str,
                  target_resource_id: builtins.str,
                  target_resource_type: builtins.str,
@@ -53601,6 +55117,7 @@ class GetMaintenanceRunsMaintenanceRunResult(dict):
         :param builtins.str peer_maintenance_run_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the maintenance run for the Autonomous Data Guard association's peer container database.
         :param Sequence[builtins.str] peer_maintenance_run_ids: The list of OCIDs for the maintenance runs associated with their Autonomous Data Guard peer container databases.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str target_db_server_version: The target software version for the database server patching operation.
         :param builtins.str target_resource_id: The target resource ID.
         :param builtins.str target_resource_type: The type of the target resource. Accepted values are: AUTONOMOUS_CONTAINER_DATABASE, AUTONOMOUS_EXADATA_INFRASTRUCTURE, EXADATA_DB_SYSTEM
@@ -53636,6 +55153,7 @@ class GetMaintenanceRunsMaintenanceRunResult(dict):
         pulumi.set(__self__, "peer_maintenance_run_id", peer_maintenance_run_id)
         pulumi.set(__self__, "peer_maintenance_run_ids", peer_maintenance_run_ids)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "target_db_server_version", target_db_server_version)
         pulumi.set(__self__, "target_resource_id", target_resource_id)
         pulumi.set(__self__, "target_resource_type", target_resource_type)
@@ -53849,6 +55367,14 @@ class GetMaintenanceRunsMaintenanceRunResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="targetDbServerVersion")
@@ -54143,6 +55669,7 @@ class GetOneoffPatchesOneoffPatchResult(dict):
                  sha256sum: builtins.str,
                  size_in_kbs: builtins.float,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  time_of_expiration: builtins.str,
                  time_updated: builtins.str):
@@ -54159,6 +55686,7 @@ class GetOneoffPatchesOneoffPatchResult(dict):
         :param builtins.str sha256sum: SHA-256 checksum of the one-off patch.
         :param builtins.float size_in_kbs: The size of one-off patch in kilobytes.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time one-off patch was created.
         :param builtins.str time_of_expiration: The date and time until which the one-off patch will be available for download.
         :param builtins.str time_updated: The date and time one-off patch was updated.
@@ -54176,6 +55704,7 @@ class GetOneoffPatchesOneoffPatchResult(dict):
         pulumi.set(__self__, "sha256sum", sha256sum)
         pulumi.set(__self__, "size_in_kbs", size_in_kbs)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_of_expiration", time_of_expiration)
         pulumi.set(__self__, "time_updated", time_updated)
@@ -54280,6 +55809,14 @@ class GetOneoffPatchesOneoffPatchResult(dict):
         A filter to return only resources that match the given lifecycle state exactly
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -54536,6 +56073,7 @@ class GetPluggableDatabasesPluggableDatabaseResult(dict):
                  should_create_pdb_backup: builtins.bool,
                  should_pdb_admin_account_be_locked: builtins.bool,
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  tde_wallet_password: builtins.str,
                  time_created: builtins.str):
         """
@@ -54553,6 +56091,7 @@ class GetPluggableDatabasesPluggableDatabaseResult(dict):
         :param Sequence['GetPluggableDatabasesPluggableDatabasePluggableDatabaseManagementConfigArgs'] pluggable_database_management_configs: The configuration of the Pluggable Database Management service.
         :param Sequence['GetPluggableDatabasesPluggableDatabaseRefreshableCloneConfigArgs'] refreshable_clone_configs: Pluggable Database Refreshable Clone Configuration.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time the pluggable database was created.
         """
         pulumi.set(__self__, "compartment_id", compartment_id)
@@ -54578,6 +56117,7 @@ class GetPluggableDatabasesPluggableDatabaseResult(dict):
         pulumi.set(__self__, "should_create_pdb_backup", should_create_pdb_backup)
         pulumi.set(__self__, "should_pdb_admin_account_be_locked", should_pdb_admin_account_be_locked)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "tde_wallet_password", tde_wallet_password)
         pulumi.set(__self__, "time_created", time_created)
 
@@ -54737,6 +56277,14 @@ class GetPluggableDatabasesPluggableDatabaseResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="tdeWalletPassword")
@@ -56944,6 +58492,7 @@ class GetVmClusterNetworksVmClusterNetworkResult(dict):
                  ntps: Sequence[builtins.str],
                  scans: Sequence['outputs.GetVmClusterNetworksVmClusterNetworkScanResult'],
                  state: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  time_created: builtins.str,
                  validate_vm_cluster_network: builtins.bool,
                  vm_cluster_id: builtins.str,
@@ -56961,6 +58510,7 @@ class GetVmClusterNetworksVmClusterNetworkResult(dict):
         :param Sequence[builtins.str] ntps: The list of NTP server IP addresses. Maximum of 3 allowed.
         :param Sequence['GetVmClusterNetworksVmClusterNetworkScanArgs'] scans: The SCAN details.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str time_created: The date and time when the VM cluster network was created.
         :param builtins.str vm_cluster_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the associated VM Cluster.
         :param Sequence['GetVmClusterNetworksVmClusterNetworkVmNetworkArgs'] vm_networks: Details of the client and backup networks.
@@ -56978,6 +58528,7 @@ class GetVmClusterNetworksVmClusterNetworkResult(dict):
         pulumi.set(__self__, "ntps", ntps)
         pulumi.set(__self__, "scans", scans)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "validate_vm_cluster_network", validate_vm_cluster_network)
         pulumi.set(__self__, "vm_cluster_id", vm_cluster_id)
@@ -57083,6 +58634,14 @@ class GetVmClusterNetworksVmClusterNetworkResult(dict):
         A filter to return only resources that match the given lifecycle state exactly.
         """
         return pulumi.get(self, "state")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="timeCreated")
@@ -58243,6 +59802,7 @@ class GetVmClustersVmClusterResult(dict):
                  ssh_public_keys: Sequence[builtins.str],
                  state: builtins.str,
                  storage_management_type: builtins.str,
+                 system_tags: Mapping[str, builtins.str],
                  system_version: builtins.str,
                  time_created: builtins.str,
                  time_zone: builtins.str,
@@ -58277,6 +59837,7 @@ class GetVmClustersVmClusterResult(dict):
         :param Sequence[builtins.str] ssh_public_keys: The public key portion of one or more key pairs used for SSH access to the VM cluster.
         :param builtins.str state: A filter to return only resources that match the given lifecycle state exactly.
         :param builtins.str storage_management_type: Specifies whether the type of storage management for the VM cluster is ASM or Exascale.
+        :param Mapping[str, builtins.str] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
         :param builtins.str system_version: Operating system version of the image.
         :param builtins.str time_created: The date and time that the VM cluster was created.
         :param builtins.str time_zone: The time zone of the Exadata infrastructure. For details, see [Exadata Infrastructure Time Zones](https://docs.cloud.oracle.com/iaas/Content/Database/References/timezones.htm).
@@ -58314,6 +59875,7 @@ class GetVmClustersVmClusterResult(dict):
         pulumi.set(__self__, "ssh_public_keys", ssh_public_keys)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "storage_management_type", storage_management_type)
+        pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "system_version", system_version)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_zone", time_zone)
@@ -58558,6 +60120,14 @@ class GetVmClustersVmClusterResult(dict):
         Specifies whether the type of storage management for the VM cluster is ASM or Exascale.
         """
         return pulumi.get(self, "storage_management_type")
+
+    @property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
+        """
+        return pulumi.get(self, "system_tags")
 
     @property
     @pulumi.getter(name="systemVersion")

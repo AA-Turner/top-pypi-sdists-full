@@ -15,10 +15,9 @@ import enum
 import inspect
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot._compat import Int, String
+from datarobot._compat import Int, String, TypedDict
 from datarobot.enums import enum_to_list, INSIGHTS_SOURCES
 from datarobot.models.api_object import APIObject
 from datarobot.models.status_check_job import StatusCheckJob

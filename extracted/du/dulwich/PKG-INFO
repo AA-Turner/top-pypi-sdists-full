@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dulwich
-Version: 0.23.1
+Version: 0.23.2
 Summary: Python Git Library
 Author-email: Jelmer Vernooij <jelmer@jelmer.uk>
 License-Expression: Apache-2.0 OR GPL-2.0-or-later
@@ -39,6 +39,8 @@ Requires-Dist: mypy==1.16.1; extra == "dev"
 Requires-Dist: dissolve>=0.1.1; extra == "dev"
 Provides-Extra: merge
 Requires-Dist: merge3; extra == "merge"
+Provides-Extra: fuzzing
+Requires-Dist: atheris; extra == "fuzzing"
 Dynamic: license-file
 
 Dulwich

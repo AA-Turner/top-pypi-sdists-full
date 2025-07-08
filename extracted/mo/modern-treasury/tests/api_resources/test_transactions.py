@@ -49,6 +49,7 @@ class TestTransactions:
             },
             posted=True,
             type="ach",
+            vendor_customer_id="vendor_customer_id",
             vendor_description="vendor_description",
         )
         assert_matches_type(Transaction, transaction, path=["response"])
@@ -256,7 +257,9 @@ class TestTransactions:
 
 
 class TestAsyncTransactions:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncModernTreasury) -> None:
@@ -286,6 +289,7 @@ class TestAsyncTransactions:
             },
             posted=True,
             type="ach",
+            vendor_customer_id="vendor_customer_id",
             vendor_description="vendor_description",
         )
         assert_matches_type(Transaction, transaction, path=["response"])

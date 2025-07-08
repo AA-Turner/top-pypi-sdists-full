@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 6.0.2
+Version: 6.0.3
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -107,7 +107,7 @@ We recommend using [uv](https://docs.astral.sh/uv/). It's super fast.
 ```bash
 uv python install 3.9.19
 uv python pin 3.9.19
-uv venv env
+uv venv
 source env/bin/activate
 uv sync --extra dev --extra test
 pre-commit install

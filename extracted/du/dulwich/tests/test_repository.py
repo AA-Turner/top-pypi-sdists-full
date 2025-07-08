@@ -341,6 +341,35 @@ class RepositoryRootTests(TestCase):
         r.set_description(description)
         self.assertEqual(description, r.get_description())
 
+    def test_get_gitattributes(self) -> None:
+        # Test when no .gitattributes file exists
+        r = self.open_repo("a.git")
+        attrs = r.get_gitattributes()
+        from dulwich.attrs import GitAttributes
+
+        self.assertIsInstance(attrs, GitAttributes)
+        self.assertEqual(len(attrs), 0)
+
+        # Create .git/info/attributes file (which is read by get_gitattributes)
+        info_dir = os.path.join(r.controldir(), "info")
+        if not os.path.exists(info_dir):
+            os.makedirs(info_dir)
+        attrs_path = os.path.join(info_dir, "attributes")
+        with open(attrs_path, "wb") as f:
+            f.write(b"*.txt text\n")
+            f.write(b"*.jpg -text binary\n")
+
+        # Test with attributes file
+        attrs = r.get_gitattributes()
+        self.assertEqual(len(attrs), 2)
+
+        # Test matching
+        txt_attrs = attrs.match_path(b"file.txt")
+        self.assertEqual(txt_attrs, {b"text": True})
+
+        jpg_attrs = attrs.match_path(b"image.jpg")
+        self.assertEqual(jpg_attrs, {b"text": False, b"binary": True})
+
     def test_contains_missing(self) -> None:
         r = self.open_repo("a.git")
         self.assertNotIn(b"bar", r)
@@ -605,6 +634,35 @@ class RepositoryRootTests(TestCase):
             self.assertEqual("foo", f.read())
 
         t.close()
+
+    def test_reset_index_protect_hfs(self) -> None:
+        tmp_dir = self.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        repo = Repo.init(tmp_dir)
+        self.addCleanup(repo.close)
+        config = repo.get_config()
+
+        # Test with protectHFS enabled
+        config.set(b"core", b"core.protectHFS", b"true")
+        config.write_to_path()
+
+        # Create a file with HFS+ Unicode attack vector
+        # This uses a zero-width non-joiner to create ".g\u200cit"
+        attack_name = b".g\xe2\x80\x8cit"
+        attack_path = os.path.join(tmp_dir, attack_name.decode("utf-8"))
+        os.mkdir(attack_path)
+
+        # Try to stage the malicious path - should be rejected
+        with self.assertRaises(ValueError):
+            repo.stage([attack_name])
+
+        # Test with protectHFS disabled
+        config.set(b"core", b"core.protectHFS", b"false")
+        config.write_to_path()
+
+        # Now it should work (though still dangerous!)
+        # We're not actually staging it to avoid creating a dangerous repo
 
     def test_clone_bare(self) -> None:
         r = self.open_repo("a.git")

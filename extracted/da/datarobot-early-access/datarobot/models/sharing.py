@@ -21,7 +21,7 @@ from datarobot.errors import InvalidUsageError
 from datarobot.models.api_object import APIObject
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class SharingAccessPayload(TypedDict, total=False):
         username: str

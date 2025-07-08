@@ -216,8 +216,8 @@ common_setup_kwargs = dict(
     maintainer_email="api-maintainer@datarobot.com",
     url="https://datarobot.com",
     project_urls={
-        "Documentation": "https://datarobot-public-api-client.readthedocs-hosted.com/",
-        "Changelog": "https://datarobot-public-api-client.readthedocs-hosted.com/page/CHANGES.html",
+        "Documentation": "https://docs.datarobot.com/en/docs/api/reference/sdk/",
+        "Changelog": "https://docs.datarobot.com/en/docs/api/reference/changelogs/py-changelog/index.html",
     },
     license="DataRobot Tool and Utility Agreement",
     packages=None,
@@ -234,7 +234,6 @@ common_setup_kwargs = dict(
         "trafaret>=0.7,<2.2,!=1.1.0",
         "urllib3>=1.23",
         "typing-extensions>=4.3.0,<5",
-        "mypy-extensions>=0.4.0,<2",
         "strenum>=0.4.15",
     ],
     extras_require={

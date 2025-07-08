@@ -73,16 +73,41 @@ class LicensePlateUseCase(BaseProcessor):
         # Set of current frame track_ids (updated per frame)
         self._current_frame_track_ids = set()
 
+
+
+        # ------------------------------------------------------------------ #
+        # Canonical tracking aliasing to avoid duplicate counts              #
+        # ------------------------------------------------------------------ #
+        # Maps raw tracker-generated IDs to stable canonical IDs that persist
+        # even if the underlying tracker re-assigns a new ID after a short
+        # interruption. This mirrors the logic used in people_counting to
+        # provide accurate unique counting.
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        # Tunable parameters – adjust if necessary for specific scenarios
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same vehicle
+        self._track_merge_time_window: float = 7.0    # seconds within which to merge
+
     def _update_tracking_state(self, detections: List[Dict[str, Any]]) -> None:
         """
         Track unique license plate track_ids for cumulative and per-frame counts.
+        Applies canonical ID merging to avoid duplicate counting when the underlying
+        tracker loses an object temporarily and assigns a new ID.
         """
         self._current_frame_track_ids = set()
+
         for det in detections:
-            track_id = det.get("track_id")
-            if track_id is not None:
-                self._total_license_plate_track_ids.add(track_id)
-                self._current_frame_track_ids.add(track_id)
+            cat = det.get("category")
+            raw_track_id = det.get("track_id")
+            if cat not in self.relevant_categories or raw_track_id is None:
+                continue
+
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            det["track_id"] = canonical_id  # Propagate for downstream
+
+            self._total_license_plate_track_ids.add(canonical_id)
+            self._current_frame_track_ids.add(canonical_id)
 
     def get_total_license_plate_count(self) -> int:
         """
@@ -134,6 +159,11 @@ class LicensePlateUseCase(BaseProcessor):
 
         # Map detection indices to category names if needed
         processed_data = apply_category_mapping(data, config.index_to_category)
+        # Handle stringified numeric categories like "0"
+        for det in processed_data:
+            cat = det.get("category")
+            if isinstance(cat, str) and cat.isdigit():
+                det["category"] = config.index_to_category.get(int(cat), cat)
 
         # Filter only relevant category (License_Plate)
         processed_data = [
@@ -242,7 +272,10 @@ class LicensePlateUseCase(BaseProcessor):
         self._total_license_plate_track_ids = set()
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        self._track_aliases.clear()
+        self._canonical_tracks.clear()
         self.logger.info("License plate tracking state reset")
+
 
     def reset_all_tracking(self) -> None:
         """
@@ -403,4 +436,100 @@ class LicensePlateUseCase(BaseProcessor):
         lines.append(f"Total unique license plates detected: {cumulative_total}")
 
         return "\n".join(lines)
+
+        # ------------------------------------------------------------------ #
+        # Canonical ID helpers                                               #
+        # ------------------------------------------------------------------ #
+
+    def _compute_iou(self, box1: Any, box2: Any) -> float:
+        """Compute IoU between two bounding boxes which may be dicts or lists.
+        Falls back to 0 when insufficient data is available."""
+
+        # Helper to convert bbox (dict or list) to [x1, y1, x2, y2]
+        def _bbox_to_list(bbox):
+            if bbox is None:
+                return []
+            if isinstance(bbox, list):
+                return bbox[:4] if len(bbox) >= 4 else []
+            if isinstance(bbox, dict):
+                if "xmin" in bbox:
+                    return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
+                if "x1" in bbox:
+                    return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
+                # Fallback: first four numeric values
+                values = [v for v in bbox.values() if isinstance(v, (int, float))]
+                return values[:4] if len(values) >= 4 else []
+            return []
+
+        l1 = _bbox_to_list(box1)
+        l2 = _bbox_to_list(box2)
+        if len(l1) < 4 or len(l2) < 4:
+            return 0.0
+        x1_min, y1_min, x1_max, y1_max = l1
+        x2_min, y2_min, x2_max, y2_max = l2
+
+        # Ensure correct order
+        x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
+        y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
+        x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
+        y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
+
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+
+        inter_w = max(0.0, inter_x_max - inter_x_min)
+        inter_h = max(0.0, inter_y_max - inter_y_min)
+        inter_area = inter_w * inter_h
+
+        area1 = (x1_max - x1_min) * (y1_max - y1_min)
+        area2 = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = area1 + area2 - inter_area
+
+        return (inter_area / union_area) if union_area > 0 else 0.0
+
+    def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        """Return a stable canonical ID for a raw tracker ID, merging fragmented
+        tracks when IoU and temporal constraints indicate they represent the
+        same physical vehicle."""
+        if raw_id is None or bbox is None:
+            # Nothing to merge
+            return raw_id
+
+        now = time.time()
+
+        # Fast path – raw_id already mapped
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+
+        # Attempt to merge with an existing canonical track
+        for canonical_id, info in self._canonical_tracks.items():
+            # Only consider recently updated tracks
+            if now - info["last_update"] > self._track_merge_time_window:
+                continue
+            iou = self._compute_iou(bbox, info["last_bbox"])
+            if iou >= self._track_merge_iou_threshold:
+                # Merge
+                self._track_aliases[raw_id] = canonical_id
+                info["last_bbox"] = bbox
+                info["last_update"] = now
+                info["raw_ids"].add(raw_id)
+                return canonical_id
+
+        # No match – register new canonical track
+        canonical_id = raw_id
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+        }
+        return canonical_id
 

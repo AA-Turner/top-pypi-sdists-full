@@ -3,11 +3,8 @@ import math
 import os
 import platform
 from dataclasses import dataclass, field
-from functools import wraps
 from typing import List, Literal, Optional, Union
 
-import torch
-import torch.utils.checkpoint
 from transformers.training_args import TrainingArguments as HfTrainingArguments
 from transformers.training_args_seq2seq import Seq2SeqTrainingArguments as HfSeq2SeqTrainingArguments
 
@@ -52,6 +49,7 @@ class TrainArgumentsMixin:
     optimizer: Optional[str] = None
     use_logits_to_keep: Optional[bool] = None
     channels: List[str] = None
+    ds3_gather_for_generation: bool = True
 
     # torchacc
     metric_warmup_step: Optional[float] = 0
@@ -60,33 +58,10 @@ class TrainArgumentsMixin:
 
     # train-eval loop args
     eval_use_evalscope: bool = False
-    eval_datasets: List[str] = field(default_factory=list)
+    eval_dataset: List[str] = field(default_factory=list)
+    eval_dataset_args: Optional[Union[str, dict]] = None
     eval_limit: Optional[int] = None
-    eval_datasets_args: Optional[Union[str, dict]] = None
     eval_generation_config: Optional[Union[str, dict]] = None
-
-    def _fix_gradient_checkpointing(self):
-        # fix use_reentrant
-        if hasattr(torch.utils.checkpoint, '_old_checkpoint'):  # avoid double patching
-            return
-        # Consistent with the default behavior of transformers.
-        use_reentrant_ = (
-            self.gradient_checkpointing_kwargs.get('use_reentrant', True)
-            if self.gradient_checkpointing_kwargs else True)
-        _old_checkpoint = torch.utils.checkpoint.checkpoint
-
-        @wraps(_old_checkpoint)
-        def _new_checkpoint(*args, use_reentrant=None, **kwargs):
-            return _old_checkpoint(*args, use_reentrant=use_reentrant_, **kwargs)
-
-        torch.utils.checkpoint._old_checkpoint = _old_checkpoint
-        torch.utils.checkpoint.checkpoint = _new_checkpoint
-        try:
-            # Fix the old version of transformers.
-            import transformers.modeling_utils
-            transformers.modeling_utils.checkpoint = _new_checkpoint
-        except (ImportError, AttributeError):
-            pass
 
     @staticmethod
     def _patch_liger_kernel():
@@ -129,7 +104,6 @@ class TrainArgumentsMixin:
             self.vit_gradient_checkpointing = self.gradient_checkpointing
         if self.gradient_checkpointing_kwargs:
             self.gradient_checkpointing_kwargs = ModelArguments.parse_to_dict(self.gradient_checkpointing_kwargs)
-        self._fix_gradient_checkpointing()
         self._init_liger()
         if self.dataloader_num_workers is None:
             if platform.system() == 'Windows':
@@ -144,14 +118,20 @@ class TrainArgumentsMixin:
                 import evalscope
             except ImportError:
                 raise ImportError('evalscope is not installed, please install it by `pip install evalscope`')
-            self.eval_datasets_args = ModelArguments.parse_to_dict(self.eval_datasets_args)
+            self.eval_dataset_args = ModelArguments.parse_to_dict(self.eval_dataset_args)
             self.eval_generation_config = ModelArguments.parse_to_dict(self.eval_generation_config)
 
         super().__post_init__()
 
 
 @dataclass
-class SwiftArgumentsMixin(TrainArgumentsMixin):
+class RLHFArgumentsMixin:
+    # gkd
+    sft_alpha: float = 0
+
+
+@dataclass
+class SwiftArgumentsMixin(RLHFArgumentsMixin, TrainArgumentsMixin):
     # Value copied from TrainArguments
     train_type: Optional[str] = None
     local_repo_path: Optional[str] = None
@@ -175,18 +155,16 @@ class GRPOArgumentsMixin:
     top_k: int = 50
     top_p: float = 0.9
     repetition_penalty: float = 1.
-    num_infer_workers: Optional[int] = None  # deprecated
     # vllm
     vllm_mode: Literal['server', 'colocate'] = 'colocate'
     # internal vllm (colocate)
-    vllm_device: Optional[List[str]] = None  # deprecated
     vllm_gpu_memory_utilization: float = 0.9
     vllm_max_model_len: Optional[int] = None
-    vllm_max_num_seqs: Optional[int] = None  # deprecated
     vllm_enforce_eager: bool = False
     vllm_limit_mm_per_prompt: Optional[Union[dict, str]] = None  # '{"image": 5, "video": 2}'
     vllm_enable_prefix_caching: bool = True
     vllm_tensor_parallel_size: int = 1
+
     # external vllm (server)
     vllm_server_base_url: Optional[str] = None
     vllm_server_host: Optional[str] = None
@@ -214,14 +192,17 @@ class GRPOArgumentsMixin:
     ref_model_mixup_alpha: float = 0.6
 
     async_generate: bool = False
-    tensor_parallel_size: Optional[int] = None  # deprecated
 
     sleep_level: int = 0
     move_model_batches: Optional[int] = None
     offload_optimizer: bool = False
     offload_model: bool = False
-    gc_collect_after_offload: bool = False
-    multi_turn_func: Optional[str] = None
+    gc_collect_after_offload: bool = False  # deprecated
+
+    # multi turn
+    multi_turn_func: Optional[str] = None  # deprecated
+    multi_turn_scheduler: Optional[str] = None
+    max_turns: Optional[int] = None
     completion_length_limit_scope: Literal['total', 'per_round'] = 'per_round'
 
     # DAPO, https://arxiv.org/abs/2503.14476

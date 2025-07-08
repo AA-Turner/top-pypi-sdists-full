@@ -2237,6 +2237,7 @@ class Parser(metaclass=_Parser):
                 if input_format or output_format
                 else self._parse_var_or_string() or self._parse_number() or self._parse_id_var()
             ),
+            hive_format=True,
         )
 
     def _parse_unquoted_field(self) -> t.Optional[exp.Expression]:
@@ -3760,6 +3761,7 @@ class Parser(metaclass=_Parser):
         method, side, kind = self._parse_join_parts()
         hint = self._prev.text if self._match_texts(self.JOIN_HINTS) else None
         join = self._match(TokenType.JOIN) or (kind and kind.token_type == TokenType.STRAIGHT_JOIN)
+        join_comments = self._prev_comments
 
         if not skip_join_token and not join:
             self._retreat(index)
@@ -3816,6 +3818,7 @@ class Parser(metaclass=_Parser):
         kwargs["pivots"] = self._parse_pivots()
 
         comments = [c for token in (method, side, kind) if token for c in token.comments]
+        comments = (join_comments or []) + comments
         return self.expression(exp.Join, comments=comments, **kwargs)
 
     def _parse_opclass(self) -> t.Optional[exp.Expression]:
@@ -4467,6 +4470,7 @@ class Parser(metaclass=_Parser):
     def _parse_group(self, skip_group_by_token: bool = False) -> t.Optional[exp.Group]:
         if not skip_group_by_token and not self._match(TokenType.GROUP_BY):
             return None
+        comments = self._prev_comments
 
         elements: t.Dict[str, t.Any] = defaultdict(list)
 
@@ -4514,7 +4518,7 @@ class Parser(metaclass=_Parser):
             if index == self._index:
                 break
 
-        return self.expression(exp.Group, **elements)  # type: ignore
+        return self.expression(exp.Group, comments=comments, **elements)  # type: ignore
 
     def _parse_cube_or_rollup(self, kind: t.Type[E], with_prefix: bool = False) -> E:
         return self.expression(
@@ -4532,7 +4536,9 @@ class Parser(metaclass=_Parser):
     def _parse_having(self, skip_having_token: bool = False) -> t.Optional[exp.Having]:
         if not skip_having_token and not self._match(TokenType.HAVING):
             return None
-        return self.expression(exp.Having, this=self._parse_assignment())
+        return self.expression(
+            exp.Having, comments=self._prev_comments, this=self._parse_assignment()
+        )
 
     def _parse_qualify(self) -> t.Optional[exp.Qualify]:
         if not self._match(TokenType.QUALIFY):
@@ -4587,6 +4593,7 @@ class Parser(metaclass=_Parser):
 
         return self.expression(
             exp.Order,
+            comments=self._prev_comments,
             this=this,
             expressions=self._parse_csv(self._parse_ordered),
             siblings=siblings,
@@ -6597,52 +6604,13 @@ class Parser(metaclass=_Parser):
 
         return namespaces
 
-    def _parse_decode(self) -> t.Optional[exp.Decode | exp.Case]:
-        """
-        There are generally two variants of the DECODE function:
-
-        - DECODE(bin, charset)
-        - DECODE(expression, search, result [, search, result] ... [, default])
-
-        The second variant will always be parsed into a CASE expression. Note that NULL
-        needs special treatment, since we need to explicitly check for it with `IS NULL`,
-        instead of relying on pattern matching.
-        """
+    def _parse_decode(self) -> t.Optional[exp.Decode | exp.DecodeCase]:
         args = self._parse_csv(self._parse_assignment)
 
         if len(args) < 3:
             return self.expression(exp.Decode, this=seq_get(args, 0), charset=seq_get(args, 1))
 
-        expression, *expressions = args
-        if not expression:
-            return None
-
-        ifs = []
-        for search, result in zip(expressions[::2], expressions[1::2]):
-            if not search or not result:
-                return None
-
-            if isinstance(search, exp.Literal):
-                ifs.append(
-                    exp.If(this=exp.EQ(this=expression.copy(), expression=search), true=result)
-                )
-            elif isinstance(search, exp.Null):
-                ifs.append(
-                    exp.If(this=exp.Is(this=expression.copy(), expression=exp.Null()), true=result)
-                )
-            else:
-                cond = exp.or_(
-                    exp.EQ(this=expression.copy(), expression=search),
-                    exp.and_(
-                        exp.Is(this=expression.copy(), expression=exp.Null()),
-                        exp.Is(this=search.copy(), expression=exp.Null()),
-                        copy=False,
-                    ),
-                    copy=False,
-                )
-                ifs.append(exp.If(this=cond, true=result))
-
-        return exp.Case(ifs=ifs, default=expressions[-1] if len(expressions) % 2 == 1 else None)
+        return self.expression(exp.DecodeCase, expressions=args)
 
     def _parse_json_key_value(self) -> t.Optional[exp.JSONKeyValue]:
         self._match_text_seq("KEY")

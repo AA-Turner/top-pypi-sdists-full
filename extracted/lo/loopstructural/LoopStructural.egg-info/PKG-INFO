@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: LoopStructural
-Version: 1.6.14
+Version: 1.6.15
 Summary: 3D geological modelling
 Author-email: Lachlan Grose <lachlan.grose@monash.edu>
 License: MIT
@@ -34,7 +34,7 @@ Requires-Dist: tqdm; extra == "all"
 Provides-Extra: visualisation
 Requires-Dist: matplotlib; extra == "visualisation"
 Requires-Dist: pyvista; extra == "visualisation"
-Requires-Dist: loopstructuralviusualisation>=0.1.14; extra == "visualisation"
+Requires-Dist: loopstructuralvisualisation>=0.1.14; extra == "visualisation"
 Provides-Extra: export
 Requires-Dist: geoh5py; extra == "export"
 Requires-Dist: pyevtk; extra == "export"

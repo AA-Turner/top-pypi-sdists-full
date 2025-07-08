@@ -15,7 +15,7 @@ setup(
     name="matrice",
 
 
-    version = "1.0.98766",
+    version = "1.0.98786",
 
     description="SDK for connecting to matrice.ai services",
     long_description=long_description,
@@ -25,7 +25,7 @@ setup(
     author_email = "dipendra@matrice.ai",
     install_requires = ['requests'],
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 4 - Beta",       
         "Intended Audience :: Developers",
          "Operating System :: OS Independent",
         "Topic :: Software Development :: Build Tools",

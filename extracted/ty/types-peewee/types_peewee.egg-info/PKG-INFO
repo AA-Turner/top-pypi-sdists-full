@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-peewee
-Version: 3.18.1.20250601
+Version: 3.18.1.20250708
 Summary: Typing stubs for peewee
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -40,8 +40,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
+mypy 1.16.1,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`5a3c495d2f6fa9b68cd99f39feba4426e4d17ea9`](https://github.com/python/typeshed/commit/5a3c495d2f6fa9b68cd99f39feba4426e4d17ea9).
+[`f4bf1d90a64d3f885ea30c642fe5373e2d19c344`](https://github.com/python/typeshed/commit/f4bf1d90a64d3f885ea30c642fe5373e2d19c344).

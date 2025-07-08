@@ -11,7 +11,7 @@ line-length = 79
 allow_dirty = true
 commit = true
 commit_args = "-sS"
-current_version = "0.70.0"
+current_version = "0.71.0"
 message = "bump: version {current_version} → {new_version}"
 sign_tags = true
 tag = true
@@ -90,6 +90,7 @@ wrap-summaries = 72
 [tool.docsig]
 check-class = true
 check-protected-class-methods = true
+enforce-capitalization = true
 
 [tool.flynt]
 line-length = 79
@@ -133,7 +134,7 @@ maintainers = [
 name = "docsig"
 readme = "README.rst"
 repository = "https://github.com/jshwi/docsig"
-version = "0.70.0"
+version = "0.71.0"
 
 [tool.poetry.dependencies]
 Sphinx = "^7.0.0"

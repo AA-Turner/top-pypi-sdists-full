@@ -22,3 +22,8 @@ try:
     from trafaret import AnyString as String  # pylint: disable=unused-import
 except ImportError:
     from trafaret import String  # noqa pylint: disable=unused-import
+
+try:
+    from typing import TypedDict  # noqa pylint: disable=unused-import
+except ImportError:
+    from typing_extensions import TypedDict  # noqa pylint: disable=unused-import

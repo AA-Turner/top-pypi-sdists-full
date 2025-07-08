@@ -21,7 +21,7 @@ logger = get_logger()
 
 class RowPreprocessor:
     standard_keys = [
-        'messages', 'rejected_response', 'label', 'images', 'videos', 'audios', 'tools', 'objects', 'channel'
+        'messages', 'rejected_response', 'label', 'images', 'videos', 'audios', 'tools', 'objects', 'channel', 'margin'
     ]
 
     def __init__(self,
@@ -259,7 +259,9 @@ class RowPreprocessor:
                 features['images'] = [{'bytes': Value(dtype='binary'), 'path': Value(dtype='string')}]
                 features['objects'] = {
                     'ref': Sequence(feature=Value(dtype='string'), length=-1),
-                    'bbox': Sequence(feature=Sequence(feature=Value(dtype='float64'), length=-1), length=-1)
+                    'bbox': Sequence(feature=Sequence(feature=Value(dtype='float64'), length=-1), length=-1),
+                    'bbox_type': Value(dtype='string'),
+                    'image_id': Sequence(feature=Value(dtype='int64'), length=-1),
                 }
             ArrowWriter.__origin_init__(self, schema, features, *args, **kwargs)
 

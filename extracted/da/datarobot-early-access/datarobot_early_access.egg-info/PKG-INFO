@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot_early_access
-Version: 3.8.0.2025.6.30.174232
+Version: 3.8.0.2025.7.7.174729
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -33,7 +33,6 @@ Requires-Dist: requests_toolbelt>=0.6
 Requires-Dist: trafaret!=1.1.0,<2.2,>=0.7
 Requires-Dist: urllib3>=1.23
 Requires-Dist: typing-extensions<5,>=4.3.0
-Requires-Dist: mypy-extensions<2,>=0.4.0
 Requires-Dist: strenum>=0.4.15
 Provides-Extra: dev
 Requires-Dist: pytest<8.0.0,>=7.3.0; python_version < "3.8" and extra == "dev"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastapi-cli
-Version: 0.0.7
+Version: 0.0.8
 Summary: Run and manage FastAPI apps from the command line with FastAPI CLI. 🚀
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License: MIT
@@ -31,11 +31,14 @@ Project-URL: Repository, https://github.com/fastapi/fastapi-cli
 Project-URL: Issues, https://github.com/fastapi/fastapi-cli/issues
 Project-URL: Changelog, https://github.com/fastapi/fastapi-cli/blob/main/release-notes.md
 Requires-Python: >=3.8
-Requires-Dist: typer>=0.12.3
+Requires-Dist: typer>=0.15.1
 Requires-Dist: uvicorn[standard]>=0.15.0
-Requires-Dist: rich-toolkit>=0.11.1
+Requires-Dist: rich-toolkit>=0.14.8
 Provides-Extra: standard
 Requires-Dist: uvicorn[standard]>=0.15.0; extra == "standard"
+Requires-Dist: fastapi-cloud-cli>=0.1.1; extra == "standard"
+Provides-Extra: standard-no-fastapi-cloud-cli
+Requires-Dist: uvicorn[standard]>=0.15.0; extra == "standard-no-fastapi-cloud-cli"
 Description-Content-Type: text/markdown
 
 # FastAPI CLI

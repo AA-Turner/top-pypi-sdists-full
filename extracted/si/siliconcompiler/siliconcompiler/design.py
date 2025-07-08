@@ -1,11 +1,12 @@
 import contextlib
 import re
 
+import os.path
+
 from pathlib import Path
 from typing import List
 
 from siliconcompiler import utils
-from siliconcompiler import SiliconCompilerError
 
 from siliconcompiler.dependencyschema import DependencySchema
 from siliconcompiler.schema import NamedSchema
@@ -16,9 +17,9 @@ from siliconcompiler.schema.utils import trim
 ###########################################################################
 class DesignSchema(NamedSchema, DependencySchema):
 
-    def __init__(self, name: str):
-        NamedSchema.__init__(self, name=name)
-        DependencySchema.__init__(self)
+    def __init__(self, name: str = None):
+        super().__init__()
+        self.set_name(name)
 
         schema_design(self)
 
@@ -38,9 +39,8 @@ class DesignSchema(NamedSchema, DependencySchema):
            str: Topmodule name
 
         Notes:
-        - first character must be letter or underscore
-        - remaining characters can be letters, digits, or underscores
-
+            - first character must be letter or underscore
+            - remaining characters can be letters, digits, or underscores
         """
 
         # topmodule safety check
@@ -58,7 +58,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            str: Topmodule name
-
         """
         return self.__get(fileset, 'topmodule')
 
@@ -78,9 +77,9 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of include directories
-
         """
-        return self.__set_add(fileset, 'idir', value, clobber, typelist=[str, list])
+        return self.__set_add(fileset, 'idir', value, clobber, typelist=[str, list],
+                              package=package)
 
     def get_idir(self, fileset: str = None) -> List[str]:
         """Returns include directories for a fileset.
@@ -90,7 +89,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of include directories
-
         """
         return self.__get(fileset, 'idir')
 
@@ -120,7 +118,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of macro definitions
-
         """
         return self.__get(fileset, 'define')
 
@@ -138,7 +135,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of macro (un)definitions
-
         """
         return self.__set_add(fileset, 'undefine', value, clobber, typelist=[str, list])
 
@@ -170,9 +166,9 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of library directories.
-
         """
-        return self.__set_add(fileset, 'libdir', value, clobber, typelist=[str, list])
+        return self.__set_add(fileset, 'libdir', value, clobber, typelist=[str, list],
+                              package=package)
 
     def get_libdir(self, fileset: str = None) -> List[str]:
         """Returns dynamic library directories for a fileset.
@@ -182,7 +178,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of library directories.
-
         """
         return self.__get(fileset, 'libdir')
 
@@ -200,7 +195,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of libraries.
-
         """
         return self.__set_add(fileset, 'lib', value, clobber, typelist=[str, list])
 
@@ -212,7 +206,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
            list[str]: List of libraries.
-
         """
         return self.__get(fileset, 'lib')
 
@@ -230,7 +223,6 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Returns:
             str: Parameter value
-
         """
 
         if fileset is None:
@@ -273,8 +265,6 @@ class DesignSchema(NamedSchema, DependencySchema):
         """
         Adds files to a fileset.
 
-
-
         .v        → (source, verilog)
         .vhd      → (source, vhdl)
         .sdc      → (constraint, sdc)
@@ -300,9 +290,7 @@ class DesignSchema(NamedSchema, DependencySchema):
            - This method normalizes `filename` to a string for consistency.
 
            - If no filetype is specified, filetype is inferred based on
-           the file extension via a mapping table. (eg. .v is verilog).
-
-
+                the file extension via a mapping table. (eg. .v is verilog).
         """
 
         if fileset is None:
@@ -337,15 +325,24 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         # final error checking
         if not fileset or not filetype:
-            raise SiliconCompilerError(
+            raise ValueError(
                 f'Unable to infer fileset and/or filetype for '
                 f'{filename} based on file extension.')
 
         # adding files to dictionary
         if clobber:
-            return self.set('fileset', fileset, 'file', filetype, filename)
+            params = self.set('fileset', fileset, 'file', filetype, filename)
         else:
-            return self.add('fileset', fileset, 'file', filetype, filename)
+            params = self.add('fileset', fileset, 'file', filetype, filename)
+
+        if package and params:
+            if not isinstance(params, (list, set, tuple)):
+                params = [params]
+
+            for param in params:
+                param.set(package, field="package")
+
+        return params
 
     ###############################################
     def get_file(self,
@@ -383,6 +380,42 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         return filelist
 
+    def __write_flist(self, filename: str, filesets: list):
+        written_cmd = set()
+
+        with open(filename, "w") as f:
+            def write(cmd):
+                if cmd in written_cmd:
+                    f.write(f"// {cmd}\n")
+                else:
+                    written_cmd.add(cmd)
+                    f.write(f"{cmd}\n")
+
+            def write_header(header):
+                f.write(f"// {header}\n")
+
+            for lib in [self, *self.get_dep()]:
+                write_header(f"{lib.name()}")
+                for fileset in filesets:
+                    if not lib.valid('fileset', fileset):
+                        continue
+
+                    if lib.get('fileset', fileset, 'idir'):
+                        write_header(f"{lib.name()} / {fileset} / include directories")
+                        for idir in lib.find_files('fileset', fileset, 'idir'):
+                            write(f"+incdir+{idir}")
+
+                    if lib.get('fileset', fileset, 'define'):
+                        write_header(f"{lib.name()} / {fileset} / defines")
+                        for define in lib.get('fileset', fileset, 'define'):
+                            write(f"+define+{define}")
+
+                    for filetype in lib.getkeys('fileset', fileset, 'file'):
+                        if lib.get('fileset', fileset, 'file', filetype):
+                            write_header(f"{lib.name()} / {fileset} / {filetype} files")
+                            for file in lib.find_files('fileset', fileset, 'file', filetype):
+                                write(file)
+
     ###############################################
     def write_fileset(self,
                       filename: str,
@@ -392,14 +425,12 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         Currently supports Verilog `flist` format only.
         Intended to support other formats in the future.
+        Inferred from file extension if not given.
 
         Args:
             filename (str or Path): Output file name.
             fileset (str or list[str]): Fileset(s) to export.
             fileformat (str, optional): Export format.
-
-        Inferred from file extension if not given.
-
         """
 
         if filename is None:
@@ -411,6 +442,10 @@ class DesignSchema(NamedSchema, DependencySchema):
         if not isinstance(fileset, list):
             fileset = [fileset]
 
+        for fset in fileset:
+            if not isinstance(fset, str):
+                raise ValueError("fileset key must be a string")
+
         # file extension lookup
         if not fileformat:
             formats = {}
@@ -418,27 +453,78 @@ class DesignSchema(NamedSchema, DependencySchema):
             fileformat = formats[Path(filename).suffix.strip('.')]
 
         if fileformat == "flist":
-            # TODO: handle dependency tree
-            # TODO: add source info for comments to flist.
-            with open(filename, "w") as f:
-                for i in fileset:
-                    if not isinstance(i, str):
-                        raise ValueError("fileset key must be a string")
-                    for j in ['idir', 'define', 'file']:
-                        if j == 'idir':
-                            vals = self.get('fileset', i, 'idir')
-                            cmd = "+incdir+"
-                        elif j == 'define':
-                            vals = self.get('fileset', i, 'define')
-                            cmd = "+define+"
-                        else:
-                            vals = self.get('fileset', i, 'file', 'verilog')
-                            cmd = ""
-                        if vals:
-                            for item in vals:
-                                f.write(f"{cmd}{item}\n")
+            self.__write_flist(filename, fileset)
         else:
             raise ValueError(f"{fileformat} is not supported")
+
+    def __read_flist(self, filename: str, fileset: str):
+        # Extract information
+        rel_path = os.path.dirname(os.path.abspath(filename))
+
+        def expand_path(path):
+            path = os.path.expandvars(path)
+            path = os.path.expanduser(path)
+            if os.path.isabs(path):
+                return path
+            return os.path.join(rel_path, path)
+
+        include_dirs = []
+        defines = []
+        files = []
+        with utils.sc_open(filename) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("//"):
+                    continue
+                if line.startswith("+incdir+"):
+                    include_dirs.append(expand_path(line[8:]))
+                elif line.startswith("+define+"):
+                    defines.append(os.path.expandvars(line[8:]))
+                else:
+                    files.append(expand_path(line))
+
+        # Create packages
+        all_paths = include_dirs + [os.path.dirname(f) for f in files]
+        all_paths = sorted(set(all_paths))
+
+        package_root_name = f'flist-{self.name()}-{fileset}-{os.path.basename(filename)}'
+        packages = {}
+
+        for path_dir in all_paths:
+            found = False
+            for pdir in packages:
+                if path_dir.startswith(pdir):
+                    found = True
+                    break
+            if not found:
+                package_name = f"{package_root_name}-{len(packages)}"
+                self.register_package(package_name, path_dir)
+                packages[path_dir] = package_name
+
+        def get_package(path):
+            for pdir, name in packages.items():
+                if path.startswith(pdir):
+                    return name, pdir
+            return None, None
+
+        # Assign data
+        with self.active_fileset(fileset):
+            if defines:
+                self.add_define(defines)
+            if include_dirs:
+                for dir in include_dirs:
+                    package_name, pdir = get_package(dir)
+                    if package_name:
+                        dir = os.path.relpath(dir, pdir)
+                    self.add_idir(dir, package=package_name)
+            if files:
+                for f in files:
+                    package_name, pdir = get_package(f)
+                    if package_name:
+                        f = os.path.relpath(f, pdir)
+                    self.add_file(f, package=package_name)
 
     ################################################
     def read_fileset(self,
@@ -454,7 +540,6 @@ class DesignSchema(NamedSchema, DependencySchema):
             filename (str or Path): Output file name.
             fileset (str or list[str]): Filesets to import.
             fileformat (str, optional): Export format.
-
         """
 
         if filename is None:
@@ -466,14 +551,14 @@ class DesignSchema(NamedSchema, DependencySchema):
             fileformat = formats[Path(filename).suffix.strip('.')]
 
         if fileformat == "flist":
-            raise NotImplementedError("read_fileset is not implemented yet")
+            self.__read_flist(filename, fileset)
         else:
             raise ValueError(f"{fileformat} is not supported")
 
     ################################################
     # Helper Functions
     ################################################
-    def __set_add(self, fileset, option, value, clobber=False, typelist=None):
+    def __set_add(self, fileset, option, value, clobber=False, typelist=None, package=None):
         '''Sets a parameter value in schema.
         '''
 
@@ -497,9 +582,18 @@ class DesignSchema(NamedSchema, DependencySchema):
             raise ValueError(f"None is an illegal {option} value")
 
         if list in typelist and not clobber:
-            return self.add('fileset', fileset, option, value)
+            params = self.add('fileset', fileset, option, value)
         else:
-            return self.set('fileset', fileset, option, value)
+            params = self.set('fileset', fileset, option, value)
+
+        if package and params:
+            if not isinstance(params, (list, set, tuple)):
+                params = [params]
+
+            for param in params:
+                param.set(package, field="package")
+
+        return params
 
     def __get(self, fileset, option):
         '''Gets a parameter value from schema.

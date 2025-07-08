@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: reductoai
-Version: 0.7.0
+Version: 0.8.0
 Summary: The official Python library for the reducto API
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
 Project-URL: Repository, https://github.com/reductoai/reducto-python-sdk
@@ -27,6 +27,9 @@ Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Reducto Python API library
@@ -102,6 +105,40 @@ asyncio.run(main())
 ```
 
 Functionality between the synchronous and asynchronous clients is otherwise identical.
+
+### With aiohttp
+
+By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.
+
+You can enable this by installing `aiohttp`:
+
+```sh
+# install from PyPI
+pip install reductoai[aiohttp]
+```
+
+Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
+
+```python
+import os
+import asyncio
+from reducto import DefaultAioHttpClient
+from reducto import AsyncReducto
+
+
+async def main() -> None:
+    async with AsyncReducto(
+        api_key=os.environ.get("REDUCTO_API_KEY"),  # This is the default and can be omitted
+        http_client=DefaultAioHttpClient(),
+    ) as client:
+        parse_response = await client.parse.run(
+            document_url="https://pdfobject.com/pdf/sample.pdf",
+        )
+        print(parse_response.job_id)
+
+
+asyncio.run(main())
+```
 
 ## Using types
 

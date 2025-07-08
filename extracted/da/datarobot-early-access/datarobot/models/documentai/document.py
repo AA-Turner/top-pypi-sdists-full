@@ -39,7 +39,8 @@ FeaturesWithSamples = namedtuple(
 
 if TYPE_CHECKING:
     from PIL.Image import Image
-    from mypy_extensions import TypedDict
+
+    from datarobot._compat import TypedDict
 
     class PredictionType(TypedDict):
         values: Union[float, List[float]]

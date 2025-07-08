@@ -34,7 +34,9 @@ from dulwich.index import (
     IndexEntry,
     SerializedIndexEntry,
     _compress_path,
+    _decode_varint,
     _decompress_path,
+    _encode_varint,
     _fs_to_tree_path,
     _tree_to_fs_path,
     build_index_from_tree,
@@ -49,6 +51,7 @@ from dulwich.index import (
     read_index_dict,
     update_working_tree,
     validate_path_element_default,
+    validate_path_element_hfs,
     validate_path_element_ntfs,
     write_cache_time,
     write_index,
@@ -138,32 +141,30 @@ class SimpleIndexTestCase(IndexTestCase):
         with tempfile.NamedTemporaryFile(suffix=".index", delete=False) as f:
             temp_path = f.name
 
-        try:
-            # Test creating Index with pathlib.Path
-            path_obj = Path(temp_path)
-            index = Index(path_obj, read=False)
-            self.assertEqual(str(path_obj), index.path)
+        self.addCleanup(os.unlink, temp_path)
 
-            # Add an entry and write
-            index[b"test"] = IndexEntry(
-                ctime=(0, 0),
-                mtime=(0, 0),
-                dev=0,
-                ino=0,
-                mode=33188,
-                uid=0,
-                gid=0,
-                size=0,
-                sha=b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-            )
-            index.write()
+        # Test creating Index with pathlib.Path
+        path_obj = Path(temp_path)
+        index = Index(path_obj, read=False)
+        self.assertEqual(str(path_obj), index.path)
 
-            # Read it back with pathlib.Path
-            index2 = Index(path_obj)
-            self.assertIn(b"test", index2)
-        finally:
-            # Clean up
-            os.unlink(temp_path)
+        # Add an entry and write
+        index[b"test"] = IndexEntry(
+            ctime=(0, 0),
+            mtime=(0, 0),
+            dev=0,
+            ino=0,
+            mode=33188,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        )
+        index.write()
+
+        # Read it back with pathlib.Path
+        index2 = Index(path_obj)
+        self.assertIn(b"test", index2)
 
 
 class SimpleIndexWriterTestCase(IndexTestCase):
@@ -860,6 +861,35 @@ class TestValidatePathElement(TestCase):
         self.assertFalse(validate_path_element_ntfs(b".."))
         self.assertFalse(validate_path_element_ntfs(b"git~1"))
 
+    def test_hfs(self) -> None:
+        # Normal paths should pass
+        self.assertTrue(validate_path_element_hfs(b"bla"))
+        self.assertTrue(validate_path_element_hfs(b".bla"))
+
+        # Basic .git variations should fail
+        self.assertFalse(validate_path_element_hfs(b".git"))
+        self.assertFalse(validate_path_element_hfs(b".giT"))
+        self.assertFalse(validate_path_element_hfs(b".GIT"))
+        self.assertFalse(validate_path_element_hfs(b".."))
+
+        # git~1 should also fail on HFS+
+        self.assertFalse(validate_path_element_hfs(b"git~1"))
+
+        # Test HFS+ Unicode normalization attacks
+        # .g\u200cit (zero-width non-joiner)
+        self.assertFalse(validate_path_element_hfs(b".g\xe2\x80\x8cit"))
+
+        # .gi\u200dt (zero-width joiner)
+        self.assertFalse(validate_path_element_hfs(b".gi\xe2\x80\x8dt"))
+
+        # Test other ignorable characters
+        # .g\ufeffit (zero-width no-break space)
+        self.assertFalse(validate_path_element_hfs(b".g\xef\xbb\xbfit"))
+
+        # Valid Unicode that shouldn't be confused with .git
+        self.assertTrue(validate_path_element_hfs(b".g\xc3\xaft"))  # .gït
+        self.assertTrue(validate_path_element_hfs(b"git"))  # git without dot
+
 
 class TestTreeFSPathConversion(TestCase):
     def test_tree_to_fs_path(self) -> None:
@@ -873,23 +903,20 @@ class TestTreeFSPathConversion(TestCase):
     def test_tree_to_fs_path_windows_separator(self) -> None:
         tree_path = b"path/with/slash"
         original_sep = os.sep.encode("ascii")
-        try:
-            # Temporarily modify os_sep_bytes to test Windows path conversion
-            # This simulates Windows behavior on all platforms for testing
-            import dulwich.index
+        # Temporarily modify os_sep_bytes to test Windows path conversion
+        # This simulates Windows behavior on all platforms for testing
+        import dulwich.index
 
-            dulwich.index.os_sep_bytes = b"\\"
+        dulwich.index.os_sep_bytes = b"\\"
+        self.addCleanup(setattr, dulwich.index, "os_sep_bytes", original_sep)
 
-            fs_path = _tree_to_fs_path(b"/prefix/path", tree_path)
+        fs_path = _tree_to_fs_path(b"/prefix/path", tree_path)
 
-            # The function should join the prefix path with the converted tree path
-            # The expected behavior is that the path separators in the tree_path are
-            # converted to the platform-specific separator (which we've set to backslash)
-            expected_path = os.path.join(b"/prefix/path", b"path\\with\\slash")
-            self.assertEqual(fs_path, expected_path)
-        finally:
-            # Restore original value
-            dulwich.index.os_sep_bytes = original_sep
+        # The function should join the prefix path with the converted tree path
+        # The expected behavior is that the path separators in the tree_path are
+        # converted to the platform-specific separator (which we've set to backslash)
+        expected_path = os.path.join(b"/prefix/path", b"path\\with\\slash")
+        self.assertEqual(fs_path, expected_path)
 
     def test_fs_to_tree_path_str(self) -> None:
         fs_path = os.path.join(os.path.join("délwíçh", "foo"))
@@ -905,17 +932,14 @@ class TestTreeFSPathConversion(TestCase):
         # Test conversion of Windows paths to tree paths
         fs_path = b"path\\with\\backslash"
         original_sep = os.sep.encode("ascii")
-        try:
-            # Temporarily modify os_sep_bytes to test Windows path conversion
-            import dulwich.index
+        # Temporarily modify os_sep_bytes to test Windows path conversion
+        import dulwich.index
 
-            dulwich.index.os_sep_bytes = b"\\"
+        dulwich.index.os_sep_bytes = b"\\"
+        self.addCleanup(setattr, dulwich.index, "os_sep_bytes", original_sep)
 
-            tree_path = _fs_to_tree_path(fs_path)
-            self.assertEqual(tree_path, b"path/with/backslash")
-        finally:
-            # Restore original value
-            dulwich.index.os_sep_bytes = original_sep
+        tree_path = _fs_to_tree_path(fs_path)
+        self.assertEqual(tree_path, b"path/with/backslash")
 
 
 class TestIndexEntryFromPath(TestCase):
@@ -1505,8 +1529,6 @@ class TestPathPrefixCompression(TestCase):
 
     def test_varint_encoding_decoding(self):
         """Test variable-width integer encoding and decoding."""
-        from dulwich.index import _decode_varint, _encode_varint
-
         test_values = [0, 1, 127, 128, 255, 256, 16383, 16384, 65535, 65536]
 
         for value in test_values:

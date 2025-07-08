@@ -9,18 +9,34 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
+from io import BufferedReader
 import os
 import shutil
 import tempfile
+from tempfile import _TemporaryFileWrapper
 import time
+from typing import Any, List, Optional, Tuple, Union
 
 import trafaret as t
 
 from datarobot import errors
-from datarobot._compat import Int, String
+from datarobot._compat import Int, String, TypedDict
 from datarobot.enums import DEFAULT_MAX_WAIT, EXECUTION_ENVIRONMENT_VERSION_BUILD_STATUS
 from datarobot.models.api_object import APIObject
 from datarobot.utils.pagination import unpaginate
+
+
+class ExecutionEnvironmentVersionType(TypedDict):
+    id: str
+    environment_id: str
+    build_status: str
+    label: Optional[str]
+    description: Optional[str]
+    created_at: Optional[str]
+    docker_context_size: Optional[int]
+    docker_image_size: Optional[int]
 
 
 class ExecutionEnvironmentVersion(APIObject):
@@ -66,23 +82,23 @@ class ExecutionEnvironmentVersion(APIObject):
 
     schema = _converter
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         self._set_values(**kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.label or self.id!r})"
 
     def _set_values(  # pylint: disable=missing-function-docstring
         self,
-        id,
-        environment_id,
-        build_status,
-        label=None,
-        description=None,
-        created_at=None,
-        docker_context_size=None,
-        docker_image_size=None,
-    ):
+        id: str,
+        environment_id: str,
+        build_status: str,
+        label: Optional[str] = None,
+        description: Optional[str] = None,
+        created_at: Optional[str] = None,
+        docker_context_size: Optional[int] = None,
+        docker_image_size: Optional[int] = None,
+    ) -> None:
         self.id = id
         self.environment_id = environment_id
         self.build_status = build_status
@@ -95,12 +111,12 @@ class ExecutionEnvironmentVersion(APIObject):
     @classmethod
     def create(
         cls,
-        execution_environment_id,
-        docker_context_path,
-        label=None,
-        description=None,
-        max_wait=DEFAULT_MAX_WAIT,
-    ):
+        execution_environment_id: str,
+        docker_context_path: str,
+        label: Optional[str] = None,
+        description: Optional[str] = None,
+        max_wait: Optional[int] = DEFAULT_MAX_WAIT,
+    ) -> "ExecutionEnvironmentVersion":
         """Create an execution environment version.
 
         .. versionadded:: v2.21
@@ -133,6 +149,7 @@ class ExecutionEnvironmentVersion(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
+        docker_context_file: Union[_TemporaryFileWrapper[bytes], BufferedReader]
         if os.path.isdir(docker_context_path):
             docker_context_file = tempfile.NamedTemporaryFile(suffix=".zip")
             shutil.make_archive(
@@ -164,7 +181,9 @@ class ExecutionEnvironmentVersion(APIObject):
             docker_context_file.close()
 
     @classmethod
-    def list(cls, execution_environment_id, build_status=None):
+    def list(
+        cls, execution_environment_id: str, build_status: Optional[str] = None
+    ) -> List["ExecutionEnvironmentVersion"]:
         """List execution environment versions available to the user.
 
         .. versionadded:: v2.21
@@ -194,7 +213,7 @@ class ExecutionEnvironmentVersion(APIObject):
         return [cls.from_server_data(item) for item in data]
 
     @classmethod
-    def get(cls, execution_environment_id, version_id):
+    def get(cls, execution_environment_id: str, version_id: str) -> "ExecutionEnvironmentVersion":
         """Get execution environment version by id.
 
         .. versionadded:: v2.21
@@ -222,7 +241,7 @@ class ExecutionEnvironmentVersion(APIObject):
         path = f"{url}{version_id}/"
         return cls.from_location(path)
 
-    def download(self, file_path):
+    def download(self, file_path: str) -> None:
         """Download execution environment version.
 
         .. versionadded:: v2.21
@@ -251,7 +270,7 @@ class ExecutionEnvironmentVersion(APIObject):
         with open(file_path, "wb") as f:
             f.write(response.content)
 
-    def get_build_log(self):
+    def get_build_log(self) -> Tuple[str, str]:
         """Get execution environment version build log and error.
 
         .. versionadded:: v2.21
@@ -278,7 +297,7 @@ class ExecutionEnvironmentVersion(APIObject):
             error = None
         return log, error
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Update execution environment version with the latest data from server.
 
         .. versionadded:: v2.21
@@ -298,7 +317,9 @@ class ExecutionEnvironmentVersion(APIObject):
         self._set_values(**self._safe_data(data, do_recursive=True))
 
     @classmethod
-    def _await_final_build_status(cls, execution_environment_id, version_id, max_wait):
+    def _await_final_build_status(
+        cls, execution_environment_id: str, version_id: str, max_wait: int
+    ) -> "ExecutionEnvironmentVersion":
         """Awaits until an execution environment version gets to a final state.
 
         Parameters
@@ -307,7 +328,7 @@ class ExecutionEnvironmentVersion(APIObject):
             the id of the execution environment
         version_id: str
             the id of the execution environment version to retrieve
-        max_wait: int or Optional[float]
+        max_wait: int
             max time to wait in seconds
 
         Returns

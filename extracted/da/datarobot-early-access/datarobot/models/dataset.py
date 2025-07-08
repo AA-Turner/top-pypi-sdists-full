@@ -33,13 +33,12 @@ from typing import (
 )
 
 import dateutil
-from mypy_extensions import TypedDict
 import pandas as pd
 import requests
 from requests_toolbelt import MultipartEncoder
 import trafaret as t
 
-from datarobot._compat import Int, String
+from datarobot._compat import Int, String, TypedDict
 from datarobot.enums import (
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,

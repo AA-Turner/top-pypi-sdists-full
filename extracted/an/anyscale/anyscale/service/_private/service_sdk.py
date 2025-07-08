@@ -78,6 +78,7 @@ class PrivateServiceSDK(WorkloadSDK):
             cloud_id=cloud_id,
             autopopulate_in_workspace=autopopulate_in_workspace,
             additional_py_modules=config.py_modules,
+            py_executable_override=config.py_executable,
         )
         new_runtime_envs = self.override_and_load_requirements_files(
             new_runtime_envs,

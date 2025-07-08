@@ -84,6 +84,7 @@ def rich_exception_formatter_factory(
     *,
     no_color: bool | None = None,
     show_locals: bool = False,
+    max_frames: int = 100,
 ) -> Callable[[t.TextIO, structlog.types.ExcInfo], None]:
     """Create an exception formatter for logging using the rich package.
 
@@ -95,6 +96,7 @@ def rich_exception_formatter_factory(
         color_system: The color system supported by your terminal.
         no_color: Enabled no color mode, or None to auto detect. Defaults to None.
         show_locals: Whether to show local variables in the traceback.
+        max_frames: Maximum number of frames to show in a traceback, 0 for no maximum.
 
     Returns:
         Exception formatter function.
@@ -109,6 +111,7 @@ def rich_exception_formatter_factory(
             Traceback.from_exception(
                 *exc_info,
                 show_locals=show_locals,
+                max_frames=max_frames,
             ),
         )
 
@@ -117,6 +120,7 @@ def rich_exception_formatter_factory(
 
 def _process_formatter(
     *processors: Processor,
+    utc: bool = True,
     **kwargs: t.Any,
 ) -> structlog.stdlib.ProcessorFormatter:
     """Use _process_formatter to configure a structlog.stdlib.ProcessFormatter.
@@ -127,6 +131,7 @@ def _process_formatter(
     Args:
         *processors: One or more structlog message processors such as
             `structlog.dev.ConsoleRenderer`.
+        utc: Whether to use UTC time for timestamps.
         **kwargs: Additional keyword arguments to pass to the logging.Formatter
             constructor.
 
@@ -135,7 +140,10 @@ def _process_formatter(
     """
     return structlog.stdlib.ProcessorFormatter(
         processors=processors,
-        foreign_pre_chain=LEVELED_TIMESTAMPED_PRE_CHAIN,
+        foreign_pre_chain=(
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso", utc=utc),
+        ),
         **kwargs,
     )
 
@@ -145,6 +153,8 @@ def console_log_formatter(
     colors: bool = False,
     callsite_parameters: bool = False,
     show_locals: bool = False,
+    utc: bool = True,
+    max_frames: int = 2,
 ) -> structlog.stdlib.ProcessorFormatter:
     """Create a logging formatter for console rendering that supports colorization.
 
@@ -152,6 +162,8 @@ def console_log_formatter(
         colors: Add color to output.
         callsite_parameters: Whether to include callsite parameters in the output.
         show_locals: Whether to show local variables in the traceback.
+        utc: Whether to use UTC time for timestamps.
+        max_frames: Maximum number of frames to show in a traceback, 0 for no maximum.
 
     Returns:
         A configured console log formatter.
@@ -162,11 +174,13 @@ def console_log_formatter(
         exception_formatter = rich_exception_formatter_factory(
             color_system="truecolor",
             show_locals=show_locals,
+            max_frames=max_frames,
         )
     else:
         exception_formatter = rich_exception_formatter_factory(
             no_color=True,
             show_locals=show_locals,
+            max_frames=max_frames,
         )
 
     return _process_formatter(
@@ -176,6 +190,7 @@ def console_log_formatter(
             colors=colors,
             exception_formatter=exception_formatter,
         ),
+        utc=utc,
     )
 
 
@@ -185,6 +200,7 @@ def key_value_formatter(
     key_order: Sequence[str] | None = None,
     drop_missing: bool = False,
     callsite_parameters: bool = False,
+    utc: bool = True,
 ) -> structlog.stdlib.ProcessorFormatter:
     """Create a logging formatter that renders lines in key=value format.
 
@@ -196,6 +212,7 @@ def key_value_formatter(
         drop_missing: When True, extra keys in *key_order* will be dropped
             rather than rendered as None.
         callsite_parameters: Whether to include callsite parameters in the output.
+        utc: Whether to use UTC time for timestamps.
 
     Returns:
         A configured key=value formatter.
@@ -208,6 +225,7 @@ def key_value_formatter(
             key_order=key_order,
             drop_missing=drop_missing,
         ),
+        utc=utc,
     )
 
 
@@ -216,6 +234,7 @@ def json_formatter(
     callsite_parameters: bool = False,
     dict_tracebacks: bool = True,
     show_locals: bool = False,
+    utc: bool = True,
 ) -> structlog.stdlib.ProcessorFormatter:
     """Create a logging formatter that renders lines in JSON format.
 
@@ -223,6 +242,7 @@ def json_formatter(
         callsite_parameters: Whether to include callsite parameters in the JSON output.
         dict_tracebacks: Whether to include tracebacks in the JSON output.
         show_locals: Whether to include local variables in the traceback.
+        utc: Whether to use UTC time for timestamps.
 
     Returns:
         A configured JSON formatter.
@@ -235,6 +255,7 @@ def json_formatter(
         ),
         structlog.stdlib.ProcessorFormatter.remove_processors_meta,
         structlog.processors.JSONRenderer(),
+        utc=utc,
     )
 
 
@@ -262,6 +283,7 @@ def plain_formatter(
     datefmt: str | None = None,
     style: str = "%",
     validate: bool = True,
+    utc: bool = True,
 ) -> structlog.stdlib.ProcessorFormatter:
     """Create a logging formatter that renders lines in a simple format.
 
@@ -270,7 +292,7 @@ def plain_formatter(
         datefmt: The date format string.
         style: The format style.
         validate: Whether to validate the format string.
-        features: Logging features to enable.
+        utc: Whether to use UTC time for timestamps.
 
     Returns:
         A configured simple formatter.
@@ -284,6 +306,7 @@ def plain_formatter(
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
         _event_renderer,
+        utc=utc,
         fmt=fmt,
         datefmt=datefmt,
         style=style,

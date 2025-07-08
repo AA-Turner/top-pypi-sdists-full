@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.34.0
+Version: 0.34.1
 Summary: A compiler framework that automates translation from source code to silicon.
 Author-email: Andreas Olofsson <andreas.d.olofsson@gmail.com>
 License: Apache License 2.0
@@ -11,7 +11,6 @@ Project-URL: Issues, https://github.com/siliconcompiler/siliconcompiler/issues
 Project-URL: Discussion, https://github.com/siliconcompiler/siliconcompiler/discussions
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,21 +21,19 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
 Classifier: Topic :: Software Development :: Build Tools
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohttp==3.10.11; python_version <= "3.8"
-Requires-Dist: aiohttp<3.13.0,>=3.10.11; python_version >= "3.9"
+Requires-Dist: aiohttp<3.13.0,>=3.10.11
 Requires-Dist: requests==2.32.4
 Requires-Dist: PyYAML==6.0.2
 Requires-Dist: pandas>=1.1.5
 Requires-Dist: Jinja2>=2.11.3
-Requires-Dist: graphviz==0.20.3
+Requires-Dist: graphviz==0.21
 Requires-Dist: distro==1.9.0
 Requires-Dist: packaging<25,>=21.3
 Requires-Dist: psutil>=5.8.0
-Requires-Dist: Pillow==10.4.0; python_version <= "3.8"
-Requires-Dist: Pillow==11.2.1; python_version >= "3.9"
+Requires-Dist: Pillow==11.3.0
 Requires-Dist: GitPython==3.1.44
 Requires-Dist: lambdapdk>=0.1.47
 Requires-Dist: PyGithub==2.6.1
@@ -45,33 +42,26 @@ Requires-Dist: fasteners==0.19
 Requires-Dist: fastjsonschema==2.21.1
 Requires-Dist: docker==7.1.0
 Requires-Dist: importlib_metadata; python_version < "3.10"
-Requires-Dist: orjson==3.10.15; python_version <= "3.8"
-Requires-Dist: orjson==3.10.18; python_version >= "3.9"
+Requires-Dist: orjson==3.10.18
 Requires-Dist: pyslang==8.1.0
-Requires-Dist: streamlit==1.40.1; python_version <= "3.8"
-Requires-Dist: streamlit==1.45.1; python_version >= "3.9" and python_full_version != "3.9.7"
+Requires-Dist: streamlit==1.46.1; python_full_version != "3.9.7"
 Requires-Dist: streamlit_agraph==0.0.45; python_full_version != "3.9.7"
 Requires-Dist: streamlit-antd-components==0.3.2; python_full_version != "3.9.7"
 Requires-Dist: streamlit_javascript==0.1.5; python_full_version != "3.9.7"
 Requires-Dist: streamlit-autorefresh==1.0.1; python_full_version != "3.9.7"
-Requires-Dist: rich==13.9.4; python_version <= "3.8"
-Requires-Dist: rich<15.0.0,>=14.0.0; python_version >= "3.9"
+Requires-Dist: rich<15.0.0,>=14.0.0
 Provides-Extra: test
-Requires-Dist: pytest==8.3.5; python_version <= "3.8" and extra == "test"
-Requires-Dist: pytest==8.4.0; python_version >= "3.9" and extra == "test"
-Requires-Dist: pytest-xdist==3.6.1; python_version <= "3.8" and extra == "test"
-Requires-Dist: pytest-xdist==3.7.0; python_version >= "3.9" and extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: pytest-asyncio==0.24.0; python_version <= "3.8" and extra == "test"
-Requires-Dist: pytest-asyncio==0.26.0; python_version >= "3.9" and extra == "test"
-Requires-Dist: pytest-cov==5.0.0; python_version <= "3.8" and extra == "test"
-Requires-Dist: pytest-cov==6.1.1; python_version >= "3.9" and extra == "test"
+Requires-Dist: pytest-asyncio==1.0.0; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
 Requires-Dist: responses==0.25.7; extra == "test"
 Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Requires-Dist: logiklib==0.1.0; extra == "test"
 Provides-Extra: lint
-Requires-Dist: flake8==7.2.0; extra == "lint"
-Requires-Dist: tclint==0.5.4; extra == "lint"
+Requires-Dist: flake8==7.3.0; extra == "lint"
+Requires-Dist: tclint==0.6.0; extra == "lint"
 Requires-Dist: codespell==2.4.1; extra == "lint"
 Provides-Extra: docs
 Requires-Dist: Sphinx==8.2.3; extra == "docs"
@@ -115,7 +105,7 @@ SiliconCompiler is a modular hardware build system ("make for silicon"). The pro
 # Getting Started
 
 SiliconCompiler is available as wheel packages on PyPI for macOS, Windows and
-Linux platforms. For working Python 3.8-3.13 environment, just use pip.
+Linux platforms. For working Python 3.9-3.13 environment, just use pip.
 
 ```sh
 python3 -m pip install --upgrade siliconcompiler

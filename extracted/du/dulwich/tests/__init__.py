@@ -117,6 +117,8 @@ def self_test_suite():
     names = [
         "annotate",
         "archive",
+        "attrs",
+        "bisect",
         "blackbox",
         "bundle",
         "cli",
@@ -159,6 +161,7 @@ def self_test_suite():
         "rebase",
         "reflog",
         "refs",
+        "reftable",
         "repository",
         "server",
         "sparse_patterns",

@@ -44,7 +44,7 @@ dependencies = [
 
 [project.optional-dependencies]
 image = ["numpy", "pillow"]
-sklearn = ["scikit-learn"]
+sklearn = ["scikit-learn>=1.5.0"]
 plots = ["scikit-learn", "pandas", "numpy"]
 markdown = ["matplotlib"]
 tests = [
@@ -61,7 +61,7 @@ tests = [
 ]
 dev = [
   "dvclive[all,tests]",
-  "mypy==1.14.1",
+  "mypy==1.15.0",
   "types-PyYAML"
 ]
 mmcv = ["mmcv"]

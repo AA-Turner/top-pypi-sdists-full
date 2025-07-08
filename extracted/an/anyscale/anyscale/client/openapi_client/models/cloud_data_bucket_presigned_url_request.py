@@ -36,17 +36,19 @@ class CloudDataBucketPresignedUrlRequest(object):
         'file_type': 'CloudDataBucketFileType',
         'file_name': 'str',
         'access_mode': 'CloudDataBucketAccessMode',
-        'scope': 'CloudDataBucketRequestScope'
+        'scope': 'CloudDataBucketRequestScope',
+        'cloud_deployment_id': 'str'
     }
 
     attribute_map = {
         'file_type': 'file_type',
         'file_name': 'file_name',
         'access_mode': 'access_mode',
-        'scope': 'scope'
+        'scope': 'scope',
+        'cloud_deployment_id': 'cloud_deployment_id'
     }
 
-    def __init__(self, file_type=None, file_name=None, access_mode=None, scope=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, file_type=None, file_name=None, access_mode=None, scope=None, cloud_deployment_id=None, local_vars_configuration=None):  # noqa: E501
         """CloudDataBucketPresignedUrlRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class CloudDataBucketPresignedUrlRequest(object):
         self._file_name = None
         self._access_mode = None
         self._scope = None
+        self._cloud_deployment_id = None
         self.discriminator = None
 
         self.file_type = file_type
@@ -63,6 +66,8 @@ class CloudDataBucketPresignedUrlRequest(object):
         self.access_mode = access_mode
         if scope is not None:
             self.scope = scope
+        if cloud_deployment_id is not None:
+            self.cloud_deployment_id = cloud_deployment_id
 
     @property
     def file_type(self):
@@ -161,6 +166,29 @@ class CloudDataBucketPresignedUrlRequest(object):
         """
 
         self._scope = scope
+
+    @property
+    def cloud_deployment_id(self):
+        """Gets the cloud_deployment_id of this CloudDataBucketPresignedUrlRequest.  # noqa: E501
+
+        The cloud deployment ID of the bucket to generate a presigned URL for. If not specified, the primary cloud deployment for the cloud will be used.  # noqa: E501
+
+        :return: The cloud_deployment_id of this CloudDataBucketPresignedUrlRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_deployment_id
+
+    @cloud_deployment_id.setter
+    def cloud_deployment_id(self, cloud_deployment_id):
+        """Sets the cloud_deployment_id of this CloudDataBucketPresignedUrlRequest.
+
+        The cloud deployment ID of the bucket to generate a presigned URL for. If not specified, the primary cloud deployment for the cloud will be used.  # noqa: E501
+
+        :param cloud_deployment_id: The cloud_deployment_id of this CloudDataBucketPresignedUrlRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_deployment_id = cloud_deployment_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: osc-lib
-Version: 4.0.2
+Version: 4.1.0
 Summary: OpenStackClient Library
 Home-page: https://docs.openstack.org/osc-lib/latest/
 Author: OpenStack
@@ -17,10 +17,10 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: cliff>=3.2.0
-Requires-Dist: keystoneauth1>=3.14.0
+Requires-Dist: cliff>=4.9.0
+Requires-Dist: keystoneauth1>=5.10.0
 Requires-Dist: openstacksdk>=0.15.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.utils>=3.33.0

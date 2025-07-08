@@ -49,13 +49,16 @@ async def get_valid_token(tokens: Optional[list] = None):
 
 @retrying(max_retries=5)
 async def create_task(request: Union[CompletionRequest, VideoRequest], api_key: Optional[str] = None):
-    # api_key = "e32b1693-147e-40db-a83a-82f85cfa6360"  # 欠费
-    api_key = api_key or await get_next_token_for_polling(feishu_url=FEISHU_URL, check_token=check)
+    # api_key = api_key or await get_next_token_for_polling(feishu_url=FEISHU_URL, check_token=check)
+    api_key = api_key or await get_valid_token()
 
     logger.debug(f"api_key: {api_key}")
     if isinstance(request, VideoRequest):  # 兼容jimeng
+        request.prompt = f"{request.prompt} --duration {request.duration}"
+
         payload = {
             "model": "doubao-seedance-1-0-lite-t2v-250428",
+
             "content": [
                 {
                     "type": "text",
@@ -66,6 +69,7 @@ async def create_task(request: Union[CompletionRequest, VideoRequest], api_key: 
         if request.image_url:
             payload = {
                 "model": "doubao-seedance-1-0-lite-i2v-250428",
+
                 "content": [
                     {
                         "type": "text",
@@ -82,6 +86,7 @@ async def create_task(request: Union[CompletionRequest, VideoRequest], api_key: 
         if request.image_url and request.tail_image_url:
             payload = {
                 "model": "doubao-seedance-1-0-lite-i2v-250428",
+
                 "content": [
                     {
                         "type": "text",
@@ -103,6 +108,8 @@ async def create_task(request: Union[CompletionRequest, VideoRequest], api_key: 
                     }
                 ]
             }
+
+        payload['model'] = "doubao-seedance-1-0-pro-250528"  # 未来注销
 
     else:
 
@@ -180,18 +187,23 @@ if __name__ == "__main__":
         messages=[
             {"role": "user",
              "content": "无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验  --resolution 1080p  --duration 5 --camerafixed false"}
-        ]
+        ],
     )
-    # r = arun(create_task(request, api_key))
+    request = VideoRequest(
+        model="doubao-seedance-1-0-pro-250528",
+        prompt="无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验",
+        duration=10
+    )
+    # r = arun(create_task(request))
     # r = {'id': 'cgt-20250612172542-6nbt2'}
 
     # arun(get_task(r.get('id')))
 
-    # arun(get_task("cgt-20250611164343-w2bzq"))
+    arun(get_task("cgt-20250707162431-smhwc"))
 
-    # arun(get_task("cgt-20250611193213-tcqth"))
+    # arun(get_task("cgt-20250707160713-j8kll"))
 
-    arun(get_valid_token())
+    # arun(get_valid_token())
 
 """
 {'id': 'cgt-20250613160030-2dvd7',

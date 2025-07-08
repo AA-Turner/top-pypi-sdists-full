@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: py-ocsf-models
-Version: 0.6.0
+Version: 0.7.0
 Summary: This is a Python implementation of the OCSF models. The models are used to represent the data of the OCSF Schema defined in https://schema.ocsf.io/.
 License: Apache-2.0
 Author: Prowler Engineering

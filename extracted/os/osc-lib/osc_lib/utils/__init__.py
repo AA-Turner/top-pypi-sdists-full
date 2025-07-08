@@ -16,6 +16,7 @@
 """Common client utilities"""
 
 import argparse
+import collections.abc
 import copy
 import functools
 import getpass
@@ -38,10 +39,10 @@ _T = ty.TypeVar('_T')
 
 
 def backward_compat_col_lister(
-    column_headers: ty.List[str],
-    columns: ty.List[str],
-    column_map: ty.Dict[str, str],
-) -> ty.List[str]:
+    column_headers: list[str],
+    columns: list[str],
+    column_map: dict[str, str],
+) -> list[str]:
     """Convert the column headers to keep column backward compatibility.
 
     Replace the new column name of column headers by old name, so that
@@ -74,10 +75,10 @@ def backward_compat_col_lister(
 
 
 def backward_compat_col_showone(
-    show_object: ty.MutableMapping[str, _T],
-    columns: ty.List[str],
-    column_map: ty.Dict[str, str],
-) -> ty.MutableMapping[str, _T]:
+    show_object: collections.abc.MutableMapping[str, _T],
+    columns: list[str],
+    column_map: dict[str, str],
+) -> collections.abc.MutableMapping[str, _T]:
     """Convert the output object to keep column backward compatibility.
 
     Replace the new column name of output object by old name, so that
@@ -107,7 +108,7 @@ def backward_compat_col_showone(
     return show_object
 
 
-def build_kwargs_dict(arg_name: str, value: _T) -> ty.Dict[str, _T]:
+def build_kwargs_dict(arg_name: str, value: _T) -> dict[str, _T]:
     """Return a dictionary containing `arg_name` if `value` is set."""
     kwargs = {}
     if value:
@@ -116,10 +117,10 @@ def build_kwargs_dict(arg_name: str, value: _T) -> ty.Dict[str, _T]:
 
 
 def calculate_header_and_attrs(
-    column_headers: ty.Sequence[str],
-    attrs: ty.Sequence[str],
+    column_headers: collections.abc.Sequence[str],
+    attrs: collections.abc.Sequence[str],
     parsed_args: argparse.Namespace,
-) -> ty.Tuple[ty.Sequence[str], ty.Sequence[str]]:
+) -> tuple[collections.abc.Sequence[str], collections.abc.Sequence[str]]:
     """Calculate headers and attribute names based on parsed_args.column.
 
     When --column (-c) option is specified, this function calculates
@@ -154,7 +155,7 @@ def calculate_header_and_attrs(
         return column_headers, attrs
 
 
-def env(*vars: str, **kwargs: ty.Any) -> ty.Optional[str]:
+def env(*vars: str, **kwargs: ty.Any) -> str | None:
     """Search for the first defined of possibly many env vars
 
     Returns the first environment variable defined in vars, or
@@ -172,10 +173,10 @@ def env(*vars: str, **kwargs: ty.Any) -> ty.Optional[str]:
 
 
 def find_min_match(
-    items: ty.Sequence[_T],
+    items: collections.abc.Sequence[_T],
     sort_attr: str,
     **kwargs: ty.Any,
-) -> ty.Sequence[_T]:
+) -> collections.abc.Sequence[_T]:
     """Find all resources meeting the given minimum constraints
 
     :param items: A List of objects to consider
@@ -326,9 +327,7 @@ def find_resource(
         raise exceptions.CommandError(msg % name_or_id)
 
 
-def format_dict(
-    data: ty.Dict[str, ty.Any], prefix: ty.Optional[str] = None
-) -> str:
+def format_dict(data: dict[str, ty.Any], prefix: str | None = None) -> str:
     """Return a formatted string of key value pairs
 
     :param data: a dict
@@ -357,8 +356,8 @@ def format_dict(
 
 
 def format_dict_of_list(
-    data: ty.Optional[ty.Dict[str, ty.List[ty.Any]]], separator: str = '; '
-) -> ty.Optional[str]:
+    data: dict[str, list[ty.Any]] | None, separator: str = '; '
+) -> str | None:
     """Return a formatted string of key value pair
 
     :param data: a dict, key is string, value is a list of string, for example:
@@ -384,8 +383,8 @@ def format_dict_of_list(
 
 
 def format_list(
-    data: ty.Optional[ty.List[ty.Any]], separator: str = ', '
-) -> ty.Optional[str]:
+    data: list[ty.Any] | None, separator: str = ', '
+) -> str | None:
     """Return a formatted strings
 
     :param data: a list of strings
@@ -399,8 +398,8 @@ def format_list(
 
 
 def format_list_of_dicts(
-    data: ty.Optional[ty.List[ty.Dict[str, ty.Any]]],
-) -> ty.Optional[str]:
+    data: list[dict[str, ty.Any]] | None,
+) -> str | None:
     """Return a formatted string of key value pairs for each dict
 
     :param data: a list of dicts
@@ -412,7 +411,7 @@ def format_list_of_dicts(
     return '\n'.join(format_dict(i) for i in data)
 
 
-def format_size(size: ty.Union[int, float, None]) -> str:
+def format_size(size: int | float | None) -> str:
     """Display size of a resource in a human readable format
 
     :param size:
@@ -443,8 +442,8 @@ def format_size(size: ty.Union[int, float, None]) -> str:
 
 def get_client_class(
     api_name: str,
-    version: ty.Union[str, int, float],
-    version_map: ty.Dict[str, ty.Type[_T]],
+    version: str | int | float,
+    version_map: dict[str, type[_T]],
 ) -> ty.Any:
     """Returns the client class for the requested API version
 
@@ -482,13 +481,12 @@ def get_client_class(
 
 
 def get_dict_properties(
-    item: ty.Dict[str, _T],
-    fields: ty.Sequence[str],
-    mixed_case_fields: ty.Optional[ty.Sequence[str]] = None,
-    formatters: ty.Optional[  # type: ignore
-        ty.Dict[str, ty.Type[cliff_columns.FormattableColumn]]
-    ] = None,
-) -> ty.Tuple[ty.Any, ...]:
+    item: dict[str, _T],
+    fields: collections.abc.Sequence[str],
+    mixed_case_fields: collections.abc.Sequence[str] | None = None,
+    formatters: dict[str, type[cliff_columns.FormattableColumn[ty.Any]]]
+    | None = None,
+) -> tuple[ty.Any, ...]:
     """Return a tuple containing the item properties.
 
     :param item: a single dict resource
@@ -534,13 +532,12 @@ def get_dict_properties(
 
 
 def get_item_properties(
-    item: ty.Dict[str, _T],
-    fields: ty.Sequence[str],
-    mixed_case_fields: ty.Optional[ty.Sequence[str]] = None,
-    formatters: ty.Optional[  # type: ignore
-        ty.Dict[str, ty.Type[cliff_columns.FormattableColumn]]
-    ] = None,
-) -> ty.Tuple[ty.Any, ...]:
+    item: dict[str, _T],
+    fields: collections.abc.Sequence[str],
+    mixed_case_fields: collections.abc.Sequence[str] | None = None,
+    formatters: dict[str, type[cliff_columns.FormattableColumn[ty.Any]]]
+    | None = None,
+) -> tuple[ty.Any, ...]:
     """Return a tuple containing the item properties.
 
     :param item: a single item resource (e.g. Server, Project, etc)
@@ -611,7 +608,7 @@ def get_field(item: _T, field: str) -> ty.Any:
 
 def get_password(
     stdin: ty.TextIO,
-    prompt: ty.Optional[str] = None,
+    prompt: str | None = None,
     confirm: bool = True,
 ) -> str:
     message = prompt or "User Password:"
@@ -633,7 +630,7 @@ def get_password(
     raise exceptions.CommandError(msg)
 
 
-def is_ascii(string: ty.Union[str, bytes]) -> bool:
+def is_ascii(string: str | bytes) -> bool:
     try:
         if isinstance(string, bytes):
             string.decode('ascii')
@@ -655,10 +652,10 @@ def read_blob_file_contents(blob_file: str) -> str:
 
 
 def sort_items(
-    items: ty.Sequence[_T],
+    items: collections.abc.Sequence[_T],
     sort_str: str,
-    sort_type: ty.Optional[ty.Type[ty.Any]] = None,
-) -> ty.Sequence[_T]:
+    sort_type: type[ty.Any] | None = None,
+) -> collections.abc.Sequence[_T]:
     """Sort items based on sort keys and sort directions given by sort_str.
 
     :param items: a list or generator object of items
@@ -719,11 +716,11 @@ def wait_for_delete(
     manager: ty.Any,
     res_id: str,
     status_field: str = 'status',
-    error_status: ty.Sequence[str] = ['error'],
-    exception_name: ty.Sequence[str] = ['NotFound'],
+    error_status: collections.abc.Sequence[str] = ['error'],
+    exception_name: collections.abc.Sequence[str] = ['NotFound'],
     sleep_time: int = 5,
     timeout: int = 300,
-    callback: ty.Optional[ty.Callable[[int], None]] = None,
+    callback: collections.abc.Callable[[int], None] | None = None,
 ) -> bool:
     """Wait for resource deletion
 
@@ -775,13 +772,13 @@ def wait_for_delete(
 
 
 def wait_for_status(
-    status_f: ty.Callable[[str], object],
+    status_f: collections.abc.Callable[[str], object],
     res_id: str,
     status_field: str = 'status',
-    success_status: ty.Sequence[str] = ['active'],
-    error_status: ty.Sequence[str] = ['error'],
+    success_status: collections.abc.Sequence[str] = ['active'],
+    error_status: collections.abc.Sequence[str] = ['error'],
     sleep_time: int = 5,
-    callback: ty.Optional[ty.Callable[[int], None]] = None,
+    callback: collections.abc.Callable[[int], None] | None = None,
 ) -> bool:
     """Wait for status change on a resource during a long-running operation
 
@@ -818,9 +815,9 @@ def wait_for_status(
 
 def get_osc_show_columns_for_sdk_resource(
     sdk_resource: resource.Resource,
-    osc_column_map: ty.Dict[str, str],
-    invisible_columns: ty.Optional[ty.Sequence[str]] = None,
-) -> ty.Tuple[ty.Tuple[str, ...], ty.Tuple[str, ...]]:
+    osc_column_map: dict[str, str],
+    invisible_columns: collections.abc.Sequence[str] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Get and filter the display and attribute columns for an SDK resource.
 
     Common utility function for preparing the output of an OSC show command.

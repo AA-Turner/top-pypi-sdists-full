@@ -28,7 +28,7 @@ from datarobot.utils.waiters import wait_for_async_resolution
 from .. import errors
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class CountryCode(TypedDict):
         name: str

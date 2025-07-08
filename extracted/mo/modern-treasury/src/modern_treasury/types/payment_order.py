@@ -112,6 +112,7 @@ class ReferenceNumber(BaseModel):
         "column_fx_quote_id",
         "column_reversal_pair_transfer_id",
         "column_transfer_id",
+        "cross_river_core_transaction_id",
         "cross_river_fed_batch_id",
         "cross_river_payment_id",
         "cross_river_service_message",
@@ -129,6 +130,8 @@ class ReferenceNumber(BaseModel):
         "goldman_sachs_payment_request_id",
         "goldman_sachs_request_id",
         "goldman_sachs_unique_payment_id",
+        "hifi_offramp_id",
+        "hifi_transfer_id",
         "interac_message_id",
         "jpmc_ccn",
         "jpmc_clearing_system_reference",
@@ -216,8 +219,8 @@ class PaymentOrder(BaseModel):
     charge_bearer: Optional[Literal["shared", "sender", "receiver"]] = None
     """The party that will pay the fees for the payment order.
 
-    Only applies to wire payment orders. Can be one of shared, sender, or receiver,
-    which correspond respectively with the SWIFT 71A values `SHA`, `OUR`, `BEN`.
+    See https://docs.moderntreasury.com/payments/docs/charge-bearer to understand
+    the differences between the options.
     """
 
     counterparty_id: Optional[str] = None
@@ -258,6 +261,9 @@ class PaymentOrder(BaseModel):
 
     expires_at: Optional[datetime] = None
     """RFP payments require an expires_at. This value must be past the effective_date."""
+
+    external_id: Optional[str] = None
+    """An optional user-defined 180 character unique identifier."""
 
     foreign_exchange_contract: Optional[str] = None
     """

@@ -400,7 +400,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         will_remove_version="3.5",
         message="All advanced options returns will become AdvancedOptions objects, "
         "and the ability to use dictionary interactions will be removed.",
-    )  # https://datarobot.atlassian.net/browse/DSX-3006
+    )  # https://datarobot.atlassian.net/browse/CFX-2414
     def __getitem__(self, item: str) -> Any:
         if hasattr(self, item):
             return getattr(self, item)
@@ -412,7 +412,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         will_remove_version="3.5",
         message="All advanced options returns will become AdvancedOptions objects, "
         "and the ability to use dictionary interactions will be removed.",
-    )  # https://datarobot.atlassian.net/browse/DSX-3006
+    )  # https://datarobot.atlassian.net/browse/CFX-2414
     def __setitem__(self, key: str, value: Any) -> None:
         if hasattr(self, key):
             setattr(self, key, value)
@@ -424,7 +424,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         will_remove_version="3.5",
         message="All advanced options returns will become AdvancedOptions objects, "
         "and the ability to use dictionary interactions will be removed.",
-    )  # https://datarobot.atlassian.net/browse/DSX-3006
+    )  # https://datarobot.atlassian.net/browse/CFX-2414
     def get(self, __key: Any, __default: Optional[Any] = None) -> Optional[Any]:
         return super().get(__key, __default)
 
@@ -433,7 +433,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         will_remove_version="3.5",
         message="All advanced options returns will become AdvancedOptions objects, "
         "and the ability to use dictionary interactions will be removed.",
-    )  # https://datarobot.atlassian.net/browse/DSX-3006
+    )  # https://datarobot.atlassian.net/browse/CFX-2414
     def pop(self, __key: Any) -> Optional[Any]:
         setattr(self, __key, None)
         return super().pop(__key)

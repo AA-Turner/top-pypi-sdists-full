@@ -5,14 +5,15 @@ import sys
 import json_logging
 import json_logging.framework
 from json_logging import JSONLogWebFormatter
-from json_logging.framework_base import AppRequestInstrumentationConfigurator, RequestAdapter, ResponseAdapter
+from json_logging.framework_base import BaseAppRequestInstrumentationConfigurator, BaseRequestInfoExtractor, \
+    BaseResponseInfoExtractor
 from json_logging.util import is_not_match_any_pattern
 
 
 def is_quart_present():
     # noinspection PyPep8,PyBroadException
     try:
-        import quart
+        from quart import Quart
         return True
     except:
         return False
@@ -26,8 +27,8 @@ if is_quart_present():
     _quart = quart
 
 
-class QuartAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfigurator):
-    def config(self, app, exclude_url_patterns=[]):
+class QuartAppRequestInstrumentationConfigurator(BaseAppRequestInstrumentationConfigurator):
+    def config(self, app, request_response_dto_class, exclude_url_patterns=[]):
         if not is_quart_present():
             raise RuntimeError("quart is not available in system runtime")
         from quart.app import Quart
@@ -51,19 +52,19 @@ class QuartAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfig
         @app.before_request
         def before_request():
             if is_not_match_any_pattern(_current_request.path, exclude_url_patterns):
-                g.request_info = json_logging.RequestInfo(_current_request)
+                g.request_response_data = request_response_dto_class(_current_request)
 
         @app.after_request
         def after_request(response):
-            if hasattr(g, 'request_info'):
-                request_info = g.request_info
-                request_info.update_response_status(response)
+            if hasattr(g, 'request_response_data'):
+                request_response_data = g.request_response_data
+                request_response_data.on_request_complete(response)
                 # TODO:handle to print out request instrumentation in non-JSON mode
-                self.request_logger.info("", extra={'request_info': request_info})
+                self.request_logger.info("", extra={'request_response_data': request_response_data})
             return response
 
 
-class QuartRequestAdapter(RequestAdapter):
+class QuartRequestInfoExtractor(BaseRequestInfoExtractor):
     @staticmethod
     def get_request_class_type():
         raise NotImplementedError
@@ -125,7 +126,7 @@ class QuartRequestAdapter(RequestAdapter):
         )
 
 
-class QuartResponseAdapter(ResponseAdapter):
+class QuartResponseInfoExtractor(BaseResponseInfoExtractor):
     def get_status_code(self, response):
         return response.status_code
 

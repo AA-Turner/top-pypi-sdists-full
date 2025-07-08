@@ -20,8 +20,7 @@ from datarobot.models.api_object import APIObject
 from datarobot.utils import deprecation, get_id_from_response
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.job import Job
 
     class ShapImpactType(TypedDict):

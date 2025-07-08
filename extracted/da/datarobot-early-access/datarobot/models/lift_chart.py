@@ -11,10 +11,9 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot._compat import String
+from datarobot._compat import String, TypedDict
 from datarobot.models.api_object import APIObject
 
 LiftChartBinsTrafaret = t.Dict(

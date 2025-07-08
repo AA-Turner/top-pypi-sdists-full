@@ -36,10 +36,10 @@ class SlurmSchedulerNode(SchedulerNode):
 
         collect = False
         flow = chip.get('option', 'flow')
-        entry_nodes = chip.schema.get("flowgraph", flow, field="schema").get_entry_nodes()
+        entry_nodes = chip.get("flowgraph", flow, field="schema").get_entry_nodes()
 
         runtime = RuntimeFlowgraph(
-            chip.schema.get("flowgraph", flow, field='schema'),
+            chip.get("flowgraph", flow, field='schema'),
             from_steps=chip.get('option', 'from'),
             to_steps=chip.get('option', 'to'),
             prune_nodes=chip.get('option', 'prune'))
@@ -65,7 +65,7 @@ class SlurmSchedulerNode(SchedulerNode):
 
     @staticmethod
     def get_job_name(jobhash, step, index):
-        return f'{jobhash}_{step}{index}'
+        return f'{jobhash}_{step}_{index}'
 
     @staticmethod
     def get_runtime_file_name(jobhash, step, index, ext):
@@ -92,6 +92,8 @@ class SlurmSchedulerNode(SchedulerNode):
         Blocks until the compute node
         finishes processing this step, and it sets the active/error bits.
         '''
+
+        self._init_run_logger()
 
         if shutil.which('sinfo') is None:
             raise RuntimeError('slurm is not available or installed on this machine')

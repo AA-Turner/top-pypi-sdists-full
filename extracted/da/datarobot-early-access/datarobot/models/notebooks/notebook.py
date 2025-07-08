@@ -15,10 +15,10 @@ from datetime import datetime
 from io import IOBase
 from typing import Any, Dict, List, Optional
 
-from mypy_extensions import TypedDict
 from pytz import utc
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.errors import InvalidUsageError
 from datarobot.mixins.browser_mixin import BrowserMixin
 from datarobot.models.api_object import APIObject

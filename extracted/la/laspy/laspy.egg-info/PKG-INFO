@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laspy
-Version: 2.6.0
+Version: 2.6.1
 Summary: Native Python ASPRS LAS read/write library
 Home-page: https://github.com/laspy/laspy
 Author: Grant Brown, Thomas Montaigu

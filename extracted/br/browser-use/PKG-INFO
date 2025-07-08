@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.4.4
+Version: 0.5.0
 Summary: Make websites accessible for AI agents
 Project-URL: Repository, https://github.com/browser-use/browser-use
 Author: Gregor Zunic
@@ -13,12 +13,16 @@ Requires-Dist: aiofiles>=24.1.0
 Requires-Dist: anthropic>=0.54.0
 Requires-Dist: anyio>=4.9.0
 Requires-Dist: authlib>=1.6.0
-Requires-Dist: bubus>=1.2.2
+Requires-Dist: bubus>=1.4.1
 Requires-Dist: google-api-core>=2.25.0
+Requires-Dist: google-api-python-client>=2.174.0
+Requires-Dist: google-auth-oauthlib>=1.2.2
+Requires-Dist: google-auth>=2.40.3
 Requires-Dist: google-genai>=1.21.1
 Requires-Dist: groq>=0.28.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: markdownify==1.1.0
+Requires-Dist: mcp>=1.10.1
 Requires-Dist: ollama>=0.5.1
 Requires-Dist: openai>=1.81.0
 Requires-Dist: patchright>=1.52.5
@@ -28,6 +32,7 @@ Requires-Dist: posthog>=3.7.0
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pydantic>=2.11.5
 Requires-Dist: pyobjc>=11.0; platform_system == 'darwin'
+Requires-Dist: pypdf>=5.7.0
 Requires-Dist: pyperclip>=1.9.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: requests>=2.32.3
@@ -52,7 +57,9 @@ Requires-Dist: rich>=14.0.0; extra == 'cli'
 Requires-Dist: textual>=3.2.0; extra == 'cli'
 Provides-Extra: eval
 Requires-Dist: anyio>=4.9.0; extra == 'eval'
+Requires-Dist: browserbase==1.4.0; extra == 'eval'
 Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'eval'
+Requires-Dist: hyperbrowser==0.47.0; extra == 'eval'
 Requires-Dist: lmnr[all]>=0.6.11; extra == 'eval'
 Requires-Dist: pillow>=11.2.1; extra == 'eval'
 Requires-Dist: psutil>=7.0.0; extra == 'eval'
@@ -112,7 +119,7 @@ from browser_use.llm import ChatOpenAI
 async def main():
     agent = Agent(
         task="Compare the price of gpt-4o and DeepSeek-V3",
-        llm=ChatOpenAI(model="gpt-4o"),
+        llm=ChatOpenAI(model="o4-mini", temperature=1.0),
     )
     await agent.run()
 
@@ -146,6 +153,84 @@ You can also use our `browser-use` interactive CLI (similar to `claude` code):
 pip install "browser-use[cli]"
 browser-use
 ```
+
+## MCP Integration
+
+Browser-use supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), enabling integration with Claude Desktop and other MCP-compatible clients.
+
+### Use as MCP Server with Claude Desktop
+
+Add browser-use to your Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "browser-use": {
+      "command": "uvx",
+      "args": ["browser-use", "--mcp"],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+This gives Claude Desktop access to browser automation tools for web scraping, form filling, and more.
+
+### Connect External MCP Servers to Browser-Use Agent
+
+Browser-use agents can connect to multiple external MCP servers to extend their capabilities:
+
+```python
+import asyncio
+from browser_use import Agent, Controller
+from browser_use.mcp.client import MCPClient
+from browser_use.llm import ChatOpenAI
+
+async def main():
+    # Initialize controller
+    controller = Controller()
+    
+    # Connect to multiple MCP servers
+    filesystem_client = MCPClient(
+        server_name="filesystem",
+        command="npx",
+        args=["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/documents"]
+    )
+    
+    github_client = MCPClient(
+        server_name="github", 
+        command="npx",
+        args=["-y", "@modelcontextprotocol/server-github"],
+        env={"GITHUB_TOKEN": "your-github-token"}
+    )
+    
+    # Connect and register tools from both servers
+    await filesystem_client.connect()
+    await filesystem_client.register_to_controller(controller)
+    
+    await github_client.connect()
+    await github_client.register_to_controller(controller)
+    
+    # Create agent with MCP-enabled controller
+    agent = Agent(
+        task="Find the latest report.pdf in my documents and create a GitHub issue about it",
+        llm=ChatOpenAI(model="gpt-4o"),
+        controller=controller  # Controller has tools from both MCP servers
+    )
+    
+    # Run the agent
+    await agent.run()
+    
+    # Cleanup
+    await filesystem_client.disconnect()
+    await github_client.disconnect()
+
+asyncio.run(main())
+```
+
+See the [MCP documentation](https://docs.browser-use.com/customize/mcp-server) for more details.
 
 # Demos
 

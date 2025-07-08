@@ -31,17 +31,21 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "typer >= 0.12.3",
+    "typer >= 0.15.1",
     "uvicorn[standard] >= 0.15.0",
-    "rich-toolkit >= 0.11.1",
+    "rich-toolkit >= 0.14.8",
 ]
-version = "0.0.7"
+version = "0.0.8"
 
 [project.license]
 text = "MIT"
 
 [project.optional-dependencies]
 standard = [
+    "uvicorn[standard] >= 0.15.0",
+    "fastapi-cloud-cli >= 0.1.1",
+]
+standard-no-fastapi-cloud-cli = [
     "uvicorn[standard] >= 0.15.0",
 ]
 

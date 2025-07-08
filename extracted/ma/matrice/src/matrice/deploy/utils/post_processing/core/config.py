@@ -338,6 +338,10 @@ class CustomerServiceConfig(BaseConfig):
     # Alert configuration
     alert_config: Optional[AlertConfig] = None
     
+    # Additional analytics options
+    enable_journey_analysis: bool = False
+    enable_queue_analytics: bool = False
+    
     def validate(self) -> List[str]:
         """Validate customer service configuration."""
         errors = super().validate()

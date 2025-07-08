@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: docsig
-Version: 0.70.0
+Version: 0.71.0
 Summary: Check signature params for proper documentation
 License: MIT
 Keywords: check,docs,docstring,params,signature
@@ -108,7 +108,8 @@ Commandline
 .. code-block:: console
 
     usage: docsig [-h] [-V] [-l] [-c | -C] [-D] [-m] [-N] [-o] [-p] [-P] [-i] [-a] [-k] [-T]
-                  [-I] [-n] [-v] [-s STR] [-d LIST] [-t LIST] [-e PATTERN] [-E PATH [PATH ...]]
+                  [-I] [-U] [-n] [-v] [-s STR] [-d LIST] [-t LIST] [-e PATTERN]
+                  [-E PATH [PATH ...]]
                   [path [path ...]]
 
     Check signature params for proper documentation
@@ -141,6 +142,8 @@ Commandline
                             ignore checking return values
       -I, --include-ignored
                             check files even if they match a gitignore pattern
+      -U, --enforce-capitalization
+                            ensure param descriptions are capitalized
       -n, --no-ansi         disable ansi output
       -v, --verbose         increase output verbosity
       -s STR, --string STR  string to parse instead of files
@@ -181,7 +184,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.1.2 (docsig: 0.70.0, mccabe: 0.7.0, pycodestyle: 2.12.1, pyflakes: 3.2.0) CPython 3.9.6 on Darwin
+    7.1.2 (docsig: 0.71.0, mccabe: 0.7.0, pycodestyle: 2.12.1, pyflakes: 3.2.0) CPython 3.9.6 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -214,29 +217,29 @@ API
 
 .. code-block:: python
 
-    >>> string = """
+    >>> string = '''
     ... def function(param1, param2, param3) -> None:
-    ...     '''
+    ...     """
     ...
     ...     :param param1: About param1.
     ...     :param param2: About param2.
     ...     :param param3: About param3.
-    ...     '''
     ...     """
+    ... '''
     >>> docsig(string=string, no_ansi=True)
     0
 
 .. code-block:: python
 
-    >>> string = """
+    >>> string = '''
     ... def function(param1, param2) -> None:
-    ...     '''
+    ...     """
     ...
     ...     :param param1: About param1.
     ...     :param param2: About param2.
     ...     :param param3: About param3.
-    ...     '''
-    ... """
+    ...     """
+    ... '''
     >>> docsig(string=string, no_ansi=True)
     2 in function
         SIG202: includes parameters that do not exist (params-do-not-exist)
@@ -267,7 +270,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.70.0
+        rev: v0.71.0
         hooks:
           - id: docsig
             args:
@@ -286,7 +289,7 @@ or integrated with ``flake8``
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.70.0
+              - docsig==0.71.0
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"

@@ -29,12 +29,14 @@ __all__ = [
     'MysqlBackupDbSystemSnapshotBackupPolicyPitrPolicy',
     'MysqlBackupDbSystemSnapshotDataStorage',
     'MysqlBackupDbSystemSnapshotDeletionPolicy',
+    'MysqlBackupDbSystemSnapshotEncryptData',
     'MysqlBackupDbSystemSnapshotEndpoint',
     'MysqlBackupDbSystemSnapshotMaintenance',
     'MysqlBackupDbSystemSnapshotReadEndpoint',
     'MysqlBackupDbSystemSnapshotRest',
     'MysqlBackupDbSystemSnapshotSecureConnection',
     'MysqlBackupDbSystemSnapshotSummary',
+    'MysqlBackupEncryptData',
     'MysqlBackupSourceDetails',
     'MysqlConfigurationInitVariables',
     'MysqlConfigurationVariables',
@@ -51,6 +53,7 @@ __all__ = [
     'MysqlDbSystemCustomerContact',
     'MysqlDbSystemDataStorage',
     'MysqlDbSystemDeletionPolicy',
+    'MysqlDbSystemEncryptData',
     'MysqlDbSystemEndpoint',
     'MysqlDbSystemHeatWaveCluster',
     'MysqlDbSystemMaintenance',
@@ -59,6 +62,7 @@ __all__ = [
     'MysqlDbSystemRest',
     'MysqlDbSystemSecureConnections',
     'MysqlDbSystemSource',
+    'ReplicaEncryptData',
     'ReplicaReplicaOverrides',
     'ReplicaSecureConnection',
     'GetChannelSourceResult',
@@ -80,12 +84,14 @@ __all__ = [
     'GetMysqlBackupDbSystemSnapshotBackupPolicyPitrPolicyResult',
     'GetMysqlBackupDbSystemSnapshotDataStorageResult',
     'GetMysqlBackupDbSystemSnapshotDeletionPolicyResult',
+    'GetMysqlBackupDbSystemSnapshotEncryptDataResult',
     'GetMysqlBackupDbSystemSnapshotEndpointResult',
     'GetMysqlBackupDbSystemSnapshotMaintenanceResult',
     'GetMysqlBackupDbSystemSnapshotReadEndpointResult',
     'GetMysqlBackupDbSystemSnapshotRestResult',
     'GetMysqlBackupDbSystemSnapshotSecureConnectionResult',
     'GetMysqlBackupDbSystemSnapshotSummaryResult',
+    'GetMysqlBackupEncryptDataResult',
     'GetMysqlBackupSourceDetailResult',
     'GetMysqlBackupsBackupResult',
     'GetMysqlBackupsBackupDbSystemSnapshotResult',
@@ -94,12 +100,14 @@ __all__ = [
     'GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyPitrPolicyResult',
     'GetMysqlBackupsBackupDbSystemSnapshotDataStorageResult',
     'GetMysqlBackupsBackupDbSystemSnapshotDeletionPolicyResult',
+    'GetMysqlBackupsBackupDbSystemSnapshotEncryptDataResult',
     'GetMysqlBackupsBackupDbSystemSnapshotEndpointResult',
     'GetMysqlBackupsBackupDbSystemSnapshotMaintenanceResult',
     'GetMysqlBackupsBackupDbSystemSnapshotReadEndpointResult',
     'GetMysqlBackupsBackupDbSystemSnapshotRestResult',
     'GetMysqlBackupsBackupDbSystemSnapshotSecureConnectionResult',
     'GetMysqlBackupsBackupDbSystemSnapshotSummaryResult',
+    'GetMysqlBackupsBackupEncryptDataResult',
     'GetMysqlBackupsBackupSourceDetailResult',
     'GetMysqlBackupsFilterResult',
     'GetMysqlConfigurationInitVariableResult',
@@ -121,6 +129,7 @@ __all__ = [
     'GetMysqlDbSystemCustomerContactResult',
     'GetMysqlDbSystemDataStorageResult',
     'GetMysqlDbSystemDeletionPolicyResult',
+    'GetMysqlDbSystemEncryptDataResult',
     'GetMysqlDbSystemEndpointResult',
     'GetMysqlDbSystemHeatWaveClusterResult',
     'GetMysqlDbSystemMaintenanceResult',
@@ -143,6 +152,7 @@ __all__ = [
     'GetMysqlDbSystemsDbSystemCustomerContactResult',
     'GetMysqlDbSystemsDbSystemDataStorageResult',
     'GetMysqlDbSystemsDbSystemDeletionPolicyResult',
+    'GetMysqlDbSystemsDbSystemEncryptDataResult',
     'GetMysqlDbSystemsDbSystemEndpointResult',
     'GetMysqlDbSystemsDbSystemHeatWaveClusterResult',
     'GetMysqlDbSystemsDbSystemMaintenanceResult',
@@ -155,10 +165,12 @@ __all__ = [
     'GetMysqlVersionFilterResult',
     'GetMysqlVersionVersionResult',
     'GetMysqlVersionVersionVersionResult',
+    'GetReplicaEncryptDataResult',
     'GetReplicaReplicaOverrideResult',
     'GetReplicaSecureConnectionResult',
     'GetReplicasFilterResult',
     'GetReplicasReplicaResult',
+    'GetReplicasReplicaEncryptDataResult',
     'GetReplicasReplicaReplicaOverrideResult',
     'GetReplicasReplicaSecureConnectionResult',
     'GetShapesFilterResult',
@@ -673,6 +685,8 @@ class MysqlBackupDbSystemSnapshot(dict):
             suggest = "deletion_policies"
         elif key == "displayName":
             suggest = "display_name"
+        elif key == "encryptDatas":
+            suggest = "encrypt_datas"
         elif key == "faultDomain":
             suggest = "fault_domain"
         elif key == "freeformTags":
@@ -723,6 +737,7 @@ class MysqlBackupDbSystemSnapshot(dict):
                  deletion_policies: Optional[Sequence['outputs.MysqlBackupDbSystemSnapshotDeletionPolicy']] = None,
                  description: Optional[builtins.str] = None,
                  display_name: Optional[builtins.str] = None,
+                 encrypt_datas: Optional[Sequence['outputs.MysqlBackupDbSystemSnapshotEncryptData']] = None,
                  endpoints: Optional[Sequence['outputs.MysqlBackupDbSystemSnapshotEndpoint']] = None,
                  fault_domain: Optional[builtins.str] = None,
                  freeform_tags: Optional[Mapping[str, builtins.str]] = None,
@@ -755,6 +770,7 @@ class MysqlBackupDbSystemSnapshot(dict):
         :param Sequence['MysqlBackupDbSystemSnapshotDeletionPolicyArgs'] deletion_policies: The Deletion policy for the DB System.
         :param builtins.str description: (Updatable) A user-supplied description for the backup.
         :param builtins.str display_name: (Updatable) A user-supplied display name for the backup.
+        :param Sequence['MysqlBackupDbSystemSnapshotEncryptDataArgs'] encrypt_datas: Encrypt data details.
         :param Sequence['MysqlBackupDbSystemSnapshotEndpointArgs'] endpoints: The network endpoints available for this DB System.
         :param builtins.str fault_domain: The name of the Fault Domain the DB System is located in.
         :param Mapping[str, builtins.str] freeform_tags: (Updatable) Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
@@ -800,6 +816,8 @@ class MysqlBackupDbSystemSnapshot(dict):
             pulumi.set(__self__, "description", description)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
+        if encrypt_datas is not None:
+            pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         if endpoints is not None:
             pulumi.set(__self__, "endpoints", endpoints)
         if fault_domain is not None:
@@ -940,6 +958,14 @@ class MysqlBackupDbSystemSnapshot(dict):
         (Updatable) A user-supplied display name for the backup.
         """
         return pulumi.get(self, "display_name")
+
+    @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Optional[Sequence['outputs.MysqlBackupDbSystemSnapshotEncryptData']]:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
 
     @property
     @pulumi.getter
@@ -1103,6 +1129,8 @@ class MysqlBackupDbSystemSnapshotBackupPolicy(dict):
             suggest = "pitr_policies"
         elif key == "retentionInDays":
             suggest = "retention_in_days"
+        elif key == "softDelete":
+            suggest = "soft_delete"
         elif key == "windowStartTime":
             suggest = "window_start_time"
 
@@ -1124,6 +1152,7 @@ class MysqlBackupDbSystemSnapshotBackupPolicy(dict):
                  is_enabled: Optional[builtins.bool] = None,
                  pitr_policies: Optional[Sequence['outputs.MysqlBackupDbSystemSnapshotBackupPolicyPitrPolicy']] = None,
                  retention_in_days: Optional[builtins.int] = None,
+                 soft_delete: Optional[builtins.str] = None,
                  window_start_time: Optional[builtins.str] = None):
         """
         :param Sequence['MysqlBackupDbSystemSnapshotBackupPolicyCopyPolicyArgs'] copy_policies: List of policies of a DB system to schedule cross-region DB system backup copy.
@@ -1132,6 +1161,7 @@ class MysqlBackupDbSystemSnapshotBackupPolicy(dict):
         :param builtins.bool is_enabled: Specifies if the DB System read endpoint is enabled or not.
         :param Sequence['MysqlBackupDbSystemSnapshotBackupPolicyPitrPolicyArgs'] pitr_policies: The PITR policy for the DB System.
         :param builtins.int retention_in_days: (Updatable) Number of days to retain this backup.
+        :param builtins.str soft_delete: (Updatable) Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
         :param builtins.str window_start_time: The start time of the maintenance window.
         """
         if copy_policies is not None:
@@ -1146,6 +1176,8 @@ class MysqlBackupDbSystemSnapshotBackupPolicy(dict):
             pulumi.set(__self__, "pitr_policies", pitr_policies)
         if retention_in_days is not None:
             pulumi.set(__self__, "retention_in_days", retention_in_days)
+        if soft_delete is not None:
+            pulumi.set(__self__, "soft_delete", soft_delete)
         if window_start_time is not None:
             pulumi.set(__self__, "window_start_time", window_start_time)
 
@@ -1196,6 +1228,14 @@ class MysqlBackupDbSystemSnapshotBackupPolicy(dict):
         (Updatable) Number of days to retain this backup.
         """
         return pulumi.get(self, "retention_in_days")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> Optional[builtins.str]:
+        """
+        (Updatable) Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="windowStartTime")
@@ -1446,6 +1486,56 @@ class MysqlBackupDbSystemSnapshotDeletionPolicy(dict):
         Specifies whether the DB System can be deleted. Set to true to prevent deletion, false (default) to allow.
         """
         return pulumi.get(self, "is_delete_protected")
+
+
+@pulumi.output_type
+class MysqlBackupDbSystemSnapshotEncryptData(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyGenerationType":
+            suggest = "key_generation_type"
+        elif key == "keyId":
+            suggest = "key_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MysqlBackupDbSystemSnapshotEncryptData. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MysqlBackupDbSystemSnapshotEncryptData.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MysqlBackupDbSystemSnapshotEncryptData.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 key_generation_type: Optional[builtins.str] = None,
+                 key_id: Optional[builtins.str] = None):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        if key_generation_type is not None:
+            pulumi.set(__self__, "key_generation_type", key_generation_type)
+        if key_id is not None:
+            pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> Optional[builtins.str]:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> Optional[builtins.str]:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type
@@ -1841,6 +1931,55 @@ class MysqlBackupDbSystemSnapshotSummary(dict):
         The region identifier of the region where the DB system exists. For more information, please see [Regions and Availability Domains](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm).
         """
         return pulumi.get(self, "region")
+
+
+@pulumi.output_type
+class MysqlBackupEncryptData(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyGenerationType":
+            suggest = "key_generation_type"
+        elif key == "keyId":
+            suggest = "key_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MysqlBackupEncryptData. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MysqlBackupEncryptData.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MysqlBackupEncryptData.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: Optional[builtins.str] = None):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        if key_id is not None:
+            pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> Optional[builtins.str]:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type
@@ -4010,6 +4149,8 @@ class MysqlDbSystemBackupPolicy(dict):
             suggest = "pitr_policy"
         elif key == "retentionInDays":
             suggest = "retention_in_days"
+        elif key == "softDelete":
+            suggest = "soft_delete"
         elif key == "windowStartTime":
             suggest = "window_start_time"
 
@@ -4031,6 +4172,7 @@ class MysqlDbSystemBackupPolicy(dict):
                  is_enabled: Optional[builtins.bool] = None,
                  pitr_policy: Optional['outputs.MysqlDbSystemBackupPolicyPitrPolicy'] = None,
                  retention_in_days: Optional[builtins.int] = None,
+                 soft_delete: Optional[builtins.str] = None,
                  window_start_time: Optional[builtins.str] = None):
         """
         :param Sequence['MysqlDbSystemBackupPolicyCopyPolicyArgs'] copy_policies: (Updatable) List of policies of a DB system to schedule cross-region DB system backup copy.
@@ -4051,6 +4193,7 @@ class MysqlDbSystemBackupPolicy(dict):
         :param builtins.bool is_enabled: (Updatable) Specifies if automatic backups are enabled.
         :param 'MysqlDbSystemBackupPolicyPitrPolicyArgs' pitr_policy: (Updatable) The PITR policy for the DB System.
         :param builtins.int retention_in_days: (Updatable) Number of days to retain an automatic backup.
+        :param builtins.str soft_delete: (Updatable) Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
         :param builtins.str window_start_time: (Updatable) The start of a 30-minute window of time in which daily, automated backups occur.
                
                This should be in the format of the "Time" portion of an RFC3339-formatted timestamp. Any second or sub-second time data will be truncated to zero.
@@ -4069,6 +4212,8 @@ class MysqlDbSystemBackupPolicy(dict):
             pulumi.set(__self__, "pitr_policy", pitr_policy)
         if retention_in_days is not None:
             pulumi.set(__self__, "retention_in_days", retention_in_days)
+        if soft_delete is not None:
+            pulumi.set(__self__, "soft_delete", soft_delete)
         if window_start_time is not None:
             pulumi.set(__self__, "window_start_time", window_start_time)
 
@@ -4131,6 +4276,14 @@ class MysqlDbSystemBackupPolicy(dict):
         (Updatable) Number of days to retain an automatic backup.
         """
         return pulumi.get(self, "retention_in_days")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> Optional[builtins.str]:
+        """
+        (Updatable) Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="windowStartTime")
@@ -5060,6 +5213,55 @@ class MysqlDbSystemDeletionPolicy(dict):
 
 
 @pulumi.output_type
+class MysqlDbSystemEncryptData(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyGenerationType":
+            suggest = "key_generation_type"
+        elif key == "keyId":
+            suggest = "key_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MysqlDbSystemEncryptData. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MysqlDbSystemEncryptData.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MysqlDbSystemEncryptData.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: Optional[builtins.str] = None):
+        """
+        :param builtins.str key_generation_type: (Updatable) Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: (Updatable) The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        if key_id is not None:
+            pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        (Updatable) Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> Optional[builtins.str]:
+        """
+        (Updatable) The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
+
+
+@pulumi.output_type
 class MysqlDbSystemEndpoint(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -5660,6 +5862,56 @@ class MysqlDbSystemSource(dict):
         The Pre-Authenticated Request (PAR) of a bucket/prefix or PAR of a @.manifest.json object from the Object Storage. Check [Using Pre-Authenticated Requests](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/usingpreauthenticatedrequests.htm) for information related to PAR creation. Please create PAR with "Permit object reads" access type and "Enable Object Listing" permission when using a bucket/prefix PAR. Please create PAR with "Permit object reads" access type when using a @.manifest.json object PAR.
         """
         return pulumi.get(self, "source_url")
+
+
+@pulumi.output_type
+class ReplicaEncryptData(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyGenerationType":
+            suggest = "key_generation_type"
+        elif key == "keyId":
+            suggest = "key_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReplicaEncryptData. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReplicaEncryptData.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReplicaEncryptData.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 key_generation_type: Optional[builtins.str] = None,
+                 key_id: Optional[builtins.str] = None):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        if key_generation_type is not None:
+            pulumi.set(__self__, "key_generation_type", key_generation_type)
+        if key_id is not None:
+            pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> Optional[builtins.str]:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> Optional[builtins.str]:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type
@@ -6621,6 +6873,7 @@ class GetMysqlBackupDbSystemSnapshotResult(dict):
                  deletion_policies: Sequence['outputs.GetMysqlBackupDbSystemSnapshotDeletionPolicyResult'],
                  description: builtins.str,
                  display_name: builtins.str,
+                 encrypt_datas: Sequence['outputs.GetMysqlBackupDbSystemSnapshotEncryptDataResult'],
                  endpoints: Sequence['outputs.GetMysqlBackupDbSystemSnapshotEndpointResult'],
                  fault_domain: builtins.str,
                  freeform_tags: Mapping[str, builtins.str],
@@ -6653,6 +6906,7 @@ class GetMysqlBackupDbSystemSnapshotResult(dict):
         :param Sequence['GetMysqlBackupDbSystemSnapshotDeletionPolicyArgs'] deletion_policies: The Deletion policy for the DB System.
         :param builtins.str description: A user-supplied description for the backup.
         :param builtins.str display_name: A user-supplied display name for the backup.
+        :param Sequence['GetMysqlBackupDbSystemSnapshotEncryptDataArgs'] encrypt_datas: Encrypt data details.
         :param Sequence['GetMysqlBackupDbSystemSnapshotEndpointArgs'] endpoints: The network endpoints available for this DB System.
         :param builtins.str fault_domain: The name of the Fault Domain the DB System is located in.
         :param Mapping[str, builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
@@ -6685,6 +6939,7 @@ class GetMysqlBackupDbSystemSnapshotResult(dict):
         pulumi.set(__self__, "deletion_policies", deletion_policies)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         pulumi.set(__self__, "endpoints", endpoints)
         pulumi.set(__self__, "fault_domain", fault_domain)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
@@ -6807,6 +7062,14 @@ class GetMysqlBackupDbSystemSnapshotResult(dict):
         A user-supplied display name for the backup.
         """
         return pulumi.get(self, "display_name")
+
+    @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Sequence['outputs.GetMysqlBackupDbSystemSnapshotEncryptDataResult']:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
 
     @property
     @pulumi.getter
@@ -6962,6 +7225,7 @@ class GetMysqlBackupDbSystemSnapshotBackupPolicyResult(dict):
                  is_enabled: builtins.bool,
                  pitr_policies: Sequence['outputs.GetMysqlBackupDbSystemSnapshotBackupPolicyPitrPolicyResult'],
                  retention_in_days: builtins.int,
+                 soft_delete: builtins.str,
                  window_start_time: builtins.str):
         """
         :param Sequence['GetMysqlBackupDbSystemSnapshotBackupPolicyCopyPolicyArgs'] copy_policies: List of policies of a DB system to schedule cross-region DB system backup copy.
@@ -6970,6 +7234,7 @@ class GetMysqlBackupDbSystemSnapshotBackupPolicyResult(dict):
         :param builtins.bool is_enabled: Specifies if the DB System read endpoint is enabled or not.
         :param Sequence['GetMysqlBackupDbSystemSnapshotBackupPolicyPitrPolicyArgs'] pitr_policies: The PITR policy for the DB System.
         :param builtins.int retention_in_days: Number of days to retain this backup.
+        :param builtins.str soft_delete: Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
         :param builtins.str window_start_time: The start time of the maintenance window.
         """
         pulumi.set(__self__, "copy_policies", copy_policies)
@@ -6978,6 +7243,7 @@ class GetMysqlBackupDbSystemSnapshotBackupPolicyResult(dict):
         pulumi.set(__self__, "is_enabled", is_enabled)
         pulumi.set(__self__, "pitr_policies", pitr_policies)
         pulumi.set(__self__, "retention_in_days", retention_in_days)
+        pulumi.set(__self__, "soft_delete", soft_delete)
         pulumi.set(__self__, "window_start_time", window_start_time)
 
     @property
@@ -7027,6 +7293,14 @@ class GetMysqlBackupDbSystemSnapshotBackupPolicyResult(dict):
         Number of days to retain this backup.
         """
         return pulumi.get(self, "retention_in_days")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> builtins.str:
+        """
+        Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="windowStartTime")
@@ -7184,6 +7458,35 @@ class GetMysqlBackupDbSystemSnapshotDeletionPolicyResult(dict):
         Specifies whether the DB System can be deleted. Set to true to prevent deletion, false (default) to allow.
         """
         return pulumi.get(self, "is_delete_protected")
+
+
+@pulumi.output_type
+class GetMysqlBackupDbSystemSnapshotEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type
@@ -7460,6 +7763,35 @@ class GetMysqlBackupDbSystemSnapshotSummaryResult(dict):
 
 
 @pulumi.output_type
+class GetMysqlBackupEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
+
+
+@pulumi.output_type
 class GetMysqlBackupSourceDetailResult(dict):
     def __init__(__self__, *,
                  backup_id: builtins.str,
@@ -7513,6 +7845,7 @@ class GetMysqlBackupsBackupResult(dict):
                  defined_tags: Mapping[str, builtins.str],
                  description: builtins.str,
                  display_name: builtins.str,
+                 encrypt_datas: Sequence['outputs.GetMysqlBackupsBackupEncryptDataResult'],
                  freeform_tags: Mapping[str, builtins.str],
                  id: builtins.str,
                  immediate_source_backup_id: builtins.str,
@@ -7521,6 +7854,7 @@ class GetMysqlBackupsBackupResult(dict):
                  original_source_backup_id: builtins.str,
                  retention_in_days: builtins.int,
                  shape_name: builtins.str,
+                 soft_delete: builtins.str,
                  source_details: Sequence['outputs.GetMysqlBackupsBackupSourceDetailResult'],
                  state: builtins.str,
                  system_tags: Mapping[str, builtins.str],
@@ -7538,6 +7872,7 @@ class GetMysqlBackupsBackupResult(dict):
         :param Mapping[str, builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
         :param builtins.str description: A user-supplied description for the backup.
         :param builtins.str display_name: A filter to return only the resource matching the given display name exactly.
+        :param Sequence['GetMysqlBackupsBackupEncryptDataArgs'] encrypt_datas: Encrypt data details.
         :param Mapping[str, builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
         :param builtins.str id: OCID of the backup itself
         :param builtins.str immediate_source_backup_id: The OCID of the immediate source DB system backup from which this DB system backup was copied.
@@ -7546,6 +7881,7 @@ class GetMysqlBackupsBackupResult(dict):
         :param builtins.str original_source_backup_id: The OCID of the original source DB system backup from which this DB system backup was copied.
         :param builtins.int retention_in_days: Number of days to retain this backup.
         :param builtins.str shape_name: The shape of the DB System instance used for backup.
+        :param builtins.str soft_delete: Backup Soft Delete
         :param builtins.str state: Backup Lifecycle State
         :param Mapping[str, builtins.str] system_tags: Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{"orcl-cloud.free-tier-retained": "true"}`
         :param builtins.str time_copy_created: The date and time the DB system backup copy was created, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
@@ -7563,6 +7899,7 @@ class GetMysqlBackupsBackupResult(dict):
         pulumi.set(__self__, "defined_tags", defined_tags)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "immediate_source_backup_id", immediate_source_backup_id)
@@ -7571,6 +7908,7 @@ class GetMysqlBackupsBackupResult(dict):
         pulumi.set(__self__, "original_source_backup_id", original_source_backup_id)
         pulumi.set(__self__, "retention_in_days", retention_in_days)
         pulumi.set(__self__, "shape_name", shape_name)
+        pulumi.set(__self__, "soft_delete", soft_delete)
         pulumi.set(__self__, "source_details", source_details)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "system_tags", system_tags)
@@ -7664,6 +8002,14 @@ class GetMysqlBackupsBackupResult(dict):
         return pulumi.get(self, "display_name")
 
     @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Sequence['outputs.GetMysqlBackupsBackupEncryptDataResult']:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
+
+    @property
     @pulumi.getter(name="freeformTags")
     def freeform_tags(self) -> Mapping[str, builtins.str]:
         """
@@ -7728,6 +8074,14 @@ class GetMysqlBackupsBackupResult(dict):
         return pulumi.get(self, "shape_name")
 
     @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> builtins.str:
+        """
+        Backup Soft Delete
+        """
+        return pulumi.get(self, "soft_delete")
+
+    @property
     @pulumi.getter(name="sourceDetails")
     def source_details(self) -> Sequence['outputs.GetMysqlBackupsBackupSourceDetailResult']:
         return pulumi.get(self, "source_details")
@@ -7789,6 +8143,7 @@ class GetMysqlBackupsBackupDbSystemSnapshotResult(dict):
                  deletion_policies: Sequence['outputs.GetMysqlBackupsBackupDbSystemSnapshotDeletionPolicyResult'],
                  description: builtins.str,
                  display_name: builtins.str,
+                 encrypt_datas: Sequence['outputs.GetMysqlBackupsBackupDbSystemSnapshotEncryptDataResult'],
                  endpoints: Sequence['outputs.GetMysqlBackupsBackupDbSystemSnapshotEndpointResult'],
                  fault_domain: builtins.str,
                  freeform_tags: Mapping[str, builtins.str],
@@ -7821,6 +8176,7 @@ class GetMysqlBackupsBackupDbSystemSnapshotResult(dict):
         :param Sequence['GetMysqlBackupsBackupDbSystemSnapshotDeletionPolicyArgs'] deletion_policies: The Deletion policy for the DB System.
         :param builtins.str description: A user-supplied description for the backup.
         :param builtins.str display_name: A filter to return only the resource matching the given display name exactly.
+        :param Sequence['GetMysqlBackupsBackupDbSystemSnapshotEncryptDataArgs'] encrypt_datas: Encrypt data details.
         :param Sequence['GetMysqlBackupsBackupDbSystemSnapshotEndpointArgs'] endpoints: The network endpoints available for this DB System.
         :param builtins.str fault_domain: The name of the Fault Domain the DB System is located in.
         :param Mapping[str, builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
@@ -7853,6 +8209,7 @@ class GetMysqlBackupsBackupDbSystemSnapshotResult(dict):
         pulumi.set(__self__, "deletion_policies", deletion_policies)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         pulumi.set(__self__, "endpoints", endpoints)
         pulumi.set(__self__, "fault_domain", fault_domain)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
@@ -7975,6 +8332,14 @@ class GetMysqlBackupsBackupDbSystemSnapshotResult(dict):
         A filter to return only the resource matching the given display name exactly.
         """
         return pulumi.get(self, "display_name")
+
+    @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Sequence['outputs.GetMysqlBackupsBackupDbSystemSnapshotEncryptDataResult']:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
 
     @property
     @pulumi.getter
@@ -8130,6 +8495,7 @@ class GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyResult(dict):
                  is_enabled: builtins.bool,
                  pitr_policies: Sequence['outputs.GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyPitrPolicyResult'],
                  retention_in_days: builtins.int,
+                 soft_delete: builtins.str,
                  window_start_time: builtins.str):
         """
         :param Sequence['GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyCopyPolicyArgs'] copy_policies: List of policies of a DB system to schedule cross-region DB system backup copy.
@@ -8138,6 +8504,7 @@ class GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyResult(dict):
         :param builtins.bool is_enabled: Specifies if the DB System read endpoint is enabled or not.
         :param Sequence['GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyPitrPolicyArgs'] pitr_policies: The PITR policy for the DB System.
         :param builtins.int retention_in_days: Number of days to retain this backup.
+        :param builtins.str soft_delete: Backup Soft Delete
         :param builtins.str window_start_time: The start time of the maintenance window.
         """
         pulumi.set(__self__, "copy_policies", copy_policies)
@@ -8146,6 +8513,7 @@ class GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyResult(dict):
         pulumi.set(__self__, "is_enabled", is_enabled)
         pulumi.set(__self__, "pitr_policies", pitr_policies)
         pulumi.set(__self__, "retention_in_days", retention_in_days)
+        pulumi.set(__self__, "soft_delete", soft_delete)
         pulumi.set(__self__, "window_start_time", window_start_time)
 
     @property
@@ -8195,6 +8563,14 @@ class GetMysqlBackupsBackupDbSystemSnapshotBackupPolicyResult(dict):
         Number of days to retain this backup.
         """
         return pulumi.get(self, "retention_in_days")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> builtins.str:
+        """
+        Backup Soft Delete
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="windowStartTime")
@@ -8352,6 +8728,35 @@ class GetMysqlBackupsBackupDbSystemSnapshotDeletionPolicyResult(dict):
         Specifies whether the DB System can be deleted. Set to true to prevent deletion, false (default) to allow.
         """
         return pulumi.get(self, "is_delete_protected")
+
+
+@pulumi.output_type
+class GetMysqlBackupsBackupDbSystemSnapshotEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type
@@ -8625,6 +9030,35 @@ class GetMysqlBackupsBackupDbSystemSnapshotSummaryResult(dict):
         The region identifier of the region where the DB system exists. For more information, please see [Regions and Availability Domains](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm).
         """
         return pulumi.get(self, "region")
+
+
+@pulumi.output_type
+class GetMysqlBackupsBackupEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type
@@ -11586,6 +12020,7 @@ class GetMysqlDbSystemBackupPolicyResult(dict):
                  is_enabled: builtins.bool,
                  pitr_policies: Sequence['outputs.GetMysqlDbSystemBackupPolicyPitrPolicyResult'],
                  retention_in_days: builtins.int,
+                 soft_delete: builtins.str,
                  window_start_time: builtins.str):
         """
         :param Sequence['GetMysqlDbSystemBackupPolicyCopyPolicyArgs'] copy_policies: List of policies of a DB system to schedule cross-region DB system backup copy.
@@ -11594,6 +12029,7 @@ class GetMysqlDbSystemBackupPolicyResult(dict):
         :param builtins.bool is_enabled: Specifies if the DB System read endpoint is enabled or not.
         :param Sequence['GetMysqlDbSystemBackupPolicyPitrPolicyArgs'] pitr_policies: The PITR policy for the DB System.
         :param builtins.int retention_in_days: The number of days automated backups are retained.
+        :param builtins.str soft_delete: Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
         :param builtins.str window_start_time: The start time of the maintenance window.
         """
         pulumi.set(__self__, "copy_policies", copy_policies)
@@ -11602,6 +12038,7 @@ class GetMysqlDbSystemBackupPolicyResult(dict):
         pulumi.set(__self__, "is_enabled", is_enabled)
         pulumi.set(__self__, "pitr_policies", pitr_policies)
         pulumi.set(__self__, "retention_in_days", retention_in_days)
+        pulumi.set(__self__, "soft_delete", soft_delete)
         pulumi.set(__self__, "window_start_time", window_start_time)
 
     @property
@@ -11651,6 +12088,14 @@ class GetMysqlDbSystemBackupPolicyResult(dict):
         The number of days automated backups are retained.
         """
         return pulumi.get(self, "retention_in_days")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> builtins.str:
+        """
+        Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="windowStartTime")
@@ -12285,6 +12730,35 @@ class GetMysqlDbSystemDeletionPolicyResult(dict):
 
 
 @pulumi.output_type
+class GetMysqlDbSystemEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
+
+
+@pulumi.output_type
 class GetMysqlDbSystemEndpointResult(dict):
     def __init__(__self__, *,
                  hostname: builtins.str,
@@ -12699,6 +13173,7 @@ class GetMysqlDbSystemsDbSystemResult(dict):
                  deletion_policies: Sequence['outputs.GetMysqlDbSystemsDbSystemDeletionPolicyResult'],
                  description: builtins.str,
                  display_name: builtins.str,
+                 encrypt_datas: Sequence['outputs.GetMysqlDbSystemsDbSystemEncryptDataResult'],
                  endpoints: Sequence['outputs.GetMysqlDbSystemsDbSystemEndpointResult'],
                  fault_domain: builtins.str,
                  freeform_tags: Mapping[str, builtins.str],
@@ -12748,6 +13223,7 @@ class GetMysqlDbSystemsDbSystemResult(dict):
         :param Sequence['GetMysqlDbSystemsDbSystemDeletionPolicyArgs'] deletion_policies: The Deletion policy for the DB System.
         :param builtins.str description: User-provided data about the DB System.
         :param builtins.str display_name: A filter to return only the resource matching the given display name exactly.
+        :param Sequence['GetMysqlDbSystemsDbSystemEncryptDataArgs'] encrypt_datas: Encrypt data details.
         :param Sequence['GetMysqlDbSystemsDbSystemEndpointArgs'] endpoints: The network endpoints available for this DB System.
         :param builtins.str fault_domain: The fault domain on which to deploy the Read/Write endpoint. This defines the preferred primary instance.
         :param Mapping[str, builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
@@ -12794,6 +13270,7 @@ class GetMysqlDbSystemsDbSystemResult(dict):
         pulumi.set(__self__, "deletion_policies", deletion_policies)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         pulumi.set(__self__, "endpoints", endpoints)
         pulumi.set(__self__, "fault_domain", fault_domain)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
@@ -12971,6 +13448,14 @@ class GetMysqlDbSystemsDbSystemResult(dict):
         A filter to return only the resource matching the given display name exactly.
         """
         return pulumi.get(self, "display_name")
+
+    @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Sequence['outputs.GetMysqlDbSystemsDbSystemEncryptDataResult']:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
 
     @property
     @pulumi.getter
@@ -13195,6 +13680,7 @@ class GetMysqlDbSystemsDbSystemBackupPolicyResult(dict):
                  is_enabled: builtins.bool,
                  pitr_policies: Sequence['outputs.GetMysqlDbSystemsDbSystemBackupPolicyPitrPolicyResult'],
                  retention_in_days: builtins.int,
+                 soft_delete: builtins.str,
                  window_start_time: builtins.str):
         """
         :param Sequence['GetMysqlDbSystemsDbSystemBackupPolicyCopyPolicyArgs'] copy_policies: List of policies of a DB system to schedule cross-region DB system backup copy.
@@ -13203,6 +13689,7 @@ class GetMysqlDbSystemsDbSystemBackupPolicyResult(dict):
         :param builtins.bool is_enabled: Specifies if the DB System read endpoint is enabled or not.
         :param Sequence['GetMysqlDbSystemsDbSystemBackupPolicyPitrPolicyArgs'] pitr_policies: The PITR policy for the DB System.
         :param builtins.int retention_in_days: The number of days automated backups are retained.
+        :param builtins.str soft_delete: Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
         :param builtins.str window_start_time: The start time of the maintenance window.
         """
         pulumi.set(__self__, "copy_policies", copy_policies)
@@ -13211,6 +13698,7 @@ class GetMysqlDbSystemsDbSystemBackupPolicyResult(dict):
         pulumi.set(__self__, "is_enabled", is_enabled)
         pulumi.set(__self__, "pitr_policies", pitr_policies)
         pulumi.set(__self__, "retention_in_days", retention_in_days)
+        pulumi.set(__self__, "soft_delete", soft_delete)
         pulumi.set(__self__, "window_start_time", window_start_time)
 
     @property
@@ -13260,6 +13748,14 @@ class GetMysqlDbSystemsDbSystemBackupPolicyResult(dict):
         The number of days automated backups are retained.
         """
         return pulumi.get(self, "retention_in_days")
+
+    @property
+    @pulumi.getter(name="softDelete")
+    def soft_delete(self) -> builtins.str:
+        """
+        Retains the backup to be deleted due to the retention policy in DELETE SCHEDULED state for 7 days before permanently deleting it.
+        """
+        return pulumi.get(self, "soft_delete")
 
     @property
     @pulumi.getter(name="windowStartTime")
@@ -13894,6 +14390,35 @@ class GetMysqlDbSystemsDbSystemDeletionPolicyResult(dict):
 
 
 @pulumi.output_type
+class GetMysqlDbSystemsDbSystemEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
+
+
+@pulumi.output_type
 class GetMysqlDbSystemsDbSystemEndpointResult(dict):
     def __init__(__self__, *,
                  hostname: builtins.str,
@@ -14399,6 +14924,35 @@ class GetMysqlVersionVersionVersionResult(dict):
 
 
 @pulumi.output_type
+class GetReplicaEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
+
+
+@pulumi.output_type
 class GetReplicaReplicaOverrideResult(dict):
     def __init__(__self__, *,
                  configuration_id: builtins.str,
@@ -14515,6 +15069,7 @@ class GetReplicasReplicaResult(dict):
                  defined_tags: Mapping[str, builtins.str],
                  description: builtins.str,
                  display_name: builtins.str,
+                 encrypt_datas: Sequence['outputs.GetReplicasReplicaEncryptDataResult'],
                  fault_domain: builtins.str,
                  freeform_tags: Mapping[str, builtins.str],
                  id: builtins.str,
@@ -14539,6 +15094,7 @@ class GetReplicasReplicaResult(dict):
         :param Mapping[str, builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
         :param builtins.str description: User provided description of the read replica.
         :param builtins.str display_name: A filter to return only the resource matching the given display name exactly.
+        :param Sequence['GetReplicasReplicaEncryptDataArgs'] encrypt_datas: Encrypt data details.
         :param builtins.str fault_domain: The name of the Fault Domain the read replica is located in.
         :param Mapping[str, builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
         :param builtins.str id: The OCID of the read replica.
@@ -14563,6 +15119,7 @@ class GetReplicasReplicaResult(dict):
         pulumi.set(__self__, "defined_tags", defined_tags)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "encrypt_datas", encrypt_datas)
         pulumi.set(__self__, "fault_domain", fault_domain)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "id", id)
@@ -14635,6 +15192,14 @@ class GetReplicasReplicaResult(dict):
         A filter to return only the resource matching the given display name exactly.
         """
         return pulumi.get(self, "display_name")
+
+    @property
+    @pulumi.getter(name="encryptDatas")
+    def encrypt_datas(self) -> Sequence['outputs.GetReplicasReplicaEncryptDataResult']:
+        """
+        Encrypt data details.
+        """
+        return pulumi.get(self, "encrypt_datas")
 
     @property
     @pulumi.getter(name="faultDomain")
@@ -14763,6 +15328,35 @@ class GetReplicasReplicaResult(dict):
         The time the read replica was last updated, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
         """
         return pulumi.get(self, "time_updated")
+
+
+@pulumi.output_type
+class GetReplicasReplicaEncryptDataResult(dict):
+    def __init__(__self__, *,
+                 key_generation_type: builtins.str,
+                 key_id: builtins.str):
+        """
+        :param builtins.str key_generation_type: Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        :param builtins.str key_id: The OCID of the key to use.
+        """
+        pulumi.set(__self__, "key_generation_type", key_generation_type)
+        pulumi.set(__self__, "key_id", key_id)
+
+    @property
+    @pulumi.getter(name="keyGenerationType")
+    def key_generation_type(self) -> builtins.str:
+        """
+        Select whether to use Oracle-managed key (SYSTEM) or your own key (BYOK).
+        """
+        return pulumi.get(self, "key_generation_type")
+
+    @property
+    @pulumi.getter(name="keyId")
+    def key_id(self) -> builtins.str:
+        """
+        The OCID of the key to use.
+        """
+        return pulumi.get(self, "key_id")
 
 
 @pulumi.output_type

@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import cast, List, Optional, Set
+from typing import cast, List, Optional
 
 import trafaret as t
 
@@ -112,7 +112,7 @@ class JobRun(APIObject):
         return f"{self.__class__.__name__}({self.id!r})"
 
     def _update_values(self, new_response: JobRun) -> None:
-        fields: Set[str] = self._fields()  # type: ignore[no-untyped-call]
+        fields = self._fields()
         for attr in fields:
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)

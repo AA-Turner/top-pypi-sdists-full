@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opencv-python-headless
-Version: 4.11.0.86
+Version: 4.12.0.88
 Summary: Wrapper package for OpenCV python bindings.
 Home-page: https://github.com/opencv/opencv-python
 Maintainer: OpenCV Team
@@ -249,6 +249,7 @@ Description: [![Downloads](https://static.pepy.tech/badge/opencv-python)](http:/
         - 3.10
         - 3.11
         - 3.12
+        - 3.13
         
         ### Backward compatibility
         

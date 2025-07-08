@@ -214,7 +214,7 @@ def cv_method_converter(dr_cv_method: str) -> str:
 
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class PartitioningWarnings(TypedDict):
         backtest_index: Optional[int]

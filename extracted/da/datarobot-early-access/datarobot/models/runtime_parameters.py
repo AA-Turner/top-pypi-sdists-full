@@ -13,10 +13,9 @@ from __future__ import annotations
 
 from typing import Any, cast, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot._compat import String
+from datarobot._compat import String, TypedDict
 from datarobot.models.api_object import APIObject
 
 

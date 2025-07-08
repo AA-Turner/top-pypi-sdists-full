@@ -2,7 +2,8 @@ import logging
 
 import json_logging
 import json_logging.framework
-from json_logging.framework_base import AppRequestInstrumentationConfigurator, RequestAdapter, ResponseAdapter
+from json_logging.framework_base import BaseAppRequestInstrumentationConfigurator, BaseRequestInfoExtractor, \
+    BaseResponseInfoExtractor
 
 from json_logging.util import is_not_match_any_pattern
 
@@ -14,6 +15,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
+
+_request_config_class = None
 
 
 class JSONLoggingASGIMiddleware(BaseHTTPMiddleware):
@@ -29,19 +32,22 @@ class JSONLoggingASGIMiddleware(BaseHTTPMiddleware):
         if not log_request:
             return await call_next(request)
 
-        request_info = json_logging.RequestInfo(request)
+        request_response_data = _request_config_class(request)
         response = await call_next(request)
-        request_info.update_response_status(response)
+        request_response_data.on_request_complete(response)
         self.request_logger.info(
-            "", extra={"request_info": request_info, "type": "request"}
+            "", extra={"request_response_data": request_response_data, "type": "request"}
         )
         return response
 
 
-class FastAPIAppRequestInstrumentationConfigurator(AppRequestInstrumentationConfigurator):
-    def config(self, app, exclude_url_patterns=tuple()):
+class FastAPIAppRequestInstrumentationConfigurator(BaseAppRequestInstrumentationConfigurator):
+    def config(self, app, request_response_dto_class, exclude_url_patterns=[]):
         if not isinstance(app, fastapi.FastAPI):
             raise RuntimeError("app is not a valid fastapi.FastAPI instance")
+
+        global _request_config_class
+        _request_config_class = request_response_dto_class
 
         # Disable standard logging
         logging.getLogger('uvicorn.access').disabled = True
@@ -52,7 +58,7 @@ class FastAPIAppRequestInstrumentationConfigurator(AppRequestInstrumentationConf
         app.add_middleware(JSONLoggingASGIMiddleware, exclude_url_patterns=exclude_url_patterns)
 
 
-class FastAPIRequestAdapter(RequestAdapter):
+class FastAPIRequestInfoExtractor(BaseRequestInfoExtractor):
     @staticmethod
     def get_request_class_type():
         return starlette.requests.Request
@@ -111,7 +117,7 @@ class FastAPIRequestAdapter(RequestAdapter):
         return request.client.port
 
 
-class FastAPIResponseAdapter(ResponseAdapter):
+class FastAPIResponseInfoExtractor(BaseResponseInfoExtractor):
     def get_status_code(self, response: starlette.responses.Response):
         return response.status_code
 

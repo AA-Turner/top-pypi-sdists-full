@@ -45,8 +45,8 @@ def get_nodes_and_edges(chip):
     successful_path = report.get_flowgraph_path(chip)
 
     flow = chip.get('option', 'flow')
-    entry_exit_nodes = chip.schema.get("flowgraph", flow, field="schema").get_entry_nodes() + \
-        chip.schema.get("flowgraph", flow, field="schema").get_exit_nodes()
+    entry_exit_nodes = chip.get("flowgraph", flow, field="schema").get_entry_nodes() + \
+        chip.get("flowgraph", flow, field="schema").get_exit_nodes()
 
     for step, index in node_dependencies:
         # Build node
@@ -60,7 +60,7 @@ def get_nodes_and_edges(chip):
         node_color = NODE_COLORS[node_status]
 
         tool, task = get_tool_task(chip, step, index)
-        node_name = f'{step}{index}'
+        node_name = f'{step}/{index}'
         label = node_name + "\n" + tool + "/" + task
         if tool == 'builtin':
             label = node_name + "\n" + tool
@@ -95,7 +95,7 @@ def get_nodes_and_edges(chip):
                 dashes = True
 
             edges.append(Edge(
-                source=f'{source_step}{source_index}',
+                source=f'{source_step}/{source_index}',
                 target=node_name,
                 dir='up',
                 width=edge_width,

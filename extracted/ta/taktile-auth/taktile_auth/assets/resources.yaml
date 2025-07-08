@@ -151,6 +151,7 @@ workspace_review_case:
   # read: can read manual review cases (including sensitive data)
   org_id: wildcard
   ws_id: wildcard
+  env: wildcard
 workspace_live_job_trigger:
   # write: can execute live job triggers
   org_id: wildcard

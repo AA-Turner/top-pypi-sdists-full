@@ -15,6 +15,7 @@ from . import (
     plotly,
     radix,
     react_player,
+    react_router,
     recharts,
     sonner,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "plotly",
     "radix",
     "react_player",
+    "react_router",
     "recharts",
     "sonner",
 ]

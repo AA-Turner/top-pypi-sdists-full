@@ -15,7 +15,7 @@ class NamedSchema(BaseSchema):
         name (str): name of the schema
     '''
 
-    def __init__(self, name):
+    def __init__(self, name=None):
         super().__init__()
 
         self.__name = name
@@ -24,13 +24,37 @@ class NamedSchema(BaseSchema):
         '''
         Returns the name of the schema
         '''
-        return self.__name
+        try:
+            return self.__name
+        except AttributeError:
+            return None
+
+    def set_name(self, name):
+        """
+        Set the name of this object
+
+        Raises:
+            RuntimeError: if called after object name is set.
+
+        Args:
+            name (str): name for object
+        """
+
+        if self.name() is not None:
+            raise RuntimeError("Cannot call set_name more than once.")
+        self.__name = name
 
     def _reset(self) -> None:
         """
         Resets the state of the object
         """
         pass
+
+    def type(self) -> str:
+        """
+        Returns the type of this object
+        """
+        raise NotImplementedError("Must be implemented by the child classes.")
 
     @classmethod
     def from_manifest(cls, name, filepath=None, cfg=None):

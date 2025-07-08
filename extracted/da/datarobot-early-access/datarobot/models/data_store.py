@@ -14,10 +14,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot._compat import String
+from datarobot._compat import String, TypedDict
 from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStoreTypes
 from datarobot.models.api_object import APIObject, ServerDataType
 from datarobot.models.credential import CredentialDataSchema

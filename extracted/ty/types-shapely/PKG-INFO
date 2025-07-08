@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-shapely
-Version: 2.1.0.20250512
+Version: 2.1.0.20250708
 Summary: Typing stubs for shapely
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -37,8 +37,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
+mypy 1.16.1,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`30b7b679f5949957e253f157366e221e982e5c0e`](https://github.com/python/typeshed/commit/30b7b679f5949957e253f157366e221e982e5c0e).
+[`f4bf1d90a64d3f885ea30c642fe5373e2d19c344`](https://github.com/python/typeshed/commit/f4bf1d90a64d3f885ea30c642fe5373e2d19c344).

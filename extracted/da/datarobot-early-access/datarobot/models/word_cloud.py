@@ -20,7 +20,7 @@ from datarobot._compat import Int, String
 from datarobot.models.api_object import APIObject
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     # We are using the "non-inheritance" instantiation because if trying
     # `class WordCloudNgram(TypedDict):` we have a syntax error thanks to the use of the reserved

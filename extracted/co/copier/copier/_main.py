@@ -60,6 +60,7 @@ from ._types import (
     Phase,
     RelativePath,
     StrOrPath,
+    VcsRef,
 )
 from ._user_data import AnswersMap, Question, load_answersfile_data
 from ._vcs import get_git
@@ -216,10 +217,13 @@ class Worker:
             When `True`, skip template tasks execution.
     """
 
+    # NOTE: attributes are fully documented in [creating.md](../docs/creating.md)
+    # make sure to update documentation upon any changes.
+
     src_path: str | None = None
     dst_path: Path = Path()
     answers_file: RelativePath | None = None
-    vcs_ref: str | None = None
+    vcs_ref: str | VcsRef | None = None
     data: AnyByStrDict = field(default_factory=dict)
     settings: Settings = field(default_factory=Settings.from_file)
     exclude: Sequence[str] = ()
@@ -310,7 +314,7 @@ class Worker:
 
         # Given those values are lazily rendered on 1st access then cached
         # the phase value is irrelevant and could be misleading.
-        # As a consequence it is explicitely set to "undefined".
+        # As a consequence it is explicitly set to "undefined".
         return LazyDict(
             {
                 name: lambda path=path: load_answersfile_data(  # type: ignore[misc]
@@ -398,7 +402,7 @@ class Worker:
                 "src_path": lambda: self.template.local_abspath,
                 "dst_path": lambda: self.dst_path,
                 "answers_file": lambda: self.answers_relpath,
-                "vcs_ref": lambda: self.vcs_ref,
+                "vcs_ref": lambda: self.resolved_vcs_ref,
                 "vcs_ref_hash": lambda: self.template.commit_hash,
                 "data": lambda: self.data,
                 "settings": lambda: self.settings,
@@ -555,11 +559,9 @@ class Worker:
             if var_name in self.answers.last:
                 try:
                     answer = question.parse_answer(self.answers.last[var_name])
+                    question.validate_answer(answer)
                 except Exception:
                     del self.answers.last[var_name]
-                else:
-                    if question.validate_answer(answer):
-                        del self.answers.last[var_name]
             # Skip a question when the skip condition is met.
             if not question.get_when():
                 # Omit its answer from the answers file.
@@ -573,14 +575,10 @@ class Worker:
                 if question.default is MISSING:
                     continue
             if var_name in self.answers.init:
-                # Try to parse the answer value.
+                # Try to parse and validate (if the question has a validator)
+                # the answer value.
                 answer = question.parse_answer(self.answers.init[var_name])
-                # Try to validate the answer value if the question has a
-                # validator.
-                if err_msg := question.validate_answer(answer):
-                    raise ValueError(
-                        f"Validation error for question '{var_name}': {err_msg}"
-                    )
+                question.validate_answer(answer)
                 # At this point, the answer value is valid. Do not ask the
                 # question again, but set answer as the user's answer instead.
                 self.answers.user[var_name] = answer
@@ -626,7 +624,12 @@ class Worker:
         """
         path = self.answers_file or self.template.answers_relpath
         template = self.jinja_env.from_string(str(path))
-        return Path(template.render(self._render_context()))
+        # HACK: Override `_copier_conf.answers_file` in the render context to
+        # avoid infinite recursion when accessing it in a Jinja context hook via
+        # `copier-templates-extensions`.
+        context = self._render_context()
+        context["_copier_conf"]["answers_file"] = ""
+        return Path(template.render(**context))
 
     @cached_property
     def all_exclusions(self) -> Sequence[str]:
@@ -960,6 +963,19 @@ class Worker:
             return value
 
     @cached_property
+    def resolved_vcs_ref(self) -> str | None:
+        """Get the resolved VCS reference to use.
+
+        This is either `vcs_ref` or the subproject template ref
+        if `vcs_ref` is `VcsRef.CURRENT`.
+        """
+        if self.vcs_ref is VcsRef.CURRENT:
+            if self.subproject.template is None:
+                raise TypeError("Template not found")
+            return self.subproject.template.ref
+        return self.vcs_ref
+
+    @cached_property
     def subproject(self) -> Subproject:
         """Get related subproject."""
         result = Subproject(
@@ -971,15 +987,13 @@ class Worker:
 
     @cached_property
     def template(self) -> Template:
-        """Get related template."""
         url = self.src_path
         if not url:
             if self.subproject.template is None:
                 raise TypeError("Template not found")
             url = str(self.subproject.template.url)
-        result = Template(
-            url=url, ref=self.vcs_ref, use_prereleases=self.use_prereleases
-        )
+        ref = self.resolved_vcs_ref
+        result = Template(url=url, ref=ref, use_prereleases=self.use_prereleases)
         self._cleanup_hooks.append(result._cleanup)
         return result
 
@@ -1049,6 +1063,15 @@ class Worker:
         with replace(self, src_path=self.subproject.template.url) as new_worker:
             new_worker.run_copy()
 
+    def _print_template_update_info(self, subproject_template: Template) -> None:
+        # TODO Unify printing tools
+        if not self.quiet:
+            if subproject_template.version == self.template.version:
+                message = f"Keeping template version {self.template.version}"
+            else:
+                message = f"Updating to template version {self.template.version}"
+            print(message, file=sys.stderr)
+
     @as_operation("update")
     def run_update(self) -> None:
         """Update a subproject that was already generated.
@@ -1092,11 +1115,7 @@ class Worker:
             # asking for confirmation
             raise UserMessageError("Enable overwrite to update a subproject.")
         self._print_message(self.template.message_before_update)
-        if not self.quiet:
-            # TODO Unify printing tools
-            print(
-                f"Updating to template version {self.template.version}", file=sys.stderr
-            )
+        self._print_template_update_info(self.subproject.template)
         with suppress(AttributeError):
             # We might have switched operation context, ensure the cached property
             # is regenerated to re-render templates.
@@ -1208,6 +1227,7 @@ class Worker:
                 quiet=True,
                 src_path=self.subproject.template.url,  # type: ignore[union-attr]
                 exclude=exclude_plus_removed,
+                vcs_ref=self.resolved_vcs_ref,
             ) as new_worker:
                 new_worker.run_copy()
             with local.cwd(new_copy):
@@ -1335,7 +1355,7 @@ class Worker:
                             perms_sha_mode, path = line.split("\t")
                             perms, sha, _ = perms_sha_mode.split()
                             input_lines.append(f"0 {'0' * 40}\t{path}")
-                            input_lines.append(f"{perms} {sha} 1\t{path}")
+                            input_lines.append(f"{perms} {sha} 2\t{path}")
                             with suppress(ProcessExecutionError):
                                 # The following command will fail
                                 # if the file did not exist in the previous version.
@@ -1344,7 +1364,7 @@ class Worker:
                                     "-w",
                                     old_path / normalize_git_path(path),
                                 ).strip()
-                                input_lines.append(f"{perms} {old_sha} 2\t{path}")
+                                input_lines.append(f"{perms} {old_sha} 1\t{path}")
                             with suppress(ProcessExecutionError):
                                 # The following command will fail
                                 # if the file was deleted in the latest version.

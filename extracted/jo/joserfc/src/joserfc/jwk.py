@@ -1,37 +1,45 @@
 from __future__ import annotations
 import typing as t
-import warnings
 from ._keys import (
     JWKRegistry,
     KeySet,
     Key,
     KeySetSerialization,
 )
-from .rfc7517.types import AnyKey, KeyParameters
-from .rfc7518.oct_key import OctKey as OctKey
-from .rfc7518.rsa_key import RSAKey as RSAKey
-from .rfc7518.ec_key import ECKey as ECKey
-from .rfc8037.okp_key import OKPKey as OKPKey
-from .rfc8812 import register_secp256k1
+from ._rfc7517.types import AnyKey, DictKey, KeyParameters
+from ._rfc7518.oct_key import OctKey as OctKey
+from ._rfc7518.rsa_key import RSAKey as RSAKey
+from ._rfc7518.ec_key import ECKey as ECKey
+from ._rfc8037.okp_key import OKPKey as OKPKey
+from ._rfc8812 import register_secp256k1
+from ._rfc7638 import calculate_thumbprint as thumbprint
+from ._rfc9278 import calculate_thumbprint_uri as thumbprint_uri
 from .registry import Header
 
 
 __all__ = [
-    "JWKRegistry",
+    # types
     "Key",
+    "DictKey",
+    "KeyParameters",
     "KeyCallable",
     "KeyFlexible",
     "KeySetSerialization",
+    "KeyBase",
+    "GuestProtocol",
+    # modules
+    "JWKRegistry",
     "OctKey",
     "RSAKey",
     "ECKey",
     "OKPKey",
     "KeySet",
-    "KeyBase",
-    "GuestProtocol",
+    # methods
     "guess_key",
     "import_key",
     "generate_key",
+    "thumbprint",
+    "thumbprint_uri",
 ]
 
 register_secp256k1()
@@ -43,7 +51,7 @@ class GuestProtocol(t.Protocol):  # pragma: no cover
     def set_kid(self, kid: str) -> None: ...
 
 
-KeyBase = t.Union[str, bytes, Key, KeySet]
+KeyBase = t.Union[Key, KeySet]
 KeyCallable = t.Callable[[GuestProtocol], KeyBase]
 KeyFlexible = t.Union[KeyBase, KeyCallable]
 
@@ -55,50 +63,32 @@ def guess_key(key: KeyFlexible, obj: GuestProtocol, use_random: bool = False) ->
     :param obj: a protocol that has ``headers`` and ``set_kid`` methods
     :param use_random: pick a random key from key set
     """
-
-    _norm_key: t.Union[Key, KeySet]
+    resolved_key: KeyBase
     if callable(key):
-        _norm_key = _normalize_key(key(obj))
+        resolved_key = key(obj)
     else:
-        _norm_key = _normalize_key(key)
+        resolved_key = key
 
-    rv_key: Key
-    if isinstance(_norm_key, KeySet):
+    if isinstance(resolved_key, (OctKey, RSAKey, ECKey, OKPKey)):
+        return resolved_key
+    elif isinstance(resolved_key, KeySet):
         headers = obj.headers()
-        kid = headers.get("kid")
+        kid: str | None = headers.get("kid")
         if not kid and use_random:
             # choose one key by random
-            rv_key = _norm_key.pick_random_key(headers["alg"])  # type: ignore[assignment]
-            if rv_key is None:
+            return_key = resolved_key.pick_random_key(headers["alg"])
+            if return_key is None:
                 raise ValueError("Invalid key")
-            rv_key.ensure_kid()
-            assert rv_key.kid is not None  # for mypy
-            obj.set_kid(rv_key.kid)
+            return_key.ensure_kid()
+            obj.set_kid(t.cast(str, return_key.kid))
         else:
-            rv_key = _norm_key.get_by_kid(kid)
-    elif isinstance(_norm_key, (OctKey, RSAKey, ECKey, OKPKey)):
-        rv_key = _norm_key
+            return_key = resolved_key.get_by_kid(kid)
+        return return_key
     else:
         raise ValueError("Invalid key")
-    return rv_key
 
 
-def _normalize_key(key: KeyBase) -> Key | KeySet:
-    if isinstance(key, (str, bytes)):  # pragma: no cover
-        warnings.warn(
-            "Please use a Key object instead of bytes or string.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return OctKey.import_key(key)
-    return key
-
-
-def import_key(
-    data: AnyKey,
-    key_type: str | None = None,
-    parameters: KeyParameters | None = None
-) -> Key:
+def import_key(data: AnyKey, key_type: str | None = None, parameters: KeyParameters | None = None) -> Key:
     """Importing a key from bytes, string, and dict. When ``value`` is a dict,
     this method can tell the key type automatically, otherwise, developers
     SHOULD pass the ``key_type`` themselves.

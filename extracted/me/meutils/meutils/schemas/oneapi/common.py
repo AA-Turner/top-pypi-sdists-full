@@ -67,6 +67,7 @@ MODEL_PRICE = {
     # 谷歌
     "gemini-2.0-flash-search": 0.01,
     "gemini-2.0-flash-exp-image-generation": 0.03,
+    "gemini-2.0-flash-preview-image-generation": 0.03,
 
     "gemini-2.0-flash-audio": 0.025,
     "gemini-2.5-flash-audio": 0.025,

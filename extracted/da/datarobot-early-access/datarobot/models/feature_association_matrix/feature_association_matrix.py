@@ -21,7 +21,7 @@ from datarobot.models.api_object import APIObject
 from datarobot.models.status_check_job import StatusCheckJob
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class Strength(TypedDict):
         feature1: str

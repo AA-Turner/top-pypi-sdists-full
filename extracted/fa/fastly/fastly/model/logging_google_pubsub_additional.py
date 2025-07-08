@@ -137,7 +137,7 @@ class LoggingGooglePubsubAdditional(ModelNormal):
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
             topic (str): The Google Cloud Pub/Sub topic to which logs will be published. Required.. [optional]  # noqa: E501
-            format (str): A Fastly [log format string](https://docs.fastly.com/en/guides/custom-log-formats).. [optional] if omitted the server will use the default value of "%h %l %u %t "%r" %&gt;s %b"  # noqa: E501
+            format (str): A Fastly [log format string](https://www.fastly.com/documentation/guides/integrations/streaming-logs/custom-log-formats/).. [optional] if omitted the server will use the default value of "%h %l %u %t "%r" %&gt;s %b"  # noqa: E501
             project_id (str): Your Google Cloud Platform project ID. Required. [optional]  # noqa: E501
         """
 
@@ -221,7 +221,7 @@ class LoggingGooglePubsubAdditional(ModelNormal):
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
             topic (str): The Google Cloud Pub/Sub topic to which logs will be published. Required.. [optional]  # noqa: E501
-            format (str): A Fastly [log format string](https://docs.fastly.com/en/guides/custom-log-formats).. [optional] if omitted the server will use the default value of "%h %l %u %t "%r" %&gt;s %b"  # noqa: E501
+            format (str): A Fastly [log format string](https://www.fastly.com/documentation/guides/integrations/streaming-logs/custom-log-formats/).. [optional] if omitted the server will use the default value of "%h %l %u %t "%r" %&gt;s %b"  # noqa: E501
             project_id (str): Your Google Cloud Platform project ID. Required. [optional]  # noqa: E501
         """
 

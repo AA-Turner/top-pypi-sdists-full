@@ -149,6 +149,8 @@ public:
   // Humanoid parameters for planning and control
   HumanoidParameters& parameters;
 
+  HumanoidParameters::FootstepClipping footstep_clipping = HumanoidParameters::FootstepClipping::Conic;
+
 protected:
   virtual void plan_impl(std::vector<Footstep>&, HumanoidRobot::Side flying_side, Eigen::Affine3d T_world_left,
                          Eigen::Affine3d T_world_right) = 0;

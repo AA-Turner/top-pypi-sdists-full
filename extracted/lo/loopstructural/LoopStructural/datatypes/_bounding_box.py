@@ -17,6 +17,7 @@ class BoundingBox:
         origin: Optional[np.ndarray] = None,
         maximum: Optional[np.ndarray] = None,
         global_origin: Optional[np.ndarray] = None,
+        global_maximum: Optional[np.ndarray] = None,
         nsteps: Optional[np.ndarray] = None,
         step_vector: Optional[np.ndarray] = None,
         dimensions: Optional[int] = 3,
@@ -39,9 +40,12 @@ class BoundingBox:
         # we want the local coordinates to start at 0
         # otherwise uses provided origin. This is useful for having multiple bounding boxes rela
         if global_origin is not None and origin is None:
-            origin = np.zeros(global_origin.shape)
+            origin = np.zeros(np.array(global_origin).shape)
+        if global_maximum is not None and global_origin is not None:
+            maximum = np.array(global_maximum) - np.array(global_origin)
+        
         if maximum is None and nsteps is not None and step_vector is not None:
-            maximum = origin + nsteps * step_vector
+            maximum = np.array(origin) + np.array(nsteps) * np.array(step_vector)
         if origin is not None and global_origin is None:
             global_origin = np.zeros(3)
         self._origin = np.array(origin)
@@ -500,48 +504,53 @@ class BoundingBox:
             name=name,
         )
 
-    def project(self, xyz):
+    def project(self, xyz, inplace=False):
         """Project a point into the bounding box
 
         Parameters
         ----------
         xyz : np.ndarray
             point to project
+        inplace : bool, optional
+            Whether to modify the input array in place, by default False
 
         Returns
         -------
         np.ndarray
             projected point
         """
-
-        return (xyz - self.global_origin) / np.max(
-            (self.global_maximum - self.global_origin)
-        )  # np.clip(xyz, self.origin, self.maximum)
+        if inplace:
+            xyz -= self.global_origin
+            return xyz
+        return (xyz - self.global_origin)  # np.clip(xyz, self.origin, self.maximum)
 
     def scale_by_projection_factor(self, value):
         return value / np.max((self.global_maximum - self.global_origin))
 
-    def reproject(self, xyz):
+    def reproject(self, xyz, inplace=False):
         """Reproject a point from the bounding box to the global space
 
         Parameters
         ----------
         xyz : np.ndarray
             point to reproject
-
+        inplace : bool, optional
+            Whether to modify the input array in place, by default False
         Returns
         -------
         np.ndarray
             reprojected point
         """
-
-        return xyz * np.max((self.global_maximum - self.global_origin)) + self.global_origin
+        if inplace:
+            xyz += self.global_origin
+            return xyz
+        return xyz + self.global_origin
 
     def __repr__(self):
-        return f"BoundingBox({self.origin}, {self.maximum}, {self.nsteps})"
+        return f"BoundingBox(origin:{self.origin}, maximum:{self.maximum}, nsteps:{self.nsteps})"
 
     def __str__(self):
-        return f"BoundingBox({self.origin}, {self.maximum}, {self.nsteps})"
+        return f"BoundingBox(origin:{self.origin}, maximum:{self.maximum}, nsteps:{self.nsteps})"
 
     def __eq__(self, other):
         if not isinstance(other, BoundingBox):

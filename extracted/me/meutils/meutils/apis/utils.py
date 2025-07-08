@@ -15,7 +15,7 @@ from meutils.caches import rcache
 
 async def make_request(
         base_url: str,
-        api_key: Optional[str] = None,
+        api_key: Optional[str] = None,  # false 不走 Authorization bearer
         headers: Optional[dict] = None,
 
         path: Optional[str] = None,
@@ -32,7 +32,7 @@ async def make_request(
 ):
     if headers:
         headers = {k: v for k, v in headers.items() if '_' not in k}
-        if not any(i in base_url for i in {"queue.fal.run"}):  # todo
+        if not any(i in base_url for i in {"queue.fal.run", "elevenlabs"}):  # todo  xi-api-key
             headers = {}
 
     client = AsyncClient(base_url=base_url, api_key=api_key, default_headers=headers, timeout=timeout)
@@ -86,6 +86,15 @@ async def make_request(
                 return response.json()
 
     elif method.upper() == 'POST':
+        # if any("key" in i.lower() for i in headers or {}):  # 跳过Bearer鉴权
+        #     async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout or 100) as client:
+        #         response = await client.post(path, json=payload, params=params)
+        #         # response.raise_for_status()
+        #
+        #         # print(response.text)
+        #
+        #         return response.json()
+
         response = await client.post(path, body=payload, options=options, files=files, cast_to=object)
         return response
 
@@ -118,7 +127,6 @@ async def make_request_with_cache(
         method=method,
         timeout=timeout,
     )
-
 
 
 if __name__ == '__main__':
@@ -243,4 +251,37 @@ if __name__ == '__main__':
     #     debug=True
     # ))
 
-    arun(get_baidubce_token())
+    """
+    curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb?output_format=mp3_44100_128" \
+     -H "xi-api-key: sk_9e7ce9190f85579b527beb6e673eb350db9c0cbfe2c7334b" \
+     -H "Content-Type: application/json" \
+     -d '{
+  "text": "The first move is what sets everything in motion.",
+  "model_id": "eleven_multilingual_v2"
+}'
+"""
+    UPSTREAM_BASE_URL = "https://api.elevenlabs.io/v1"
+    UPSTREAM_API_KEY = "sk_9e7ce9190f85579b527beb6e673eb350db9c0cbfe2c7334b"
+    path = "/text-to-speech/JBFqnCBsd6RMkjVDRZzb"
+
+    headers = {
+        "xi-api-key": UPSTREAM_API_KEY
+    }
+
+    payload = {
+        "text": "The first move is what sets everything in motion.",
+        "model_id": "eleven_multilingual_v2"
+    }
+    params = {
+        "output_format": "mp3_44100_128"
+    }
+
+    arun(make_request(
+        base_url=UPSTREAM_BASE_URL,
+        # api_key=UPSTREAM_API_KEY,
+        path=path,
+        payload=payload,
+        debug=True,
+        headers=headers,
+        params=params
+    ))

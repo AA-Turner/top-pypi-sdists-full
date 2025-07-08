@@ -28,12 +28,7 @@ image => file
 
 class Completions(object):
 
-    def __init__(self,
-                 base_url: Optional[str] = None,
-                 api_key: Optional[str] = None
-                 ):
-
-        base_url = "https://api.aiguoguo199.com/v1"
+    def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None):
 
         self.client = AsyncOpenAI(
             base_url=base_url,
@@ -41,7 +36,7 @@ class Completions(object):
         )
 
     async def create(self, request: CompletionRequest):
-        if request.model == "gemini-2.0-flash-exp-image-generation":
+        if request.model.endswith("image-generation"):
             return await self.images_create(request)
 
         urls = sum(request.last_urls.values(), [])
@@ -69,22 +64,35 @@ class Completions(object):
                     message["content"] += [{"type": "text", "text": request.last_user_content}]
 
         # 调用模型
-        # logger.debug(request.model_dump_json(indent=4))
+        logger.debug(request.model_dump_json(indent=4))
+
 
         data = to_openai_params(request)
+        data['stream'] = True
         response = await self.client.chat.completions.create(**data)
 
         if request.stream:
             return self.stream_create(response)
-
         else:
-            content = response.choices[0].message.content
-            response.choices[0].message.content = await markdown_base64_to_url(content)  # base64 转 url
+            chunks = self.stream_create(response)
+            content = ""
+            async for chunk in chunks:
+                content += chunk.choices[0].delta.content or ""
 
-            if hasattr(response, "system_prompt"):
-                del response.system_prompt
+            chat_completion.choices[0].message.content = content
+            return chat_completion
 
-            return response
+            # content = response.choices[0].message.content
+            # logger.debug(content)
+            # response.choices[0].message.content = await markdown_base64_to_url(
+            #     content,
+            #     pattern=r'!\[image\]\((.+?)\)'
+            # )
+            #
+            # if hasattr(response, "system_prompt"):
+            #     del response.system_prompt
+            #
+            # return response
 
     async def stream_create(self, chunks):
         async for chunk in chunks:
@@ -92,7 +100,10 @@ class Completions(object):
                 del chunk.system_prompt
 
             if (content := chunk.choices[0].delta.content) and content.startswith("!["):
-                chunk.choices[0].delta.content = await markdown_base64_to_url(content)
+                chunk.choices[0].delta.content = await markdown_base64_to_url(
+                    content,
+                    pattern=r'!\[image\]\((.+?)\)',
+                )
 
                 yield chunk
             else:
@@ -115,11 +126,13 @@ if __name__ == '__main__':
 
     ]
 
+    content = "画条可爱的狗狗, 出两张图"
+
     #
     request = CompletionRequest(
         # model="qwen-turbo-2024-11-01",
-        model="gemini-2.0-flash",
-        # model="gemini-2.0-flash-exp-image-generation",
+        # model="gemini-2.0-flash",
+        model="gemini-2.0-flash-preview-image-generation",
         # model="qwen-plus-latest",
 
         messages=[
@@ -131,8 +144,10 @@ if __name__ == '__main__':
 
         ],
         stream=False,
+        # stream=True,
+
     )
 
-    api_key = "sk-Q2XxJBh3KM7bTptL6e96E8596fC74426BaA87528867aA77b"
-
-    arun(Completions(api_key=api_key).create(request))
+    api_key = "sk-kNu9wSexjHBGqMLJKYnOAdSl0BCnyPObW5Y2z7EZnNXjm1OS"
+    base_url = "https://zuke.chat/v1"
+    arun(Completions(base_url=base_url, api_key=api_key).create(request))

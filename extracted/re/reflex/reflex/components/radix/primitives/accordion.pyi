@@ -706,6 +706,13 @@ class AccordionIcon(Icon):
             The Accordion icon Component.
         """
 
+SLIDE_DOWN = Var(
+    'keyframes({ from: { height: 0 }, to: { height: "var(--radix-accordion-content-height)" } })'
+)
+SLIDE_UP = Var(
+    'keyframes({ from: { height: "var(--radix-accordion-content-height)" }, to: { height: 0 } })'
+)
+
 class AccordionContent(AccordionComponent):
     def add_imports(self) -> dict: ...
     @classmethod
@@ -824,7 +831,6 @@ class AccordionContent(AccordionComponent):
             The Accordion content Component.
         """
 
-    def add_custom_code(self) -> list[str]: ...
     def add_style(self) -> dict[str, Any] | None: ...
 
 class Accordion(ComponentNamespace):
