@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_router_status`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_router_status`](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status).
+Refer to the Terraform Registry for docs: [`data_google_compute_router_status`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeRouterStatus(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatus",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status google_compute_router_status}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status google_compute_router_status}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleComputeRouterStatus(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status google_compute_router_status} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status google_compute_router_status} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the router to query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#name DataGoogleComputeRouterStatus#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#id DataGoogleComputeRouterStatus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#project DataGoogleComputeRouterStatus#project}
-        :param region: Region of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#region DataGoogleComputeRouterStatus#region}
+        :param name: Name of the router to query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#name DataGoogleComputeRouterStatus#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#id DataGoogleComputeRouterStatus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#project DataGoogleComputeRouterStatus#project}
+        :param region: Region of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#region DataGoogleComputeRouterStatus#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleComputeRouterStatus(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeRouterStatus to import.
-        :param import_from_id: The id of the existing DataGoogleComputeRouterStatus that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeRouterStatus that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeRouterStatus to import is found.
         '''
         if __debug__:
@@ -771,6 +771,11 @@ class DataGoogleComputeRouterStatusBestRoutesForRouterOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "nextHopVpnTunnel"))
 
     @builtins.property
+    @jsii.member(jsii_name="params")
+    def params(self) -> "DataGoogleComputeRouterStatusBestRoutesForRouterParamsList":
+        return typing.cast("DataGoogleComputeRouterStatusBestRoutesForRouterParamsList", jsii.get(self, "params"))
+
+    @builtins.property
     @jsii.member(jsii_name="priority")
     def priority(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "priority"))
@@ -821,6 +826,152 @@ class DataGoogleComputeRouterStatusBestRoutesForRouterOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__384c616e682f1043a6524edc8c9e2badd551c976e57fa6c2e628241937638700)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatusBestRoutesForRouterParams",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleComputeRouterStatusBestRoutesForRouterParams:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleComputeRouterStatusBestRoutesForRouterParams(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleComputeRouterStatusBestRoutesForRouterParamsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatusBestRoutesForRouterParamsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__829124ddb0e2cb845cb057a6ce21adfe000bdb16398118eac4618e8d48592d3a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleComputeRouterStatusBestRoutesForRouterParamsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d3f3674c2e11b9e3f4e1c720c3e53e2a9e3911ec524191f5b98a0b8d2be335f)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleComputeRouterStatusBestRoutesForRouterParamsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c037255c2002246687f6ce80b81c1c0a07f4c1a5b3dd8f8099d523324541dbf3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e97880683848252b3f81db5008bd9706f6042aaf830dcc70c0aee8eca6586a80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a988ad579e568b688446f9b7fbd37f0a1caa440fc9f0e32ba5913d722548e1c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleComputeRouterStatusBestRoutesForRouterParamsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatusBestRoutesForRouterParamsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd75c24ffa8fbf3055798f908ed4179ee9069e7dec8f37a5b0c313725941caba)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceManagerTags")
+    def resource_manager_tags(self) -> _cdktf_9a9027ec.StringMap:
+        return typing.cast(_cdktf_9a9027ec.StringMap, jsii.get(self, "resourceManagerTags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleComputeRouterStatusBestRoutesForRouterParams]:
+        return typing.cast(typing.Optional[DataGoogleComputeRouterStatusBestRoutesForRouterParams], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleComputeRouterStatusBestRoutesForRouterParams],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63b3e8e6d66e9e68432d21a8aca9a8485922e7cf699c20bb1eef286f84ecc440)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1325,6 +1476,11 @@ class DataGoogleComputeRouterStatusBestRoutesOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "nextHopVpnTunnel"))
 
     @builtins.property
+    @jsii.member(jsii_name="params")
+    def params(self) -> "DataGoogleComputeRouterStatusBestRoutesParamsList":
+        return typing.cast("DataGoogleComputeRouterStatusBestRoutesParamsList", jsii.get(self, "params"))
+
+    @builtins.property
     @jsii.member(jsii_name="priority")
     def priority(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "priority"))
@@ -1373,6 +1529,152 @@ class DataGoogleComputeRouterStatusBestRoutesOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab50a6a26e33a471727d9a5b516a5b9de5bdb19d903d44ee242222ec8ff057c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatusBestRoutesParams",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleComputeRouterStatusBestRoutesParams:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleComputeRouterStatusBestRoutesParams(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleComputeRouterStatusBestRoutesParamsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatusBestRoutesParamsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d25719f6e24b10906e9d340d9768a8ab5cf71acc9ab852c63ddfd058f7f85702)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleComputeRouterStatusBestRoutesParamsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__593270abb754ae73ae3d5c5587342ed24daadbdbb8f43ce1e7ccc5c6d193f451)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleComputeRouterStatusBestRoutesParamsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56ac43da36fbb1bc6d69227c1eae17df43f0cb4fd3ffe48b1df66d83c3030186)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c8e03dfa696cfcb961800389e3707139f46bd9479a6f5d27ade151531d43475)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c1a4ce49366b0f0f28561595e4a8c6b095c94c0f2b717b0dfbb1d4c69152a02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleComputeRouterStatusBestRoutesParamsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeRouterStatus.DataGoogleComputeRouterStatusBestRoutesParamsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26bc331315eb6b93cda9c3f1ac1b15771e90279a40ece137b37074371a4f13bb)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceManagerTags")
+    def resource_manager_tags(self) -> _cdktf_9a9027ec.StringMap:
+        return typing.cast(_cdktf_9a9027ec.StringMap, jsii.get(self, "resourceManagerTags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleComputeRouterStatusBestRoutesParams]:
+        return typing.cast(typing.Optional[DataGoogleComputeRouterStatusBestRoutesParams], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleComputeRouterStatusBestRoutesParams],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1802385ccef5995cbdf1f50354a9ec82497a87c07e151ea867fa35661af67893)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1725,10 +2027,10 @@ class DataGoogleComputeRouterStatusConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the router to query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#name DataGoogleComputeRouterStatus#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#id DataGoogleComputeRouterStatus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#project DataGoogleComputeRouterStatus#project}
-        :param region: Region of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#region DataGoogleComputeRouterStatus#region}
+        :param name: Name of the router to query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#name DataGoogleComputeRouterStatus#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#id DataGoogleComputeRouterStatus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#project DataGoogleComputeRouterStatus#project}
+        :param region: Region of the target router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#region DataGoogleComputeRouterStatus#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1837,7 +2139,7 @@ class DataGoogleComputeRouterStatusConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def name(self) -> builtins.str:
         '''Name of the router to query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#name DataGoogleComputeRouterStatus#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#name DataGoogleComputeRouterStatus#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1845,7 +2147,7 @@ class DataGoogleComputeRouterStatusConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#id DataGoogleComputeRouterStatus#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#id DataGoogleComputeRouterStatus#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1857,7 +2159,7 @@ class DataGoogleComputeRouterStatusConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def project(self) -> typing.Optional[builtins.str]:
         '''Project ID of the target router.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#project DataGoogleComputeRouterStatus#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#project DataGoogleComputeRouterStatus#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1866,7 +2168,7 @@ class DataGoogleComputeRouterStatusConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def region(self) -> typing.Optional[builtins.str]:
         '''Region of the target router.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/data-sources/compute_router_status#region DataGoogleComputeRouterStatus#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_router_status#region DataGoogleComputeRouterStatus#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1895,6 +2197,9 @@ __all__ = [
     "DataGoogleComputeRouterStatusBestRoutesForRouterAsPathsOutputReference",
     "DataGoogleComputeRouterStatusBestRoutesForRouterList",
     "DataGoogleComputeRouterStatusBestRoutesForRouterOutputReference",
+    "DataGoogleComputeRouterStatusBestRoutesForRouterParams",
+    "DataGoogleComputeRouterStatusBestRoutesForRouterParamsList",
+    "DataGoogleComputeRouterStatusBestRoutesForRouterParamsOutputReference",
     "DataGoogleComputeRouterStatusBestRoutesForRouterWarnings",
     "DataGoogleComputeRouterStatusBestRoutesForRouterWarningsData",
     "DataGoogleComputeRouterStatusBestRoutesForRouterWarningsDataList",
@@ -1903,6 +2208,9 @@ __all__ = [
     "DataGoogleComputeRouterStatusBestRoutesForRouterWarningsOutputReference",
     "DataGoogleComputeRouterStatusBestRoutesList",
     "DataGoogleComputeRouterStatusBestRoutesOutputReference",
+    "DataGoogleComputeRouterStatusBestRoutesParams",
+    "DataGoogleComputeRouterStatusBestRoutesParamsList",
+    "DataGoogleComputeRouterStatusBestRoutesParamsOutputReference",
     "DataGoogleComputeRouterStatusBestRoutesWarnings",
     "DataGoogleComputeRouterStatusBestRoutesWarningsData",
     "DataGoogleComputeRouterStatusBestRoutesWarningsDataList",
@@ -2107,6 +2415,53 @@ def _typecheckingstub__384c616e682f1043a6524edc8c9e2badd551c976e57fa6c2e62824193
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__829124ddb0e2cb845cb057a6ce21adfe000bdb16398118eac4618e8d48592d3a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d3f3674c2e11b9e3f4e1c720c3e53e2a9e3911ec524191f5b98a0b8d2be335f(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c037255c2002246687f6ce80b81c1c0a07f4c1a5b3dd8f8099d523324541dbf3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e97880683848252b3f81db5008bd9706f6042aaf830dcc70c0aee8eca6586a80(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a988ad579e568b688446f9b7fbd37f0a1caa440fc9f0e32ba5913d722548e1c3(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd75c24ffa8fbf3055798f908ed4179ee9069e7dec8f37a5b0c313725941caba(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63b3e8e6d66e9e68432d21a8aca9a8485922e7cf699c20bb1eef286f84ecc440(
+    value: typing.Optional[DataGoogleComputeRouterStatusBestRoutesForRouterParams],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e47b5e2900982fe854671f1aae430d68eab888d9f58e5a88d3773e51f03526fb(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -2244,6 +2599,53 @@ def _typecheckingstub__647791304acc8b522c2ffdc9b2ee4ab28fae92ae0f1dcbdabd6923e09
 
 def _typecheckingstub__ab50a6a26e33a471727d9a5b516a5b9de5bdb19d903d44ee242222ec8ff057c5(
     value: typing.Optional[DataGoogleComputeRouterStatusBestRoutes],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d25719f6e24b10906e9d340d9768a8ab5cf71acc9ab852c63ddfd058f7f85702(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__593270abb754ae73ae3d5c5587342ed24daadbdbb8f43ce1e7ccc5c6d193f451(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56ac43da36fbb1bc6d69227c1eae17df43f0cb4fd3ffe48b1df66d83c3030186(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c8e03dfa696cfcb961800389e3707139f46bd9479a6f5d27ade151531d43475(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c1a4ce49366b0f0f28561595e4a8c6b095c94c0f2b717b0dfbb1d4c69152a02(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26bc331315eb6b93cda9c3f1ac1b15771e90279a40ece137b37074371a4f13bb(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1802385ccef5995cbdf1f50354a9ec82497a87c07e151ea867fa35661af67893(
+    value: typing.Optional[DataGoogleComputeRouterStatusBestRoutesParams],
 ) -> None:
     """Type checking stubs"""
     pass

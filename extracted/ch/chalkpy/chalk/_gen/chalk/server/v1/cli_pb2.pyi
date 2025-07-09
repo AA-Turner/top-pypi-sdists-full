@@ -13,17 +13,19 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class CommandLineInterfaceVersion(_message.Message):
-    __slots__ = ("version", "download_url", "os", "arch", "generation")
+    __slots__ = ("version", "download_url", "os", "arch", "generation", "crc32c")
     VERSION_FIELD_NUMBER: _ClassVar[int]
     DOWNLOAD_URL_FIELD_NUMBER: _ClassVar[int]
     OS_FIELD_NUMBER: _ClassVar[int]
     ARCH_FIELD_NUMBER: _ClassVar[int]
     GENERATION_FIELD_NUMBER: _ClassVar[int]
+    CRC32C_FIELD_NUMBER: _ClassVar[int]
     version: str
     download_url: str
     os: str
     arch: str
     generation: int
+    crc32c: int
     def __init__(
         self,
         version: _Optional[str] = ...,
@@ -31,6 +33,7 @@ class CommandLineInterfaceVersion(_message.Message):
         os: _Optional[str] = ...,
         arch: _Optional[str] = ...,
         generation: _Optional[int] = ...,
+        crc32c: _Optional[int] = ...,
     ) -> None: ...
 
 class GetVersionsRequest(_message.Message):

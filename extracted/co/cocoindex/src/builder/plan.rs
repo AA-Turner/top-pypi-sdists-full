@@ -56,7 +56,8 @@ pub struct AnalyzedImportOp {
     pub output: AnalyzedOpOutput,
     pub primary_key_type: schema::ValueType,
     pub refresh_options: spec::SourceRefreshOptions,
-    pub concurrency_controller: utils::ConcurrencyController,
+
+    pub concurrency_controller: concur_control::ConcurrencyController,
 }
 
 pub struct AnalyzedFunctionExecInfo {
@@ -81,6 +82,7 @@ pub struct AnalyzedForEachOp {
     pub name: String,
     pub local_field_ref: AnalyzedLocalFieldReference,
     pub op_scope: AnalyzedOpScope,
+    pub concurrency_controller: concur_control::ConcurrencyController,
 }
 
 pub struct AnalyzedCollectOp {

@@ -161,3 +161,286 @@ def invoke_api_proc_log(link, id_robo, token):
     responseinsert = requests.request(
         "POST", link, json=payload, headers=headers)
     print(f"\n{responseinsert.json()}")
+
+def login_2fac(driver, certificate, system, token, code_timeout=60):
+    from . import mostrar_mensagem
+    import time
+    import requests
+    import pyautogui
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
+    class login_2fac:
+        def __init__(self):
+            self.certificate = certificate
+            self.system = system
+            self.token = token
+            self.code_timeout = code_timeout
+            self.driver = driver
+
+    class tool(login_2fac):
+        def find_element_with_wait(self, by, value, timeout=10):
+            global driver
+            return WebDriverWait(
+                self.driver, timeout).until(
+                EC.presence_of_element_located(
+                    (by, value)))
+
+        def find_elements_with_wait(self, by, value, timeout=10):
+            return WebDriverWait(
+                self.driver, timeout).until(
+                EC.presence_of_all_elements_located(
+                    (by, value)))
+
+    class invokes_whoom(login_2fac):
+        def __init__(self):
+            super().__init__()
+
+            self.list_codes = []
+
+        def invoke_get_codes(self):
+
+            url = "https://api-4.bcfox.com.br/bcjur/views/codigo-validacao"
+            headers = {"x-access-token": self.token}
+
+            max_attempts = 5
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    response = requests.get(url, headers=headers)
+                    response.raise_for_status()  # Lança uma exceção se a resposta não for bem-sucedida
+
+                    self.list_codes = response.json()
+                    # print(self.list_codes)
+                    return self.list_codes
+
+                except Exception as e:
+                    print(f'Tentativa {attempt} falhou: {e}')
+
+                    if attempt < max_attempts:
+                        print('Tentando novamente em 5 segundos...')
+                        time.sleep(5)
+                        continue
+                    else:
+                        raise('Todas as tentativas falharam!')
+
+        def invoke_update_status(self, id):
+
+            url = f"https://api-4.bcfox.com.br/bcjur/views/codigo-validacao/{id}"
+            headers = {"x-access-token": self.token}
+
+            max_attempts = 5
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    responseinsert = requests.put(url, headers=headers)
+                    responseinsert.raise_for_status()  # Lança uma exceção se a resposta não for bem-sucedida
+
+                    print(responseinsert)
+                    return responseinsert
+
+                except Exception as e:
+                    print(f'Tentativa {attempt} falhou: {e}')
+
+                    if attempt < max_attempts:
+                        print('Tentando novamente em 5 segundos...')
+                        time.sleep(5)
+                        continue
+                    else:
+                        raise('Todas as tentativas falharam!')
+
+    class whoom_codes(login_2fac):
+        def __init__(self):
+            super().__init__()
+
+        def codes_2_fac(self):
+
+            self.extension_check()
+
+            try:
+                tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=2).send_keys(self.system)
+                code_insertion = True
+
+            except:
+                self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+                # Request the code
+                for _ in range(50):  # Wait the extension to load
+
+                    try:
+                        tools.find_element_with_wait(By.XPATH, '//*[@id="root"]/div/div[1]/div//div//input', timeout=1).send_keys('eliezer@bcfox.com.br')
+                        time.sleep(1)
+                        break
+                    except:
+                        self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+
+                tools.find_element_with_wait(By.XPATH, '//button').click()
+
+                # Attempts the new codes until success or requests limit
+                for _ in range(code_timeout):
+                    responses = api.invoke_get_codes()
+
+                    # Try new codes
+                    code_insertion = False
+                    for response in responses:
+
+                        CODE = response['CODIGO']
+                        ID = response['ID']
+
+                        tools.find_element_with_wait(By.XPATH, '//input[@type="password"]').send_keys(CODE)
+                        for _ in range(10):
+                            try:
+                                tools.find_element_with_wait(By.XPATH, '//div/div[2]/button', timeout=2).click()
+                                time.sleep(1)
+                            except:
+                                break
+
+                        # Check the code result
+                        for _ in range(7):
+
+                            # Correct
+                            try:
+                                # input('\n\n > Selecione o sistema e aperte alguma tecla.')
+                                tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=1).send_keys(self.system)
+                                api.invoke_update_status(ID)  #FIX: Update
+                                code_insertion = True
+                                break
+
+                            except:
+                                pass
+
+                            # Wrong
+                            try:
+                                tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'Senha inválida')]", timeout=1)
+                                tools.find_element_with_wait(By.XPATH, "//button[text()='Voltar']", timeout=1)
+                                code_insertion = False
+                                break
+
+                            except:
+                                pass
+
+                    # If the 'new_response' loop succeeds immediately
+                    if not responses:
+                        time.sleep(1)
+
+                    if code_insertion:
+                        break
+
+            if not(code_insertion):
+                mostrar_mensagem('Código WHOOM não chegou dentro do timeout estabelecido')
+                raise TimeoutError('Código WHOOM não chegou dentro do timeout estabelecido')
+
+            # Selects the system to access
+            try:
+                lines = tools.find_elements_with_wait(By.XPATH, '//*[@id="root"]/div[2]/div/div[1]/div/div[2]/div/div/div', timeout=5)
+            except:
+                try:
+                    lines = tools.find_elements_with_wait(By.XPATH, '//*[@id="root"]/div[2]/div/div[2]/div/div[2]/div/div/div', timeout=5)
+                except Exception as e:
+                    mostrar_mensagem('Não conseguiu achar o sistema no certificado')
+                    print(f'{e}\n\n\n\n\n\n')
+                    raise ValueError('Não conseguiu achar o sistema no certificado') from e
+
+            finded = False
+            div_list = []
+
+            # This loop extract the lines with the system name
+            for line in lines:
+
+                titulo_element = line.find_elements(By.XPATH, './span[*[name()="svg"]]')
+
+                if not titulo_element and not finded:
+                    continue
+
+                elif titulo_element and not finded:
+                    titulo_text = line.find_element(By.XPATH, './span').text
+                    if self.certificate.lower().strip() in titulo_text.lower().strip():
+                        finded = True
+                        continue
+
+                elif not titulo_element and finded:
+                    div_list.append(line)
+
+                elif titulo_element and finded:
+                    break
+
+            if not div_list:
+                mostrar_mensagem('Não conseguiu achar o sistema no certificado')
+                raise ValueError('Não conseguiu achar o sistema no certificado')
+
+            if len(div_list) == 1:
+                div_list[0].click()
+
+            # Just do this loop if there are more than one system
+            else:
+                for div in div_list:
+                    div_text = div.find_element(By.XPATH, './span').text
+                    if self.system.lower().strip() not in div_text.lower().strip():
+                        div_list.remove(div)
+
+                if len(div_list) == 1:
+                    div_list[0].click()
+                else:
+                    mostrar_mensagem('Mais de um sistema encontrado, verifique o nome do sistema no WHOOM e coloque um nome único na função')
+                    raise ValueError('Mais de um sistema encontrado, verifique o nome')
+
+            # Verifies if the system was opened
+            num_windows = len(self.driver.window_handles)
+            for _ in range(5):
+                time.sleep(1)
+                if len(self.driver.window_handles) == num_windows:
+                    try:
+                        tools.find_element_with_wait(By.XPATH, "//button[text()='Acessar']").click()
+                    except:
+                        break
+                else:
+                    break
+
+            self.driver.switch_to.window(self.driver.window_handles[0])
+            self.driver.close()
+            self.driver.switch_to.window(self.driver.window_handles[-1])
+
+        def extension_check(self):
+
+            self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+
+            try:
+                tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=10).send_keys(self.system)
+                return
+
+            except Exception as e:
+
+                if 'eliezer@bcfox.com.br' in self.driver.page_source:
+                    tools.find_element_with_wait(By.XPATH, "//span[text()='alterar']").click()
+                    return
+
+                # Abrir uma nova aba
+                self.driver.execute_script("window.open('');")
+
+                # Fechar a aba original
+                self.driver.close()
+
+                # Mudar para a nova aba
+                self.driver.switch_to.window(self.driver.window_handles[-1])
+
+                time.sleep(1)
+
+                self.driver.get("https://chromewebstore.google.com/detail/whom-gerenciador-de-certi/lnidijeaekolpfeckelhkomndglcglhh")
+
+                try:
+                    tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'Instalar') or contains(text(), 'Obter') or contains(text(), 'Add to Chrome')]").click()
+                except Exception as e:
+                    return
+                time.sleep(5)
+
+                # Envia TAB e ENTER do teclado físico
+                pyautogui.press('tab')
+                time.sleep(0.5)
+                pyautogui.press('enter')
+                time.sleep(5)
+
+                self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+
+    tools = tool()
+    api = invokes_whoom()
+    bot = whoom_codes()
+
+    bot.codes_2_fac()

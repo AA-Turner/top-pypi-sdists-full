@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nicegui
-Version: 2.20.0
+Version: 2.21.0
 Summary: Create web-based user interfaces with Python. The nice way.
 License: MIT
 Keywords: gui,ui,web,interface,live
@@ -43,11 +43,9 @@ Requires-Dist: python-multipart (>=0.0.18)
 Requires-Dist: python-socketio[asyncio-client] (>=5.10.0)
 Requires-Dist: pywebview (>=5.0.1,<6.0.0) ; extra == "native"
 Requires-Dist: redis (>=4.0.0) ; extra == "redis"
-Requires-Dist: requests (>=2.32.4)
 Requires-Dist: starlette (<0.42.0) ; python_version == "3.8"
 Requires-Dist: starlette (>=0.45.3) ; python_version >= "3.9"
 Requires-Dist: typing-extensions (>=4.0.0)
-Requires-Dist: urllib3 (>=1.26.18,!=2.0.0,!=2.0.1,!=2.0.2,!=2.0.3,!=2.0.4,!=2.0.5,!=2.0.6,!=2.0.7,!=2.1.0,!=2.2.0,!=2.2.1)
 Requires-Dist: uvicorn[standard] (>=0.22.0)
 Requires-Dist: vbuild (>=0.8.2)
 Requires-Dist: watchfiles (>=0.18.1)

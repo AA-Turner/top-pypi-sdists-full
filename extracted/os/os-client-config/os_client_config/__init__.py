@@ -13,6 +13,7 @@
 # under the License.
 
 import sys
+import warnings
 
 import pbr.version
 
@@ -20,21 +21,28 @@ from os_client_config import cloud_config
 from os_client_config.config import OpenStackConfig  # noqa
 from os_client_config import vendors  # noqa
 
-
 __version__ = pbr.version.VersionInfo('os_client_config').version_string()
 _config = None
 
 
+warnings.warn(
+    'os-client-config is no longer maintained. You should switch to '
+    'openstacksdk or an alternative library.',
+    DeprecationWarning,
+)
+
+
 def get_config(
-        service_key=None, options=None,
-        app_name=None, app_version=None,
-        **kwargs):
+    service_key=None, options=None, app_name=None, app_version=None, **kwargs
+):
     load_yaml_config = kwargs.pop('load_yaml_config', True)
     global _config
     if not _config:
         _config = OpenStackConfig(
             load_yaml_config=load_yaml_config,
-            app_name=app_name, app_version=app_version)
+            app_name=app_name,
+            app_version=app_version,
+        )
     if options:
         _config.register_argparse_arguments(options, sys.argv, service_key)
         parsed_options = options.parse_known_args(sys.argv)
@@ -45,9 +53,13 @@ def get_config(
 
 
 def make_rest_client(
-        service_key, options=None,
-        app_name=None, app_version=None, version=None,
-        **kwargs):
+    service_key,
+    options=None,
+    app_name=None,
+    app_version=None,
+    version=None,
+    **kwargs,
+):
     """Simple wrapper function. It has almost no features.
 
     This will get you a raw requests Session Adapter that is mounted
@@ -61,9 +73,12 @@ def make_rest_client(
     at OpenStack REST APIs with a properly configured keystone session.
     """
     cloud = get_config(
-        service_key=service_key, options=options,
-        app_name=app_name, app_version=app_version,
-        **kwargs)
+        service_key=service_key,
+        options=options,
+        app_name=app_name,
+        app_version=app_version,
+        **kwargs,
+    )
     return cloud.get_session_client(service_key, version=version)
 
 
@@ -98,6 +113,7 @@ def make_sdk(options=None, **kwargs):
     :rtype: :class:`~openstack.connection.Connection`
     """
     from openstack import connection
+
     cloud = get_config(options=options, **kwargs)
     return connection.from_config(cloud_config=cloud, options=options)
 
@@ -110,5 +126,6 @@ def make_shade(options=None, **kwargs):
     :rtype: :class:`~shade.OpenStackCloud`
     """
     import shade
+
     cloud = get_config(options=options, **kwargs)
     return shade.OpenStackCloud(cloud_config=cloud, **kwargs)

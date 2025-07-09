@@ -25,9 +25,8 @@ class TestStarRatingField:
                 "decorators": [],
                 "depends_on": [],
                 "display_mode": "decimal",
-                "decimal_mark": "",
-                "delimiter": "",
                 "signed": True,
+                "disable_formatting": True,
             },
         )
 

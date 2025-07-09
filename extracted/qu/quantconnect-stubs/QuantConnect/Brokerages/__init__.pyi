@@ -293,6 +293,15 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         ...
 
     @property
+    def concurrency_enabled(self) -> bool:
+        """Enables or disables concurrent processing of messages to and from the brokerage."""
+        ...
+
+    @concurrency_enabled.setter
+    def concurrency_enabled(self, value: bool) -> None:
+        ...
+
+    @property
     def account_instantly_updated(self) -> bool:
         """Specifies whether the brokerage will instantly update account balances"""
         ...
@@ -1185,15 +1194,30 @@ class SymbolPropertiesDatabaseSymbolMapper(System.Object, QuantConnect.Brokerage
         ...
 
 
-class BrokerageConcurrentMessageHandler(typing.Generic[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], System.Object):
+class BrokerageConcurrentMessageHandler(typing.Generic[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], System.Object, System.IDisposable):
     """Brokerage helper class to lock message stream while executing an action, for example placing an order"""
 
+    @overload
     def __init__(self, process_messages: typing.Callable[[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], None]) -> None:
         """
         Creates a new instance
         
         :param process_messages: The action to call for each new message
         """
+        ...
+
+    @overload
+    def __init__(self, process_messages: typing.Callable[[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], None], concurrency_enabled: bool) -> None:
+        """
+        Creates a new instance
+        
+        :param process_messages: The action to call for each new message
+        :param concurrency_enabled: Whether to enable concurrent order submission
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes of the resources used by this instance"""
         ...
 
     def handle_new_message(self, message: QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T) -> None:

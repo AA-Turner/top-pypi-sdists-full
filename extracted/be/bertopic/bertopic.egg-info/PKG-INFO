@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: bertopic
-Version: 0.17.0
+Version: 0.17.3
 Summary: BERTopic performs topic Modeling with state-of-the-art transformer models.
 Author-email: "Maarten P. Grootendorst" <maartengrootendorst@gmail.com>
 License: MIT License
@@ -49,13 +49,14 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: hdbscan>=0.8.29
+Requires-Dist: umap-learn>=0.5.0
 Requires-Dist: numpy>=1.20.0
 Requires-Dist: pandas>=1.1.5
 Requires-Dist: plotly>=4.7.0
 Requires-Dist: scikit-learn>=1.0
 Requires-Dist: sentence-transformers>=0.4.1
 Requires-Dist: tqdm>=4.41.1
-Requires-Dist: umap-learn>=0.5.0
+Requires-Dist: llvmlite>0.36.0
 Provides-Extra: datamap
 Requires-Dist: datamapplot>=0.1; extra == "datamap"
 Requires-Dist: matplotlib>=3.8; extra == "datamap"
@@ -66,6 +67,8 @@ Requires-Dist: mkdocs==1.5.3; extra == "docs"
 Requires-Dist: mkdocs-material==9.5.18; extra == "docs"
 Requires-Dist: mkdocstrings-python==1.10.0; extra == "docs"
 Requires-Dist: mkdocstrings==0.24.3; extra == "docs"
+Provides-Extra: fastembed
+Requires-Dist: fastembed>=0.6.0; extra == "fastembed"
 Provides-Extra: flair
 Requires-Dist: flair>=0.7; extra == "flair"
 Requires-Dist: torch>=1.4.0; extra == "flair"
@@ -85,6 +88,7 @@ Requires-Dist: tensorflow_text; extra == "use"
 Provides-Extra: vision
 Requires-Dist: accelerate>=0.19.0; extra == "vision"
 Requires-Dist: Pillow>=9.2.0; extra == "vision"
+Dynamic: license-file
 
 [![PyPI Downloads](https://static.pepy.tech/badge/bertopic)](https://pepy.tech/projects/bertopic)
 [![PyPI - Python](https://img.shields.io/badge/python-v3.9+-blue.svg)](https://pypi.org/project/bertopic/)
@@ -97,7 +101,7 @@ Requires-Dist: Pillow>=9.2.0; extra == "vision"
 
 # BERTopic
 
-<img src="images/logo.png" width="35%" height="35%" align="right" />
+<img src="images/logo.png" width="35%" align="right" /> 
 
 BERTopic is a topic modeling technique that leverages 🤗 transformers and c-TF-IDF to create dense clusters
 allowing for easily interpretable topics whilst keeping important words in the topic descriptions.
@@ -272,7 +276,7 @@ For example, we can visualize the topics that were generated in a way very simil
 topic_model.visualize_topics()
 ``` 
 
-<img src="images/topic_visualization.gif" width="60%" height="60%" align="center" />
+<img src="images/topic_visualization.gif" width="80%" align="center" />
 
 ## Modularity
 By default, the [main steps](https://maartengr.github.io/BERTopic/algorithm/algorithm.html) for topic modeling with BERTopic are sentence-transformers, UMAP, HDBSCAN, and c-TF-IDF run in sequence. However, it assumes some independence between these steps which makes BERTopic quite modular. In other words, BERTopic not only allows you to build your own topic model but to explore several topic modeling techniques on top of your customized topic model:

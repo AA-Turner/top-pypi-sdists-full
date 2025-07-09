@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: liger_kernel
-Version: 0.5.10
+Version: 0.6.0
 Summary: Efficient Triton kernels for LLM Training
 License: BSD 2-CLAUSE LICENSE
         Copyright 2024 LinkedIn Corporation 
@@ -33,7 +33,7 @@ License-File: NOTICE
 Requires-Dist: torch>=2.1.2
 Requires-Dist: triton>=2.3.1
 Provides-Extra: dev
-Requires-Dist: transformers>=4.44.2; extra == "dev"
+Requires-Dist: transformers>=4.49.0; extra == "dev"
 Requires-Dist: matplotlib>=3.7.2; extra == "dev"
 Requires-Dist: flake8>=4.0.1.1; extra == "dev"
 Requires-Dist: black>=24.4.2; extra == "dev"
@@ -45,6 +45,7 @@ Requires-Dist: datasets>=2.19.2; extra == "dev"
 Requires-Dist: seaborn; extra == "dev"
 Requires-Dist: mkdocs; extra == "dev"
 Requires-Dist: mkdocs-material; extra == "dev"
+Requires-Dist: torchvision>=0.20; extra == "dev"
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
@@ -113,6 +114,8 @@ Dynamic: requires-dist
 **Liger Kernel** is a collection of Triton kernels designed specifically for LLM training. It can effectively increase multi-GPU **training throughput by 20%** and reduces **memory usage by 60%**. We have implemented **Hugging Face Compatible** `RMSNorm`, `RoPE`, `SwiGLU`, `CrossEntropy`, `FusedLinearCrossEntropy`, and more to come. The kernel works out of the box with [Flash Attention](https://github.com/Dao-AILab/flash-attention), [PyTorch FSDP](https://pytorch.org/tutorials/intermediate/FSDP_tutorial.html), and [Microsoft DeepSpeed](https://github.com/microsoft/DeepSpeed). We welcome contributions from the community to gather the best kernels for LLM training.
 
 We've also added optimized Post-Training kernels that deliver **up to 80% memory savings** for alignment and distillation tasks. We support losses like DPO, CPO, ORPO, SimPO, KTO, JSD, and many more. Check out [how we optimize the memory](https://x.com/hsu_byron/status/1866577403918917655).
+
+You can view the documentation site for additional installation, usage examples, and API references:https://linkedin.github.io/Liger-Kernel/
 
 ## Supercharge Your Model with Liger Kernel
 
@@ -290,6 +293,7 @@ loss.backward()
 
 | **Model**   | **API**                                                      | **Supported Operations**                                                |
 |-------------|--------------------------------------------------------------|-------------------------------------------------------------------------|
+| Llama4 (Text) & (Multimodal)      | `liger_kernel.transformers.apply_liger_kernel_to_llama4`   | RMSNorm, LayerNorm, GeGLU, CrossEntropyLoss, FusedLinearCrossEntropy         |
 | LLaMA 2 & 3 | `liger_kernel.transformers.apply_liger_kernel_to_llama`   | RoPE, RMSNorm, SwiGLU, CrossEntropyLoss, FusedLinearCrossEntropy        |
 | LLaMA 3.2-Vision | `liger_kernel.transformers.apply_liger_kernel_to_mllama`   | RoPE, RMSNorm, SwiGLU, CrossEntropyLoss, FusedLinearCrossEntropy        |
 | Mistral     | `liger_kernel.transformers.apply_liger_kernel_to_mistral`  | RoPE, RMSNorm, SwiGLU, CrossEntropyLoss, FusedLinearCrossEntropy        |
@@ -326,6 +330,8 @@ loss.backward()
 | GeGLU                           | `liger_kernel.transformers.LigerGEGLUMLP`                   |
 | CrossEntropy                    | `liger_kernel.transformers.LigerCrossEntropyLoss`           |
 | Fused Linear CrossEntropy       | `liger_kernel.transformers.LigerFusedLinearCrossEntropyLoss`|
+| Multi Token Attention           | `liger_kernel.transformers.LigerMultiTokenAttention`        |
+| Softmax                         | `liger_kernel.transformers.LigerSoftmax`                    |
 | Sparsemax                       | `liger_kernel.transformers.LigerSparsemax`                  |
 
 

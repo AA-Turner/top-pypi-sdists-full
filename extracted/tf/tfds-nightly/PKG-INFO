@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tfds-nightly
-Version: 4.9.9.dev202507080044
+Version: 4.9.9.dev202507090045
 Summary: tensorflow/datasets is a library of datasets ready to use with TensorFlow.
 Home-page: https://github.com/tensorflow/datasets
 Download-URL: https://github.com/tensorflow/datasets/tags
@@ -58,7 +58,6 @@ Requires-Dist: mlcroissant>=1.0.9; extra == "tests-all"
 Requires-Dist: pandas; extra == "tests-all"
 Requires-Dist: pydub; extra == "tests-all"
 Requires-Dist: pyyaml; extra == "tests-all"
-Requires-Dist: tensorflow-io[tensorflow]; python_version < "3.12" and extra == "tests-all"
 Requires-Dist: scipy; extra == "tests-all"
 Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
 Requires-Dist: gcsfs; extra == "tests-all"
@@ -116,7 +115,6 @@ Requires-Dist: mlcroissant>=1.0.9; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: pydub; extra == "dev"
 Requires-Dist: pyyaml; extra == "dev"
-Requires-Dist: tensorflow-io[tensorflow]; python_version < "3.12" and extra == "dev"
 Requires-Dist: pylint>=2.6.0; extra == "dev"
 Requires-Dist: yapf; extra == "dev"
 Provides-Extra: huggingface
@@ -131,7 +129,6 @@ Requires-Dist: mlcroissant>=1.0.9; extra == "huggingface"
 Requires-Dist: pandas; extra == "huggingface"
 Requires-Dist: pydub; extra == "huggingface"
 Requires-Dist: pyyaml; extra == "huggingface"
-Requires-Dist: tensorflow-io[tensorflow]; python_version < "3.12" and extra == "huggingface"
 Requires-Dist: scipy; extra == "huggingface"
 Requires-Dist: gcsfs; extra == "huggingface"
 Requires-Dist: zarr<3.0.0; extra == "huggingface"

@@ -575,8 +575,7 @@ class _Interactor:
         return resp.json()
 
     def click_component(self, post_url: str, component: Dict[str, Any], context: Dict[str, Any],
-                        uuid: str, label: Optional[str] = None, headers: Optional[Dict[str, Any]] = None,
-                        client_mode: Optional[str] = None) -> Dict[str, Any]:
+                        uuid: str, label: Optional[str] = None, value: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         '''
             Calls the post operation to click certain SAIL components such as Buttons and Dynamic Links
 
@@ -599,6 +598,7 @@ class _Interactor:
                    .component(component)
                    .context(context)
                    .uuid(uuid)
+                   .value(value)
                    .build())
 
         locust_label = label or f'Click \'{component["label"]}\' Component'
@@ -783,6 +783,37 @@ class _Interactor:
         )
         return resp.json()
 
+    def send_grouped_dropdown_update(self, post_url: str, grouped_dropdown: Dict[str, Any], choice_value: List[str],
+                                     uuid: str, context: Dict[str, Any], label: Optional[str] = None, identifier: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        '''
+            Calls the post operation to send an update to a grouped dropdown
+
+            Args:
+                post_url: the url (not including the host and domain) to post to
+                grouped_dropdown: the JSON code for the desired grouped dropdown
+                choice_value: the list of JSON dictionaries reflecting the selected indexes
+                uuid: the uuid parsed from the json response
+                context: the Sail context parsed from the json response
+                label: the label to be displayed by locust for this action
+                identifier: the Record List Identifier, if made on a Record List
+
+            Returns: the response of post operation as json
+        '''
+        payload = (save_builder()
+                   .component(grouped_dropdown)
+                   .context(context)
+                   .uuid(uuid)
+                   .value(choice_value)
+                   .identifier(identifier)
+                   .build())
+
+        locust_label = label or f'Select \'{grouped_dropdown["label"]}\' Dropdown'
+
+        resp = self.post_page(
+            self.get_interaction_host() + post_url, payload=payload, label=locust_label
+        )
+        return resp.json()
+
     def construct_and_send_multiple_dropdown_update(self, component: Any, choice_label: List[str],
                                                     context: Dict[str, Any], state: Dict[str, Any],
                                                     uuid: str, context_label: str, exception_label: str,
@@ -815,6 +846,42 @@ class _Interactor:
         if not new_state:
             raise Exception(
                 f"No response returned when trying to select multiple dropdown with '{exception_label}'")
+
+        return new_state
+
+    def construct_and_send_grouped_dropdown_update(self, component: Any, choice_index: List[int],
+                                                   context: Dict[str, Any],
+                                                   uuid: str, context_label: str, exception_label: str,
+                                                   reeval_url: str, identifier: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        '''
+            Calls the post operation to send an update to a grouped dropdown
+
+            Args:
+                component (Any): The grouped dropdown component to update.
+                choice_index (List[int]): The index (or indices) of the grouped dropdown item(s) to select.
+                context (Dict[str, Any]): The Sail context parsed from the JSON response.
+                uuid (str): The UUID parsed from the JSON response.
+                context_label (str): The label to be displayed by Locust for this action.
+                exception_label (str): Information about the grouped dropdown component to be displayed if there's an exception.
+                reeval_url (str): The URL for "rel"="update", used for other interactions on the form.
+                identifier (Optional[Dict[str, Any]]): The Record List Identifier, if the action is made on a Record List.
+
+            Returns:
+                Dict[str, Any]: The response of the post operation as JSON.
+        '''
+        choices: list = component.get('choices')
+        choice_value = [choices[i] for i in choice_index]
+
+        if not choices:
+            raise InvalidComponentException(
+                f"No choices found for grouped dropdown with {exception_label}, is the component a grouped Dropdown?")
+
+        new_state = self.send_grouped_dropdown_update(
+            post_url=reeval_url, grouped_dropdown=component, choice_value=choice_value,
+            uuid=uuid, context=context, label=context_label, identifier=identifier)
+        if not new_state:
+            raise Exception(
+                f"No response returned when trying to select grouped dropdown with '{exception_label}'")
 
         return new_state
 

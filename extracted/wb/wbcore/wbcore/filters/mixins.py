@@ -1,6 +1,7 @@
 import warnings
 from contextlib import suppress
 
+from django.core.exceptions import ValidationError
 from django_filters.utils import get_model_field
 
 from .lookups import get_lookup_icon, get_lookup_label
@@ -61,7 +62,10 @@ class WBCoreFilterMixin:
 
     def _validate_initial_with_request(self, initial, request, name):
         if request_default := request.GET.get(name):
-            return self.field.to_python(request_default)
+            try:
+                return self.field.to_python(request_default)
+            except ValidationError:
+                return None
         return initial
 
     def get_help_text(self) -> str:

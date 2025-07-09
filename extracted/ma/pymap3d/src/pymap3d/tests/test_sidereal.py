@@ -19,6 +19,20 @@ def test_sidereal(time):
     if isinstance(tsr, list):
         tsr = tsr[0]
     assert tsr == approx(sra, rel=1e-5)
+    assert isinstance(tsr, float)
+
+
+def test_sidereal_astropy():
+    pytest.importorskip("astropy")
+    tsr = pmd.datetime2sidereal_astropy(t0, radians(lon))
+    assert tsr == approx(sra, rel=1e-5)
+    assert isinstance(tsr, float)
+
+
+def test_sidereal_vallado():
+    tsr = pmd.datetime2sidereal_vallado(t0, radians(lon))
+    assert tsr == approx(sra, rel=1e-5)
+    assert isinstance(tsr, float)
 
 
 def test_anglesep():

@@ -397,7 +397,8 @@ class ConfigManager:
             "color_detection": None,  # Will be set later to avoid circular import
             "video_color_classification": None,  # Alias for color_detection
             "vehicle_monitoring" : None,
-            "fire_smoke_detection": None
+            "fire_smoke_detection": None,
+            "flare_analysis" : None
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -425,6 +426,14 @@ class ConfigManager:
         try:
             from ..usecases.fire_detection import FireSmokeConfig
             return FireSmokeConfig
+        except ImportError:
+            return None
+        
+    def flare_analysis_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.flare_analysis import FlareAnalysisConfig
+            return FlareAnalysisConfig
         except ImportError:
             return None
 
@@ -541,6 +550,22 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = FireSmokeConfig(
+                category=category or "normal",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "flare_analysis":
+            # Import here to avoid circular import
+            from ..usecases.flare_analysis import FlareAnalysisConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = FlareAnalysisConfig(
                 category=category or "normal",
                 usecase=usecase,
                 alert_config=alert_config,
@@ -737,6 +762,11 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.color_detection import ColorDetectionConfig
             default_config = ColorDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "flare_analysis":
+            # Import here to avoid circular import
+            from ..usecases.flare_analysis import FlareAnalysisConfig
+            default_config = FlareAnalysisConfig()
             return default_config.to_dict()
         elif usecase == "ppe_compliance_detection":
             # Import here to avoid circular import

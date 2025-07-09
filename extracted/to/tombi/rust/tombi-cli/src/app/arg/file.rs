@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tombi_config::FilesOptions;
+use tombi_config::{ConfigLevel, FilesOptions};
 use tombi_glob::WalkDir;
 
 /// Input source for TOML files.
@@ -16,9 +16,13 @@ impl FileInput {
     pub async fn new<T: AsRef<str>>(
         files: &[T],
         config_path: Option<&std::path::Path>,
+        config_level: ConfigLevel,
         files_options: FilesOptions,
     ) -> Self {
-        let root = config_path.and_then(|p| p.parent()).unwrap_or(".".as_ref());
+        let root = match config_level {
+            ConfigLevel::Project => config_path.and_then(|p| p.parent()).unwrap_or(".".as_ref()),
+            _ => ".".as_ref(),
+        };
 
         match files.len() {
             0 => {
@@ -48,8 +52,12 @@ impl FileInput {
                         );
                     } else {
                         let path = PathBuf::from(file_path);
-                        if path.exists() {
+                        if path.is_file() {
                             matched_paths.push(Ok(path));
+                        } else if path.is_dir() {
+                            matched_paths.extend(
+                                search_with_patterns_async(path, files_options.clone()).await,
+                            );
                         } else {
                             matched_paths.push(Err(crate::Error::FileNotFound(path)));
                         }

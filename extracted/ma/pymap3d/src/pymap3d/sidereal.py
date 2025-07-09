@@ -1,7 +1,9 @@
-# Copyright (c) 2014-2018 Michael Hirsch, Ph.D.
-""" manipulations of sidereal time """
+"""manipulations of sidereal time"""
+
 from datetime import datetime
 from math import tau
+import sys
+import logging
 
 from .timeconv import str2dt
 
@@ -16,7 +18,7 @@ except ImportError:
 __all__ = ["datetime2sidereal", "juliandate", "greenwichsrt"]
 
 
-def datetime2sidereal(time: datetime, lon_radians: float) -> float:
+def datetime2sidereal(time: datetime, lon_radians: float, force_non_astropy: bool = False):
     """
     Convert ``datetime`` to local sidereal time
 
@@ -27,6 +29,8 @@ def datetime2sidereal(time: datetime, lon_radians: float) -> float:
         time to convert
     lon_radians : float
         longitude (radians)
+    force_non_astropy : bool
+        if True, force use of less accurate Numpy implementation even if Astropy is available
 
     Results
     -------
@@ -34,26 +38,40 @@ def datetime2sidereal(time: datetime, lon_radians: float) -> float:
     tsr : float
         Local sidereal time
     """
+
     if isinstance(time, (tuple, list)):
         return [datetime2sidereal(t, lon_radians) for t in time]
 
-    try:
-        tsr = (
-            Time(time)
-            .sidereal_time(kind="apparent", longitude=Longitude(lon_radians, unit=u.radian))
-            .radian
-        )
-    except NameError:
-        jd = juliandate(str2dt(time))
-        # %% Greenwich Sidereal time RADIANS
-        gst = greenwichsrt(jd)
-        # %% Algorithm 15 p. 188 rotate GST to LOCAL SIDEREAL TIME
-        tsr = gst + lon_radians
-
-    return tsr
+    if "astropy" in sys.modules and not force_non_astropy:
+        return datetime2sidereal_astropy(time, lon_radians)
+    else:
+        logging.debug(f"{__name__}: Vallado implementation")
+        return datetime2sidereal_vallado(time, lon_radians)
 
 
-def juliandate(time: datetime) -> float:
+def datetime2sidereal_astropy(t: datetime, lon_radians: float):
+    """datetime to sidereal time using astropy
+    see datetime2sidereal() for description
+    """
+
+    at = Time(t)
+    tsr = at.sidereal_time(kind="apparent", longitude=Longitude(lon_radians, unit=u.radian))
+    return tsr.radian
+
+
+def datetime2sidereal_vallado(t: datetime, lon_radians: float):
+    """datetime to sidereal time using Vallado methods
+    see datetime2sidereal() for description
+    """
+
+    jd = juliandate(str2dt(t))
+    # Greenwich Sidereal time RADIANS
+    gst = greenwichsrt(jd)
+    # Algorithm 15 p. 188 rotate GST to LOCAL SIDEREAL TIME
+    return gst + lon_radians
+
+
+def juliandate(time: datetime):
     """
     Python datetime to Julian time (days since Jan 1, 4713 BCE)
 
@@ -89,7 +107,7 @@ def juliandate(time: datetime) -> float:
     return int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + time.day + B - 1524.5 + C
 
 
-def greenwichsrt(Jdate: float) -> float:
+def greenwichsrt(Jdate: float):
     """
     Convert Julian time to sidereal time
 

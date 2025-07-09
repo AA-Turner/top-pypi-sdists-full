@@ -1,8 +1,10 @@
 import shlex
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
+from flytekit import ImageSpec
 from flytekit.core.artifact import ArtifactQuery
+from flytekit.core.pod_template import PodTemplate
 
 from union.app import App, Input
 
@@ -46,10 +48,13 @@ class VLLMApp(App):
     :param stream_model: Set to True to stream model from blob store to the GPU directly.
       If False, the model will be downloaded to the local file system first and then loaded
       into the GPU.
+    :param shared_memory: If True, then shared memory will be attached to the container where the size is equal
+        to the allocated memory. If str, then the shared memory is set to that size.
     """
 
     port: int = 8000
     type: str = "vLLM"
+    container_image: Optional[Union[str, ImageSpec, PodTemplate]] = None
     extra_args: Union[str, List[str]] = ""
     # In the future support ArtifactQuery
     model: Union[str, ArtifactQuery] = ""

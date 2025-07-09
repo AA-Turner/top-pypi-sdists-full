@@ -305,6 +305,8 @@ class CheckpointManagerOptions:
     deleted from the file system. Useful if checkpoint deletion is time
     consuming. By default, delete the checkpoint assets. Ignored if file system
     is Google Cloud Storage (directory is prefixed with gs://)
+  enable_hns_rmtree: If True, enables additional step of HNS bucket empty folder
+    deletion.
   enable_background_delete: If True, old checkpoint deletions will be done in a
     background thread, otherwise, it will be done at the end of each save.  When
     it's enabled, make sure to call CheckpointManager.close() or use context to
@@ -342,6 +344,12 @@ class CheckpointManagerOptions:
     checkpoints to preserve. If not provided, these other options are used
     instead. Prefer to use this option over others.
   prevent_write_metrics: False by default. If True, metrics will not be written.
+  enable_should_save_is_saving_in_progress_check: True by default. If False,
+    `should_save_fn` will not check `is_saving_in_progress`, and will assume
+    that no save is in progress. This only affects users of
+    `ContinuousCheckpointingPolicy` - otherwise the value is ignored.
+    This is an interim workaround for b/428061876. Do not use
+    without explicit approval.
   """
 
   save_interval_steps: int = 1
@@ -360,6 +368,7 @@ class CheckpointManagerOptions:
   save_on_steps: Optional[Container[int]] = None
   single_host_load_and_broadcast: bool = False
   todelete_subdir: Optional[str] = None
+  enable_hns_rmtree: bool = False
   enable_background_delete: bool = False
   read_only: bool = False
   enable_async_checkpointing: bool = True
@@ -378,6 +387,8 @@ class CheckpointManagerOptions:
       None
   )
   prevent_write_metrics: bool = False
+  # TODO(b/428061876) Remove this option.
+  enable_should_save_is_saving_in_progress_check: bool = True
 
   def __post_init__(self):
     step_name_format_single_host_load_and_broadcast = (
@@ -843,6 +854,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
             self._directory,
             self._options.todelete_subdir,
             self._step_name_format,
+            self._options.enable_hns_rmtree,
             self._options.enable_background_delete,
         )
     )
@@ -1155,7 +1167,10 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     if last_checkpoint_step is not None and last_checkpoint_step >= step:
       return False
 
-    is_saving_in_progress = self.is_saving_in_progress()
+    if self._options.enable_should_save_is_saving_in_progress_check:
+      is_saving_in_progress = self.is_saving_in_progress()
+    else:
+      is_saving_in_progress = False
     reached_preemption = self.reached_preemption(step)
     current_step_info = checkpoint_info.CheckpointInfo(
         step=step,
@@ -1426,43 +1441,12 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     args = args_lib.Composite(**args_dict)
 
     save_directory = self._get_write_step_directory(step, self.directory)
-    # If a folder for the step to save exists and is not finalized, remove the
-    # existing folder.
-    if step_lib.is_gcs_path(self.directory):
-      if (
-          utils.is_primary_host(self._multiprocessing_options.primary_host)
-          and save_directory.exists()
-          and utils.is_tmp_checkpoint(save_directory)
-      ):
-        logging.warning(
-            '[process=%s] Attempting to save on GCS at step %s which has an'
-            ' unfinalized checkpoint from previous runs. Removing the'
-            ' unfinalized checkpoint before saving.',
-            process_index,
-            step,
-        )
-        # make sure to use a synchronous deleter here
-        deleter.create_checkpoint_deleter(
-            self._multiprocessing_options.primary_host,
-            self._directory,
-            self._options.todelete_subdir,
-            self._step_name_format,
-            enable_background_delete=False,  # no background thread
-        ).delete(step)
-      multihost.sync_global_processes(
-          multihost.unique_barrier_key(
-              'CheckpointManager:delete_unfinalized_step_gcs',
-              prefix=self._multiprocessing_options.barrier_sync_key_prefix,
-          ),
-          timeout=multihost.DIRECTORY_DELETION_TIMEOUT,
-          processes=self._multiprocessing_options.active_processes,
-      )
     logging.info(
         '[process=%s] Saving checkpoint at step %d', process_index, step
     )
     step_stats.checkpointer_blocking_start_time = time.time()
     self._checkpointer.save(
-        save_directory, args=args, custom_metadata=custom_metadata
+        save_directory, args=args, custom_metadata=custom_metadata, force=True
     )
     step_stats.checkpointer_blocking_duration_secs = (
         time.time() - step_stats.checkpointer_blocking_start_time

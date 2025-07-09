@@ -2,13 +2,16 @@
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 build = "build.rs"
 name = "sentry-cli"
-version = "2.46.0"
+version = "2.47.0"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.86"
+
+[workspace]
 
 [dependencies]
 anylog = "0.6.3"
 anyhow = { version = "1.0.69", features = ["backtrace"] }
+apple-catalog-parsing = { path = "apple-catalog-parsing", optional = true }
 backoff = "0.4.0"
 brotli2 = "0.3.2"
 bytecount = "0.6.3"
@@ -91,12 +94,25 @@ default = []
 managed = []
 with_crash_reporting = []
 
+# Feature flag for the mobile-app command, as it is still under development.
+# CI tests run against this flag, but we don't include it in release builds.
+unstable-mobile-app = ["apple-catalog-parsing"]
+
+[workspace.lints.clippy]
+allow-attributes = "warn"
+unnecessary-wraps = "warn"
+unwrap-used = "warn"
+
+[lints]
+workspace = true
+
 [target]
 
 [target."cfg(target_os = \"macos\")"]
 
 [target."cfg(target_os = \"macos\")".dependencies]
 mac-process-info = "0.2.0"
+apple-catalog-parsing = { path = "apple-catalog-parsing" }
 
 [target."cfg(unix)"]
 

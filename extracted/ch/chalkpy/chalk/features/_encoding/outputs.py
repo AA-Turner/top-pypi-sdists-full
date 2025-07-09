@@ -34,6 +34,7 @@ def encode_namespaceless_underscore_proto(expr: NamespacelessUnderscoreExpr) -> 
 
 
 def encode_feature_expression_proto(expr: NamedUnderscoreExpr) -> FeatureExpression:
+    """Deprecated. Build features and use `overlay_graph` instead or aliased underscore expressions."""
     processed_expr = process_named_underscore_expr(expr)
     return FeatureExpression(
         namespace=expr.fqn.split(".")[0],
@@ -111,6 +112,7 @@ def encode_outputs(output: Sequence[Union[str, NamedUnderscoreExpr, Underscore, 
 
 
 def encode_named_underscore(output: NamedUnderscoreExpr) -> OutputExpression:
+    """Deprecated. Construct `OutputExpression`s using `encode_outputs` instead."""
     fe = encode_feature_expression_proto(output)
     base64_proto = encode_feature_expression_base64(fe)
     return OutputExpression(

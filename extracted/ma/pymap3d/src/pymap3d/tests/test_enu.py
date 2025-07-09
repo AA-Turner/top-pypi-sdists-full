@@ -4,9 +4,13 @@ import pymap3d as pm
 import pytest
 from pytest import approx
 
-ELL = pm.Ellipsoid.from_name("wgs84")
-A = ELL.semimajor_axis
-B = ELL.semiminor_axis
+
+def get_ellipsoid_params():
+    ell = pm.Ellipsoid.from_name("wgs84")
+    return ell.semimajor_axis, ell.semiminor_axis
+
+
+A, B = get_ellipsoid_params()
 
 
 @pytest.mark.parametrize("xyz", [(0, A, 50), ([0], [A], [50])], ids=("scalar", "list"))

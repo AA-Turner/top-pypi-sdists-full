@@ -1,66 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pymitter
-Version: 1.0.0
+Version: 1.1.2
 Summary: Python port of the extended Node.js EventEmitter 2 approach providing namespaces, wildcards and TTL.
-Author-email: Marcel Rieger <github.riga@icloud.com>
-License: Copyright (c) 2014-2024, Marcel Rieger
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-        * Redistributions of source code must retain the above copyright notice, this
-          list of conditions and the following disclaimer.
-        
-        * Redistributions in binary form must reproduce the above copyright notice,
-          this list of conditions and the following disclaimer in the documentation
-          and/or other materials provided with the distribution.
-        
-        * Neither the name of the copyright holder nor the names of its contributors
-          may be used to endorse or promote products derived from this software without
-          specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
 Project-URL: Homepage, https://github.com/riga/pymitter
 Project-URL: Documentation, https://pymitter.readthedocs.io
 Project-URL: Repository, https://github.com/riga/pymitter.git
-Keywords: event,emitter,eventemitter,wildcard,node,nodejs
+Project-URL: Bug Tracker, https://github.com/riga/pymitter/issues
+Project-URL: Changelog, https://github.com/riga/pymitter/releases
+Author-email: Marcel Rieger <github.riga@icloud.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: emitter,event,eventemitter,node,nodejs,wildcard
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Science/Research
-Classifier: Intended Audience :: Information Technology
-Requires-Python: >=3.7
+Requires-Python: >=3.9
+Requires-Dist: typing-extensions~=4.14.1
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Provides-Extra: dev
-Requires-Dist: flake8~=7.0.0; python_version >= "3.8" and extra == "dev"
-Requires-Dist: flake8~=5.0.0; python_version < "3.8" and extra == "dev"
-Requires-Dist: flake8-commas~=2.1.0; extra == "dev"
-Requires-Dist: flake8-quotes~=3.3.2; extra == "dev"
-Requires-Dist: types-docutils~=0.20.0; extra == "dev"
-Requires-Dist: pytest-cov>=3.0; extra == "dev"
-Requires-Dist: mypy>=1.4.1; extra == "dev"
-Requires-Dist: typing-extensions>=4.7.1; extra == "dev"
 
 <!-- marker-before-logo -->
 
@@ -76,7 +41,7 @@ Requires-Dist: typing-extensions>=4.7.1; extra == "dev"
   <a href="http://pymitter.readthedocs.io">
     <img alt="Documentation status" src="https://readthedocs.org/projects/pymitter/badge/?version=latest" />
   </a>
-  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.7-blue" />
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.9-blue" />
   <a href="https://pypi.python.org/pypi/pymitter">
     <img alt="Package version" src="https://img.shields.io/pypi/v/pymitter.svg?style=flat" />
   </a>
@@ -84,7 +49,7 @@ Requires-Dist: typing-extensions>=4.7.1; extra == "dev"
     <img alt="Package downloads" src="https://img.shields.io/pypi/dm/pymitter.svg" />
   </a>
   <a href="https://codecov.io/gh/riga/pymitter">
-    <img alt="Code coverge" src="https://codecov.io/gh/riga/pymitter/branch/master/graph/badge.svg?token=MePbStZF7U" />
+    <img alt="Code coverage" src="https://codecov.io/gh/riga/pymitter/branch/master/graph/badge.svg?token=MePbStZF7U" />
   </a>
   <a href="https://github.com/riga/pymitter/actions/workflows/lint_and_test.yml">
     <img alt="Build status" src="https://github.com/riga/pymitter/actions/workflows/lint_and_test.yml/badge.svg" />
@@ -114,7 +79,6 @@ Original source hosted at [GitHub](https://github.com/riga/pymitter).
 - Coroutine support
 - Lightweight implementation, good performance
 
-
 ## Installation
 
 Simply install via [pip](https://pypi.python.org/pypi/pymitter):
@@ -123,8 +87,8 @@ Simply install via [pip](https://pypi.python.org/pypi/pymitter):
 pip install pymitter
 ```
 
-The last version with Python 2 support was [v0.3.2](https://github.com/riga/pymitter/tree/v0.3.2) ([PyPI](https://pypi.org/project/pymitter/0.3.2)).
-
+- The last version supporting Python 2 was [v0.3.2](https://github.com/riga/pymitter/tree/v0.3.2) ([PyPI](https://pypi.org/project/pymitter/0.3.2)).
+- The last version supporting Python ≤3.8 was [v1.0.0](https://github.com/riga/pymitter/tree/v1.0.0) ([PyPI](https://pypi.org/project/pymitter/1.0.0)).
 
 ## Examples
 
@@ -168,7 +132,6 @@ ee.emit("my_third_event", "baz")
 # -> "handler3 called with baz"
 ```
 
-
 ### Coroutines
 
 Wrapping `async` functions outside an event loop will start an internal event loop and calls to `emit` return synchronously.
@@ -211,7 +174,6 @@ async def main():
 
 Use `emit_future` to not return awaitable objects but to place them at the end of the existing event loop (using `asyncio.ensure_future` internally).
 
-
 ### TTL (times to listen)
 
 ```python
@@ -241,7 +203,6 @@ ee.emit("my_event")
 ee.emit("my_event")
 # nothing called anymore
 ```
-
 
 ### Wildcards
 
@@ -281,14 +242,13 @@ ee.emit("my_event.*")
 # -> "handler3 called"
 ```
 
-
 ## API
 
 ### `EventEmitter(*, wildcard=False, delimiter=".", new_listener=False, max_listeners=-1)`
 
 EventEmitter constructor. **Note**: always use *kwargs* for configuration.
 When *wildcard* is *True*, wildcards are used as shown in [this example](#wildcards).
-*delimiter* is used to seperate namespaces within events.
+*delimiter* is used to separate namespaces within events.
 If *new_listener* is *True*, the *"new_listener"* event is emitted every time a new listener is registered.
 Functions listening to this event are passed `(func, event=None)`.
 *max_listeners* defines the maximum number of listeners per event.
@@ -335,22 +295,21 @@ Negative values mean infinity.
 
 - #### `emit(event, *args, **kwargs)`
     Emits an event.
-    All functions of events that match *event* are invoked with *args* and *kwargs* in the exact order of their registeration.
+    All functions of events that match *event* are invoked with *args* and *kwargs* in the exact order of their registration.
     Async functions are called in a new event loop.
     There is no return value.
 
 - #### `(async) emit_async(event, *args, **kwargs)`
     Emits an event.
-    All functions of events that match *event* are invoked with *args* and *kwargs* in the exact order of their registeration.
+    All functions of events that match *event* are invoked with *args* and *kwargs* in the exact order of their registration.
     Awaitable objects returned by async functions are awaited in the outer event loop.
     Returns an `Awaitable`.
 
 - #### `emit_future(event, *args, **kwargs)`
     Emits an event.
-    All functions of events that match *event* are invoked with *args* and *kwargs* in the exact order of their registeration.
+    All functions of events that match *event* are invoked with *args* and *kwargs* in the exact order of their registration.
     Awaitable objects returned by async functions are placed at the end of the event loop using `asyncio.ensure_future`.
     There is no return value.
-
 
 ## Development
 

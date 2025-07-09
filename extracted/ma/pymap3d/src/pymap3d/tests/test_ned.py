@@ -4,10 +4,6 @@ from pytest import approx
 lla0 = (42, -82, 200)
 aer0 = (33, 70, 1000)
 
-ELL = pm.Ellipsoid.from_name("wgs84")
-A = ELL.semimajor_axis
-B = ELL.semiminor_axis
-
 
 def test_ecef_ned():
     enu = pm.aer2enu(*aer0)
@@ -24,6 +20,7 @@ def test_enuv_nedv():
     vx, vy, vz = (5, 3, 2)
     ve, vn, vu = (5.368859646588048, 3.008520763668120, -0.352347711524077)
     assert pm.ecef2enuv(vx, vy, vz, *lla0[:2]) == approx((ve, vn, vu))
+    assert pm.enu2ecefv(ve, vn, vu, *lla0[:2]) == approx((vx, vy, vz))
 
     assert pm.ecef2nedv(vx, vy, vz, *lla0[:2]) == approx((vn, ve, -vu))
 

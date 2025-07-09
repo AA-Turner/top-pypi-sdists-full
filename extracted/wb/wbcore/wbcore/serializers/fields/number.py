@@ -14,17 +14,12 @@ class NumberFieldMixin:
         percent=False,
         display_mode=DisplayMode.DECIMAL,
         precision=2,
-        delimiter=",",
-        decimal_mark=".",
         signed: bool = True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.percent = percent
-        self.delimiter = delimiter
-        self.decimal_mark = decimal_mark
-        if self.delimiter == self.decimal_mark:
-            raise ValueError("Decimal mark and delimiter need to be different character")
+        self.disable_formatting = getattr(self, "disable_formatting", kwargs.pop("disable_formatting", False))
         self.display_mode = display_mode
         self.precision = kwargs.get("decimal_places", precision)
         self.max_digits = kwargs.get("max_digits", 34)
@@ -43,8 +38,7 @@ class NumberFieldMixin:
         representation["display_mode"] = self.display_mode.value
         representation["precision"] = self.precision
         representation["max_digits"] = self.max_digits
-        representation["delimiter"] = self.delimiter
-        representation["decimal_mark"] = self.decimal_mark
+        representation["disable_formatting"] = self.disable_formatting
         representation["signed"] = self.signed
 
         if self.percent:  # TODO: Discuss with Christoph if this is necessary like this
@@ -62,10 +56,7 @@ class IntegerField(NumberFieldMixin, WBCoreSerializerFieldMixin, serializers.Int
 
 
 class YearField(IntegerField):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.delimiter = ""
-        self.decimal_mark = "."
+    disable_formatting = True
 
 
 class DecimalField(NumberFieldMixin, WBCoreSerializerFieldMixin, serializers.DecimalField):

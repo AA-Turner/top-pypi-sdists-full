@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pymap3d
-Version: 3.1.0
+Version: 3.2.0
 Summary: pure Python (no prereqs) coordinate conversions, following convention of several popular Matlab routines.
 Keywords: coordinate-conversion,geodesy
 Classifier: Development Status :: 5 - Production/Stable
@@ -10,12 +10,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
-Requires-Dist: pytest-timeout; extra == "tests"
 Provides-Extra: lint
 Requires-Dist: flake8; extra == "lint"
 Requires-Dist: flake8-bugbear; extra == "lint"
@@ -37,6 +36,7 @@ Requires-Dist: astropy; extra == "full"
 Requires-Dist: xarray; extra == "full"
 Provides-Extra: proj
 Requires-Dist: pyproj; extra == "proj"
+Dynamic: license-file
 
 # Python 3-D coordinate conversions
 
@@ -216,6 +216,10 @@ pytest -k matlab
 use
 [Matlab Engine for Python](https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html)
 to compare Python PyMap3D output with Matlab output using Matlab functions.
+
+```sh
+python -m pip install matlabengine
+```
 
 ## Notes
 

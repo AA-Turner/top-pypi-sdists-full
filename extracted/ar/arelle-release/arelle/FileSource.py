@@ -13,7 +13,7 @@ import struct
 import tarfile
 import zipfile
 import zlib
-from typing import IO, TYPE_CHECKING, Any, Optional, TextIO, cast
+from typing import IO, TYPE_CHECKING, Any, BinaryIO, Optional, TextIO, cast
 
 import regex as re
 from lxml import etree
@@ -44,15 +44,17 @@ TAXONOMY_PACKAGE_FILE_NAMES = ('.taxonomyPackage.xml', 'catalog.xml') # pre-PWD 
 def openFileSource(
     filename: str | None,
     cntlr: Cntlr | None = None,
-    sourceZipStream: str | None = None,
+    sourceZipStream: BinaryIO | FileNamedBytesIO | None = None,
     checkIfXmlIsEis: bool = False,
     reloadCache: bool = False,
     base: str | None = None,
     sourceFileSource: FileSource | None = None,
-    sourceZipStreamFileName: str | None = None,
 ) -> FileSource:
     if sourceZipStream:
-        sourceZipStreamFileName = os.sep + (sourceZipStreamFileName or "POSTupload.zip")
+        if isinstance(sourceZipStream, FileNamedBytesIO) and sourceZipStream.fileName:
+            sourceZipStreamFileName = os.sep + sourceZipStream.fileName
+        else:
+            sourceZipStreamFileName = os.sep + "POSTupload.zip"
         filesource = FileSource(sourceZipStreamFileName, cntlr)
         filesource.openZipStream(sourceZipStream)
         if filename:
@@ -390,7 +392,7 @@ class FileSource:
                 assert self.taxonomyPackage is not None
                 self.mappedPaths = cast('dict[str, str]', self.taxonomyPackage.get("remappings"))
 
-    def openZipStream(self, sourceZipStream: str) -> None:
+    def openZipStream(self, sourceZipStream: BinaryIO) -> None:
         if not self.isOpen:
             assert isinstance(self.url, str)
             self.basefile = self.url
@@ -654,6 +656,30 @@ class FileSource:
             return (openFileStream(self.cntlr, filepath, 'rt', encoding=encoding), )
         else:
             return openXmlFileStream(self.cntlr, filepath, stripDeclaration)
+
+    def getBytesSize(self) -> int | None:
+        """
+        Get the size of the zip file in bytes.
+        :return: Size of the zip file in bytes, or None if not applicable.
+        """
+        if isinstance(self.basefile, str) and os.path.isfile(self.basefile):
+            return os.path.getsize(self.basefile)
+        # ZipFile.fp is a private field, but is currently the simplest way for us to
+        # access the internal stream
+        if isinstance(self.fs, zipfile.ZipFile) and (fp := getattr(self.fs, 'fp')) is not None:
+            stream = cast(IO[Any], fp)
+            stream.seek(0, 2)  # Move to the end of the file
+            return stream.tell()  # Report the current position, which is the size of the file
+        return None
+
+    def getBytesSizeEstimate(self) -> int | None:
+        """
+        Get an estimated size of the zip file in bytes.
+        :return: Estimated size of the zip file in bytes, or None if not applicable.
+        """
+        if not isinstance(self.fs, zipfile.ZipFile):
+            return None
+        return sum(zi.compress_size for zi in self.fs.infolist())
 
     def exists(self, filepath: str) -> bool:
         archiveFileSource = self.fileSourceContainingFilepath(filepath)

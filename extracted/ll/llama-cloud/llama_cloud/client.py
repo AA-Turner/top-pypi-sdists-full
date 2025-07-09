@@ -7,15 +7,16 @@ import httpx
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .environment import LlamaCloudEnvironment
 from .resources.admin.client import AdminClient, AsyncAdminClient
+from .resources.agent_deployments.client import AgentDeploymentsClient, AsyncAgentDeploymentsClient
 from .resources.beta.client import AsyncBetaClient, BetaClient
 from .resources.chat_apps.client import AsyncChatAppsClient, ChatAppsClient
+from .resources.classifier.client import AsyncClassifierClient, ClassifierClient
 from .resources.data_sinks.client import AsyncDataSinksClient, DataSinksClient
 from .resources.data_sources.client import AsyncDataSourcesClient, DataSourcesClient
 from .resources.embedding_model_configs.client import AsyncEmbeddingModelConfigsClient, EmbeddingModelConfigsClient
 from .resources.evals.client import AsyncEvalsClient, EvalsClient
 from .resources.files.client import AsyncFilesClient, FilesClient
 from .resources.jobs.client import AsyncJobsClient, JobsClient
-from .resources.llama_apps.client import AsyncLlamaAppsClient, LlamaAppsClient
 from .resources.llama_extract.client import AsyncLlamaExtractClient, LlamaExtractClient
 from .resources.organizations.client import AsyncOrganizationsClient, OrganizationsClient
 from .resources.parsing.client import AsyncParsingClient, ParsingClient
@@ -52,7 +53,8 @@ class LlamaCloud:
         self.evals = EvalsClient(client_wrapper=self._client_wrapper)
         self.parsing = ParsingClient(client_wrapper=self._client_wrapper)
         self.chat_apps = ChatAppsClient(client_wrapper=self._client_wrapper)
-        self.llama_apps = LlamaAppsClient(client_wrapper=self._client_wrapper)
+        self.agent_deployments = AgentDeploymentsClient(client_wrapper=self._client_wrapper)
+        self.classifier = ClassifierClient(client_wrapper=self._client_wrapper)
         self.admin = AdminClient(client_wrapper=self._client_wrapper)
         self.llama_extract = LlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = ReportsClient(client_wrapper=self._client_wrapper)
@@ -86,7 +88,8 @@ class AsyncLlamaCloud:
         self.evals = AsyncEvalsClient(client_wrapper=self._client_wrapper)
         self.parsing = AsyncParsingClient(client_wrapper=self._client_wrapper)
         self.chat_apps = AsyncChatAppsClient(client_wrapper=self._client_wrapper)
-        self.llama_apps = AsyncLlamaAppsClient(client_wrapper=self._client_wrapper)
+        self.agent_deployments = AsyncAgentDeploymentsClient(client_wrapper=self._client_wrapper)
+        self.classifier = AsyncClassifierClient(client_wrapper=self._client_wrapper)
         self.admin = AsyncAdminClient(client_wrapper=self._client_wrapper)
         self.llama_extract = AsyncLlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = AsyncReportsClient(client_wrapper=self._client_wrapper)

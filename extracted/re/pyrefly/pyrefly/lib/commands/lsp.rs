@@ -178,6 +178,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
+use crate::config::util::ConfigOrigin;
 use crate::error::error::Error;
 use crate::error::kind::Severity;
 use crate::module::module_info::ModuleInfo;
@@ -494,26 +495,23 @@ impl Workspaces {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir
-                && config.python_interpreter.is_none()
-                && config.conda_environment.is_none()
+                && config.interpreters.python_interpreter.is_none()
+                && config.interpreters.conda_environment.is_none()
             {
                 workspaces.get_with(dir.to_owned(), |w| {
                     if let Some(search_path) = w.search_path.clone() {
                         config.search_path_from_args = search_path;
                     }
-                    if let Some(PythonInfo { interpreter, env }) = w.python_info.clone() {
+                    if let Some(PythonInfo {
+                        interpreter,
+                        mut env,
+                    }) = w.python_info.clone()
+                    {
                         let site_package_path = config.python_environment.site_package_path.take();
-                        config.python_interpreter = Some(interpreter);
+                        env.site_package_path = site_package_path;
+                        config.interpreters.python_interpreter =
+                            Some(ConfigOrigin::auto(interpreter));
                         config.python_environment = env;
-                        if let Some(new) = site_package_path {
-                            let mut workspace = config
-                                .python_environment
-                                .site_package_path
-                                .take()
-                                .unwrap_or_default();
-                            workspace.extend(new);
-                            config.python_environment.site_package_path = Some(workspace);
-                        }
                     }
                 })
             };

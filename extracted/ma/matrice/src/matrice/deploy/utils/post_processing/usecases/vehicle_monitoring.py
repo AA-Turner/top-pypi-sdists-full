@@ -274,7 +274,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
         # Deduplicate overlapping vehicles (same label, high IoU)
-        # processed_data = self._deduplicate_vehicles(processed_data, iou_thresh=0.92)
+        processed_data = self._deduplicate_vehicles(processed_data, iou_thresh=0.95)
 
         # Update vehicle tracking state for total count per label
         self._update_vehicle_tracking_state(processed_data)
@@ -466,23 +466,21 @@ class VehicleMonitoringUseCase(BaseProcessor):
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
         total_vehicles = counting_summary.get("total_count", 0)
-
-        if total_vehicles > 0:
-            # Add detailed track_ids_info (like people_counting)
-            track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-            tracking_stat = {
-                "type": "vehicle_tracking",
-                "category": "vehicle",
-                "count": total_vehicles,
-                "insights": insights,
-                "summary": summary,
-                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-                "human_text": summary,
-                "track_ids_info": track_ids_info,
-                "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-                "local_frame_id": frame_key
-            }
-            frame_tracking_stats.append(tracking_stat)
+        # Add detailed track_ids_info (like people_counting)
+        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+        tracking_stat = {
+            "type": "vehicle_tracking",
+            "category": "vehicle",
+            "count": total_vehicles,
+            "insights": insights,
+            "summary": summary,
+            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
+            "human_text": summary,
+            "track_ids_info": track_ids_info,
+            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
+            "local_frame_id": frame_key
+        }
+        frame_tracking_stats.append(tracking_stat)
 
         return tracking_stats
 
@@ -594,7 +592,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
                     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
                     alert_description = f"Vehicles count ({total}) exceeds threshold ({threshold})"
                     alerts.append({
-                        "type": "count_threshold",
+                    "type": "count_threshold",
                     "severity": "warning",
                     "message": f"Total vehicle count ({total}) exceeds threshold ({threshold})",
                     "category": category,

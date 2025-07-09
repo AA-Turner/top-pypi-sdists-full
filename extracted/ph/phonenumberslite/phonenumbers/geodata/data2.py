@@ -2772,6 +2772,7 @@ data = {
  '1742':{'en': 'Ontario'},
  '1743':{'en': 'North Carolina'},
  '1747':{'en': 'California'},
+ '1748':{'en': 'Colorado'},
  '1753':{'en': 'Ontario'},
  '1754':{'en': 'Florida'},
  '1757':{'en': 'Virginia'},
@@ -10018,5 +10019,4 @@ data = {
  '1918649':{'en': 'Poteau, OK'},
  '1918652':{'en': 'Henryetta, OK'},
  '1918653':{'en': 'Heavener, OK'},
- '1918660':{'en': 'Tulsa, OK'},
 }

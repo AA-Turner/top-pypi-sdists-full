@@ -14,6 +14,7 @@ from ..usecases.color_detection import ColorDetectionUseCase, ColorDetectionConf
 from ..usecases.ppe_compliance import PPEComplianceUseCase, PPEComplianceConfig
 from ..usecases.vehicle_monitoring import VehicleMonitoringConfig, VehicleMonitoringUseCase
 from ..usecases.fire_detection import FireSmokeConfig, FireSmokeUseCase
+from ..usecases.flare_analysis import FlareAnalysisConfig,FlareAnalysisUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -25,6 +26,7 @@ __all__ = [
     'PPEComplianceUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
+    'FlareAnalysisUseCase',
     'PeopleCountingConfig',
     'CustomerServiceConfig',
     'AdvancedCustomerServiceConfig',
@@ -32,5 +34,6 @@ __all__ = [
     'LicensePlateConfig',
     'ColorDetectionConfig',
     'VehicleMonitoringConfig',
-    'FireSmokeConfig'
+    'FireSmokeConfig',
+    'FlareAnalysisConfig'
 ]

@@ -1,4 +1,4 @@
-""" isometric latitude, meridian distance """
+"""isometric latitude, meridian distance"""
 
 from __future__ import annotations
 
@@ -30,11 +30,10 @@ __all__ = [
     "meanm",
 ]
 
-ELL = Ellipsoid.from_name("wgs84")
 COS_EPS = 1e-9
 
 
-def meridian_dist(lat, ell: Ellipsoid = ELL, deg: bool = True) -> float:
+def meridian_dist(lat, ell: Ellipsoid | None = None, deg: bool = True) -> float:
     """
     Computes the ground distance on an ellipsoid from the equator to the input latitude.
 
@@ -55,7 +54,7 @@ def meridian_dist(lat, ell: Ellipsoid = ELL, deg: bool = True) -> float:
     return meridian_arc(0.0, lat, ell, deg)
 
 
-def meridian_arc(lat1, lat2, ell: Ellipsoid = ELL, deg: bool = True) -> float:
+def meridian_arc(lat1, lat2, ell: Ellipsoid | None = None, deg: bool = True) -> float:
     """
     Computes the ground distance on an ellipsoid between two latitudes.
 
@@ -88,7 +87,7 @@ def loxodrome_inverse(
     lon1,
     lat2,
     lon2,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple[float, float]:
     """
@@ -180,7 +179,7 @@ def loxodrome_direct(
     lon1,
     rng,
     a12,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """
@@ -261,7 +260,7 @@ def loxodrome_direct(
         return lat2, lon2
 
 
-def departure(lon1, lon2, lat, ell: Ellipsoid = ELL, deg: bool = True) -> float:
+def departure(lon1, lon2, lat, ell: Ellipsoid | None = None, deg: bool = True) -> float:
     """
     Computes the distance along a specific parallel between two meridians.
 
@@ -289,7 +288,7 @@ def departure(lon1, lon2, lat, ell: Ellipsoid = ELL, deg: bool = True) -> float:
     return rcurve.parallel(lat, ell=ell, deg=False) * (abs(lon2 - lon1) % pi)
 
 
-def meanm(lat, lon, ell: Ellipsoid = ELL, deg: bool = True) -> tuple:
+def meanm(lat, lon, ell: Ellipsoid | None = None, deg: bool = True) -> tuple:
     """
     Computes geographic mean for geographic points on an ellipsoid
 

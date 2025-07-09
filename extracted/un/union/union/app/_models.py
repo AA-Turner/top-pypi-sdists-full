@@ -12,6 +12,7 @@ from inspect import getmembers
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Protocol, Union, runtime_checkable
+from typing import Literal as L
 
 from flyteidl.core.literals_pb2 import KeyValuePair
 from flyteidl.core.tasks_pb2 import Container, ContainerPort, ExtendedResources, K8sObjectMetadata, K8sPod
@@ -19,6 +20,7 @@ from flyteidl.core.tasks_pb2 import Resources as ResourcesIDL
 from flytekit import FlyteContextManager, ImageSpec, Resources
 from flytekit.core.artifact import ArtifactQuery
 from flytekit.core.pod_template import PodTemplate
+from flytekit.core.resources import construct_extended_resources
 from flytekit.extras.accelerators import BaseAccelerator
 from flytekit.models.security import Secret
 from mashumaro.codecs.json import JSONEncoder
@@ -364,6 +366,8 @@ class App:
     :param subdomain: Custom subdomain for your app.
     :param custom_domain: Custom full domain for your app.
     :param links: Links to external URLs or relative paths.
+    :param shared_memory: If True, then shared memory will be attached to the container where the size is equal
+            to the allocated memory. If str, then the shared memory is set to that size.
     """
 
     @dataclass
@@ -397,6 +401,7 @@ class App:
     subdomain: Optional[str] = None
     custom_domain: Optional[str] = None
     links: List[Link] = field(default_factory=list)
+    shared_memory: Optional[Union[L[True], str]] = None
 
     _include_resolved: Optional[List[ResolvedInclude]] = field(default=None, init=False)
     _port: Optional[Port] = field(default=None, init=False)
@@ -682,9 +687,7 @@ class App:
         return self.env
 
     def _get_extended_resources(self) -> Optional[ExtendedResources]:
-        if self.accelerator is None:
-            return None
-        return ExtendedResources(gpu_accelerator=self.accelerator.to_flyte_idl())
+        return construct_extended_resources(accelerator=self.accelerator, shared_memory=self.shared_memory)
 
     def _to_union_idl(self, settings: AppSerializationSettings) -> AppIDL:
         if self.config is not None:

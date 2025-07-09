@@ -110,6 +110,7 @@ from chalk.client.models import (
     OnlineQueryResponse,
     OnlineQueryResponseFeather,
     OnlineQueryResultFeather,
+    OutputExpression,
     PersistenceSettings,
     PingRequest,
     PingResponse,
@@ -146,12 +147,11 @@ from chalk.features import (
 )
 from chalk.features._encoding.inputs import recursive_encode_inputs, validate_iterable_values_in_mapping
 from chalk.features._encoding.json import FeatureEncodingOptions
-from chalk.features._encoding.outputs import encode_named_underscore, encode_outputs
+from chalk.features._encoding.outputs import encode_outputs
 from chalk.features.feature_set import Features, is_feature_set_class
 from chalk.features.pseudofeatures import CHALK_TS_FEATURE
 from chalk.features.resolver import Resolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
-from chalk.features.underscore_features import NamedUnderscoreExpr
 from chalk.importer import CHALK_IMPORT_FLAG
 from chalk.parsed._proto.utils import encode_proto_to_b64
 from chalk.parsed.branch_state import BranchGraphSummary
@@ -2508,12 +2508,24 @@ https://docs.chalk.ai/cli/apply
         upper_bound_str = process_bound(upper_bound)
         if branch is ...:
             branch = self._branch
-        if isinstance(reference_output, NamedUnderscoreExpr):
-            encoded_reference_output = encode_named_underscore(reference_output)
-        elif reference_output is None:
-            encoded_reference_output = None
+        if reference_output is not None:
+            reference_output_encoded = encode_outputs([reference_output])
+            if (
+                len(reference_output_encoded.feature_expressions_proto) == 1
+                and len(reference_output_encoded.feature_expressions_base64) == 1
+            ):
+                encoded_reference_output = OutputExpression(
+                    base64_proto=reference_output_encoded.feature_expressions_base64[0],
+                    python_repr=repr(reference_output),
+                    output_column_name=reference_output_encoded.feature_expressions_proto[0].output_column_name,
+                )
+            elif len(reference_output_encoded.string_outputs) == 1:
+                encoded_reference_output = reference_output_encoded.string_outputs[0]
+            else:
+                raise ValueError(f"Could not parse reference output: {reference_output}")
         else:
-            encoded_reference_output = str(reference_output)
+            encoded_reference_output = None
+
         request = CreatePromptEvaluationRequest(
             prompts=prompts,
             dataset_id=str(dataset.dataset_id) if dataset is not None else None,
@@ -2554,6 +2566,7 @@ https://docs.chalk.ai/cli/apply
             completion_deadline=timedelta_to_duration(completion_deadline) if completion_deadline is not None else None,
             max_retries=max_retries,
             use_job_queue=use_job_queue,
+            overlay_graph=_get_overlay_graph_b64(),
         )
 
         response = self._request(
@@ -2582,7 +2595,7 @@ https://docs.chalk.ai/cli/apply
         revision.wait_for_completion(
             show_progress=show_progress if isinstance(show_progress, bool) else True,
             timeout=timeout,
-            caller_method="offline_query",
+            caller_method="prompt_evaluation",
         )
         initialized_dataset.is_finished = True
         return initialized_dataset

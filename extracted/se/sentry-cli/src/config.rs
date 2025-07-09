@@ -251,7 +251,7 @@ impl Config {
         let path = path.trim_start_matches('/');
         let path = path.trim_start_matches("api/0/");
 
-        Ok(format!("{}/api/0/{}", base, path))
+        Ok(format!("{base}/api/0/{path}"))
     }
 
     /// Returns the log level.
@@ -723,7 +723,7 @@ impl Clone for Config {
     }
 }
 
-#[allow(clippy::manual_map)]
+#[expect(clippy::manual_map)]
 fn get_default_auth(ini: &Ini) -> Option<Auth> {
     if let Ok(val) = env::var("SENTRY_AUTH_TOKEN") {
         Some(Auth::Token(val.into()))

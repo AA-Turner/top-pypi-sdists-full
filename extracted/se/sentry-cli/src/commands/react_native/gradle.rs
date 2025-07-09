@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "contains legacy code which uses unwrap")]
+
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -118,8 +120,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
     if let Some(version) = version {
         for dist in matches.get_many::<String>("dist").unwrap() {
             println!(
-                "Uploading sourcemaps for release {} distribution {}",
-                version, dist
+                "Uploading sourcemaps for release {version} distribution {dist}"
             );
 
             processor.upload(&UploadContext {

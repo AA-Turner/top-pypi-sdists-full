@@ -1,5 +1,4 @@
-# Copyright (c) 2014-2018 Michael Hirsch, Ph.D.
-""" convert strings to datetime """
+"""convert strings to datetime"""
 
 from __future__ import annotations
 

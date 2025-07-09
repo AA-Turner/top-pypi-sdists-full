@@ -36,7 +36,7 @@ jobs:
         run: |
           echo "${{ steps.diff.outputs.diff }}"
       - name: Generate PR title
-        uses: ai-action/ollama-action@v1.0.1
+        uses: ai-action/ollama-action@v1.1.1
         if: steps.diff.outputs.has_changes == 'true'
         id: title-llm
         with:

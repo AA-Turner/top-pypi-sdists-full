@@ -40,6 +40,8 @@ from .chat_app import ChatApp
 from .chat_app_response import ChatAppResponse
 from .chat_data import ChatData
 from .chunk_mode import ChunkMode
+from .classification_result import ClassificationResult
+from .classify_response import ClassifyResponse
 from .cloud_az_storage_blob_data_source import CloudAzStorageBlobDataSource
 from .cloud_azure_ai_search_vector_store import CloudAzureAiSearchVectorStore
 from .cloud_box_data_source import CloudBoxDataSource
@@ -400,6 +402,8 @@ __all__ = [
     "ChatAppResponse",
     "ChatData",
     "ChunkMode",
+    "ClassificationResult",
+    "ClassifyResponse",
     "CloudAzStorageBlobDataSource",
     "CloudAzureAiSearchVectorStore",
     "CloudBoxDataSource",

@@ -12,9 +12,14 @@ except ImportError:
 
 import pymap3d as pm
 
-ELL = pm.Ellipsoid.from_name("wgs84")
-A = ELL.semimajor_axis
-B = ELL.semiminor_axis
+
+def get_ellipsoid_params():
+    ell = pm.Ellipsoid.from_name("wgs84")
+    return ell.semimajor_axis, ell.semiminor_axis
+
+
+A, B = get_ellipsoid_params()
+
 
 llrlla = [
     ((0, 0, A - 1), (0, 0, -1)),

@@ -50,9 +50,15 @@ class ModelChoiceFilterMixin(WBCoreFilterMixin):
         url = reverse(self.endpoint, request=request)
         if self.filter_params:
             if callable(self.filter_params):
-                url += f"?{urlencode(self.filter_params(request, view))}"
+                filter_params = self.filter_params(request, view)
             else:
-                url += f"?{urlencode(self.filter_params)}"
+                filter_params = self.filter_params
+            # we need to convert any list into comma seperated string
+            for key, value in filter_params.items():
+                if isinstance(value, list):
+                    filter_params[key] = ",".join(map(lambda x: str(x), value))
+
+            url += f"?{urlencode(filter_params, doseq=True)}"
         lookup_expr["input_properties"]["endpoint"] = {
             "url": url,
             "value_key": self.value_key,

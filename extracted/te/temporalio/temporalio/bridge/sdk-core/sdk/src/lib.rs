@@ -298,12 +298,9 @@ impl Worker {
                         shutdown_token.clone(),
                         activation,
                         &completions_tx,
-                    )? {
-                        if wf_future_tx.send(wf_fut).is_err() {
-                            panic!(
-                                "Receive half of completion processor channel cannot be dropped"
-                            );
-                        }
+                    )? && wf_future_tx.send(wf_fut).is_err()
+                    {
+                        panic!("Receive half of completion processor channel cannot be dropped");
                     }
                 }
                 // Tell still-alive workflows to evict themselves
@@ -558,12 +555,11 @@ impl ActivityHalf {
                                 explicit_delay,
                             } => ActivityExecutionResult::fail({
                                 let mut f = Failure::application_failure_from_error(source, false);
-                                if let Some(d) = explicit_delay {
-                                    if let Some(failure::FailureInfo::ApplicationFailureInfo(fi)) =
+                                if let Some(d) = explicit_delay
+                                    && let Some(failure::FailureInfo::ApplicationFailureInfo(fi)) =
                                         f.failure_info.as_mut()
-                                    {
-                                        fi.next_retry_delay = d.try_into().ok();
-                                    }
+                                {
+                                    fi.next_retry_delay = d.try_into().ok();
                                 }
                                 f
                             }),
@@ -711,15 +707,15 @@ impl Unblockable for NexusStartResult {
     fn unblock(ue: UnblockEvent, od: Self::OtherDat) -> Self {
         match ue {
             UnblockEvent::NexusOperationStart(_, result) => match *result {
-                resolve_nexus_operation_start::Status::OperationId(op_id) => {
+                resolve_nexus_operation_start::Status::OperationToken(op_token) => {
                     Ok(StartedNexusOperation {
-                        operation_id: Some(op_id),
+                        operation_token: Some(op_token),
                         unblock_dat: od,
                     })
                 }
                 resolve_nexus_operation_start::Status::StartedSync(_) => {
                     Ok(StartedNexusOperation {
-                        operation_id: None,
+                        operation_token: None,
                         unblock_dat: od,
                     })
                 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-arango
-Version: 8.2.0
+Version: 8.2.1
 Summary: Python Driver for ArangoDB
 Author-email: Joohwan Oh <joohwan.oh@outlook.com>
 Maintainer-email: Joohwan Oh <joohwan.oh@outlook.com>, Alexandru Petenchea <alex.petenchea@gmail.com>, Anthony Mahanna <anthony.mahanna@arangodb.com>

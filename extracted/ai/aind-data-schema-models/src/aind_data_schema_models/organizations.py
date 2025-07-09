@@ -1,6 +1,6 @@
 """Organizations"""
 
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Annotated
@@ -15,8 +15,8 @@ class OrganizationModel(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
     abbreviation: str
-    registry: Registry.ONE_OF
-    registry_identifier: str
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Aa_Opto_Electronic(OrganizationModel):
@@ -24,8 +24,8 @@ class _Aa_Opto_Electronic(OrganizationModel):
 
     name: Literal["AA Opto Electronic"] = "AA Opto Electronic"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Asus(OrganizationModel):
@@ -33,8 +33,8 @@ class _Asus(OrganizationModel):
 
     name: Literal["ASUS"] = "ASUS"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00bxkz165"] = "00bxkz165"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00bxkz165")
 
 
 class _Abcam(OrganizationModel):
@@ -42,8 +42,8 @@ class _Abcam(OrganizationModel):
 
     name: Literal["Abcam"] = "Abcam"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02e1wjw63"] = "02e1wjw63"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02e1wjw63")
 
 
 class _Addgene(OrganizationModel):
@@ -51,8 +51,8 @@ class _Addgene(OrganizationModel):
 
     name: Literal["Addgene"] = "Addgene"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["01nn1pw54"] = "01nn1pw54"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="01nn1pw54")
 
 
 class _Ailipu_Technology_Co(OrganizationModel):
@@ -60,8 +60,8 @@ class _Ailipu_Technology_Co(OrganizationModel):
 
     name: Literal["Ailipu Technology Co"] = "Ailipu Technology Co"
     abbreviation: Literal["Ailipu"] = "Ailipu"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Allen_Institute(OrganizationModel):
@@ -69,8 +69,8 @@ class _Allen_Institute(OrganizationModel):
 
     name: Literal["Allen Institute"] = "Allen Institute"
     abbreviation: Literal["AI"] = "AI"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03cpe7c52"] = "03cpe7c52"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03cpe7c52")
 
 
 class _Allen_Institute_For_Brain_Science(OrganizationModel):
@@ -78,8 +78,8 @@ class _Allen_Institute_For_Brain_Science(OrganizationModel):
 
     name: Literal["Allen Institute for Brain Science"] = "Allen Institute for Brain Science"
     abbreviation: Literal["AIBS"] = "AIBS"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00dcv1019"] = "00dcv1019"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00dcv1019")
 
 
 class _Allen_Institute_For_Neural_Dynamics(OrganizationModel):
@@ -87,8 +87,8 @@ class _Allen_Institute_For_Neural_Dynamics(OrganizationModel):
 
     name: Literal["Allen Institute for Neural Dynamics"] = "Allen Institute for Neural Dynamics"
     abbreviation: Literal["AIND"] = "AIND"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["04szwah67"] = "04szwah67"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="04szwah67")
 
 
 class _Allied(OrganizationModel):
@@ -96,8 +96,8 @@ class _Allied(OrganizationModel):
 
     name: Literal["Allied"] = "Allied"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Applied_Scientific_Instrumentation(OrganizationModel):
@@ -105,8 +105,8 @@ class _Applied_Scientific_Instrumentation(OrganizationModel):
 
     name: Literal["Applied Scientific Instrumentation"] = "Applied Scientific Instrumentation"
     abbreviation: Literal["ASI"] = "ASI"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Arecont_Vision_Costar(OrganizationModel):
@@ -114,8 +114,8 @@ class _Arecont_Vision_Costar(OrganizationModel):
 
     name: Literal["Arecont Vision Costar"] = "Arecont Vision Costar"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Basler(OrganizationModel):
@@ -123,8 +123,8 @@ class _Basler(OrganizationModel):
 
     name: Literal["Basler"] = "Basler"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Baylor_College_Of_Medicine(OrganizationModel):
@@ -132,8 +132,8 @@ class _Baylor_College_Of_Medicine(OrganizationModel):
 
     name: Literal["Baylor College of Medicine"] = "Baylor College of Medicine"
     abbreviation: Literal["BCM"] = "BCM"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02pttbw34"] = "02pttbw34"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02pttbw34")
 
 
 class _Boston_University(OrganizationModel):
@@ -141,8 +141,8 @@ class _Boston_University(OrganizationModel):
 
     name: Literal["Boston University"] = "Boston University"
     abbreviation: Literal["BU"] = "BU"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["05qwgg493"] = "05qwgg493"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="05qwgg493")
 
 
 class _Cajal_Neuroscience(OrganizationModel):
@@ -150,8 +150,8 @@ class _Cajal_Neuroscience(OrganizationModel):
 
     name: Literal["Cajal Neuroscience"] = "Cajal Neuroscience"
     abbreviation: Literal["Cajal"] = "Cajal"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["05pdc0q70"] = "05pdc0q70"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="05pdc0q70")
 
 
 class _Cambridge_Technology(OrganizationModel):
@@ -159,8 +159,8 @@ class _Cambridge_Technology(OrganizationModel):
 
     name: Literal["Cambridge Technology"] = "Cambridge Technology"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Carl_Zeiss(OrganizationModel):
@@ -168,8 +168,8 @@ class _Carl_Zeiss(OrganizationModel):
 
     name: Literal["Carl Zeiss"] = "Carl Zeiss"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["01xk5xs43"] = "01xk5xs43"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="01xk5xs43")
 
 
 class _Champalimaud_Foundation(OrganizationModel):
@@ -177,8 +177,8 @@ class _Champalimaud_Foundation(OrganizationModel):
 
     name: Literal["Champalimaud Foundation"] = "Champalimaud Foundation"
     abbreviation: Literal["Champalimaud"] = "Champalimaud"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03g001n57"] = "03g001n57"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03g001n57")
 
 
 class _Chan_Zuckerberg_Initiative(OrganizationModel):
@@ -186,8 +186,8 @@ class _Chan_Zuckerberg_Initiative(OrganizationModel):
 
     name: Literal["Chan Zuckerberg Initiative"] = "Chan Zuckerberg Initiative"
     abbreviation: Literal["CZI"] = "CZI"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02qenvm24"] = "02qenvm24"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02qenvm24")
 
 
 class _Charles_River_Laboratories(OrganizationModel):
@@ -195,8 +195,8 @@ class _Charles_River_Laboratories(OrganizationModel):
 
     name: Literal["Charles River Laboratories"] = "Charles River Laboratories"
     abbreviation: Literal["CRL"] = "CRL"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03ndmsg87"] = "03ndmsg87"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03ndmsg87")
 
 
 class _Chroma(OrganizationModel):
@@ -204,8 +204,8 @@ class _Chroma(OrganizationModel):
 
     name: Literal["Chroma"] = "Chroma"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Coherent_Scientific(OrganizationModel):
@@ -213,8 +213,8 @@ class _Coherent_Scientific(OrganizationModel):
 
     name: Literal["Coherent Scientific"] = "Coherent Scientific"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["031tysd23"] = "031tysd23"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="031tysd23")
 
 
 class _Columbia_University(OrganizationModel):
@@ -222,8 +222,8 @@ class _Columbia_University(OrganizationModel):
 
     name: Literal["Columbia University"] = "Columbia University"
     abbreviation: Literal["Columbia"] = "Columbia"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00hj8s172"] = "00hj8s172"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00hj8s172")
 
 
 class _Computar(OrganizationModel):
@@ -231,8 +231,8 @@ class _Computar(OrganizationModel):
 
     name: Literal["Computar"] = "Computar"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Conoptics(OrganizationModel):
@@ -240,8 +240,8 @@ class _Conoptics(OrganizationModel):
 
     name: Literal["Conoptics"] = "Conoptics"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Custom(OrganizationModel):
@@ -249,8 +249,8 @@ class _Custom(OrganizationModel):
 
     name: Literal["Custom"] = "Custom"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Digikey(OrganizationModel):
@@ -258,8 +258,8 @@ class _Digikey(OrganizationModel):
 
     name: Literal["DigiKey"] = "DigiKey"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Dodotronic(OrganizationModel):
@@ -267,8 +267,8 @@ class _Dodotronic(OrganizationModel):
 
     name: Literal["Dodotronic"] = "Dodotronic"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Doric(OrganizationModel):
@@ -276,8 +276,8 @@ class _Doric(OrganizationModel):
 
     name: Literal["Doric"] = "Doric"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["059n53q30"] = "059n53q30"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="059n53q30")
 
 
 class _Ealing(OrganizationModel):
@@ -285,8 +285,8 @@ class _Ealing(OrganizationModel):
 
     name: Literal["Ealing"] = "Ealing"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Edmund_Optics(OrganizationModel):
@@ -294,8 +294,8 @@ class _Edmund_Optics(OrganizationModel):
 
     name: Literal["Edmund Optics"] = "Edmund Optics"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["01j1gwp17"] = "01j1gwp17"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="01j1gwp17")
 
 
 class _Emory_University(OrganizationModel):
@@ -303,8 +303,8 @@ class _Emory_University(OrganizationModel):
 
     name: Literal["Emory University"] = "Emory University"
     abbreviation: Literal["Emory"] = "Emory"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03czfpz43"] = "03czfpz43"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03czfpz43")
 
 
 class _Euresys(OrganizationModel):
@@ -312,8 +312,8 @@ class _Euresys(OrganizationModel):
 
     name: Literal["Euresys"] = "Euresys"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Fujinon(OrganizationModel):
@@ -321,8 +321,8 @@ class _Fujinon(OrganizationModel):
 
     name: Literal["Fujinon"] = "Fujinon"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Hamamatsu(OrganizationModel):
@@ -330,8 +330,8 @@ class _Hamamatsu(OrganizationModel):
 
     name: Literal["Hamamatsu"] = "Hamamatsu"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03natb733"] = "03natb733"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03natb733")
 
 
 class _Hamilton(OrganizationModel):
@@ -339,8 +339,8 @@ class _Hamilton(OrganizationModel):
 
     name: Literal["Hamilton"] = "Hamilton"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Huazhong_University_Of_Science_And_Technology(OrganizationModel):
@@ -348,8 +348,8 @@ class _Huazhong_University_Of_Science_And_Technology(OrganizationModel):
 
     name: Literal["Huazhong University of Science and Technology"] = "Huazhong University of Science and Technology"
     abbreviation: Literal["HUST"] = "HUST"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00p991c53"] = "00p991c53"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00p991c53")
 
 
 class _Ir_Robot_Co(OrganizationModel):
@@ -357,8 +357,8 @@ class _Ir_Robot_Co(OrganizationModel):
 
     name: Literal["IR Robot Co"] = "IR Robot Co"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Isl_Products_International(OrganizationModel):
@@ -366,8 +366,8 @@ class _Isl_Products_International(OrganizationModel):
 
     name: Literal["ISL Products International"] = "ISL Products International"
     abbreviation: Literal["ISL"] = "ISL"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Infinity_Photo_Optical(OrganizationModel):
@@ -375,8 +375,8 @@ class _Infinity_Photo_Optical(OrganizationModel):
 
     name: Literal["Infinity Photo-Optical"] = "Infinity Photo-Optical"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Integrated_Dna_Technologies(OrganizationModel):
@@ -384,8 +384,8 @@ class _Integrated_Dna_Technologies(OrganizationModel):
 
     name: Literal["Integrated DNA Technologies"] = "Integrated DNA Technologies"
     abbreviation: Literal["IDT"] = "IDT"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["009jvpf03"] = "009jvpf03"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="009jvpf03")
 
 
 class _Interuniversity_Microelectronics_Center(OrganizationModel):
@@ -393,8 +393,8 @@ class _Interuniversity_Microelectronics_Center(OrganizationModel):
 
     name: Literal["Interuniversity Microelectronics Center"] = "Interuniversity Microelectronics Center"
     abbreviation: Literal["IMEC"] = "IMEC"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02kcbn207"] = "02kcbn207"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02kcbn207")
 
 
 class _Invitrogen(OrganizationModel):
@@ -402,8 +402,8 @@ class _Invitrogen(OrganizationModel):
 
     name: Literal["Invitrogen"] = "Invitrogen"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03x1ewr52"] = "03x1ewr52"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03x1ewr52")
 
 
 class _Item(OrganizationModel):
@@ -411,8 +411,8 @@ class _Item(OrganizationModel):
 
     name: Literal["Item"] = "Item"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Jackson_Laboratory(OrganizationModel):
@@ -420,8 +420,8 @@ class _Jackson_Laboratory(OrganizationModel):
 
     name: Literal["Jackson Laboratory"] = "Jackson Laboratory"
     abbreviation: Literal["JAX"] = "JAX"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["021sy4w91"] = "021sy4w91"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="021sy4w91")
 
 
 class _Janelia_Research_Campus(OrganizationModel):
@@ -429,8 +429,8 @@ class _Janelia_Research_Campus(OrganizationModel):
 
     name: Literal["Janelia Research Campus"] = "Janelia Research Campus"
     abbreviation: Literal["Janelia"] = "Janelia"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["013sk6x84"] = "013sk6x84"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="013sk6x84")
 
 
 class _Jenoptik(OrganizationModel):
@@ -438,8 +438,8 @@ class _Jenoptik(OrganizationModel):
 
     name: Literal["Jenoptik"] = "Jenoptik"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["05g7t5c49"] = "05g7t5c49"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="05g7t5c49")
 
 
 class _Johns_Hopkins_University(OrganizationModel):
@@ -447,8 +447,8 @@ class _Johns_Hopkins_University(OrganizationModel):
 
     name: Literal["Johns Hopkins University"] = "Johns Hopkins University"
     abbreviation: Literal["JHU"] = "JHU"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00za53h95"] = "00za53h95"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00za53h95")
 
 
 class _Julabo(OrganizationModel):
@@ -456,8 +456,8 @@ class _Julabo(OrganizationModel):
 
     name: Literal["Julabo"] = "Julabo"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Kowa(OrganizationModel):
@@ -465,8 +465,8 @@ class _Kowa(OrganizationModel):
 
     name: Literal["Kowa"] = "Kowa"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03zbwg482"] = "03zbwg482"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03zbwg482")
 
 
 class _Lasos_Lasertechnik(OrganizationModel):
@@ -474,8 +474,8 @@ class _Lasos_Lasertechnik(OrganizationModel):
 
     name: Literal["LASOS Lasertechnik"] = "LASOS Lasertechnik"
     abbreviation: Literal["LASOS"] = "LASOS"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Lg(OrganizationModel):
@@ -483,8 +483,8 @@ class _Lg(OrganizationModel):
 
     name: Literal["LG"] = "LG"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02b948n83"] = "02b948n83"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02b948n83")
 
 
 class _Leica(OrganizationModel):
@@ -492,8 +492,8 @@ class _Leica(OrganizationModel):
 
     name: Literal["Leica"] = "Leica"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Lifecanvas(OrganizationModel):
@@ -501,8 +501,8 @@ class _Lifecanvas(OrganizationModel):
 
     name: Literal["LifeCanvas"] = "LifeCanvas"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Lumen_Dynamics(OrganizationModel):
@@ -510,8 +510,8 @@ class _Lumen_Dynamics(OrganizationModel):
 
     name: Literal["Lumen Dynamics"] = "Lumen Dynamics"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Mbf_Bioscience(OrganizationModel):
@@ -519,8 +519,8 @@ class _Mbf_Bioscience(OrganizationModel):
 
     name: Literal["MBF Bioscience"] = "MBF Bioscience"
     abbreviation: Literal["MBF"] = "MBF"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02zynam48"] = "02zynam48"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02zynam48")
 
 
 class _Mit_Department_Of_Brain_And_Cognitive_Sciences(OrganizationModel):
@@ -528,8 +528,8 @@ class _Mit_Department_Of_Brain_And_Cognitive_Sciences(OrganizationModel):
 
     name: Literal["MIT Department of Brain and Cognitive Sciences"] = "MIT Department of Brain and Cognitive Sciences"
     abbreviation: Literal["MIT-BCS"] = "MIT-BCS"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Mks_Newport(OrganizationModel):
@@ -537,8 +537,8 @@ class _Mks_Newport(OrganizationModel):
 
     name: Literal["MKS Newport"] = "MKS Newport"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00k17f049"] = "00k17f049"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00k17f049")
 
 
 class _Mpi(OrganizationModel):
@@ -546,8 +546,8 @@ class _Mpi(OrganizationModel):
 
     name: Literal["MPI"] = "MPI"
     abbreviation: Literal["MPI"] = "MPI"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Massachusetts_Institute_Of_Technology(OrganizationModel):
@@ -555,8 +555,8 @@ class _Massachusetts_Institute_Of_Technology(OrganizationModel):
 
     name: Literal["Massachusetts Institute of Technology"] = "Massachusetts Institute of Technology"
     abbreviation: Literal["MIT"] = "MIT"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["042nb2s44"] = "042nb2s44"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="042nb2s44")
 
 
 class _Mcgovern_Institute_For_Brain_Research(OrganizationModel):
@@ -564,8 +564,8 @@ class _Mcgovern_Institute_For_Brain_Research(OrganizationModel):
 
     name: Literal["McGovern Institute for Brain Research"] = "McGovern Institute for Brain Research"
     abbreviation: Literal["MIBR"] = "MIBR"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["05ymca674"] = "05ymca674"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="05ymca674")
 
 
 class _Meadowlark_Optics(OrganizationModel):
@@ -573,8 +573,8 @@ class _Meadowlark_Optics(OrganizationModel):
 
     name: Literal["Meadowlark Optics"] = "Meadowlark Optics"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00n8qbq54"] = "00n8qbq54"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00n8qbq54")
 
 
 class _Michael_J_Fox_Foundation_For_Parkinson_S_Research(OrganizationModel):
@@ -584,8 +584,8 @@ class _Michael_J_Fox_Foundation_For_Parkinson_S_Research(OrganizationModel):
         "Michael J. Fox Foundation for Parkinson's Research"
     )
     abbreviation: Literal["MJFF"] = "MJFF"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03arq3225"] = "03arq3225"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03arq3225")
 
 
 class _Midwest_Optical_Systems_Inc_(OrganizationModel):
@@ -593,8 +593,8 @@ class _Midwest_Optical_Systems_Inc_(OrganizationModel):
 
     name: Literal["Midwest Optical Systems, Inc."] = "Midwest Optical Systems, Inc."
     abbreviation: Literal["MidOpt"] = "MidOpt"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Mitutuyo(OrganizationModel):
@@ -602,8 +602,8 @@ class _Mitutuyo(OrganizationModel):
 
     name: Literal["Mitutuyo"] = "Mitutuyo"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Nresearch_Inc(OrganizationModel):
@@ -611,8 +611,8 @@ class _Nresearch_Inc(OrganizationModel):
 
     name: Literal["NResearch Inc"] = "NResearch Inc"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _National_Center_For_Complementary_And_Integrative_Health(OrganizationModel):
@@ -622,8 +622,8 @@ class _National_Center_For_Complementary_And_Integrative_Health(OrganizationMode
         "National Center for Complementary and Integrative Health"
     )
     abbreviation: Literal["NCCIH"] = "NCCIH"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00190t495"] = "00190t495"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00190t495")
 
 
 class _National_Institute_Of_Mental_Health(OrganizationModel):
@@ -631,8 +631,8 @@ class _National_Institute_Of_Mental_Health(OrganizationModel):
 
     name: Literal["National Institute of Mental Health"] = "National Institute of Mental Health"
     abbreviation: Literal["NIMH"] = "NIMH"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["04xeg9z08"] = "04xeg9z08"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="04xeg9z08")
 
 
 class _National_Institute_Of_Neurological_Disorders_And_Stroke(OrganizationModel):
@@ -642,8 +642,8 @@ class _National_Institute_Of_Neurological_Disorders_And_Stroke(OrganizationModel
         "National Institute of Neurological Disorders and Stroke"
     )
     abbreviation: Literal["NINDS"] = "NINDS"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["01s5ya894"] = "01s5ya894"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="01s5ya894")
 
 
 class _National_Instruments(OrganizationModel):
@@ -651,8 +651,8 @@ class _National_Instruments(OrganizationModel):
 
     name: Literal["National Instruments"] = "National Instruments"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["026exqw73"] = "026exqw73"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="026exqw73")
 
 
 class _Navitar(OrganizationModel):
@@ -660,8 +660,8 @@ class _Navitar(OrganizationModel):
 
     name: Literal["Navitar"] = "Navitar"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Neuralynx(OrganizationModel):
@@ -669,8 +669,8 @@ class _Neuralynx(OrganizationModel):
 
     name: Literal["NeuraLynx"] = "NeuraLynx"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Neurophotometrics(OrganizationModel):
@@ -678,8 +678,8 @@ class _Neurophotometrics(OrganizationModel):
 
     name: Literal["Neurophotometrics"] = "Neurophotometrics"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _New_Scale_Technologies(OrganizationModel):
@@ -687,8 +687,8 @@ class _New_Scale_Technologies(OrganizationModel):
 
     name: Literal["New Scale Technologies"] = "New Scale Technologies"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _New_York_University(OrganizationModel):
@@ -696,8 +696,8 @@ class _New_York_University(OrganizationModel):
 
     name: Literal["New York University"] = "New York University"
     abbreviation: Literal["NYU"] = "NYU"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["0190ak572"] = "0190ak572"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="0190ak572")
 
 
 class _Nikon(OrganizationModel):
@@ -705,8 +705,8 @@ class _Nikon(OrganizationModel):
 
     name: Literal["Nikon"] = "Nikon"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["0280y9h11"] = "0280y9h11"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="0280y9h11")
 
 
 class _Olympus(OrganizationModel):
@@ -714,8 +714,8 @@ class _Olympus(OrganizationModel):
 
     name: Literal["Olympus"] = "Olympus"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02vcdte90"] = "02vcdte90"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02vcdte90")
 
 
 class _Open_Ephys_Production_Site(OrganizationModel):
@@ -723,8 +723,8 @@ class _Open_Ephys_Production_Site(OrganizationModel):
 
     name: Literal["Open Ephys Production Site"] = "Open Ephys Production Site"
     abbreviation: Literal["OEPS"] = "OEPS"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["007rkz355"] = "007rkz355"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="007rkz355")
 
 
 class _Optotune(OrganizationModel):
@@ -732,8 +732,8 @@ class _Optotune(OrganizationModel):
 
     name: Literal["Optotune"] = "Optotune"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Other(OrganizationModel):
@@ -741,8 +741,8 @@ class _Other(OrganizationModel):
 
     name: Literal["Other"] = "Other"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Oxxius(OrganizationModel):
@@ -750,8 +750,8 @@ class _Oxxius(OrganizationModel):
 
     name: Literal["Oxxius"] = "Oxxius"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Placid_Industries(OrganizationModel):
@@ -759,8 +759,8 @@ class _Placid_Industries(OrganizationModel):
 
     name: Literal["Placid Industries"] = "Placid Industries"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Prizmatix(OrganizationModel):
@@ -768,8 +768,8 @@ class _Prizmatix(OrganizationModel):
 
     name: Literal["Prizmatix"] = "Prizmatix"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Quantifi(OrganizationModel):
@@ -777,8 +777,8 @@ class _Quantifi(OrganizationModel):
 
     name: Literal["Quantifi"] = "Quantifi"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Raspberry_Pi(OrganizationModel):
@@ -786,8 +786,8 @@ class _Raspberry_Pi(OrganizationModel):
 
     name: Literal["Raspberry Pi"] = "Raspberry Pi"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Sicgen(OrganizationModel):
@@ -795,8 +795,8 @@ class _Sicgen(OrganizationModel):
 
     name: Literal["SICGEN"] = "SICGEN"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Same_Sky(OrganizationModel):
@@ -804,8 +804,8 @@ class _Same_Sky(OrganizationModel):
 
     name: Literal["Same Sky"] = "Same Sky"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Schneider_Kreuznach(OrganizationModel):
@@ -813,8 +813,8 @@ class _Schneider_Kreuznach(OrganizationModel):
 
     name: Literal["Schneider-Kreuznach"] = "Schneider-Kreuznach"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Second_Order_Effects(OrganizationModel):
@@ -822,8 +822,8 @@ class _Second_Order_Effects(OrganizationModel):
 
     name: Literal["Second Order Effects"] = "Second Order Effects"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Semrock(OrganizationModel):
@@ -831,8 +831,8 @@ class _Semrock(OrganizationModel):
 
     name: Literal["Semrock"] = "Semrock"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Sigma_Aldrich(OrganizationModel):
@@ -840,8 +840,8 @@ class _Sigma_Aldrich(OrganizationModel):
 
     name: Literal["Sigma-Aldrich"] = "Sigma-Aldrich"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Simons_Foundation(OrganizationModel):
@@ -849,8 +849,8 @@ class _Simons_Foundation(OrganizationModel):
 
     name: Literal["Simons Foundation"] = "Simons Foundation"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["01cmst727"] = "01cmst727"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="01cmst727")
 
 
 class _Spectra_Physics(OrganizationModel):
@@ -858,8 +858,8 @@ class _Spectra_Physics(OrganizationModel):
 
     name: Literal["Spectra-Physics"] = "Spectra-Physics"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["02ad9kp97"] = "02ad9kp97"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="02ad9kp97")
 
 
 class _Spinnaker(OrganizationModel):
@@ -867,8 +867,8 @@ class _Spinnaker(OrganizationModel):
 
     name: Literal["Spinnaker"] = "Spinnaker"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Tamron(OrganizationModel):
@@ -876,8 +876,8 @@ class _Tamron(OrganizationModel):
 
     name: Literal["Tamron"] = "Tamron"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Technical_Manufacturing_Corporation(OrganizationModel):
@@ -885,8 +885,8 @@ class _Technical_Manufacturing_Corporation(OrganizationModel):
 
     name: Literal["Technical Manufacturing Corporation"] = "Technical Manufacturing Corporation"
     abbreviation: Literal["TMC"] = "TMC"
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Teledyne_Flir(OrganizationModel):
@@ -894,8 +894,8 @@ class _Teledyne_Flir(OrganizationModel):
 
     name: Literal["Teledyne FLIR"] = "Teledyne FLIR"
     abbreviation: Literal["FLIR"] = "FLIR"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["01j1gwp17"] = "01j1gwp17"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="01j1gwp17")
 
 
 class _Templeton_World_Charity_Foundation(OrganizationModel):
@@ -903,8 +903,8 @@ class _Templeton_World_Charity_Foundation(OrganizationModel):
 
     name: Literal["Templeton World Charity Foundation"] = "Templeton World Charity Foundation"
     abbreviation: Literal["TWCF"] = "TWCF"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00x0z1472"] = "00x0z1472"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00x0z1472")
 
 
 class _The_Imaging_Source(OrganizationModel):
@@ -912,8 +912,8 @@ class _The_Imaging_Source(OrganizationModel):
 
     name: Literal["The Imaging Source"] = "The Imaging Source"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _The_Lee_Company(OrganizationModel):
@@ -921,8 +921,8 @@ class _The_Lee_Company(OrganizationModel):
 
     name: Literal["The Lee Company"] = "The Lee Company"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Thermo_Fisher_Scientific(OrganizationModel):
@@ -930,8 +930,8 @@ class _Thermo_Fisher_Scientific(OrganizationModel):
 
     name: Literal["Thermo Fisher Scientific"] = "Thermo Fisher Scientific"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["03x1ewr52"] = "03x1ewr52"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="03x1ewr52")
 
 
 class _Thorlabs(OrganizationModel):
@@ -939,8 +939,8 @@ class _Thorlabs(OrganizationModel):
 
     name: Literal["Thorlabs"] = "Thorlabs"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["04gsnvb07"] = "04gsnvb07"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="04gsnvb07")
 
 
 class _Transducer_Techniques(OrganizationModel):
@@ -948,8 +948,8 @@ class _Transducer_Techniques(OrganizationModel):
 
     name: Literal["Transducer Techniques"] = "Transducer Techniques"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Tymphany(OrganizationModel):
@@ -957,8 +957,8 @@ class _Tymphany(OrganizationModel):
 
     name: Literal["Tymphany"] = "Tymphany"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _University_Of_California_San_Diego(OrganizationModel):
@@ -966,8 +966,8 @@ class _University_Of_California_San_Diego(OrganizationModel):
 
     name: Literal["University of California, San Diego"] = "University of California, San Diego"
     abbreviation: Literal["UCSD"] = "UCSD"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["0168r3w48"] = "0168r3w48"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="0168r3w48")
 
 
 class _University_Of_Pennsylvania(OrganizationModel):
@@ -975,8 +975,8 @@ class _University_Of_Pennsylvania(OrganizationModel):
 
     name: Literal["University of Pennsylvania"] = "University of Pennsylvania"
     abbreviation: Literal["UPENN"] = "UPENN"
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["00b30xv10"] = "00b30xv10"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="00b30xv10")
 
 
 class _Vieworks(OrganizationModel):
@@ -984,8 +984,8 @@ class _Vieworks(OrganizationModel):
 
     name: Literal["Vieworks"] = "Vieworks"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Vortran(OrganizationModel):
@@ -993,8 +993,8 @@ class _Vortran(OrganizationModel):
 
     name: Literal["Vortran"] = "Vortran"
     abbreviation: Literal[None] = None
-    registry: None = None
-    registry_identifier: None = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
 
 
 class _Ams_Osram(OrganizationModel):
@@ -1002,8 +1002,8 @@ class _Ams_Osram(OrganizationModel):
 
     name: Literal["ams OSRAM"] = "ams OSRAM"
     abbreviation: Literal[None] = None
-    registry: Registry.ONE_OF = Registry.ROR
-    registry_identifier: Literal["045d0h266"] = "045d0h266"
+    registry: Optional[Registry] = Field(default=Registry.ROR)
+    registry_identifier: Optional[str] = Field(default="045d0h266")
 
 
 class Organization:

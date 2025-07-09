@@ -13,7 +13,7 @@ class MouseAnatomyModel(BaseModel):
 
     model_config = ConfigDict(frozen=True)
     name: str
-    registry: Registry.ONE_OF
+    registry: Registry
     registry_identifier: str
 
 

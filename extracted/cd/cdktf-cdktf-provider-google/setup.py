@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.4.0",
+    "version": "16.5.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -410,6 +410,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.compute_url_map",
         "cdktf_cdktf_provider_google.compute_vpn_gateway",
         "cdktf_cdktf_provider_google.compute_vpn_tunnel",
+        "cdktf_cdktf_provider_google.contact_center_insights_analysis_rule",
         "cdktf_cdktf_provider_google.contact_center_insights_view",
         "cdktf_cdktf_provider_google.container_analysis_note",
         "cdktf_cdktf_provider_google.container_analysis_note_iam_binding",
@@ -665,6 +666,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_iap_web_region_backend_service_iam_policy",
         "cdktf_cdktf_provider_google.data_google_iap_web_type_app_engine_iam_policy",
         "cdktf_cdktf_provider_google.data_google_iap_web_type_compute_iam_policy",
+        "cdktf_cdktf_provider_google.data_google_kms_autokey_config",
         "cdktf_cdktf_provider_google.data_google_kms_crypto_key",
         "cdktf_cdktf_provider_google.data_google_kms_crypto_key_iam_policy",
         "cdktf_cdktf_provider_google.data_google_kms_crypto_key_latest_version",
@@ -672,6 +674,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_kms_crypto_key_versions",
         "cdktf_cdktf_provider_google.data_google_kms_crypto_keys",
         "cdktf_cdktf_provider_google.data_google_kms_ekm_connection_iam_policy",
+        "cdktf_cdktf_provider_google.data_google_kms_key_handle",
+        "cdktf_cdktf_provider_google.data_google_kms_key_handles",
         "cdktf_cdktf_provider_google.data_google_kms_key_ring",
         "cdktf_cdktf_provider_google.data_google_kms_key_ring_iam_policy",
         "cdktf_cdktf_provider_google.data_google_kms_key_rings",
@@ -693,6 +697,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_monitoring_notification_channel",
         "cdktf_cdktf_provider_google.data_google_monitoring_uptime_check_ips",
         "cdktf_cdktf_provider_google.data_google_netblock_ip_ranges",
+        "cdktf_cdktf_provider_google.data_google_network_management_connectivity_test_run",
         "cdktf_cdktf_provider_google.data_google_network_security_address_group_iam_policy",
         "cdktf_cdktf_provider_google.data_google_notebooks_instance_iam_policy",
         "cdktf_cdktf_provider_google.data_google_notebooks_runtime_iam_policy",
@@ -734,6 +739,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_pubsub_subscription_iam_policy",
         "cdktf_cdktf_provider_google.data_google_pubsub_topic",
         "cdktf_cdktf_provider_google.data_google_pubsub_topic_iam_policy",
+        "cdktf_cdktf_provider_google.data_google_redis_cluster",
         "cdktf_cdktf_provider_google.data_google_redis_instance",
         "cdktf_cdktf_provider_google.data_google_scc_source_iam_policy",
         "cdktf_cdktf_provider_google.data_google_scc_v2_organization_source_iam_policy",
@@ -1111,6 +1117,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.integration_connectors_managed_zone",
         "cdktf_cdktf_provider_google.integrations_auth_config",
         "cdktf_cdktf_provider_google.integrations_client",
+        "cdktf_cdktf_provider_google.kms_autokey_config",
         "cdktf_cdktf_provider_google.kms_crypto_key",
         "cdktf_cdktf_provider_google.kms_crypto_key_iam_binding",
         "cdktf_cdktf_provider_google.kms_crypto_key_iam_member",
@@ -1120,6 +1127,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.kms_ekm_connection_iam_binding",
         "cdktf_cdktf_provider_google.kms_ekm_connection_iam_member",
         "cdktf_cdktf_provider_google.kms_ekm_connection_iam_policy",
+        "cdktf_cdktf_provider_google.kms_key_handle",
         "cdktf_cdktf_provider_google.kms_key_ring",
         "cdktf_cdktf_provider_google.kms_key_ring_iam_binding",
         "cdktf_cdktf_provider_google.kms_key_ring_iam_member",
@@ -1158,6 +1166,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.migration_center_group",
         "cdktf_cdktf_provider_google.migration_center_preference_set",
         "cdktf_cdktf_provider_google.ml_engine_model",
+        "cdktf_cdktf_provider_google.model_armor_template",
         "cdktf_cdktf_provider_google.monitoring_alert_policy",
         "cdktf_cdktf_provider_google.monitoring_custom_service",
         "cdktf_cdktf_provider_google.monitoring_dashboard",
@@ -1456,7 +1465,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.4.0.jsii.tgz"
+            "provider-google@16.5.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

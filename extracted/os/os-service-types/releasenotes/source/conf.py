@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -52,14 +51,12 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'os-service-types Release Notes'
-copyright = u'2017, OpenStack Developers'
+copyright = '2017, OpenStack Developers'
 
 # openstackdocstheme options
-repository_name = 'openstack/os-service-types'
-bug_project = '904'
-bug_tag = ''
-html_last_updated_fmt = '%Y-%m-%d %H:%M'
+openstackdocs_repo_name = 'openstack/os-service-types'
+openstackdocs_bug_project = '904'
+openstackdocs_bug_tag = ''
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -101,7 +98,7 @@ exclude_patterns = []
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'native'
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -197,24 +194,17 @@ htmlhelp_basename = 'os_service_typesReleaseNotesdoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
-latex_elements = {
-    # The paper size ('letterpaper' or 'a4paper').
-    # 'papersize': 'letterpaper',
-
-    # The font size ('10pt', '11pt' or '12pt').
-    # 'pointsize': '10pt',
-
-    # Additional stuff for the LaTeX preamble.
-    # 'preamble': '',
-}
-
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    ('index', 'os_service_typesReleaseNotes.tex',
-     u'os_service_types  Release Notes Documentation',
-     u'OpenStack Foundation', 'manual'),
+    (
+        'index',
+        'os_service_typesReleaseNotes.tex',
+        'os_service_types  Release Notes Documentation',
+        'OpenStack Foundation',
+        'manual',
+    ),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -243,9 +233,13 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'os_service_typesrereleasenotes',
-     u'os_service_types  Release Notes Documentation',
-     [u'OpenStack Developers'], 1)
+    (
+        'index',
+        'os_service_typesrereleasenotes',
+        'os_service_types  Release Notes Documentation',
+        ['OpenStack Developers'],
+        1,
+    )
 ]
 
 # If true, show URL addresses after external links.
@@ -258,11 +252,15 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'os_service_types ReleaseNotes',
-     u'os_service_types Release Notes Documentation',
-     u'OpenStack Developers', 'os_service_typesReleaseNotes',
-     'One line description of project.',
-     'Miscellaneous'),
+    (
+        'index',
+        'os_service_types ReleaseNotes',
+        'os_service_types Release Notes Documentation',
+        'OpenStack Developers',
+        'os_service_typesReleaseNotes',
+        'One line description of project.',
+        'Miscellaneous',
+    ),
 ]
 
 # Documents to append as an appendix to all manuals.

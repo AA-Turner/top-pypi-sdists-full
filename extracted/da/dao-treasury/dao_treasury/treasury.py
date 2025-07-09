@@ -1,3 +1,20 @@
+"""Treasury orchestration and analytics interface.
+
+This module defines the Treasury class, which aggregates DAO wallets, sets up
+sorting rules, and manages transaction ingestion and streaming analytics.
+It coordinates the end-to-end flow from wallet configuration to database
+population and dashboard analytics.
+
+Key Responsibilities:
+    - Aggregate and manage DAO-controlled wallets.
+    - Ingest and process on-chain transactions.
+    - Apply sorting/categorization rules.
+    - Integrate with streaming protocols (e.g., LlamaPay).
+    - Populate the database for analytics and dashboards.
+
+This is the main entry point for orchestrating DAO treasury analytics.
+"""
+
 from asyncio import create_task, gather
 from logging import getLogger
 from pathlib import Path
@@ -59,20 +76,22 @@ class Treasury(a_sync.ASyncGenericBase):  # type: ignore [misc]
             TypeError: If any item in `wallets` is not a str or TreasuryWallet.
 
         Examples:
-            Create a synchronous Treasury:
-            >>> treasury = Treasury(
-            ...     wallets=["0xAbc123...", TreasuryWallet("0xDef456...", start_block=1000)],
-            ...     sort_rules=Path("/path/to/rules"),
-            ...     start_block=500,
-            ...     label="DAO Treasury",
-            ...     asynchronous=False
-            ... )
+            .. code-block:: python
 
-            Create an asynchronous Treasury:
-            >>> treasury_async = Treasury(
-            ...     wallets=["0xAbc123..."],
-            ...     asynchronous=True
-            ... )
+                # Create a synchronous Treasury
+                treasury = Treasury(
+                    wallets=["0xAbc123...", TreasuryWallet("0xDef456...", start_block=1000)],
+                    sort_rules=Path("/path/to/rules"),
+                    start_block=500,
+                    label="DAO Treasury",
+                    asynchronous=False
+                )
+
+                # Create an asynchronous Treasury
+                treasury_async = Treasury(
+                    wallets=["0xAbc123..."],
+                    asynchronous=True
+                )
         """
         global TREASURY
         if TREASURY is not None:

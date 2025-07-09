@@ -11,18 +11,18 @@ use super::{
 };
 use crate::semantic_index::definition::{Definition, DefinitionState};
 use crate::semantic_index::place::NodeWithScopeKind;
-use crate::semantic_index::{DeclarationWithConstraint, SemanticIndex};
+use crate::semantic_index::{DeclarationWithConstraint, SemanticIndex, attribute_declarations};
 use crate::types::context::InferContext;
 use crate::types::diagnostic::{INVALID_LEGACY_TYPE_VARIABLE, INVALID_TYPE_ALIAS_TYPE};
 use crate::types::function::{DataclassTransformerParams, KnownFunction};
-use crate::types::generics::{GenericContext, Specialization};
+use crate::types::generics::{GenericContext, Specialization, walk_specialization};
 use crate::types::infer::nearest_enclosing_class;
 use crate::types::signatures::{CallableSignature, Parameter, Parameters, Signature};
 use crate::types::tuple::TupleType;
 use crate::types::{
     BareTypeAliasType, Binding, BoundSuperError, BoundSuperType, CallableType, DataclassParams,
-    KnownInstanceType, TypeAliasType, TypeMapping, TypeRelation, TypeVarBoundOrConstraints,
-    TypeVarInstance, TypeVarKind, TypeVisitor, infer_definition_types,
+    KnownInstanceType, TypeAliasType, TypeMapping, TypeRelation, TypeTransformer,
+    TypeVarBoundOrConstraints, TypeVarInstance, TypeVarKind, infer_definition_types,
 };
 use crate::{
     Db, FxOrderSet, KnownModule, Program,
@@ -177,11 +177,23 @@ pub struct GenericAlias<'db> {
     pub(crate) specialization: Specialization<'db>,
 }
 
+pub(super) fn walk_generic_alias<'db, V: super::visitor::TypeVisitor<'db> + ?Sized>(
+    db: &'db dyn Db,
+    alias: GenericAlias<'db>,
+    visitor: &mut V,
+) {
+    walk_specialization(db, alias.specialization(db), visitor);
+}
+
 // The Salsa heap is tracked separately.
 impl get_size2::GetSize for GenericAlias<'_> {}
 
 impl<'db> GenericAlias<'db> {
-    pub(super) fn normalized_impl(self, db: &'db dyn Db, visitor: &mut TypeVisitor<'db>) -> Self {
+    pub(super) fn normalized_impl(
+        self,
+        db: &'db dyn Db,
+        visitor: &mut TypeTransformer<'db>,
+    ) -> Self {
         Self::new(
             db,
             self.origin(db),
@@ -252,7 +264,11 @@ pub enum ClassType<'db> {
 
 #[salsa::tracked]
 impl<'db> ClassType<'db> {
-    pub(super) fn normalized_impl(self, db: &'db dyn Db, visitor: &mut TypeVisitor<'db>) -> Self {
+    pub(super) fn normalized_impl(
+        self,
+        db: &'db dyn Db,
+        visitor: &mut TypeTransformer<'db>,
+    ) -> Self {
         match self {
             Self::NonGeneric(_) => self,
             Self::Generic(generic) => Self::Generic(generic.normalized_impl(db, visitor)),
@@ -1747,10 +1763,7 @@ impl<'db> ClassLiteral<'db> {
         let class_map = use_def_map(db, class_body_scope);
         let class_table = place_table(db, class_body_scope);
 
-        for (attribute_assignments, method_scope_id) in
-            attribute_assignments(db, class_body_scope, name)
-        {
-            let method_scope = method_scope_id.to_scope_id(db, file);
+        let is_valid_scope = |method_scope: ScopeId<'db>| {
             if let Some(method_def) = method_scope.node(db).as_function(&module) {
                 let method_name = method_def.name.as_str();
                 if let Place::Type(Type::FunctionLiteral(method_type), _) =
@@ -1758,10 +1771,53 @@ impl<'db> ClassLiteral<'db> {
                 {
                     let method_decorator = MethodDecorator::try_from_fn_type(db, method_type);
                     if method_decorator != Ok(target_method_decorator) {
-                        continue;
+                        return false;
                     }
                 }
             }
+            true
+        };
+
+        // First check declarations
+        for (attribute_declarations, method_scope_id) in
+            attribute_declarations(db, class_body_scope, name)
+        {
+            let method_scope = method_scope_id.to_scope_id(db, file);
+            if !is_valid_scope(method_scope) {
+                continue;
+            }
+
+            for attribute_declaration in attribute_declarations {
+                let DefinitionState::Defined(decl) = attribute_declaration.declaration else {
+                    continue;
+                };
+
+                let DefinitionKind::AnnotatedAssignment(annotated) = decl.kind(db) else {
+                    continue;
+                };
+
+                if use_def_map(db, method_scope)
+                    .is_declaration_reachable(db, &attribute_declaration)
+                    .is_always_false()
+                {
+                    continue;
+                }
+
+                let annotation_ty =
+                    infer_expression_type(db, index.expression(annotated.annotation(&module)));
+
+                return Place::bound(annotation_ty);
+            }
+        }
+
+        for (attribute_assignments, method_scope_id) in
+            attribute_assignments(db, class_body_scope, name)
+        {
+            let method_scope = method_scope_id.to_scope_id(db, file);
+            if !is_valid_scope(method_scope) {
+                continue;
+            }
+
             let method_map = use_def_map(db, method_scope);
 
             // The attribute assignment inherits the reachability of the method which contains it
@@ -1999,6 +2055,7 @@ impl<'db> ClassLiteral<'db> {
 
             let declarations = use_def.end_of_scope_declarations(place_id);
             let declared_and_qualifiers = place_from_declarations(db, declarations);
+
             match declared_and_qualifiers {
                 Ok(PlaceAndQualifiers {
                     place: mut declared @ Place::Type(declared_ty, declaredness),

@@ -1,16 +1,19 @@
+import operator
 import os
 import re
 import textwrap
 import warnings
-import operator
-import numpy as np
 from itertools import takewhile
 from typing import TYPE_CHECKING, Optional, Union, cast
 
+import numpy as np
+
+from guidance._schema import SamplingParams
+
 from ..chat import ChatTemplate
-from ._engine import Engine, Tokenizer, EngineInterpreter, Llama3VisionInterpreter, Phi3VisionInterpreter
-from ._engine._tokenizer import TokenizerWrappable
 from ._base import Model
+from ._engine import Engine, EngineInterpreter, Llama3VisionInterpreter, LogitsOutput, Phi3VisionInterpreter, Tokenizer
+from ._engine._tokenizer import TokenizerWrappable
 
 try:
     import torch
@@ -27,7 +30,7 @@ else:
     import llguidance.hf
 
 if TYPE_CHECKING:
-     from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
+    from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 # Formed by comparing model and tokenizer from_pretrained methods
 # transformers/models/auto/auto_factory.py
@@ -68,12 +71,11 @@ class TransformersTokenizer(Tokenizer):
             byte_tokens = self._byte_tokens(hf_tokenizer)
             vocab_size = len(byte_tokens)
             ll_tokenizer = TokenizerWrappable(
-                eos_token_id=hf_tokenizer.eos_token_id, # type: ignore[attr-defined]
+                eos_token_id=hf_tokenizer.eos_token_id,  # type: ignore[attr-defined]
                 bos_token_id=getattr(hf_tokenizer, "bos_token_id", None),
                 tokens=byte_tokens,
                 special_token_ids=[
-                    token_id for (token_id, token) in hf_tokenizer.added_tokens_decoder.items()
-                    if token.special
+                    token_id for (token_id, token) in hf_tokenizer.added_tokens_decoder.items() if token.special
                 ],
                 encode_callable=hf_tokenizer.encode,
             ).as_ll_tokenizer()
@@ -95,18 +97,15 @@ class TransformersTokenizer(Tokenizer):
         pretrained_model_name_or_path: str,
         chat_template: Union[str, ChatTemplate, None] = None,
         use_fast=True,
-        **kwargs
+        **kwargs,
     ) -> "TransformersTokenizer":
         tokenizer = transformers_package.AutoTokenizer.from_pretrained(
-            pretrained_model_name_or_path,
-            use_fast=use_fast,
-            **kwargs
+            pretrained_model_name_or_path, use_fast=use_fast, **kwargs
         )
         return cls(
             hf_tokenizer=tokenizer,
             chat_template=chat_template,
         )
-
 
     def recode(self, tokens: list[int]) -> list[int]:
         # the encode/decode cycle might not work if we have partial unicode strings
@@ -144,21 +143,16 @@ class TransformersTokenizer(Tokenizer):
             "PreTrainedTokenizerFast",
         ],
     ) -> list[bytes]:
-
         if hasattr(transformers_tokenizer, "byte_decoder"):
             try:
-                cls._check_byte_decoder(
-                    transformers_tokenizer.byte_decoder, transformers_tokenizer
-                )
+                cls._check_byte_decoder(transformers_tokenizer.byte_decoder, transformers_tokenizer)
             except ByteDecoderError as e:
                 warnings.warn(
-                    f"Tokenizer has a byte_decoder, but it can't be used to construct byte_tokens: {e}"
+                    f"Tokenizer has a byte_decoder, but it can't be used to construct byte_tokens: {e}", stacklevel=1
                 )
                 pass
             else:
-                return cls._byte_tokens_from_byte_decoder(
-                    transformers_tokenizer.byte_decoder, transformers_tokenizer
-                )
+                return cls._byte_tokens_from_byte_decoder(transformers_tokenizer.byte_decoder, transformers_tokenizer)
 
         if hasattr(transformers_tokenizer, "sp_model"):
             return cls._byte_tokens_from_sp_model(transformers_tokenizer)
@@ -167,7 +161,7 @@ class TransformersTokenizer(Tokenizer):
             return cls._byte_tokens_by_encoding_token_strings(transformers_tokenizer)
         except ValueError as e:
             warnings.warn(
-                f"Could not build_byte tokens from the tokenizer by encoding token strings: {e}"
+                f"Could not build_byte tokens from the tokenizer by encoding token strings: {e}", stacklevel=1
             )
             pass
 
@@ -192,9 +186,7 @@ class TransformersTokenizer(Tokenizer):
     ) -> list[bytes]:
         byte_tokens = [b""] * len(transformers_tokenizer)
         for i in range(len(transformers_tokenizer)):
-            byte_coded = bytes(
-                [byte_decoder[c] for c in transformers_tokenizer.convert_ids_to_tokens(i)]
-            )
+            byte_coded = bytes([byte_decoder[c] for c in transformers_tokenizer.convert_ids_to_tokens(i)])
             byte_tokens[i] = byte_coded
         return byte_tokens
 
@@ -207,9 +199,7 @@ class TransformersTokenizer(Tokenizer):
         ],
     ) -> list[bytes]:
         byte_tokens = [b""] * len(transformers_tokenizer)
-        special_tokens_map = {
-            id: token for token, id in transformers_tokenizer.get_added_vocab().items()
-        }
+        special_tokens_map = {id: token for token, id in transformers_tokenizer.get_added_vocab().items()}
         space_prefix = "▁".encode()
         for i in range(len(transformers_tokenizer)):
             if i in special_tokens_map:
@@ -232,9 +222,7 @@ class TransformersTokenizer(Tokenizer):
         ],
     ) -> list[bytes]:
         byte_tokens = [b""] * len(transformers_tokenizer)
-        special_tokens_map = {
-            id: token for token, id in transformers_tokenizer.get_added_vocab().items()
-        }
+        special_tokens_map = {id: token for token, id in transformers_tokenizer.get_added_vocab().items()}
         byte_encoder = cls._bytes_to_unicode()
         byte_decoder = {v: k for k, v in byte_encoder.items()}
 
@@ -250,9 +238,7 @@ class TransformersTokenizer(Tokenizer):
                         token_str = transformers_tokenizer.convert_tokens_to_string([token])
                         encoded_str = transformers_tokenizer.encode(token_str)
                         if len(encoded_str) != 1:
-                            raise ValueError(
-                                f"Round-trip encoding of tokens [{token}] failed! Got {encoded_str}"
-                            )
+                            raise ValueError(f"Round-trip encoding of tokens [{token}] failed! Got {encoded_str}")
                         roundtrip_id = encoded_str[0]
                         if roundtrip_id == i:
                             byte_coded = token_str.encode()
@@ -289,7 +275,6 @@ class TransformersTokenizer(Tokenizer):
             "PreTrainedTokenizerFast",
         ],
     ) -> None:
-
         def check_byte_decoder_has_all_bytes() -> None:
             # This is here because some tokenizers are bad and don't have all the bytes (I'm looking at you, microsoft/phi2)
             all_bytes = set()
@@ -297,9 +282,7 @@ class TransformersTokenizer(Tokenizer):
                 for y in x:
                     all_bytes.add(y)
             if not set(byte_decoder.keys()) >= all_bytes:
-                raise ByteDecoderError(
-                    f"Byte decoder is missing bytes: {all_bytes - set(byte_decoder.keys())}"
-                )
+                raise ByteDecoderError(f"Byte decoder is missing bytes: {all_bytes - set(byte_decoder.keys())}")
 
         def check_byte_decoder_complex_round_trip() -> None:
             # run a quick spot check to verify we can rebuild complex multi-token unicode symbols
@@ -358,6 +341,7 @@ class TransformersTokenizer(Tokenizer):
         cs = [chr(n) for n in cs]
         return dict(zip(bs, cs))
 
+
 class TransformersEngine(Engine):
     def __init__(
         self,
@@ -381,7 +365,9 @@ class TransformersEngine(Engine):
             try:
                 with open(os.path.expanduser("~/.transformers_model"), "r") as file:
                     model = file.read().replace("\n", "")
-            except:
+            except FileNotFoundError:
+                pass
+            except PermissionError:
                 pass
 
         self.model_obj = self._model(model, **kwargs)
@@ -423,15 +409,11 @@ class TransformersEngine(Engine):
                 tokenizer = cast(
                     Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"],
                     transformers_package.AutoTokenizer.from_pretrained(
-                        pretrained_model_name_or_path=model,
-                        use_fast=True,
-                        **kwargs
-                    )
+                        pretrained_model_name_or_path=model, use_fast=True, **kwargs
+                    ),
                 )
             else:
-                raise ValueError(
-                    "If no tokenizer is provided, a model name must be provided to load the tokenizer."
-                )
+                raise ValueError("If no tokenizer is provided, a model name must be provided to load the tokenizer.")
         my_tokenizer = TransformersTokenizer(
             hf_tokenizer=tokenizer,
             chat_template=chat_template,
@@ -444,13 +426,12 @@ class TransformersEngine(Engine):
             enable_backtrack=enable_backtrack,
             enable_ff_tokens=enable_ff_tokens,
             enable_monitoring=enable_monitoring,
-            **kwargs
+            **kwargs,
         )
 
     def _model(self, model, **kwargs) -> "PreTrainedModel":
         # intantiate the model if needed
         if isinstance(model, str):
-
             # make sure transformers is installed
             if not has_transformers:
                 raise Exception(
@@ -459,7 +440,7 @@ class TransformersEngine(Engine):
             model = transformers_package.AutoModelForCausalLM.from_pretrained(model, **kwargs)
         return model
 
-    def get_logits(self, token_ids: list[int], include_all_uncached_tokens: bool = False) -> np.ndarray:
+    def get_logits(self, token_ids: list[int], include_all_uncached_tokens: bool = False) -> LogitsOutput:
         """Computes the logits for the given token state.
 
         This overrides a method from the LocalEngine class that is used to get
@@ -480,7 +461,11 @@ class TransformersEngine(Engine):
         if num_cached == len(token_ids):
             if num_cached == len(self._cached_token_ids):
                 # last token input is the same as the last cached token, so return the last cached logits
-                return self._cached_logits
+                return {
+                    "logits": self._cached_logits,
+                    "n_tokens": len(token_ids),
+                    "n_cached": num_cached,
+                }
             # we need to pass at least one new token
             num_cached = num_cached - 1
 
@@ -515,15 +500,13 @@ class TransformersEngine(Engine):
             ):
                 # The __init__ API isn't consistent between different cache types, but there seems to be consistency
                 # between these two types, so we can use the same logic for both.
-                warnings.warn("Cache is too small. Re-initializing cache with larger size.")
+                warnings.warn("Cache is too small. Re-initializing cache with larger size.", stacklevel=1)
                 cache_type = type(past_key_values)
                 config = self.model_obj.config
                 device = self.model_obj.device
                 hf_device_map = getattr(self.model_obj, "hf_device_map", {})
                 # hf_device_map is not always a complete mapping of layers to devices...
-                layer_device_map = {
-                    k: hf_device_map.get(k, device) for k in range(config.num_hidden_layers)
-                }
+                layer_device_map = {k: hf_device_map.get(k, device) for k in range(config.num_hidden_layers)}
                 self._past_key_values = cache_type(
                     config=config,
                     max_batch_size=past_key_values.max_batch_size,
@@ -534,7 +517,8 @@ class TransformersEngine(Engine):
                 )
             else:
                 warnings.warn(
-                    f"Cache is too small. Resetting cache (no method implemented to resize cache for type {type(past_key_values)})."
+                    f"Cache is too small. Resetting cache (no method implemented to resize cache for type {type(past_key_values)}).",
+                    stacklevel=1,
                 )
                 self._past_key_values = None
             past_length = 0
@@ -542,15 +526,14 @@ class TransformersEngine(Engine):
         # clear obsolete parts of kv cache
         if past_length > num_cached:
             if isinstance(past_key_values, tuple):
-                self._past_key_values = tuple(
-                    tuple(p[..., :num_cached, :] for p in v) for v in past_key_values
-                )
+                self._past_key_values = tuple(tuple(p[..., :num_cached, :] for p in v) for v in past_key_values)
             else:
                 if hasattr(past_key_values, "crop"):
                     self._past_key_values.crop(num_cached)
                 else:
                     warnings.warn(
-                        f"Cropping unsupported for cache type: {type(self._past_key_values)}. Resetting cache."
+                        f"Cropping unsupported for cache type: {type(self._past_key_values)}. Resetting cache.",
+                        stacklevel=1,
                     )
                     if hasattr(self._past_key_values, "reset"):
                         # Use built-in reset method if available to avoid constructing/allocating a new cache
@@ -580,31 +563,22 @@ class TransformersEngine(Engine):
                     position_ids=torch.arange(past_length, past_length + len(new_token_ids))
                     .unsqueeze(0)
                     .to(self.device),
-                    attention_mask=torch.ones(1, past_length + len(new_token_ids)).to(
-                        self.device
-                    ),
+                    attention_mask=torch.ones(1, past_length + len(new_token_ids)).to(self.device),
                     return_dict=True,
                     output_attentions=False,
                     output_hidden_states=False,
                 )
                 # Need to add special truncating logic here for weird models that have a different output size than tokenizer vocab
-                logits_for_each_batch.append(
-                    model_out.logits[0, :, :self.tokenizer._vocab_size]
-                    .float()
-                    .cpu()
-                    .numpy()
-                )
+                logits_for_each_batch.append(model_out.logits[0, :, : self.tokenizer._vocab_size].float().cpu().numpy())
             except AssertionError:
-                for i, new_token_id in enumerate(new_token_ids):
+                for new_token_id in new_token_ids:
                     input_ids = torch.tensor([new_token_id]).unsqueeze(0).to(self.device)
 
                     model_out = self.model_obj(
                         input_ids=input_ids,
                         past_key_values=self._past_key_values,
                         use_cache=True,
-                        position_ids=torch.arange(past_length, past_length + 1)
-                        .unsqueeze(0)
-                        .to(self.device),
+                        position_ids=torch.arange(past_length, past_length + 1).unsqueeze(0).to(self.device),
                         attention_mask=torch.ones(1, past_length + 1).to(self.device),
                         return_dict=True,
                         output_attentions=False,
@@ -616,15 +590,8 @@ class TransformersEngine(Engine):
 
                     # Need to add special truncating logic here for weird models that have a different output size than tokenizer vocab
                     logits_for_each_batch.append(
-                        model_out.logits[0, :, :self.tokenizer._vocab_size]
-                        .float()
-                        .cpu()
-                        .numpy()
+                        model_out.logits[0, :, : self.tokenizer._vocab_size].float().cpu().numpy()
                     )
-
-        # update the metrics
-        self.metrics.engine_input_tokens += len(new_token_ids)
-        self.metrics.engine_output_tokens += 1
 
         # save the results
         self._past_key_values = model_out.past_key_values
@@ -632,14 +599,16 @@ class TransformersEngine(Engine):
         self._cached_logits = logits_for_each_batch[-1][[-1], :]
 
         if include_all_uncached_tokens:
-            logits = np.concatenate(
-                logits_for_each_batch,
-                axis=0
-            )
+            logits = np.concatenate(logits_for_each_batch, axis=0)
             assert logits.shape[0] == len(token_ids) - num_cached
-            return logits
         else:
-            return self._cached_logits
+            logits = self._cached_logits
+        return {
+            "logits": logits,
+            "n_tokens": len(token_ids),
+            "n_cached": num_cached,
+        }
+
 
 class Transformers(Model):
     def __init__(
@@ -657,6 +626,7 @@ class Transformers(Model):
         enable_backtrack=True,
         enable_ff_tokens=True,
         enable_monitoring=True,
+        sampling_params: Optional[SamplingParams] = None,
         **kwargs,
     ):
         """Build a new Transformers model object that represents a model in a given state."""
@@ -666,7 +636,7 @@ class Transformers(Model):
             elif re.search("Phi-3-vision", model):
                 interpreter_cls = Phi3VisionInterpreter
         if interpreter_cls is None:
-                interpreter_cls = EngineInterpreter
+            interpreter_cls = EngineInterpreter
 
         client = interpreter_cls(
             TransformersEngine(
@@ -682,5 +652,6 @@ class Transformers(Model):
         )
         super().__init__(
             interpreter=client,
+            sampling_params=SamplingParams() if sampling_params is None else sampling_params,
             echo=echo,
         )

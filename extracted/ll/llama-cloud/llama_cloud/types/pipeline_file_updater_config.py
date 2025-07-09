@@ -29,9 +29,6 @@ class PipelineFileUpdaterConfig(pydantic.BaseModel):
     data_source_project_file_changed: typing.Optional[bool] = pydantic.Field(
         description="Whether the data source project file has changed"
     )
-    should_migrate_pipeline_file_to_external_file_id: typing.Optional[bool] = pydantic.Field(
-        description="Whether to migrate the pipeline file to the external file id"
-    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

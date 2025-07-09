@@ -1,4 +1,4 @@
-""" Transforms involving NED North East Down """
+"""Transforms involving NED North East Down"""
 
 from __future__ import annotations
 
@@ -15,8 +15,6 @@ __all__ = [
     "geodetic2ned",
     "ecef2nedv",
 ]
-
-ELL = Ellipsoid.from_name("wgs84")
 
 
 def aer2ned(az, elev, slantRange, deg: bool = True) -> tuple:
@@ -85,7 +83,7 @@ def ned2geodetic(
     lat0,
     lon0,
     h0,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """
@@ -134,7 +132,7 @@ def ned2ecef(
     lat0,
     lon0,
     h0,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """
@@ -180,7 +178,7 @@ def ecef2ned(
     lat0,
     lon0,
     h0,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """
@@ -229,7 +227,7 @@ def geodetic2ned(
     lat0,
     lon0,
     h0,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """

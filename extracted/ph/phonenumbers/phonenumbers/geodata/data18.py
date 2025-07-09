@@ -19,6 +19,8 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861365934':{'en': 'Wuwei, Gansu', 'zh': u('\u7518\u8083\u7701\u6b66\u5a01\u5e02')},
+ '861365935':{'en': 'Wuwei, Gansu', 'zh': u('\u7518\u8083\u7701\u6b66\u5a01\u5e02')},
  '861365936':{'en': 'Jiuquan, Gansu', 'zh': u('\u7518\u8083\u7701\u9152\u6cc9\u5e02')},
  '861365937':{'en': 'Jiuquan, Gansu', 'zh': u('\u7518\u8083\u7701\u9152\u6cc9\u5e02')},
  '861365938':{'en': 'Tianshui, Gansu', 'zh': u('\u7518\u8083\u7701\u5929\u6c34\u5e02')},
@@ -10017,6 +10019,4 @@ data = {
  '861396648':{'en': 'Huainan, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5357\u5e02')},
  '861396649':{'en': 'Huainan, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5357\u5e02')},
  '86139665':{'en': 'Fuyang, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u961c\u9633\u5e02')},
- '861396650':{'en': 'Bozhou, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u4eb3\u5dde\u5e02')},
- '861396651':{'en': 'Bozhou, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u4eb3\u5dde\u5e02')},
 }

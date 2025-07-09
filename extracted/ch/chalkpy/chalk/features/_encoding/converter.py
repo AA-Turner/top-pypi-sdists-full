@@ -1086,7 +1086,7 @@ def _to_old_style_type(origin: object):
     return origin
 
 
-def _canonicalize_typ(x: object):
+def canonicalize_typ(x: object):
     """Canonicalize a type annotation for equality checking.
     New-style types are replaced with old-style types, and
     annotated markers are ignored. Specifically:
@@ -1107,7 +1107,7 @@ def _canonicalize_typ(x: object):
     if origin is None:
         return _to_old_style_type(x)
     origin = _to_old_style_type(origin)
-    args = tuple(_canonicalize_typ(x) for x in args)
+    args = tuple(canonicalize_typ(x) for x in args)
     return origin[args]  # type: ignore -- pyright doesn't understand metaprogramming
 
 
@@ -1356,8 +1356,8 @@ class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich
         if self._encoder is not None or self._decoder is not None:
             return True
 
-        prim_canonical = _canonicalize_typ(self.primitive_type)
-        rich_canonical = _canonicalize_typ(self.rich_type)
+        prim_canonical = canonicalize_typ(self.primitive_type)
+        rich_canonical = canonicalize_typ(self.rich_type)
         if self.is_nullable:
             # Primitive type is based off of the pyarrow dtype, which doesn't know about nullability
             # So Optional[str] will become just 'str' and needs to be re-wrapped in an Optional[] to compare w/ the rich type

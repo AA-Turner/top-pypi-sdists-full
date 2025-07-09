@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.42.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.43.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.42.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.43.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -513,6 +513,7 @@ __all__ = [
     "compute_url_map",
     "compute_vpn_gateway",
     "compute_vpn_tunnel",
+    "contact_center_insights_analysis_rule",
     "contact_center_insights_view",
     "container_analysis_note",
     "container_analysis_note_iam_binding",
@@ -768,6 +769,7 @@ __all__ = [
     "data_google_iap_web_region_backend_service_iam_policy",
     "data_google_iap_web_type_app_engine_iam_policy",
     "data_google_iap_web_type_compute_iam_policy",
+    "data_google_kms_autokey_config",
     "data_google_kms_crypto_key",
     "data_google_kms_crypto_key_iam_policy",
     "data_google_kms_crypto_key_latest_version",
@@ -775,6 +777,8 @@ __all__ = [
     "data_google_kms_crypto_key_versions",
     "data_google_kms_crypto_keys",
     "data_google_kms_ekm_connection_iam_policy",
+    "data_google_kms_key_handle",
+    "data_google_kms_key_handles",
     "data_google_kms_key_ring",
     "data_google_kms_key_ring_iam_policy",
     "data_google_kms_key_rings",
@@ -796,6 +800,7 @@ __all__ = [
     "data_google_monitoring_notification_channel",
     "data_google_monitoring_uptime_check_ips",
     "data_google_netblock_ip_ranges",
+    "data_google_network_management_connectivity_test_run",
     "data_google_network_security_address_group_iam_policy",
     "data_google_notebooks_instance_iam_policy",
     "data_google_notebooks_runtime_iam_policy",
@@ -837,6 +842,7 @@ __all__ = [
     "data_google_pubsub_subscription_iam_policy",
     "data_google_pubsub_topic",
     "data_google_pubsub_topic_iam_policy",
+    "data_google_redis_cluster",
     "data_google_redis_instance",
     "data_google_scc_source_iam_policy",
     "data_google_scc_v2_organization_source_iam_policy",
@@ -1214,6 +1220,7 @@ __all__ = [
     "integration_connectors_managed_zone",
     "integrations_auth_config",
     "integrations_client",
+    "kms_autokey_config",
     "kms_crypto_key",
     "kms_crypto_key_iam_binding",
     "kms_crypto_key_iam_member",
@@ -1223,6 +1230,7 @@ __all__ = [
     "kms_ekm_connection_iam_binding",
     "kms_ekm_connection_iam_member",
     "kms_ekm_connection_iam_policy",
+    "kms_key_handle",
     "kms_key_ring",
     "kms_key_ring_iam_binding",
     "kms_key_ring_iam_member",
@@ -1261,6 +1269,7 @@ __all__ = [
     "migration_center_group",
     "migration_center_preference_set",
     "ml_engine_model",
+    "model_armor_template",
     "monitoring_alert_policy",
     "monitoring_custom_service",
     "monitoring_dashboard",
@@ -1948,6 +1957,7 @@ from . import compute_target_tcp_proxy
 from . import compute_url_map
 from . import compute_vpn_gateway
 from . import compute_vpn_tunnel
+from . import contact_center_insights_analysis_rule
 from . import contact_center_insights_view
 from . import container_analysis_note
 from . import container_analysis_note_iam_binding
@@ -2203,6 +2213,7 @@ from . import data_google_iap_web_iam_policy
 from . import data_google_iap_web_region_backend_service_iam_policy
 from . import data_google_iap_web_type_app_engine_iam_policy
 from . import data_google_iap_web_type_compute_iam_policy
+from . import data_google_kms_autokey_config
 from . import data_google_kms_crypto_key
 from . import data_google_kms_crypto_key_iam_policy
 from . import data_google_kms_crypto_key_latest_version
@@ -2210,6 +2221,8 @@ from . import data_google_kms_crypto_key_version
 from . import data_google_kms_crypto_key_versions
 from . import data_google_kms_crypto_keys
 from . import data_google_kms_ekm_connection_iam_policy
+from . import data_google_kms_key_handle
+from . import data_google_kms_key_handles
 from . import data_google_kms_key_ring
 from . import data_google_kms_key_ring_iam_policy
 from . import data_google_kms_key_rings
@@ -2231,6 +2244,7 @@ from . import data_google_monitoring_mesh_istio_service
 from . import data_google_monitoring_notification_channel
 from . import data_google_monitoring_uptime_check_ips
 from . import data_google_netblock_ip_ranges
+from . import data_google_network_management_connectivity_test_run
 from . import data_google_network_security_address_group_iam_policy
 from . import data_google_notebooks_instance_iam_policy
 from . import data_google_notebooks_runtime_iam_policy
@@ -2272,6 +2286,7 @@ from . import data_google_pubsub_subscription
 from . import data_google_pubsub_subscription_iam_policy
 from . import data_google_pubsub_topic
 from . import data_google_pubsub_topic_iam_policy
+from . import data_google_redis_cluster
 from . import data_google_redis_instance
 from . import data_google_scc_source_iam_policy
 from . import data_google_scc_v2_organization_source_iam_policy
@@ -2649,6 +2664,7 @@ from . import integration_connectors_endpoint_attachment
 from . import integration_connectors_managed_zone
 from . import integrations_auth_config
 from . import integrations_client
+from . import kms_autokey_config
 from . import kms_crypto_key
 from . import kms_crypto_key_iam_binding
 from . import kms_crypto_key_iam_member
@@ -2658,6 +2674,7 @@ from . import kms_ekm_connection
 from . import kms_ekm_connection_iam_binding
 from . import kms_ekm_connection_iam_member
 from . import kms_ekm_connection_iam_policy
+from . import kms_key_handle
 from . import kms_key_ring
 from . import kms_key_ring_iam_binding
 from . import kms_key_ring_iam_member
@@ -2696,6 +2713,7 @@ from . import memorystore_instance_desired_user_created_endpoints
 from . import migration_center_group
 from . import migration_center_preference_set
 from . import ml_engine_model
+from . import model_armor_template
 from . import monitoring_alert_policy
 from . import monitoring_custom_service
 from . import monitoring_dashboard

@@ -215,13 +215,14 @@ def initialize_call_log(value=None,
 
     print_or_log(full_message,level=log_level)
     
-def get_json_call_response(value, status_code, data=None,logMsg=None):
+def get_json_call_response(value, status_code, data=None,logMsg=None,callLog = False):
     response_body = {}
     if status_code == 200:
         response_body["success"] = True
         response_body["result"] = value
         logMsg = logMsg or "success"
-        initialize_call_log(value=value,
+        if callLog:
+            initialize_call_log(value=value,
                             data=data,
                             logMsg=logMsg,
                             log_level='info')

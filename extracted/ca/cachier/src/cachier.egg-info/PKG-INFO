@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachier
-Version: 3.4.0
+Version: 3.4.1
 Summary: Persistent, stale-free, local and cross-machine caching for Python functions.
 Author-email: Shay Palachy Affek <shay.palachy@gmail.com>
 License: MIT License

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bugsnag
-Version: 4.7.1
+Version: 4.8.0
 Summary: Automatic error monitoring for django, flask, etc.
 Home-page: https://bugsnag.com/
 Author: Simon Maynard
@@ -29,6 +29,17 @@ Requires-Dist: webob
 Provides-Extra: flask
 Requires-Dist: flask; extra == "flask"
 Requires-Dist: blinker; extra == "flask"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 Bugsnag

@@ -8213,16 +8213,15 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
-  int __pyx_t_2;
-  sqlite3_int64 __pyx_t_3;
-  double __pyx_t_4;
-  PyObject *__pyx_t_5 = NULL;
-  char const *__pyx_t_6;
-  Py_ssize_t __pyx_t_7;
-  char *__pyx_t_8;
-  char const *__pyx_t_9;
-  PyObject *__pyx_t_10 = NULL;
-  char const *__pyx_t_11;
+  sqlite3_int64 __pyx_t_2;
+  double __pyx_t_3;
+  PyObject *__pyx_t_4 = NULL;
+  char const *__pyx_t_5;
+  Py_ssize_t __pyx_t_6;
+  char *__pyx_t_7;
+  char const *__pyx_t_8;
+  PyObject *__pyx_t_9 = NULL;
+  char const *__pyx_t_10;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -8233,7 +8232,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  * cdef python_to_sqlite(sqlite3_context *context, value):
  *     if value is None:             # <<<<<<<<<<<<<<
  *         sqlite3_result_null(context)
- *     elif isinstance(value, (int, long)):
+ *     elif isinstance(value, int):
  */
   __pyx_t_1 = (__pyx_v_value == Py_None);
   if (__pyx_t_1) {
@@ -8242,7 +8241,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  * cdef python_to_sqlite(sqlite3_context *context, value):
  *     if value is None:
  *         sqlite3_result_null(context)             # <<<<<<<<<<<<<<
- *     elif isinstance(value, (int, long)):
+ *     elif isinstance(value, int):
  *         sqlite3_result_int64(context, <sqlite3_int64>value)
  */
     sqlite3_result_null(__pyx_v_context);
@@ -8252,7 +8251,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  * cdef python_to_sqlite(sqlite3_context *context, value):
  *     if value is None:             # <<<<<<<<<<<<<<
  *         sqlite3_result_null(context)
- *     elif isinstance(value, (int, long)):
+ *     elif isinstance(value, int):
  */
     goto __pyx_L3;
   }
@@ -8260,35 +8259,27 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
   /* "playhouse/_sqlite_ext.pyx":329
  *     if value is None:
  *         sqlite3_result_null(context)
- *     elif isinstance(value, (int, long)):             # <<<<<<<<<<<<<<
+ *     elif isinstance(value, int):             # <<<<<<<<<<<<<<
  *         sqlite3_result_int64(context, <sqlite3_int64>value)
  *     elif isinstance(value, float):
  */
-  __pyx_t_2 = PyInt_Check(__pyx_v_value); 
-  if (!__pyx_t_2) {
-  } else {
-    __pyx_t_1 = __pyx_t_2;
-    goto __pyx_L4_bool_binop_done;
-  }
-  __pyx_t_2 = PyLong_Check(__pyx_v_value); 
-  __pyx_t_1 = __pyx_t_2;
-  __pyx_L4_bool_binop_done:;
+  __pyx_t_1 = PyInt_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
     /* "playhouse/_sqlite_ext.pyx":330
  *         sqlite3_result_null(context)
- *     elif isinstance(value, (int, long)):
+ *     elif isinstance(value, int):
  *         sqlite3_result_int64(context, <sqlite3_int64>value)             # <<<<<<<<<<<<<<
  *     elif isinstance(value, float):
  *         sqlite3_result_double(context, <double>value)
  */
-    __pyx_t_3 = __Pyx_PyInt_As_sqlite3_int64(__pyx_v_value); if (unlikely((__pyx_t_3 == ((sqlite3_int64)-1)) && PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L1_error)
-    sqlite3_result_int64(__pyx_v_context, ((sqlite3_int64)__pyx_t_3));
+    __pyx_t_2 = __Pyx_PyInt_As_sqlite3_int64(__pyx_v_value); if (unlikely((__pyx_t_2 == ((sqlite3_int64)-1)) && PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L1_error)
+    sqlite3_result_int64(__pyx_v_context, ((sqlite3_int64)__pyx_t_2));
 
     /* "playhouse/_sqlite_ext.pyx":329
  *     if value is None:
  *         sqlite3_result_null(context)
- *     elif isinstance(value, (int, long)):             # <<<<<<<<<<<<<<
+ *     elif isinstance(value, int):             # <<<<<<<<<<<<<<
  *         sqlite3_result_int64(context, <sqlite3_int64>value)
  *     elif isinstance(value, float):
  */
@@ -8296,7 +8287,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
   }
 
   /* "playhouse/_sqlite_ext.pyx":331
- *     elif isinstance(value, (int, long)):
+ *     elif isinstance(value, int):
  *         sqlite3_result_int64(context, <sqlite3_int64>value)
  *     elif isinstance(value, float):             # <<<<<<<<<<<<<<
  *         sqlite3_result_double(context, <double>value)
@@ -8312,11 +8303,11 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *     elif isinstance(value, unicode):
  *         bval = PyUnicode_AsUTF8String(value)
  */
-    __pyx_t_4 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_4 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 332, __pyx_L1_error)
-    sqlite3_result_double(__pyx_v_context, ((double)__pyx_t_4));
+    __pyx_t_3 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_3 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 332, __pyx_L1_error)
+    sqlite3_result_double(__pyx_v_context, ((double)__pyx_t_3));
 
     /* "playhouse/_sqlite_ext.pyx":331
- *     elif isinstance(value, (int, long)):
+ *     elif isinstance(value, int):
  *         sqlite3_result_int64(context, <sqlite3_int64>value)
  *     elif isinstance(value, float):             # <<<<<<<<<<<<<<
  *         sqlite3_result_double(context, <double>value)
@@ -8342,10 +8333,10 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *         sqlite3_result_text(
  *             context,
  */
-    __pyx_t_5 = PyUnicode_AsUTF8String(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 334, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_v_bval = ((PyObject*)__pyx_t_5);
-    __pyx_t_5 = 0;
+    __pyx_t_4 = PyUnicode_AsUTF8String(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_v_bval = ((PyObject*)__pyx_t_4);
+    __pyx_t_4 = 0;
 
     /* "playhouse/_sqlite_ext.pyx":337
  *         sqlite3_result_text(
@@ -8358,7 +8349,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
       __PYX_ERR(0, 337, __pyx_L1_error)
     }
-    __pyx_t_6 = __Pyx_PyBytes_AsString(__pyx_v_bval); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 337, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_AsString(__pyx_v_bval); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 337, __pyx_L1_error)
 
     /* "playhouse/_sqlite_ext.pyx":338
  *             context,
@@ -8371,7 +8362,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
       __PYX_ERR(0, 338, __pyx_L1_error)
     }
-    __pyx_t_7 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bval); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 338, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bval); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 338, __pyx_L1_error)
 
     /* "playhouse/_sqlite_ext.pyx":335
  *     elif isinstance(value, unicode):
@@ -8380,7 +8371,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *             context,
  *             <const char *>bval,
  */
-    sqlite3_result_text(__pyx_v_context, ((char const *)__pyx_t_6), __pyx_t_7, ((sqlite3_destructor_type)-1L));
+    sqlite3_result_text(__pyx_v_context, ((char const *)__pyx_t_5), __pyx_t_6, ((sqlite3_destructor_type)-1L));
 
     /* "playhouse/_sqlite_ext.pyx":333
  *     elif isinstance(value, float):
@@ -8419,7 +8410,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *                 len(value),
  *                 <sqlite3_destructor_type>-1)
  */
-      __pyx_t_8 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_8) && PyErr_Occurred())) __PYX_ERR(0, 344, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 344, __pyx_L1_error)
 
       /* "playhouse/_sqlite_ext.pyx":345
  *                 context,
@@ -8428,7 +8419,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *                 <sqlite3_destructor_type>-1)
  *         else:
  */
-      __pyx_t_7 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 345, __pyx_L1_error)
+      __pyx_t_6 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 345, __pyx_L1_error)
 
       /* "playhouse/_sqlite_ext.pyx":342
  *     elif isinstance(value, bytes):
@@ -8437,7 +8428,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *                 context,
  *                 <void *>(<char *>value),
  */
-      sqlite3_result_blob(__pyx_v_context, ((void *)((char *)__pyx_t_8)), __pyx_t_7, ((sqlite3_destructor_type)-1L));
+      sqlite3_result_blob(__pyx_v_context, ((void *)((char *)__pyx_t_7)), __pyx_t_6, ((sqlite3_destructor_type)-1L));
 
       /* "playhouse/_sqlite_ext.pyx":341
  *             <sqlite3_destructor_type>-1)
@@ -8446,7 +8437,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *             sqlite3_result_blob(
  *                 context,
  */
-      goto __pyx_L6;
+      goto __pyx_L4;
     }
 
     /* "playhouse/_sqlite_ext.pyx":348
@@ -8465,7 +8456,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *                 len(value),
  *                 <sqlite3_destructor_type>-1)
  */
-      __pyx_t_9 = __Pyx_PyObject_AsString(__pyx_v_value); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 350, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_AsString(__pyx_v_value); if (unlikely((!__pyx_t_8) && PyErr_Occurred())) __PYX_ERR(0, 350, __pyx_L1_error)
 
       /* "playhouse/_sqlite_ext.pyx":351
  *                 context,
@@ -8474,7 +8465,7 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *                 <sqlite3_destructor_type>-1)
  *     else:
  */
-      __pyx_t_7 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 351, __pyx_L1_error)
+      __pyx_t_6 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 351, __pyx_L1_error)
 
       /* "playhouse/_sqlite_ext.pyx":348
  *                 <sqlite3_destructor_type>-1)
@@ -8483,9 +8474,9 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *                 context,
  *                 <const char *>value,
  */
-      sqlite3_result_text(__pyx_v_context, ((char const *)__pyx_t_9), __pyx_t_7, ((sqlite3_destructor_type)-1L));
+      sqlite3_result_text(__pyx_v_context, ((char const *)__pyx_t_8), __pyx_t_6, ((sqlite3_destructor_type)-1L));
     }
-    __pyx_L6:;
+    __pyx_L4:;
 
     /* "playhouse/_sqlite_ext.pyx":340
  *             len(bval),
@@ -8513,16 +8504,16 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *             -1)
  *         return SQLITE_ERROR
  */
-    __pyx_t_5 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Unsupported_type_s, ((PyObject *)Py_TYPE(__pyx_v_value))); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 356, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_10 = __pyx_f_9playhouse_11_sqlite_ext_encode(__pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 356, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_10);
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(__pyx_t_10 == Py_None)) {
+    __pyx_t_4 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Unsupported_type_s, ((PyObject *)Py_TYPE(__pyx_v_value))); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_9 = __pyx_f_9playhouse_11_sqlite_ext_encode(__pyx_t_4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(__pyx_t_9 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
       __PYX_ERR(0, 356, __pyx_L1_error)
     }
-    __pyx_t_11 = __Pyx_PyBytes_AsString(__pyx_t_10); if (unlikely((!__pyx_t_11) && PyErr_Occurred())) __PYX_ERR(0, 356, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyBytes_AsString(__pyx_t_9); if (unlikely((!__pyx_t_10) && PyErr_Occurred())) __PYX_ERR(0, 356, __pyx_L1_error)
 
     /* "playhouse/_sqlite_ext.pyx":354
  *                 <sqlite3_destructor_type>-1)
@@ -8531,8 +8522,8 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *             context,
  *             encode('Unsupported type %s' % type(value)),
  */
-    sqlite3_result_error(__pyx_v_context, __pyx_t_11, -1);
-    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    sqlite3_result_error(__pyx_v_context, __pyx_t_10, -1);
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
     /* "playhouse/_sqlite_ext.pyx":358
  *             encode('Unsupported type %s' % type(value)),
@@ -8542,10 +8533,10 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  *     return SQLITE_OK
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_10 = __Pyx_PyInt_From_int(SQLITE_ERROR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 358, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_10);
-    __pyx_r = __pyx_t_10;
-    __pyx_t_10 = 0;
+    __pyx_t_9 = __Pyx_PyInt_From_int(SQLITE_ERROR); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_r = __pyx_t_9;
+    __pyx_t_9 = 0;
     goto __pyx_L0;
   }
   __pyx_L3:;
@@ -8558,10 +8549,10 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_10 = __Pyx_PyInt_From_int(SQLITE_OK); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 360, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_10);
-  __pyx_r = __pyx_t_10;
-  __pyx_t_10 = 0;
+  __pyx_t_9 = __Pyx_PyInt_From_int(SQLITE_OK); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_r = __pyx_t_9;
+  __pyx_t_9 = 0;
   goto __pyx_L0;
 
   /* "playhouse/_sqlite_ext.pyx":326
@@ -8574,8 +8565,8 @@ static PyObject *__pyx_f_9playhouse_11_sqlite_ext_python_to_sqlite(sqlite3_conte
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_9);
   __Pyx_AddTraceback("playhouse._sqlite_ext.python_to_sqlite", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
   __pyx_L0:;

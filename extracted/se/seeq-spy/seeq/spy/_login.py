@@ -8,6 +8,7 @@ import os
 import re
 import warnings
 from contextlib import suppress
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 from urllib.parse import urlparse, quote
 
@@ -33,10 +34,26 @@ AUTOMATIC_PROXY_DETECTION = '__auto__'
 
 
 @Status.handle_keyboard_interrupt()
-def login(username=None, password=None, *, access_key=None, url=None, directory='Seeq',
-          ignore_ssl_errors=False, proxy=AUTOMATIC_PROXY_DETECTION, credentials_file=None, force=True,
-          quiet=None, status=None, session: Session = None, private_url=None, auth_token=None, csrf_token=None,
-          request_origin_label=None, request_origin_url=None):
+def login(
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        *,
+        access_key: Optional[str] = None,
+        url: Optional[str] = None,
+        directory: str = 'Seeq',
+        ignore_ssl_errors: bool = False,
+        proxy: str = AUTOMATIC_PROXY_DETECTION,
+        credentials_file: Optional[Union[str, Path]] = None,
+        force: bool = True,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None,
+        private_url: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        csrf_token: Optional[str] = None,
+        request_origin_label: Optional[str] = None,
+        request_origin_url: Optional[str] = None
+) -> None:
     """
     Establishes a connection with Seeq Server and logs in with a set of
     credentials. At least one set of credentials must be provided.
@@ -89,9 +106,10 @@ def login(username=None, password=None, *, access_key=None, url=None, directory=
         HTTPS_PROXY environment variables. If you specify None for this
         parameter, no proxy server will be used.
 
-    credentials_file : str, optional
-        Reads username and password from the specified file. If specified, the
-        file should be plane text and contain two lines, the first line being
+    credentials_file : {str, pathlib.Path}, optional
+        Reads username and password from the specified file. Accepts either
+        a string path or a pathlib.Path object. If specified, the file
+        should be plain text and contain two lines, the first line being
         the username, the second being the user's password.
 
     force : str, default True
@@ -153,7 +171,7 @@ def login(username=None, password=None, *, access_key=None, url=None, directory=
         (directory, 'directory', str),
         (ignore_ssl_errors, 'ignore_ssl_errors', bool),
         (proxy, 'proxy', str),
-        (credentials_file, 'credentials_file', str),
+        (credentials_file, 'credentials_file', (str, Path)),
         (force, 'force', bool),
         (quiet, 'quiet', bool),
         (status, 'status', Status),
@@ -181,14 +199,33 @@ def login(username=None, password=None, *, access_key=None, url=None, directory=
     status.update(session.get_info(html=True), Status.SUCCESS)
 
 
-def _login(username, password, access_key, url, directory, ignore_ssl_errors, proxy, credentials_file, auth_token,
-           private_url, force, status: Status, csrf_token, session: Session, request_origin_url=None,
-           request_origin_label=None):
+def _login(
+        username: Optional[str],
+        password: Optional[str],
+        access_key: Optional[str],
+        url: Optional[str],
+        directory: str,
+        ignore_ssl_errors: bool,
+        proxy: str,
+        credentials_file: Optional[Union[str, Path]],
+        auth_token: Optional[str],
+        private_url: Optional[str],
+        force: bool,
+        status: Status,
+        csrf_token: Optional[str],
+        session: Session,
+        request_origin_url: Optional[str] = None,
+        request_origin_label: Optional[str] = None
+) -> None:
     if access_key and username:
         raise SPyValueError('"username" argument must be omitted when supplying "access_key" argument')
 
     if access_key and directory != 'Seeq':
         raise SPyValueError('"directory" argument must be omitted when supplying "access_key" argument')
+
+    # If credentials_file is a Path, convert it to a string
+    if isinstance(credentials_file, Path):
+        credentials_file = str(credentials_file)
 
     try:
         if force or not session.client:
@@ -247,12 +284,28 @@ def _login(username, password, access_key, url, directory, ignore_ssl_errors, pr
         raise
 
 
-def _client_login(auth_token, credentials_file, directory, ignore_ssl_errors, password, proxy, status, api_client_url,
-                  username, access_key, csrf_token, session: Session):
+def _client_login(
+        auth_token: Optional[str],
+        credentials_file: Optional[Union[str, Path]],
+        directory: str,
+        ignore_ssl_errors: bool,
+        password: Optional[str],
+        proxy: Optional[str],
+        status: Status,
+        api_client_url: str,
+        username: Optional[str],
+        access_key: Optional[str],
+        csrf_token: Optional[str],
+        session: Session
+) -> None:
     # Annoying warnings are printed to stderr if connections fail
     logging.getLogger("requests").setLevel(logging.FATAL)
     logging.getLogger("urllib3").setLevel(logging.FATAL)
     urllib3.disable_warnings()
+
+    # If credentials_file is a Path, convert it to a string
+    if isinstance(credentials_file, Path):
+        credentials_file = str(credentials_file)
 
     cert_file = Setting.get_seeq_cert_path()
     if cert_file and util.safe_exists(cert_file):

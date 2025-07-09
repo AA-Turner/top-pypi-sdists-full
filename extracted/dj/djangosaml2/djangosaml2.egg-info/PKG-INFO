@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangosaml2
-Version: 1.10.1
+Version: 1.11.1
 Summary: pysaml2 integration for Django
 Home-page: https://github.com/IdentityPython/djangosaml2
 Download-URL: https://pypi.org/project/djangosaml2/

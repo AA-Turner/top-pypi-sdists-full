@@ -29,9 +29,22 @@ Companion packages exist for:
 * Fortran: [Maptran3D](https://github.com/geospace-code/maptran3d)
 """
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
 
 from .aer import aer2ecef, aer2geodetic, ecef2aer, geodetic2aer
+from .dca import (
+    enu2dca,
+    dca2enu,
+    dca2ned,
+    ned2dca,
+    ecef2dca,
+    dca2ecef,
+    geodetic2dca,
+    dca2geodetic,
+    aer2dca,
+    dca2aer,
+)
+
 from .ecef import (
     ecef2enu,
     ecef2enuv,
@@ -44,7 +57,7 @@ from .ecef import (
     uvw2enu,
 )
 from .ellipsoid import Ellipsoid
-from .enu import aer2enu, enu2aer, enu2geodetic, geodetic2enu
+from .enu import aer2enu, enu2aer, enu2geodetic, geodetic2enu, enu2ecefv
 from .ned import (
     aer2ned,
     ecef2ned,
@@ -57,6 +70,27 @@ from .ned import (
 from .sidereal import datetime2sidereal, greenwichsrt
 from .spherical import geodetic2spherical, spherical2geodetic
 from .timeconv import str2dt
+
+from .latitude import (
+    geodetic2isometric,
+    isometric2geodetic,
+    geodetic2rectifying,
+    rectifying2geodetic,
+    geodetic2conformal,
+    conformal2geodetic,
+    geodetic2parametric,
+    parametric2geodetic,
+    geodetic2geocentric,
+    geocentric2geodetic,
+    geodetic2authalic,
+    authalic2geodetic,
+    geod2geoc,
+    geoc2geod,
+)
+
+from .nvector import geodetic2nvector, nvector2geodetic, ecef2nvector, nvector2ecef
+
+from .rcurve import parallel, meridian, transverse, geocentric_radius
 
 __all__ = [
     "aer2ecef",
@@ -76,6 +110,7 @@ __all__ = [
     "aer2enu",
     "enu2aer",
     "enu2geodetic",
+    "enu2ecefv",
     "geodetic2enu",
     "aer2ned",
     "ecef2ned",
@@ -91,13 +126,43 @@ __all__ = [
     "str2dt",
     "azel2radec",
     "radec2azel",
+    "parallel",
+    "meridian",
+    "transverse",
+    "geocentric_radius",
+    "geodetic2isometric",
+    "isometric2geodetic",
+    "geodetic2rectifying",
+    "rectifying2geodetic",
+    "geodetic2conformal",
+    "conformal2geodetic",
+    "geodetic2parametric",
+    "parametric2geodetic",
+    "geodetic2geocentric",
+    "geocentric2geodetic",
+    "geodetic2authalic",
+    "authalic2geodetic",
+    "geod2geoc",
+    "geoc2geod",
+    "nvector2geodetic",
+    "geodetic2nvector",
+    "ecef2nvector",
+    "nvector2ecef",
+    "enu2dca",
+    "dca2enu",
+    "dca2ned",
+    "ned2dca",
+    "ecef2dca",
+    "dca2ecef",
+    "geodetic2dca",
+    "dca2geodetic",
+    "aer2dca",
+    "dca2aer",
 ]
 
-try:
-    from .aer import aer2eci, eci2aer
-    from .azelradec import azel2radec, radec2azel
-    from .eci import ecef2eci, eci2ecef
 
-    __all__ += ["aer2eci", "eci2aer", "ecef2eci", "eci2ecef"]
-except ImportError:
-    from .vallado import azel2radec, radec2azel
+from .aer import aer2eci, eci2aer
+from .azelradec import azel2radec, radec2azel
+from .eci import ecef2eci, eci2ecef
+
+__all__ += ["aer2eci", "eci2aer", "ecef2eci", "eci2ecef"]

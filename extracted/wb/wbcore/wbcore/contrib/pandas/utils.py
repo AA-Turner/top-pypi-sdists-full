@@ -141,7 +141,7 @@ def override_number_to_integer_without_decorations(df: DataFrame, *conditions, f
                     value="number",
                     precision=0,
                     displayMode="decimal",
-                    delimiter="",
+                    disable_formatting=True,
                 )
             ]
         }

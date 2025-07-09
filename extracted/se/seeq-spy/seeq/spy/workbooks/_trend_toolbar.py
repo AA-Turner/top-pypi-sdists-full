@@ -694,7 +694,8 @@ class TrendItems(ContextSwitchable):
     def __repr__(self):
         repr_display = f"Trend Items Color:"
         for i, item in self.items.iterrows():
-            repr_display += f"\n  - Name: {item['Name']}, Color: {item['Color']}"
+            color = _common.get(item, 'Color')
+            repr_display += f"\n  - Name: {item['Name']}, Color: {color}"
         return repr_display
 
 

@@ -923,6 +923,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
 class OutputExpression(BaseModel):
     base64_proto: str
     python_repr: str
+    output_column_name: Optional[str] = None
 
 
 class CreatePromptEvaluationRequest(CreateOfflineQueryJobRequest):
@@ -934,6 +935,7 @@ class CreatePromptEvaluationRequest(CreateOfflineQueryJobRequest):
     related_named_prompt_ids: Optional[List[str]] = None
     related_evaluation_ids: Optional[List[str]] = None
     meta: Optional[Mapping[str, str]] = None
+    overlay_graph: Optional[str] = None
 
 
 class ComputeResolverOutputRequest(BaseModel):

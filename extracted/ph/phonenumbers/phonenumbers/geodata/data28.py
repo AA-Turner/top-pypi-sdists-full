@@ -19,6 +19,8 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '9171812':{'en': 'Lakhandur, Maharashtra'},
+ '9171813':{'en': 'Lakhandur, Maharashtra'},
  '9171814':{'en': 'Lakhandur, Maharashtra'},
  '9171815':{'en': 'Lakhandur, Maharashtra'},
  '9171816':{'en': 'Lakhandur, Maharashtra'},

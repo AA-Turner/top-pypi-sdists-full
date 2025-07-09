@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-language-pack
-Version: 0.8.0
+Version: 0.9.0
 Summary: Comprehensive collection of 160+ tree-sitter language parsers
 Author-email: Na'aman Hirschfeld <nhirschfeld@gmail.com>
 License-Expression: MIT OR Apache-2.0
@@ -148,6 +148,7 @@ Each language below is identified by the key used to retrieve it from the `get_l
 - [html](https://github.com/tree-sitter/tree-sitter-html) - MIT License
 - [hyprlang](https://github.com/tree-sitter-grammars/tree-sitter-hyprlang) - MIT License
 - [ispc](https://github.com/tree-sitter-grammars/tree-sitter-ispc) - MIT License
+- [ini](https://github.com/justinmk/tree-sitter-ini) - Apache License 2.0
 - [janet](https://github.com/GrayJack/tree-sitter-janet) - BSD-3-Clause license
 - [java](https://github.com/tree-sitter/tree-sitter-java) - MIT License
 - [javascript](https://github.com/tree-sitter/tree-sitter-javascript) - MIT License
@@ -173,6 +174,7 @@ Each language below is identified by the key used to retrieve it from the `get_l
 - [mermaid](https://github.com/monaqa/tree-sitter-mermaid) - MIT License
 - [meson](https://github.com/tree-sitter-grammars/tree-sitter-meson) - MIT License
 - [netlinx](https://github.com/Norgate-AV/tree-sitter-netlinx) - MIT License
+- [nim](https://github.com/alaviss/tree-sitter-nim) - MPL-2.0 License
 - [ninja](https://github.com/alemuller/tree-sitter-ninja) - MIT License
 - [nix](https://github.com/nix-community/tree-sitter-nix) - MIT License
 - [nqc](https://github.com/tree-sitter-grammars/tree-sitter-nqc) - MIT License

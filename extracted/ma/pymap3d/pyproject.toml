@@ -14,7 +14,7 @@ classifiers = ["Development Status :: 5 - Production/Stable",
  "Programming Language :: Python :: 3",
  "Topic :: Scientific/Engineering :: GIS"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version", "readme"]
 
 [tool.setuptools.dynamic]
@@ -22,7 +22,7 @@ readme = {file = ["README.md"], content-type = "text/markdown"}
 version = {attr = "pymap3d.__version__"}
 
 [project.optional-dependencies]
-tests = ["pytest", "pytest-timeout"]
+tests = ["pytest"]
 lint = ["flake8", "flake8-bugbear", "flake8-builtins", "flake8-blind-except", "mypy",
   "types-python-dateutil", "types-requests"]
 coverage = ["pytest-cov"]

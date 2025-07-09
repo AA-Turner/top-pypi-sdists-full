@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: myskoda
-Version: 2.3.0
+Version: 2.3.1
 Summary: Library for interaction with the MySkoda APIs.
 Author-email: Frederick Gnodtke <frederick@gnodtke.net>, WebSpider <bacardicoke@gmail.com>, Fabrice Devaux <fabrice.devaux@gmail.com>
 License-File: LICENSE

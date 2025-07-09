@@ -2,7 +2,7 @@ from typing import Optional, Tuple, List, Literal
 from contextlib import contextmanager
 from sempy._utils._log import log
 from uuid import UUID
-from sempy_labs._helper_functions import (
+from .._helper_functions import (
     resolve_workspace_name_and_id,
     resolve_item_name_and_id,
     _base_api,
@@ -19,7 +19,7 @@ from sempy_labs._helper_functions import (
     remove_json_value,
     get_tenant_id,
 )
-from sempy_labs._dictionary_diffs import (
+from .._dictionary_diffs import (
     diff_parts,
 )
 import json
@@ -28,7 +28,7 @@ import copy
 import pandas as pd
 from jsonpath_ng.ext import parse
 import sempy_labs.report._report_helper as helper
-from sempy_labs._model_dependencies import get_measure_dependencies
+from .._model_dependencies import get_measure_dependencies
 import requests
 import re
 import base64
@@ -308,9 +308,10 @@ class ReportWrapper:
 
             if not json_path:
                 self._report_definition["parts"].remove(part)
-                print(
-                    f"{icons.green_dot} The file '{path}' has been removed from the report definition."
-                )
+                if verbose:
+                    print(
+                        f"{icons.green_dot} The file '{path}' has been removed from the report definition."
+                    )
             else:
                 remove_json_value(
                     path=path, payload=payload, json_path=json_path, verbose=verbose
@@ -736,7 +737,7 @@ class ReportWrapper:
         }
         df = _create_dataframe(columns=columns)
 
-        dfs = []
+        rows = []
 
         if "filterConfig" in report_file:
             for flt in report_file.get("filterConfig", {}).get("filters", {}):
@@ -750,24 +751,23 @@ class ReportWrapper:
                 entity_property_pairs = helper.find_entity_property_pairs(flt)
 
                 for object_name, properties in entity_property_pairs.items():
-                    new_data = {
-                        "Filter Name": filter_name,
-                        "Type": filter_type,
-                        "Table Name": properties[0],
-                        "Object Name": object_name,
-                        "Object Type": properties[1],
-                        "Hidden": hidden,
-                        "Locked": locked,
-                        "How Created": how_created,
-                        "Used": filter_used,
-                    }
+                    rows.append(
+                        {
+                            "Filter Name": filter_name,
+                            "Type": filter_type,
+                            "Table Name": properties[0],
+                            "Object Name": object_name,
+                            "Object Type": properties[1],
+                            "Hidden": hidden,
+                            "Locked": locked,
+                            "How Created": how_created,
+                            "Used": filter_used,
+                        }
+                    )
 
-                    dfs.append(pd.DataFrame(new_data, index=[0]))
-
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
-
-        _update_dataframe_datatypes(dataframe=df, column_map=columns)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
+            _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         if extended:
             df = self._add_extended(dataframe=df)
@@ -806,7 +806,7 @@ class ReportWrapper:
         }
         df = _create_dataframe(columns=columns)
 
-        dfs = []
+        rows = []
         for p in self.__all_pages():
             payload = p.get("payload")
             page_id = payload.get("name")
@@ -824,27 +824,26 @@ class ReportWrapper:
                     entity_property_pairs = helper.find_entity_property_pairs(flt)
 
                     for object_name, properties in entity_property_pairs.items():
-                        new_data = {
-                            "Page Name": page_id,
-                            "Page Display Name": page_display,
-                            "Filter Name": filter_name,
-                            "Type": filter_type,
-                            "Table Name": properties[0],
-                            "Object Name": object_name,
-                            "Object Type": properties[1],
-                            "Hidden": hidden,
-                            "Locked": locked,
-                            "How Created": how_created,
-                            "Used": filter_used,
-                            "Page URL": self._get_url(page_name=page_id),
-                        }
+                        rows.append(
+                            {
+                                "Page Name": page_id,
+                                "Page Display Name": page_display,
+                                "Filter Name": filter_name,
+                                "Type": filter_type,
+                                "Table Name": properties[0],
+                                "Object Name": object_name,
+                                "Object Type": properties[1],
+                                "Hidden": hidden,
+                                "Locked": locked,
+                                "How Created": how_created,
+                                "Used": filter_used,
+                                "Page URL": self._get_url(page_name=page_id),
+                            }
+                        )
 
-                        dfs.append(pd.DataFrame(new_data, index=[0]))
-
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
-
-        _update_dataframe_datatypes(dataframe=df, column_map=columns)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
+            _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         if extended:
             df = self._add_extended(dataframe=df)
@@ -886,7 +885,7 @@ class ReportWrapper:
 
         visual_mapping = self._visual_page_mapping()
 
-        dfs = []
+        rows = []
         for v in self.__all_visuals():
             path = v.get("path")
             payload = v.get("payload")
@@ -906,27 +905,26 @@ class ReportWrapper:
                     entity_property_pairs = helper.find_entity_property_pairs(flt)
 
                     for object_name, properties in entity_property_pairs.items():
-                        new_data = {
-                            "Page Name": page_id,
-                            "Page Display Name": page_display,
-                            "Visual Name": visual_name,
-                            "Filter Name": filter_name,
-                            "Type": filter_type,
-                            "Table Name": properties[0],
-                            "Object Name": object_name,
-                            "Object Type": properties[1],
-                            "Hidden": hidden,
-                            "Locked": locked,
-                            "How Created": how_created,
-                            "Used": filter_used,
-                        }
+                        rows.append(
+                            {
+                                "Page Name": page_id,
+                                "Page Display Name": page_display,
+                                "Visual Name": visual_name,
+                                "Filter Name": filter_name,
+                                "Type": filter_type,
+                                "Table Name": properties[0],
+                                "Object Name": object_name,
+                                "Object Type": properties[1],
+                                "Hidden": hidden,
+                                "Locked": locked,
+                                "How Created": how_created,
+                                "Used": filter_used,
+                            }
+                        )
 
-                        dfs.append(pd.DataFrame(new_data, index=[0]))
-
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
-
-        _update_dataframe_datatypes(dataframe=df, column_map=columns)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
+            _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         if extended:
             df = self._add_extended(dataframe=df)
@@ -956,7 +954,7 @@ class ReportWrapper:
         }
         df = _create_dataframe(columns=columns)
 
-        dfs = []
+        rows = []
         for p in self.__all_pages():
             payload = p.get("payload")
             page_name = payload.get("name")
@@ -967,17 +965,18 @@ class ReportWrapper:
                 targetVisual = vizInt.get("target")
                 vizIntType = vizInt.get("type")
 
-                new_data = {
-                    "Page Name": page_name,
-                    "Page Display Name": page_display,
-                    "Source Visual Name": sourceVisual,
-                    "Target Visual Name": targetVisual,
-                    "Type": vizIntType,
-                }
-                dfs.append(pd.DataFrame(new_data, index=[0]))
+                rows.append(
+                    {
+                        "Page Name": page_name,
+                        "Page Display Name": page_display,
+                        "Source Visual Name": sourceVisual,
+                        "Target Visual Name": targetVisual,
+                        "Type": vizIntType,
+                    }
+                )
 
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
 
         return df
 
@@ -1017,7 +1016,7 @@ class ReportWrapper:
 
         dfV = self.list_visuals()
 
-        dfs = []
+        rows = []
         for p in self.__all_pages():
             file_path = p.get("path")
             page_prefix = file_path[0:-9]
@@ -1066,30 +1065,30 @@ class ReportWrapper:
             matches = parse("$.visibility").find(payload)
             is_hidden = any(match.value == "HiddenInViewMode" for match in matches)
 
-            new_data = {
-                "File Path": file_path,
-                "Page Name": page_name,
-                "Page Display Name": payload.get("displayName"),
-                "Display Option": payload.get("displayOption"),
-                "Height": height,
-                "Width": width,
-                "Hidden": is_hidden,
-                "Active": True if page_name == active_page else False,
-                "Type": helper.page_type_mapping.get((width, height), "Custom"),
-                "Alignment": alignment_value,
-                "Drillthrough Target Page": drill_through,
-                "Visual Count": visual_count,
-                "Data Visual Count": data_visual_count,
-                "Visible Visual Count": visible_visual_count,
-                "Page Filter Count": page_filter_count,
-                "Page URL": self._get_url(page_name=page_name),
-            }
-            dfs.append(pd.DataFrame(new_data, index=[0]))
+            rows.append(
+                {
+                    "File Path": file_path,
+                    "Page Name": page_name,
+                    "Page Display Name": payload.get("displayName"),
+                    "Display Option": payload.get("displayOption"),
+                    "Height": height,
+                    "Width": width,
+                    "Hidden": is_hidden,
+                    "Active": True if page_name == active_page else False,
+                    "Type": helper.page_type_mapping.get((width, height), "Custom"),
+                    "Alignment": alignment_value,
+                    "Drillthrough Target Page": drill_through,
+                    "Visual Count": visual_count,
+                    "Data Visual Count": data_visual_count,
+                    "Visible Visual Count": visible_visual_count,
+                    "Page Filter Count": page_filter_count,
+                    "Page URL": self._get_url(page_name=page_name),
+                }
+            )
 
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
-
-        _update_dataframe_datatypes(dataframe=df, column_map=columns)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
+            _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         return df
 
@@ -1154,8 +1153,7 @@ class ReportWrapper:
 
             return any(key in all_keys for key in keys_to_check)
 
-        dfs = []
-
+        rows = []
         for v in self.__all_visuals():
             path = v.get("path")
             payload = v.get("payload")
@@ -1261,39 +1259,40 @@ class ReportWrapper:
             has_sparkline = contains_key(payload, ["SparklineData"])
             visual_name = payload.get("name")
 
-            new_data = {
-                "File Path": path,
-                "Page Name": page_id,
-                "Page Display Name": page_display,
-                "Visual Name": visual_name,
-                "X": pos.get("x"),
-                "Y": pos.get("y"),
-                "Z": pos.get("z"),
-                "Width": pos.get("width"),
-                "Height": pos.get("height"),
-                "Tab Order": pos.get("tabOrder"),
-                "Hidden": payload.get("isHidden", False),
-                "Type": visual_type,
-                "Display Type": visual_type_display,
-                "Title": title,
-                "SubTitle": sub_title,
-                "Custom Visual": visual_type in custom_visuals,
-                "Alt Text": alt_text,
-                "Show Items With No Data": show_all_data,
-                "Divider": divider,
-                "Row SubTotals": rst_value,
-                "Column SubTotals": cst_value,
-                "Slicer Type": slicer_type,
-                "Data Visual": is_data_visual,
-                "Has Sparkline": has_sparkline,
-                "Visual Filter Count": visual_filter_count,
-                "Data Limit": data_limit,
-                "URL": self._get_url(page_name=page_id, visual_name=visual_name),
-            }
-            dfs.append(pd.DataFrame(new_data, index=[0]))
+            rows.append(
+                {
+                    "File Path": path,
+                    "Page Name": page_id,
+                    "Page Display Name": page_display,
+                    "Visual Name": visual_name,
+                    "X": pos.get("x"),
+                    "Y": pos.get("y"),
+                    "Z": pos.get("z"),
+                    "Width": pos.get("width"),
+                    "Height": pos.get("height"),
+                    "Tab Order": pos.get("tabOrder"),
+                    "Hidden": payload.get("isHidden", False),
+                    "Type": visual_type,
+                    "Display Type": visual_type_display,
+                    "Title": title,
+                    "SubTitle": sub_title,
+                    "Custom Visual": visual_type in custom_visuals,
+                    "Alt Text": alt_text,
+                    "Show Items With No Data": show_all_data,
+                    "Divider": divider,
+                    "Row SubTotals": rst_value,
+                    "Column SubTotals": cst_value,
+                    "Slicer Type": slicer_type,
+                    "Data Visual": is_data_visual,
+                    "Has Sparkline": has_sparkline,
+                    "Visual Filter Count": visual_filter_count,
+                    "Data Limit": data_limit,
+                    "URL": self._get_url(page_name=page_id, visual_name=visual_name),
+                }
+            )
 
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
 
         grouped_df = (
             self.list_visual_objects()
@@ -1416,7 +1415,7 @@ class ReportWrapper:
 
             return result
 
-        dfs = []
+        rows = []
         for v in self.__all_visuals():
             path = v.get("path")
             payload = v.get("payload")
@@ -1450,29 +1449,28 @@ class ReportWrapper:
                     for k, v in format_mapping.items():
                         if obj_full in k:
                             format_value = v
-                new_data = {
-                    "Page Name": page_id,
-                    "Page Display Name": page_display,
-                    "Visual Name": payload.get("name"),
-                    "Table Name": table_name,
-                    "Object Name": object_name,
-                    "Object Type": properties[1],
-                    "Implicit Measure": is_agg,
-                    "Sparkline": properties[4],
-                    "Visual Calc": properties[3],
-                    "Format": format_value,
-                    "Object Display Name": obj_display,
-                }
+                rows.append(
+                    {
+                        "Page Name": page_id,
+                        "Page Display Name": page_display,
+                        "Visual Name": payload.get("name"),
+                        "Table Name": table_name,
+                        "Object Name": object_name,
+                        "Object Type": properties[1],
+                        "Implicit Measure": is_agg,
+                        "Sparkline": properties[4],
+                        "Visual Calc": properties[3],
+                        "Format": format_value,
+                        "Object Display Name": obj_display,
+                    }
+                )
 
-                dfs.append(pd.DataFrame(new_data, index=[0]))
-
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
+            _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         if extended:
             df = self._add_extended(dataframe=df)
-
-        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         return df
 
@@ -1656,8 +1654,7 @@ class ReportWrapper:
             if o.get("path").endswith("/bookmark.json")
         ]
 
-        dfs = []
-
+        rows = []
         for b in bookmarks:
             path = b.get("path")
             payload = b.get("payload")
@@ -1691,21 +1688,21 @@ class ReportWrapper:
                     else:
                         visual_hidden = False
 
-                    new_data = {
-                        "File Path": path,
-                        "Bookmark Name": bookmark_name,
-                        "Bookmark Display Name": bookmark_display,
-                        "Page Name": page_id,
-                        "Page Display Name": page_display,
-                        "Visual Name": visual_name,
-                        "Visual Hidden": visual_hidden,
-                    }
-                    dfs.append(pd.DataFrame(new_data, index=[0]))
+                    rows.append(
+                        {
+                            "File Path": path,
+                            "Bookmark Name": bookmark_name,
+                            "Bookmark Display Name": bookmark_display,
+                            "Page Name": page_id,
+                            "Page Display Name": page_display,
+                            "Visual Name": visual_name,
+                            "Visual Hidden": visual_hidden,
+                        }
+                    )
 
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
-
-        _update_dataframe_datatypes(dataframe=df, column_map=columns)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
+            _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
         return df
 
@@ -1741,7 +1738,7 @@ class ReportWrapper:
 
         report_file = self.get(file_path=self._report_extensions_path)
 
-        dfs = []
+        rows = []
         for e in report_file.get("entities", []):
             table_name = e.get("name")
             for m in e.get("measures", []):
@@ -1751,18 +1748,19 @@ class ReportWrapper:
                 format_string = m.get("formatString")
                 data_category = m.get("dataCategory")
 
-                new_data = {
-                    "Measure Name": measure_name,
-                    "Table Name": table_name,
-                    "Expression": expr,
-                    "Data Type": data_type,
-                    "Format String": format_string,
-                    "Data Category": data_category,
-                }
-                dfs.append(pd.DataFrame(new_data, index=[0]))
+                rows.append(
+                    {
+                        "Measure Name": measure_name,
+                        "Table Name": table_name,
+                        "Expression": expr,
+                        "Data Type": data_type,
+                        "Format String": format_string,
+                        "Data Category": data_category,
+                    }
+                )
 
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
 
         return df
 
@@ -2125,13 +2123,14 @@ class ReportWrapper:
         if isinstance(measures, str):
             measures = [measures]
 
-        file = self.get(file_path=self._report_extensions_path)
-
-        mCount = 0
+        entities = self.get(
+            file_path=self._report_extensions_path, json_path="$.entities"
+        )
         with connect_semantic_model(
-            dataset=dataset_id, readonly=False, workspace=dataset_workspace_id
+            dataset=dataset_id, readonly=self._readonly, workspace=dataset_workspace_id
         ) as tom:
             existing_measures = [m.Name for m in tom.all_measures()]
+            # Add measure to semantic model
             for _, r in rlm.iterrows():
                 table_name = r["Table Name"]
                 measure_name = r["Measure Name"]
@@ -2153,20 +2152,25 @@ class ReportWrapper:
                         name="semanticlinklabs",
                         value="reportlevelmeasure",
                     )
-                mCount += 1
-            # Remove measures from the json
-            if measures is not None and len(measures) < mCount:
-                for e in file["entities"]:
-                    e["measures"] = [
-                        measure
-                        for measure in e["measures"]
-                        if measure["name"] not in measures
-                    ]
-                file["entities"] = [
-                    entity for entity in file["entities"] if entity["measures"]
-                ]
-                self.update(file_path=self._report_extensions_path, payload=file)
-            # what about if measures is None?
+
+                    for entity in entities:
+                        if entity.get("name") == table_name:
+                            entity["measures"] = [
+                                m
+                                for m in entity.get("measures", [])
+                                if m.get("name") != measure_name
+                            ]
+                    entities = [e for e in entities if e.get("measures")]
+                    self.set_json(
+                        file_path=self._report_extensions_path,
+                        json_path="$.entities",
+                        json_value=entities,
+                    )
+            if not entities:
+                self.remove(
+                    file_path=self._report_extensions_path,
+                    verbose=False,
+                )
 
         if not self._readonly:
             print(
@@ -2195,16 +2199,17 @@ class ReportWrapper:
         visual_mapping = self._visual_page_mapping()
         report_file = self.get(file_path="definition/report.json")
 
-        dfs = []
+        rows = []
         if "annotations" in report_file:
             for ann in report_file["annotations"]:
-                new_data = {
-                    "Type": "Report",
-                    "Object Name": self._report_name,
-                    "Annotation Name": ann.get("name"),
-                    "Annotation Value": ann.get("value"),
-                }
-                dfs.append(pd.DataFrame(new_data, index=[0]))
+                rows.append(
+                    {
+                        "Type": "Report",
+                        "Object Name": self._report_name,
+                        "Annotation Name": ann.get("name"),
+                        "Annotation Value": ann.get("value"),
+                    }
+                )
 
         for p in self.__all_pages():
             path = p.get("path")
@@ -2212,13 +2217,14 @@ class ReportWrapper:
             page_name = payload.get("displayName")
             if "annotations" in payload:
                 for ann in payload["annotations"]:
-                    new_data = {
-                        "Type": "Page",
-                        "Object Name": page_name,
-                        "Annotation Name": ann.get("name"),
-                        "Annotation Value": ann.get("value"),
-                    }
-                    dfs.append(pd.DataFrame(new_data, index=[0]))
+                    rows.append(
+                        {
+                            "Type": "Page",
+                            "Object Name": page_name,
+                            "Annotation Name": ann.get("name"),
+                            "Annotation Value": ann.get("value"),
+                        }
+                    )
 
         for v in self.__all_visuals():
             path = v.get("path")
@@ -2227,16 +2233,17 @@ class ReportWrapper:
             visual_name = payload.get("name")
             if "annotations" in payload:
                 for ann in payload["annotations"]:
-                    new_data = {
-                        "Type": "Visual",
-                        "Object Name": f"'{page_display}'[{visual_name}]",
-                        "Annotation Name": ann.get("name"),
-                        "Annotation Value": ann.get("value"),
-                    }
-                    dfs.append(pd.DataFrame(new_data, index=[0]))
+                    rows.append(
+                        {
+                            "Type": "Visual",
+                            "Object Name": f"'{page_display}'[{visual_name}]",
+                            "Annotation Name": ann.get("name"),
+                            "Annotation Value": ann.get("value"),
+                        }
+                    )
 
-        if dfs:
-            df = pd.concat(dfs, ignore_index=True)
+        if rows:
+            df = pd.DataFrame(rows, columns=list(columns.keys()))
 
         return df
 
@@ -2682,8 +2689,12 @@ class ReportWrapper:
 
         selector_mapping = {
             key: {
-                ".".join(k): v  # join tuple with '.' to form the string
-                for k, v in value.items()
+                variant: f"{table}.{new_col}"
+                for (table, col), new_col in value.items()
+                for variant in (
+                    f"({table}.{col})",
+                    f"[{table}.{col}]",
+                )
             }
             for key, value in mapping.items()
         }
@@ -2721,28 +2732,15 @@ class ReportWrapper:
 
                 # Check both measures and columns
                 for category in ["measures", "columns"]:
-                    if obj in selector_mapping.get(category, {}):
-                        value = selector_mapping[category][obj]
-
-                        # Find original tuple key from mapping for this category
-                        for tup_key in mapping.get(category, {}).keys():
-                            if ".".join(tup_key) == obj:
-                                key = tup_key[
-                                    0
-                                ]  # first element of tuple, like table name
-                                new_value = f"{key}.{value}"
-
-                                # Update the dictionary node holding "metadata"
-                                if isinstance(match.context.value, dict):
-                                    match.context.value["metadata"] = new_value
-                                else:
-                                    print(
-                                        f"Warning: Cannot assign metadata, context is {type(match.context.value)}"
-                                    )
-                                break
-
-                        # Once found in one category, no need to check the other
-                        break
+                    for i, value in selector_mapping.get(category).items():
+                        if i in obj:
+                            prefix = i[0]
+                            if prefix == "[":
+                                new_value = obj.replace(i, f"[{value}]")
+                            else:
+                                new_value = obj.replace(i, f"({value})")
+                            match.context.value["metadata"] = new_value
+                            break
 
             # Rename Column Properties
             for match in col_expr_path.find(payload):

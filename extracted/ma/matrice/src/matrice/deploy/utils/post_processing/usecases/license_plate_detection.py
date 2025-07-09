@@ -73,8 +73,10 @@ class LicensePlateUseCase(BaseProcessor):
         # Set of current frame track_ids (updated per frame)
         self._current_frame_track_ids = set()
 
+        # Track start time for "TOTAL SINCE" calculation
+        self._tracking_start_time = None
 
-
+        
         # ------------------------------------------------------------------ #
         # Canonical tracking aliasing to avoid duplicate counts              #
         # ------------------------------------------------------------------ #
@@ -115,6 +117,78 @@ class LicensePlateUseCase(BaseProcessor):
         (based on unique track_ids).
         """
         return len(self._total_license_plate_track_ids)
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, use video_timestamp from stream_info
+            video_timestamp = stream_info.get("video_timestamp", 0.0)
+            return self._format_timestamp_for_video(video_timestamp)
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _get_track_ids_info(self, detections: list) -> dict:
         frame_track_ids = set()
@@ -231,8 +305,8 @@ class LicensePlateUseCase(BaseProcessor):
         predictions = self._extract_predictions(processed_data)
         summary = self._generate_summary(counting_summary, alerts)
 
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number)
+        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
 
         events = events_list[0] if events_list else {}
         tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
@@ -272,6 +346,7 @@ class LicensePlateUseCase(BaseProcessor):
         self._total_license_plate_track_ids = set()
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        self._tracking_start_time = None
         self._track_aliases.clear()
         self._canonical_tracks.clear()
         self.logger.info("License plate tracking state reset")
@@ -290,7 +365,8 @@ class LicensePlateUseCase(BaseProcessor):
             counting_summary: Dict,
             alerts: List,
             config: LicensePlateConfig,
-            frame_number: Optional[int] = None
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured events for the output format with frame-based keys (no alerts for license plates)."""
         from datetime import datetime, timezone
@@ -302,6 +378,11 @@ class LicensePlateUseCase(BaseProcessor):
         total_count = counting_summary.get("total_count", 0)
 
         if total_count > 0:
+            # Generate human text in new format
+            human_text_lines = ["EVENTS DETECTED:"]
+            human_text_lines.append(f"    - {total_count} license plate(s) detected [INFO]")
+            human_text = "\n".join(human_text_lines)
+
             event = {
                 "type": "license_plate_detection",
                 "severity": "info",
@@ -309,7 +390,7 @@ class LicensePlateUseCase(BaseProcessor):
                 "count": total_count,
                 "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
                 "location_info": None,
-                "human_text": f"{total_count} license plate(s) detected"
+                "human_text": human_text
             }
             frame_events.append(event)
 
@@ -321,7 +402,8 @@ class LicensePlateUseCase(BaseProcessor):
             insights: List[str],
             summary: str,
             config: LicensePlateConfig,
-            frame_number: Optional[int] = None
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats with frame-based keys, including per-frame and cumulative counts."""
         from datetime import datetime, timezone
@@ -333,28 +415,45 @@ class LicensePlateUseCase(BaseProcessor):
         per_frame_count = counting_summary.get("total_count", 0)
         total_unique = counting_summary.get("total_license_plate_count", 0)
 
+        # Always get track ID info even if 0 detections — to ensure consistency
+        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+
+        # Get formatted timestamps
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
+
+        # Build human-readable summary string in new format
+        human_text_lines = []
+        
+        # CURRENT FRAME section
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if per_frame_count > 0:
-            # Get detailed track_ids info
-            track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+            human_text_lines.append(f"    - License Plates Detected: {per_frame_count}")
+        else:
+            human_text_lines.append("    - No license plates detected")
+        
+        human_text_lines.append("")  # Empty line for spacing
+        
+        # TOTAL SINCE section
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
+        human_text_lines.append(f"    - Total License Plates Detected: {total_unique}")
 
-            tracking_stat = {
-                "type": "license_plate_tracking",
-                "category": "license_plate",
-                "count": per_frame_count,
-                "insights": insights,
-                "summary": summary,
-                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-                "human_text": (
-                    f"Tracking Start Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}\n"
-                    f"License Plates Detected: {per_frame_count}\n"
-                    f"Total Unique Plates: {total_unique}"
-                ),
-                "track_ids_info": track_ids_info,
-                "global_frame_offset": getattr(self, "_global_frame_offset", 0),
-                "local_frame_id": frame_key
-            }
-            frame_tracking_stats.append(tracking_stat)
+        human_text = "\n".join(human_text_lines)
 
+        tracking_stat = {
+            "type": "license_plate_tracking",
+            "category": "license_plate",
+            "count": per_frame_count,
+            "insights": insights,
+            "summary": summary,
+            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
+            "human_text": human_text,
+            "track_ids_info": track_ids_info,
+            "global_frame_offset": getattr(self, "_global_frame_offset", 0),
+            "local_frame_id": frame_key
+        }
+
+        frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
     def _count_categories(self, detections: list, config: LicensePlateConfig) -> dict:
@@ -532,4 +631,18 @@ class LicensePlateUseCase(BaseProcessor):
             "raw_ids": {raw_id},
         }
         return canonical_id
+
+    def _format_timestamp(self, timestamp: float) -> str:
+        """Format a timestamp for human-readable output."""
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+
+    def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
+        self._tracking_start_time = time.time()
 

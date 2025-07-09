@@ -37,6 +37,12 @@ from flytekit.tools.translator import Options
 
 from union._utils import _sanitize_label
 
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+
 RECOVER_EXECUTION_PAGE_LIMIT = 1_000
 UNIONAI_IMAGE_NAME_KEY = "unionai_image_name"
 
@@ -445,6 +451,10 @@ class UCImageSpecBuilder(ImageSpecBuilder):
                 pyproject = Path(image_spec.requirements).parent.joinpath("pyproject.toml")
                 self._check_pyproject_for_unsupported_features(pyproject)
                 self._check_image_spec_for_unsupported_features(image_spec)
+                readme = self._get_package_readme(pyproject)
+                if readme:
+                    shutil.copy2(readme, context_path / readme.name)
+
                 if pyproject.exists():
                     # almost never happens, but if the user has 'subdir/poetry.lock', note that this will copy the
                     # pyproject file directly into the context folder, removing the subdir.
@@ -454,6 +464,9 @@ class UCImageSpecBuilder(ImageSpecBuilder):
 
             elif str(image_spec.requirements).endswith("uv.lock"):
                 self._prepare_for_uv_lock(image_spec, context_path)
+                readme = self._get_package_readme(Path(image_spec.requirements).parent / "pyproject.toml")
+                if readme:
+                    shutil.copy2(readme, context_path / readme.name)
 
         # if union is not specified, then add it here.
         union_pypi_package = get_unionai_for_pypi()
@@ -503,6 +516,20 @@ class UCImageSpecBuilder(ImageSpecBuilder):
             raise ValueError("External sources are not supported in image spec when using uv lock file")
 
         shutil.copy2(pyproject_path, context_path / pyproject_path.name)
+
+    def _get_package_readme(self, pyproject_path: Path) -> Optional[Path]:
+        with open(pyproject_path, "rb") as f:
+            pyproject = tomllib.load(f)
+
+        poetry_readme = pyproject.get("tool", {}).get("poetry", {}).get("readme", None)
+        if poetry_readme:
+            return Path(pyproject_path).parent / poetry_readme
+
+        readme = pyproject.get("project", {}).get("readme", None)
+        if readme:
+            return Path(pyproject_path).parent / readme
+
+        return None
 
     @staticmethod
     def _check_pyproject_for_unsupported_features(pyproject: Path):

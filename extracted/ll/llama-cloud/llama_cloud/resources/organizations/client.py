@@ -301,7 +301,7 @@ class OrganizationsClient:
         self, organization_id: typing.Optional[str], *, get_current_invoice_total: typing.Optional[bool] = None
     ) -> UsageAndPlan:
         """
-        Get usage for a project
+        Get usage for a specific organization.
 
         Parameters:
             - organization_id: typing.Optional[str].
@@ -1007,7 +1007,7 @@ class AsyncOrganizationsClient:
         self, organization_id: typing.Optional[str], *, get_current_invoice_total: typing.Optional[bool] = None
     ) -> UsageAndPlan:
         """
-        Get usage for a project
+        Get usage for a specific organization.
 
         Parameters:
             - organization_id: typing.Optional[str].

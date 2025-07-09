@@ -191,7 +191,7 @@ class NumpyLeafHandler(types.LeafHandler[np.ndarray, AbstractNumpy]):
     self._context = context_lib.get_context(context)
     self._handler_impl = _create_v0_numpy_handler()
 
-    logging.info("NumpyLeafHandler created.")
+    logging.vlog(1, "NumpyLeafHandler created.")
 
   async def serialize(
       self,
@@ -214,8 +214,6 @@ class NumpyLeafHandler(types.LeafHandler[np.ndarray, AbstractNumpy]):
         for p in params
     ]
     saveargs = [_create_v0_savearg(p, self._context) for p in params]
-
-    await serialization_context.parent_dir.await_creation()
 
     commit_futures = await self._handler_impl.serialize(
         values, paraminfos, saveargs
@@ -282,8 +280,7 @@ class NumpyLeafHandler(types.LeafHandler[np.ndarray, AbstractNumpy]):
         )
         ret.append(numpy_metadata)
 
-        if logging.vlog_is_on(1):
-          logging.vlog(1, "numpy_metadata: %r", numpy_metadata)
+        logging.vlog(1, "numpy_metadata: %r", numpy_metadata)
 
       return ret
 

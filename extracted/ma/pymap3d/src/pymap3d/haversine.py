@@ -9,8 +9,10 @@ and gives virtually identical result
 within double precision arithmetic limitations
 """
 
+import sys
+
 try:
-    from astropy.coordinates.angle_utilities import angular_separation
+    from astropy.coordinates import angular_separation
 except ImportError:
     pass
 
@@ -66,7 +68,14 @@ def anglesep_meeus(lon0: float, lat0: float, lon1: float, lat1: float, deg: bool
     return degrees(sep_rad) if deg else sep_rad
 
 
-def anglesep(lon0: float, lat0: float, lon1: float, lat1: float, deg: bool = True) -> float:
+def anglesep(
+    lon0: float,
+    lat0: float,
+    lon1: float,
+    lat1: float,
+    deg: bool = True,
+    force_non_astropy: bool = False,
+) -> float:
     """
     Parameters
     ----------
@@ -81,6 +90,8 @@ def anglesep(lon0: float, lat0: float, lon1: float, lat1: float, deg: bool = Tru
         latitude of second point
     deg : bool, optional
           degrees input/output  (False: radians in/out)
+    force_non_astropy : bool, optional
+        if True, force use of Meeus method even if Astropy is available
 
     Returns
     -------
@@ -98,9 +109,9 @@ def anglesep(lon0: float, lat0: float, lon1: float, lat1: float, deg: bool = Tru
         lon1 = radians(lon1)
         lat1 = radians(lat1)
 
-    try:
+    if "astropy" in sys.modules and not force_non_astropy:
         sep_rad = angular_separation(lon0, lat0, lon1, lat1)
-    except NameError:
+    else:
         sep_rad = anglesep_meeus(lon0, lat0, lon1, lat1, deg=False)
 
     return degrees(sep_rad) if deg else sep_rad

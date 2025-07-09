@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-ai-ml
-Version: 1.27.1
+Version: 1.28.1
 Summary: Microsoft Azure Machine Learning Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -93,6 +93,43 @@ ml_client = MLClient(
 ```
 
 ## Key concepts
+
+Refer the below high level sequence diagram illustrating the package's workflow:
+
+![azure-ai-ml sequence diagram](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ml/azure-ai-ml/azure_ai_ml_seq_diagram.png?raw=true)
+
+## SDK Architecture Components
+
+The sequence diagram above illustrates the architecture and workflow of the Azure ML Python SDK v2. Here's an explanation of the key components:
+
+- **User**: You, the developer using the SDK to interact with Azure ML.
+- **Entity**: Python classes representing Azure ML resources like Jobs, Models, Components, etc.
+- **Schema**: Validation classes that ensure entities conform to expected structures and requirements.
+- **MLClient**: The main entry point for all operations, providing access to various services.
+- **Operations**: Specialized classes handling specific resource types (jobs, models, endpoints, etc.).
+- **Telemetry**: Internal component for monitoring and collecting usage data (opt-out available).
+- **Serialization**: Converts between Python objects and REST API formats.
+- **REST Client**: Manages HTTP communications with Azure ML services.
+- **Authentication**: Handles identity and access tokens via Azure Identity libraries.
+- **AzureML Service**: The backend Azure Machine Learning service.
+
+## Workflow Description
+
+The diagram depicts two main workflows:
+
+1. **Entity Creation and Validation**:
+   - Create entities directly using Python classes or load from YAML files
+   - YAML files are validated against schemas to ensure correctness
+   - Validation errors are reported immediately if found
+
+2. **Operation Execution**:
+   - Initialize MLClient with proper credentials
+   - Request operations through the client (create, get, list, delete, etc.)
+   - Operations are routed to specialized classes for handling
+   - Entities are serialized into REST API format
+   - Authenticated HTTP requests are sent to Azure ML services
+   - Responses are deserialized back into entity objects
+   - Results are returned to the user
 
 Azure Machine Learning Python SDK v2 comes with many new features like standalone local jobs, reusable components for pipelines and managed online/batch inferencing. The SDK v2 brings consistency and ease of use across all assets of the platform. The Python SDK v2 offers the following capabilities:
 * Run **Standalone Jobs** - run a discrete ML activity as Job. This job can be run locally or on the cloud. We currently support the following types of jobs:
@@ -193,68 +230,86 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
+## 1.28.1 (2025-07-08)
+
+### Features Added
+
+- Added a workflow to create GitHub issues in case a major version of a dependency is released.
+
 ## 1.27.1 (2025-05-13)
 
 ### Bugs Fixed
-  - Handled key error for missing props in PAT url case.
 
-## 1.27.0 (2025-05-06)
+- Handle key error for missing props in PAT url case.
+
+## 1.27.0 (2025-05-07)
 
 ### Features Added
+
 - Added Target storage connection for capability host.
 
 ### Bugs Fixed
+
 - Fix for compute Instance, disableLocalAuth property should be depend on ssh public access enabled.
 - Removing Git-related properties from job properties if a PAT token is detected in the repository URL.
 - Fix deployment creation for registry models
 
 ### Other Changes
+
 - Hub and Project are officially GA'd and no longer experimental.
 - PipelineComponentBatchDeployment, ModelBatchDeployment, ModelBatchDeploymentSettings are GA
 
 ## 1.26.4 (2025-04-23)
 
 ### Other Changes
-  - Restrict major version auto updates for external dependencies to ensure stability and prevent build failures for breaking changes.
+
+- Restrict major version auto updates for external dependencies to ensure stability and prevent build failures for breaking changes.
 
 ## 1.26.3 (2025-04-17)
 
 ### Bugs Fixed
- - Updated `marshmallow` dependency to restrict versions to `>=3.5,<4.0.0` 
- in `install_requires` to ensure compatibility.
+
+- Updated `marshmallow` dependency to restrict versions to `>=3.5,<4.0.0`
+  in `install_requires` to ensure compatibility.
 
 ## 1.26.2 (2025-04-08)
 
 ### Bugs Fixed
- - Made AI Search connections property optional while creating capability host.
-  
+
+- Made AI Search connections property optional while creating capability host.
+
 ## 1.26.1 (2025-03-27)
 
 ### Bugs Fixed
- - Handle missing duration value in deployment poller result
+
+- Handle missing duration value in deployment poller result
 
 ## 1.26.0 (2025-03-11)
 
 ### Features Added
-  - Adding parent job support for command job.
-  - Adding multiple docker argument support for command job.
+
+- Adding parent job support for command job.
+- Adding multiple docker argument support for command job.
 
 ### Bugs Fixed
-  - #37464 - Allowing to update a component in register with anonymousEnvironment environment.
-  - #39744 - Fixing a serialization issue in RecurrencePattern schedule.
-  - #39793 - Fixing bug in AML OBO to work with KV secret client.
-  - Fix environment archiving and restore
+
+- #37464 - Allowing to update a component in register with anonymousEnvironment environment.
+- #39744 - Fixing a serialization issue in RecurrencePattern schedule.
+- #39793 - Fixing bug in AML OBO to work with KV secret client.
+- Fix environment archiving and restore
 
 ### Other Changes
-  - Removing use of protected methods/classes imported from external libraries.
+
+- Removing use of protected methods/classes imported from external libraries.
 
 ## 1.25.0 (2025-02-11)
 
 ### Features Added
 
 ### Bugs Fixed
-  - #39187 - Submitting a Command job created using the __call__ method on another Command is missing outputs.
-  - #37738 - documentation fix for deployment entities.
+
+- #39187 - Submitting a Command job created using the __call__ method on another Command is missing outputs.
+- #37738 - documentation fix for deployment entities.
 
 ### Other Changes
 
@@ -263,64 +318,68 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 ## 1.24.0 (2025-01-07)
 
 ### Bugs Fixed
-  - Fixed disableLocalAuthentication handling while creating amlCompute
-  - Fixed model download issue
+
+- Fixed disableLocalAuthentication handling while creating amlCompute
+- Fixed model download issue
 
 ## 1.23.1 (2025-01-07)
 
 ### Bugs Fixed
-  - Removed marshmallow _T reference
+
+- Removed marshmallow _T reference
 
 ## 1.23.0 (2024-12-05)
 
 ### Features Added
-  - Added support for IP-based access control to default and hub workspaces. 
-  - Add support for additional include in spark component.
-  - Adding enterprise agent feature for AI Hub and AI Project. Adding Create, Delete and Get operations.
-  - Removing preview tag for following connections type
-    - Azure AI Search
-    - Azure AI Content Safety
-    - Azure AI Speech
-    - Azure Blob Storage
-    - Microsoft OneLake
 
+- Added support for IP-based access control to default and hub workspaces.
+- Add support for additional include in spark component.
+- Adding enterprise agent feature for AI Hub and AI Project. Adding Create, Delete and Get operations.
+- Removing preview tag for following connections type
+  - Azure AI Search
+  - Azure AI Content Safety
+  - Azure AI Speech
+  - Azure Blob Storage
+  - Microsoft OneLake
 
 ## 1.22.3 (2024-11-20)
 
 ### Bugs Fixed
-  - Fix error message while resolving mlflow url in get workspace details
+
+- Fix error message while resolving mlflow url in get workspace details
 
 ## 1.22.2 (2024-11-18)
 
 ### Bugs Fixed
-  - **#3620407** - Fix Datastore credentials show up as NoneCredentials
+
+- **#3620407** - Fix Datastore credentials show up as NoneCredentials
 
 ## 1.22.1 (2024-11-13)
 
-
 ### Bugs Fixed
-  - **#38493** - Fix error NoneType object is not subscriptable
+
+- **#38493** - Fix error NoneType object is not subscriptable
 
 ## 1.22.0 (2024-11-11)
 
 ### Features Added
-  - Added support to select firewall sku to used for provisioning azure firewall when FQDN rules are added in
-  AllowOnlyApprovedOutbound mode. FirewallSku options are `Standard` or `Basic`, defaults to `Standard`
-  - Update TLS version from 1.0 to 1.2
-  - Added support for Distillation jobs. Can be created by importing `disillation` from `azure.ai.ml.model_customization`
-  - Added Workspace property `ProvisionNetworkNow` to trigger the provisioning of the managed VNet with the default
-    Options when creating a Workspace with the managed VNet enabled, or else it does nothing
-### Bugs Fixed
-  - Fix send email notification issue in model monitoring
 
+- Added support to select firewall sku to used for provisioning azure firewall when FQDN rules are added in
+  AllowOnlyApprovedOutbound mode. FirewallSku options are `Standard` or `Basic`, defaults to `Standard`
+- Update TLS version from 1.0 to 1.2
+- Added support for Distillation jobs. Can be created by importing `disillation` from `azure.ai.ml.model_customization`
+- Added Workspace property `ProvisionNetworkNow` to trigger the provisioning of the managed VNet with the default
+  Options when creating a Workspace with the managed VNet enabled, or else it does nothing
+
+### Bugs Fixed
+
+- Fix send email notification issue in model monitoring
 
 ## 1.21.1 (2024-10-21)
-
 
 ### Bugs Fixed
 
 - **#37857** - Fix online deployment registry issue
-  
 
 ## 1.21.0 (2024-09-30)
 
@@ -893,4 +952,3 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 ### Features Added
 
 - First preview.
-

@@ -308,7 +308,7 @@ class BetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def create_agent_data_api_v_1_beta_agent_data_post(
+    def create_agent_data(
         self, *, agent_slug: str, collection: typing.Optional[str] = OMIT, data: typing.Dict[str, typing.Any]
     ) -> AgentData:
         """
@@ -326,7 +326,7 @@ class BetaClient:
         client = LlamaCloud(
             token="YOUR_TOKEN",
         )
-        client.beta.create_agent_data_api_v_1_beta_agent_data_post(
+        client.beta.create_agent_data(
             agent_slug="string",
             data={"string": {}},
         )
@@ -785,7 +785,7 @@ class AsyncBetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def create_agent_data_api_v_1_beta_agent_data_post(
+    async def create_agent_data(
         self, *, agent_slug: str, collection: typing.Optional[str] = OMIT, data: typing.Dict[str, typing.Any]
     ) -> AgentData:
         """
@@ -803,7 +803,7 @@ class AsyncBetaClient:
         client = AsyncLlamaCloud(
             token="YOUR_TOKEN",
         )
-        await client.beta.create_agent_data_api_v_1_beta_agent_data_post(
+        await client.beta.create_agent_data(
             agent_slug="string",
             data={"string": {}},
         )

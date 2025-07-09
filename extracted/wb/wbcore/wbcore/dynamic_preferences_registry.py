@@ -46,7 +46,7 @@ class LanguagePreference(LanguageChoicePreference):
     default = "en"
 
     verbose_name = _("System Language")
-    help_text = _("System Language")
+    help_text = _("Select the language you want the Workbench to display.")
 
 
 @user_preferences_registry.register
@@ -72,7 +72,7 @@ class DateFormatPreference(ChoicePreference):
     default = "YYYY-MM-DD"
 
     verbose_name = _("Date Format")
-    help_text = _("Date Format")
+    help_text = _("Choose how you want dates to appear throughout the Workbench.")
 
 
 @user_preferences_registry.register
@@ -95,4 +95,23 @@ class TimeFormatPreference(ChoicePreference):
     default = "HH:mm"
 
     verbose_name = _("Time Format")
-    help_text = _("Time Format")
+    help_text = _("Choose how you want times to appear throughout the Workbench.")
+
+
+@user_preferences_registry.register
+class NumberFormatPreference(ChoicePreference):
+    weight = 2
+    # Value is a BCP 47 language tag
+    choices = [
+        ("en-US", "1,234,567.89"),
+        ("fr-FR", "1\u202f234\u202f567,89"),
+        ("de-DE", "1.234.567,89"),
+        ("de-CH", "1’234’567.89"),
+    ]
+
+    section = wbcore
+    name = "number_format"
+    default = "en-US"
+
+    verbose_name = _("Number Format")
+    help_text = _("Choose how you want numbers to appear throughout the Workbench.")

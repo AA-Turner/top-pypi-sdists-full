@@ -27,9 +27,7 @@ if os.getenv("MLXLM_USE_MODELSCOPE", "False").lower() == "true":
     try:
         from modelscope import snapshot_download
     except ImportError:
-        raise ImportError(
-            "Please run `pip install modelscope` to activate the ModelScope."
-        )
+        raise ImportError("Run `pip install modelscope` to use ModelScope.")
 else:
     from huggingface_hub import snapshot_download
 
@@ -91,11 +89,12 @@ def get_model_path(path_or_hf_repo: str, revision: Optional[str] = None) -> Path
         revision (str, optional): A revision id which can be a branch name, a tag, or a commit hash.
 
     Returns:
-        Path: The path to the model.
+        Tuple[Path, str]: A tuple containing the local file path and the Hugging Face repo ID.
     """
     model_path = Path(path_or_hf_repo)
 
     if not model_path.exists():
+        hf_path = path_or_hf_repo
         model_path = Path(
             snapshot_download(
                 path_or_hf_repo,
@@ -113,7 +112,17 @@ def get_model_path(path_or_hf_repo: str, revision: Optional[str] = None) -> Path
                 ],
             )
         )
-    return model_path
+    else:
+
+        from huggingface_hub import ModelCard
+
+        card_path = model_path / "README.md"
+        if card_path.is_file():
+            card = ModelCard.load(card_path)
+            hf_path = card.data.base_model
+        else:
+            hf_path = None
+    return model_path, hf_path
 
 
 def load_config(model_path: Path) -> dict:
@@ -189,7 +198,6 @@ def load_model(
                 return config["quantization"][p]
             if not hasattr(m, "to_quantized"):
                 return False
-            # Handle legacy models which may not have everything quantized
             return f"{p}.scales" in weights
 
         nn.quantize(
@@ -198,6 +206,15 @@ def load_model(
             bits=quantization["bits"],
             class_predicate=class_predicate,
         )
+    elif quantization_config := config.get("quantization_config", False):
+        # Handle legacy quantization config
+        quant_method = quantization_config["quant_method"]
+        if quant_method == "bitnet":
+            from .models.bitlinear_layers import bitnet_quantize
+
+            model = bitnet_quantize(model, quantization_config)
+        else:
+            raise ValueError(f"Unsupported quantization method {quant_method}")
 
     model.load_weights(list(weights.items()), strict=strict)
 
@@ -236,7 +253,7 @@ def load(
         FileNotFoundError: If config file or safetensors are not found.
         ValueError: If model class or args class are not found.
     """
-    model_path = get_model_path(path_or_hf_repo)
+    model_path, _ = get_model_path(path_or_hf_repo)
 
     model, config = load_model(model_path, lazy)
     if adapter_path is not None:
@@ -455,9 +472,18 @@ def quantize_model(
     quantized_config = copy.deepcopy(config)
     quantized_config["quantization"] = {"group_size": q_group_size, "bits": q_bits}
 
+    def base_predicate(path, module):
+        if not hasattr(module, "to_quantized"):
+            return False
+        if module.weight.shape[-1] % q_group_size != 0:
+            return False
+        return True
+
     # Add any custom quantization parameters to the config as we go
-    def _class_predicate(p, m):
-        bool_or_params = quant_predicate(p, m, config)
+    def wrapped_predicate(p, m):
+        bool_or_params = base_predicate(p, m)
+        if bool_or_params:
+            bool_or_params = quant_predicate(p, m, config)
         quantized_config["quantization"][p] = bool_or_params
         return bool_or_params
 
@@ -465,7 +491,7 @@ def quantize_model(
         model,
         q_group_size,
         q_bits,
-        class_predicate=_class_predicate if quant_predicate else None,
+        class_predicate=wrapped_predicate if quant_predicate else base_predicate,
     )
     # support hf model tree #957
     quantized_config["quantization_config"] = quantized_config["quantization"]

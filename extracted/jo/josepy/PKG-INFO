@@ -1,21 +1,22 @@
 Metadata-Version: 2.3
 Name: josepy
-Version: 2.0.0
+Version: 2.1.0
 Summary: JOSE protocol implementation in Python
 License: Apache-2.0
 Author: Certbot Project
 Author-email: certbot-dev@eff.org
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9.2,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Security
 Provides-Extra: docs

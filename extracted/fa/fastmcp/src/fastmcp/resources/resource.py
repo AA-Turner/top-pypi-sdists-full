@@ -182,7 +182,7 @@ class FunctionResource(Resource):
             kwargs[context_kwarg] = get_context()
 
         result = self.fn(**kwargs)
-        if inspect.iscoroutinefunction(self.fn):
+        if inspect.isawaitable(result):
             result = await result
 
         if isinstance(result, Resource):
@@ -192,4 +192,4 @@ class FunctionResource(Resource):
         elif isinstance(result, str):
             return result
         else:
-            return pydantic_core.to_json(result, fallback=str, indent=2).decode()
+            return pydantic_core.to_json(result, fallback=str).decode()

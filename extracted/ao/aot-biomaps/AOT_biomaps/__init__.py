@@ -1,10 +1,11 @@
 from .AOT_Acoustic import *
 from .AOT_Optic import *
-from .AOT_Reconstruction import *
+from .AOT_Recon import *
 from .AOT_Experiment import *
-from .config import config
+from .Settings import *
+from .Config import config
 
-__version__ = '2.6.7'
+__version__ = '2.6.8'
 
 if config.get_process() == 'gpu':
     __process__ = 'gpu'

@@ -31,6 +31,7 @@ from agilicus_api.api.hosts_api import HostsApi
 from agilicus_api.api.issuers_api import IssuersApi
 from agilicus_api.api.labels_api import LabelsApi
 from agilicus_api.api.launchers_api import LaunchersApi
+from agilicus_api.api.licensing_api import LicensingApi
 from agilicus_api.api.lookups_api import LookupsApi
 from agilicus_api.api.messages_api import MessagesApi
 from agilicus_api.api.metrics_api import MetricsApi

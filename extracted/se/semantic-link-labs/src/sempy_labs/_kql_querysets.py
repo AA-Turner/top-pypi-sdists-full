@@ -1,7 +1,7 @@
 import pandas as pd
 import sempy_labs._icons as icons
 from typing import Optional
-from sempy_labs._helper_functions import (
+from ._helper_functions import (
     resolve_workspace_id,
     _base_api,
     _create_dataframe,
@@ -45,18 +45,19 @@ def list_kql_querysets(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
         request=f"v1/workspaces/{workspace_id}/kqlQuerysets", uses_pagination=True
     )
 
-    dfs = []
+    rows = []
     for r in responses:
         for v in r.get("value", []):
-            new_data = {
-                "KQL Queryset Name": v.get("displayName"),
-                "KQL Queryset Id": v.get("id"),
-                "Description": v.get("description"),
-            }
-            dfs.append(pd.DataFrame(new_data, index=[0]))
+            rows.append(
+                {
+                    "KQL Queryset Name": v.get("displayName"),
+                    "KQL Queryset Id": v.get("id"),
+                    "Description": v.get("description"),
+                }
+            )
 
-    if dfs:
-        df = pd.concat(dfs, ignore_index=True)
+    if rows:
+        df = pd.DataFrame(rows, columns=list(columns.keys()))
 
     return df
 

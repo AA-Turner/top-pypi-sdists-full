@@ -329,7 +329,7 @@ class FunctionPrompt(Prompt):
 
             # Call function and check if result is a coroutine
             result = self.fn(**kwargs)
-            if inspect.iscoroutine(result):
+            if inspect.isawaitable(result):
                 result = await result
 
             # Validate messages
@@ -350,9 +350,7 @@ class FunctionPrompt(Prompt):
                             )
                         )
                     else:
-                        content = pydantic_core.to_json(
-                            msg, fallback=str, indent=2
-                        ).decode()
+                        content = pydantic_core.to_json(msg, fallback=str).decode()
                         messages.append(
                             PromptMessage(
                                 role="user",

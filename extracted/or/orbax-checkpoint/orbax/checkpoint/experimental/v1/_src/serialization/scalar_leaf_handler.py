@@ -40,6 +40,12 @@ ScalarDeserializationParam = types.DeserializationParam["AbstractScalar"]
 AbstractScalar = Type[Scalar]
 
 
+def _create_v0_scalar_handler() -> type_handlers_v0.ScalarHandler:
+  """Creates a V0 ScalarHandler."""
+  scalar_handler = type_handlers_v0.ScalarHandler()
+  return scalar_handler
+
+
 def _create_v0_saving_paraminfo(
     param: ScalarSerializationParam,
     context: context_lib.Context,
@@ -109,10 +115,9 @@ def _create_v0_restorearg(
     param: ScalarDeserializationParam,
 ) -> type_handlers_v0.RestoreArgs:
   """Creates a V0 RestoreArgs from V1 params."""
-
   restore_type = param.value
 
-  logging.info("setting restore_type: %r", restore_type)
+  logging.vlog(1, "setting restore_type: %r", restore_type)
   return type_handlers_v0.RestoreArgs(
       restore_type=restore_type,
   )
@@ -131,9 +136,9 @@ class ScalarLeafHandler(types.LeafHandler[Scalar, AbstractScalar]):
       context: context_lib.Context | None = None,
   ):
     self._context = context_lib.get_context(context)
-    self._handler_impl = type_handlers_v0.ScalarHandler()
+    self._handler_impl = _create_v0_scalar_handler()
 
-    logging.info("ScalarLeafHandler created.")
+    logging.vlog(1, "ScalarLeafHandler created.")
 
   async def serialize(
       self,
@@ -156,8 +161,6 @@ class ScalarLeafHandler(types.LeafHandler[Scalar, AbstractScalar]):
         for p in params
     ]
     saveargs = [_create_v0_savearg(p, self._context) for p in params]
-
-    await serialization_context.parent_dir.await_creation()
 
     commit_futures = await self._handler_impl.serialize(
         values, paraminfos, saveargs
@@ -229,8 +232,7 @@ class ScalarLeafHandler(types.LeafHandler[Scalar, AbstractScalar]):
 
       ret = [_get_type(meta) for meta in v0_metadatas]
 
-      if logging.vlog_is_on(1):
-        logging.vlog(1, "scalar_metadata: %r", ret)
+      logging.vlog(1, "scalar_metadata: %r", ret)
 
       return ret
 

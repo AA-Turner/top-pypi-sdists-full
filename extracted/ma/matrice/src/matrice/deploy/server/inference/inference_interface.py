@@ -397,7 +397,7 @@ class InferenceInterface:
             result = self.post_processor.process(raw_results, config_to_use, input1, stream_key=stream_key, stream_info=stream_info)
 
             if result.is_success():
-                return result.predictions, {
+                return raw_results, {
                     "status": "success",
                     "processing_time": result.processing_time,
                     "usecase": result.usecase,

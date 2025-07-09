@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypots
-Version: 0.19
+Version: 1.0
 Summary: A Python Toolbox for Machine Learning on Partially-Observed Time Series
 Author-email: Wenjie Du <wenjay.du@gmail.com>
 License: Copyright (c) 2023-present, Wenjie Du
@@ -237,7 +237,7 @@ The paper references and links are all listed at the bottom of this file.
 | Neural Net    | Koopa🧑‍🔧[^29]                                                                                                                  |    ✅     |          |          |          |          | `2023 - NeurIPS`                                   |
 | Neural Net    | Crossformer🧑‍🔧[^16]                                                                                                            |    ✅     |          |          |          |     ✅     | `2023 - ICLR`                                      |
 | Neural Net    | TimesNet[^14]                                                                                                                    |    ✅     |    ✅     |    ✅     |          |    ✅     | `2023 - ICLR`                                      |
-| Neural Net    | PatchTST🧑‍🔧[^18]                                                                                                               |    ✅     |          |          |          |    ✅     | `2023 - ICLR`                                      |
+| Neural Net    | PatchTST🧑‍🔧[^18]                                                                                                               |    ✅     |          |    ✅     |          |    ✅     | `2023 - ICLR`                                      |
 | Neural Net    | ETSformer🧑‍🔧[^19]                                                                                                              |    ✅     |          |          |          |     ✅     | `2023 - ICLR`                                      |
 | Neural Net    | MICN🧑‍🔧[^27]                                                                                                                   |    ✅     |    ✅     |          |          |          | `2023 - ICLR`                                      |
 | Neural Net    | DLinear🧑‍🔧[^17]                                                                                                                |    ✅     |    ✅     |          |          |    ✅     | `2023 - AAAI`                                      |
@@ -252,7 +252,7 @@ The paper references and links are all listed at the bottom of this file.
 | Neural Net    | Pyraformer🧑‍🔧[^26]                                                                                                             |    ✅     |          |          |          |     ✅     | `2022 - ICLR`                                      |
 | Neural Net    | Raindrop[^5]                                                                                                                     |          |          |    ✅     |          |          | `2022 - ICLR`                                      |
 | Neural Net    | FEDformer🧑‍🔧[^20]                                                                                                              |    ✅     |          |          |          |     ✅     | `2022 - ICML`                                      |
-| Neural Net    | Autoformer🧑‍🔧[^15]                                                                                                             |    ✅     |          |          |          |    ✅     | `2021 - NeurIPS`                                   |
+| Neural Net    | Autoformer🧑‍🔧[^15]                                                                                                             |    ✅     |          |    ✅     |          |    ✅     | `2021 - NeurIPS`                                   |
 | Neural Net    | CSDI[^12]                                                                                                                        |    ✅     |    ✅     |          |          |          | `2021 - NeurIPS`                                   |
 | Neural Net    | Informer🧑‍🔧[^21]                                                                                                               |    ✅     |          |          |          |    ✅      | `2021 - AAAI`                                      |
 | Neural Net    | US-GAN[^10]                                                                                                                      |    ✅     |          |          |          |          | `2021 - AAAI`                                      |

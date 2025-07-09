@@ -44,7 +44,6 @@ from utilities.hypothesis import (
     Shape,
     _Draw2DefaultGeneratedSentinelError,
     _Draw2InputResolvedToSentinelError,
-    _freq_units,
     assume_does_not_raise,
     bool_arrays,
     date_deltas,
@@ -55,7 +54,6 @@ from utilities.hypothesis import (
     float64s,
     float_arrays,
     floats_extra,
-    freqs,
     git_repos,
     hashables,
     import_froms,
@@ -117,9 +115,8 @@ from utilities.version import Version
 from utilities.whenever import (
     DATE_TWO_DIGIT_YEAR_MAX,
     DATE_TWO_DIGIT_YEAR_MIN,
-    Freq,
     to_days,
-    to_nanos,
+    to_nanoseconds,
 )
 
 if TYPE_CHECKING:
@@ -128,7 +125,7 @@ if TYPE_CHECKING:
     from zoneinfo import ZoneInfo
 
     from utilities.tempfile import TemporaryDirectory
-    from utilities.types import DateTimeRoundUnit, Number
+    from utilities.types import Number
 
 
 class TestAssumeDoesNotRaise:
@@ -205,11 +202,11 @@ class TestDateTimeDeltas:
                 )
             )
         assert isinstance(delta, DateTimeDelta)
-        nanos = to_nanos(delta)
+        nanos = to_nanoseconds(delta)
         if min_value is not None:
-            assert nanos >= to_nanos(min_value)
+            assert nanos >= to_nanoseconds(min_value)
         if max_value is not None:
-            assert nanos <= to_nanos(max_value)
+            assert nanos <= to_nanoseconds(max_value)
         if parsable:
             assert DateTimeDelta.parse_common_iso(delta.format_common_iso()) == delta
 
@@ -494,15 +491,6 @@ class TestFloatsExtra:
         if max_value is not None:
             assert x <= max_value
         assert x == round(x)
-
-
-class TestFreqs:
-    @given(data=data(), unit=_freq_units() | none())
-    def test_main(self, *, data: DataObject, unit: DateTimeRoundUnit | None) -> None:
-        freq = data.draw(freqs(unit=unit))
-        assert isinstance(freq, Freq)
-        if unit is not None:
-            assert freq.unit == unit
 
 
 class TestGitRepos:

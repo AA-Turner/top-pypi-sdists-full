@@ -11,7 +11,6 @@ class ExtractMode(str, enum.Enum):
     BALANCED = "BALANCED"
     PREMIUM = "PREMIUM"
     MULTIMODAL = "MULTIMODAL"
-    ACCURATE = "ACCURATE"
 
     def visit(
         self,
@@ -19,7 +18,6 @@ class ExtractMode(str, enum.Enum):
         balanced: typing.Callable[[], T_Result],
         premium: typing.Callable[[], T_Result],
         multimodal: typing.Callable[[], T_Result],
-        accurate: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is ExtractMode.FAST:
             return fast()
@@ -29,5 +27,3 @@ class ExtractMode(str, enum.Enum):
             return premium()
         if self is ExtractMode.MULTIMODAL:
             return multimodal()
-        if self is ExtractMode.ACCURATE:
-            return accurate()

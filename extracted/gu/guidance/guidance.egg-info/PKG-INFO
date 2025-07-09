@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guidance
-Version: 0.2.3
+Version: 0.2.4
 Summary: A guidance language for controlling large language models.
 Home-page: https://github.com/guidance-ai/guidance
 Author: Guidance Maintainers
@@ -12,10 +12,10 @@ Requires-Dist: pydantic
 Requires-Dist: requests
 Requires-Dist: psutil
 Requires-Dist: guidance-stitch==0.1.5
-Requires-Dist: llguidance==0.7.26
+Requires-Dist: llguidance==1.0.1
 Provides-Extra: all
-Requires-Dist: azure-ai-inference; extra == "all"
 Requires-Dist: openai>=1.0; extra == "all"
+Requires-Dist: azure-ai-inference; extra == "all"
 Provides-Extra: unittest
 Requires-Dist: anytree; extra == "unittest"
 Requires-Dist: jsonschema; extra == "unittest"
@@ -24,7 +24,7 @@ Requires-Dist: pytest-cov; extra == "unittest"
 Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: tokenizers; extra == "unittest"
 Provides-Extra: llamacpp
-Requires-Dist: llama-cpp-python==0.3.9; extra == "llamacpp"
+Requires-Dist: llama-cpp-python==0.3.12; extra == "llamacpp"
 Provides-Extra: transformers
 Requires-Dist: transformers==4.51.3; extra == "transformers"
 Provides-Extra: test
@@ -59,6 +59,9 @@ Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: ipykernel; extra == "docs"
 Requires-Dist: huggingface_hub; extra == "docs"
 Requires-Dist: llama-cpp-python; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: ruff==0.11.11; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Provides-Extra: azureai
 Requires-Dist: openai>=1.0; extra == "azureai"
 Requires-Dist: azure-ai-inference; extra == "azureai"

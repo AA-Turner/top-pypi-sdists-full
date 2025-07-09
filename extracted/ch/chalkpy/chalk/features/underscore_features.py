@@ -202,6 +202,7 @@ def _eval_arithmetic_expression(
 @dataclasses.dataclass
 class NamedUnderscoreExpr:
     """
+    Deprecated. Build features and use `overlay_graph` instead or aliased underscore expressions.
     Associated a name with an underscore expression. Used to simulate 'creating' features in notebooks that can then be referred to in queries on the engine.
     """
 

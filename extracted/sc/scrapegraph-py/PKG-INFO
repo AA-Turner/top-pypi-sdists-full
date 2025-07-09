@@ -1,8 +1,8 @@
 Metadata-Version: 2.3
 Name: scrapegraph_py
-Version: 1.12.0
+Version: 1.14.1
 Summary: ScrapeGraph Python SDK for API
-Author-email: Marco Vinciguerra <mvincig11@gmail.com>, Marco Perini <perinim.98@gmail.com>, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
+Author-email: Marco Vinciguerra <mvincig11@gmail.com>, perinim.98@gmail.com, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
 License: MIT
 Keywords: ai,api,artificial intelligence,gpt,graph,machine learning,natural language processing,nlp,openai,scraping,sdk,web scraping tool,webscraping
 Classifier: Intended Audience :: Developers

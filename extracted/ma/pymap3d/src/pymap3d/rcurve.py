@@ -7,15 +7,16 @@ from .mathfun import cos, sin, sqrt, radians
 
 __all__ = ["parallel", "meridian", "transverse", "geocentric_radius"]
 
-ELL = Ellipsoid.from_name("wgs84")
 
-
-def geocentric_radius(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def geocentric_radius(geodetic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     compute geocentric radius at geodetic latitude
 
     https://en.wikipedia.org/wiki/Earth_radius#Geocentric_radius
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         geodetic_lat = radians(geodetic_lat)
@@ -32,7 +33,7 @@ def geocentric_radius(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     )
 
 
-def parallel(lat, ell: Ellipsoid = ELL, deg: bool = True) -> float:
+def parallel(lat, ell: Ellipsoid | None = None, deg: bool = True) -> float:
     """
     computes the radius of the small circle encompassing the globe at the specified latitude
 
@@ -59,7 +60,7 @@ def parallel(lat, ell: Ellipsoid = ELL, deg: bool = True) -> float:
     return cos(lat) * transverse(lat, ell, deg=False)
 
 
-def meridian(lat, ell: Ellipsoid = ELL, deg: bool = True):
+def meridian(lat, ell: Ellipsoid | None = None, deg: bool = True):
     """computes the meridional radius of curvature for the ellipsoid
 
     like Matlab rcurve('meridian', ...)
@@ -79,6 +80,9 @@ def meridian(lat, ell: Ellipsoid = ELL, deg: bool = True):
         radius of ellipsoid
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         lat = radians(lat)
 
@@ -87,7 +91,7 @@ def meridian(lat, ell: Ellipsoid = ELL, deg: bool = True):
     return f1 / sqrt(f2**3)
 
 
-def transverse(lat, ell: Ellipsoid = ELL, deg: bool = True):
+def transverse(lat, ell: Ellipsoid | None = None, deg: bool = True):
     """computes the radius of the curve formed by a plane
     intersecting the ellipsoid at the latitude which is
     normal to the surface of the ellipsoid
@@ -108,6 +112,9 @@ def transverse(lat, ell: Ellipsoid = ELL, deg: bool = True):
     radius: float
         radius of ellipsoid (meters)
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         lat = radians(lat)

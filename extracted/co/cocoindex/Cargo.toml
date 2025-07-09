@@ -2,7 +2,7 @@
 name = "cocoindex"
 # Version used for local development is always higher than others to take precedence.
 # Will be overridden for specific release versions.
-version = "0.1.63"
+version = "0.1.64"
 edition = "2024"
 rust-version = "1.86"
 
@@ -115,3 +115,5 @@ aws-config = "1.6.2"
 aws-sdk-s3 = "1.85.0"
 aws-sdk-sqs = "1.67.0"
 numpy = "0.25.0"
+infer = "0.19.0"
+serde_with = { version = "3.13.0", features = ["base64"] }

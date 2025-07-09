@@ -1,7 +1,7 @@
 r'''
 # `google_compute_snapshot_settings`
 
-Refer to the Terraform Registry for docs: [`google_compute_snapshot_settings`](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings).
+Refer to the Terraform Registry for docs: [`google_compute_snapshot_settings`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeSnapshotSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeSnapshotSettings.ComputeSnapshotSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings google_compute_snapshot_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings google_compute_snapshot_settings}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ComputeSnapshotSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings google_compute_snapshot_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings google_compute_snapshot_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#storage_location ComputeSnapshotSettings#storage_location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#id ComputeSnapshotSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#project ComputeSnapshotSettings#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#timeouts ComputeSnapshotSettings#timeouts}
+        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#storage_location ComputeSnapshotSettings#storage_location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#id ComputeSnapshotSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#project ComputeSnapshotSettings#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#timeouts ComputeSnapshotSettings#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ComputeSnapshotSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeSnapshotSettings to import.
-        :param import_from_id: The id of the existing ComputeSnapshotSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeSnapshotSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeSnapshotSettings to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class ComputeSnapshotSettings(
         locations: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSnapshotSettingsStorageLocationLocations", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param policy: The chosen location policy Possible values: ["NEAREST_MULTI_REGION", "LOCAL_REGION", "SPECIFIC_LOCATIONS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#policy ComputeSnapshotSettings#policy}
-        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#locations ComputeSnapshotSettings#locations}
+        :param policy: The chosen location policy Possible values: ["NEAREST_MULTI_REGION", "LOCAL_REGION", "SPECIFIC_LOCATIONS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#policy ComputeSnapshotSettings#policy}
+        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#locations ComputeSnapshotSettings#locations}
         '''
         value = ComputeSnapshotSettingsStorageLocation(
             policy=policy, locations=locations
@@ -149,9 +149,9 @@ class ComputeSnapshotSettings(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#create ComputeSnapshotSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#delete ComputeSnapshotSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#update ComputeSnapshotSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#create ComputeSnapshotSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#delete ComputeSnapshotSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#update ComputeSnapshotSettings#update}.
         '''
         value = ComputeSnapshotSettingsTimeouts(
             create=create, delete=delete, update=update
@@ -286,10 +286,10 @@ class ComputeSnapshotSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#storage_location ComputeSnapshotSettings#storage_location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#id ComputeSnapshotSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#project ComputeSnapshotSettings#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#timeouts ComputeSnapshotSettings#timeouts}
+        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#storage_location ComputeSnapshotSettings#storage_location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#id ComputeSnapshotSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#project ComputeSnapshotSettings#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#timeouts ComputeSnapshotSettings#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -402,7 +402,7 @@ class ComputeSnapshotSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_location(self) -> "ComputeSnapshotSettingsStorageLocation":
         '''storage_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#storage_location ComputeSnapshotSettings#storage_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#storage_location ComputeSnapshotSettings#storage_location}
         '''
         result = self._values.get("storage_location")
         assert result is not None, "Required property 'storage_location' is missing"
@@ -410,7 +410,7 @@ class ComputeSnapshotSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#id ComputeSnapshotSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#id ComputeSnapshotSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -420,7 +420,7 @@ class ComputeSnapshotSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#project ComputeSnapshotSettings#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#project ComputeSnapshotSettings#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -428,7 +428,7 @@ class ComputeSnapshotSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeSnapshotSettingsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#timeouts ComputeSnapshotSettings#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#timeouts ComputeSnapshotSettings#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeSnapshotSettingsTimeouts"], result)
@@ -458,8 +458,8 @@ class ComputeSnapshotSettingsStorageLocation:
         locations: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSnapshotSettingsStorageLocationLocations", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param policy: The chosen location policy Possible values: ["NEAREST_MULTI_REGION", "LOCAL_REGION", "SPECIFIC_LOCATIONS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#policy ComputeSnapshotSettings#policy}
-        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#locations ComputeSnapshotSettings#locations}
+        :param policy: The chosen location policy Possible values: ["NEAREST_MULTI_REGION", "LOCAL_REGION", "SPECIFIC_LOCATIONS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#policy ComputeSnapshotSettings#policy}
+        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#locations ComputeSnapshotSettings#locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8543acd0f05a602ab1307b2ced7386df553cea8477989192323b4ee19c40378)
@@ -475,7 +475,7 @@ class ComputeSnapshotSettingsStorageLocation:
     def policy(self) -> builtins.str:
         '''The chosen location policy Possible values: ["NEAREST_MULTI_REGION", "LOCAL_REGION", "SPECIFIC_LOCATIONS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#policy ComputeSnapshotSettings#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#policy ComputeSnapshotSettings#policy}
         '''
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
@@ -487,7 +487,7 @@ class ComputeSnapshotSettingsStorageLocation:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSnapshotSettingsStorageLocationLocations"]]]:
         '''locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#locations ComputeSnapshotSettings#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#locations ComputeSnapshotSettings#locations}
         '''
         result = self._values.get("locations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSnapshotSettingsStorageLocationLocations"]]], result)
@@ -512,8 +512,8 @@ class ComputeSnapshotSettingsStorageLocation:
 class ComputeSnapshotSettingsStorageLocationLocations:
     def __init__(self, *, location: builtins.str, name: builtins.str) -> None:
         '''
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#location ComputeSnapshotSettings#location}.
-        :param name: Name of the location. It should be one of the Cloud Storage buckets. Only one location can be specified. (should match location) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#name ComputeSnapshotSettings#name}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#location ComputeSnapshotSettings#location}.
+        :param name: Name of the location. It should be one of the Cloud Storage buckets. Only one location can be specified. (should match location) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#name ComputeSnapshotSettings#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a966d16844903c427f480c80aec12a10eacac9ca545c6fb8e34f10566e8a4f56)
@@ -526,7 +526,7 @@ class ComputeSnapshotSettingsStorageLocationLocations:
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#location ComputeSnapshotSettings#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#location ComputeSnapshotSettings#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -538,7 +538,7 @@ class ComputeSnapshotSettingsStorageLocationLocations:
         It should be one of the Cloud Storage buckets.
         Only one location can be specified. (should match location)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#name ComputeSnapshotSettings#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#name ComputeSnapshotSettings#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -823,9 +823,9 @@ class ComputeSnapshotSettingsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#create ComputeSnapshotSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#delete ComputeSnapshotSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#update ComputeSnapshotSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#create ComputeSnapshotSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#delete ComputeSnapshotSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#update ComputeSnapshotSettings#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__859692f1782ced1810c20affea1e5d9ab373064c4c638e28ab2b539faf5773c4)
@@ -842,19 +842,19 @@ class ComputeSnapshotSettingsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#create ComputeSnapshotSettings#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#create ComputeSnapshotSettings#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#delete ComputeSnapshotSettings#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#delete ComputeSnapshotSettings#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_snapshot_settings#update ComputeSnapshotSettings#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_snapshot_settings#update ComputeSnapshotSettings#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

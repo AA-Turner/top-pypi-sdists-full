@@ -3,6 +3,7 @@ use crate::prelude::*;
 use anyhow::{Context, Ok};
 use futures::future::try_join_all;
 
+use crate::base::value::EstimatedByteSize;
 use crate::builder::{AnalyzedTransientFlow, plan::*};
 use crate::py::IntoPyResult;
 use crate::{
@@ -16,6 +17,15 @@ use super::memoization::{EvaluationMemory, EvaluationMemoryOptions, evaluate_wit
 pub struct ScopeValueBuilder {
     // TODO: Share the same lock for values produced in the same execution scope, for stricter atomicity.
     pub fields: Vec<OnceLock<value::Value<ScopeValueBuilder>>>,
+}
+
+impl value::EstimatedByteSize for ScopeValueBuilder {
+    fn estimated_detached_byte_size(&self) -> usize {
+        self.fields
+            .iter()
+            .map(|f| f.get().map_or(0, |v| v.estimated_byte_size()))
+            .sum()
+    }
 }
 
 impl From<&ScopeValueBuilder> for value::ScopeValue {
@@ -295,8 +305,19 @@ async fn evaluate_child_op_scope(
     op_scope: &AnalyzedOpScope,
     scoped_entries: RefList<'_, &ScopeEntry<'_>>,
     child_scope_entry: ScopeEntry<'_>,
+    concurrency_controller: &concur_control::ConcurrencyController,
     memory: &EvaluationMemory,
 ) -> Result<()> {
+    let _permit = concurrency_controller
+        .acquire(Some(|| {
+            child_scope_entry
+                .value
+                .fields
+                .iter()
+                .map(|f| f.get().map_or(0, |v| v.estimated_byte_size()))
+                .sum()
+        }))
+        .await?;
     evaluate_op_scope(op_scope, scoped_entries.prepend(&child_scope_entry), memory)
         .await
         .with_context(|| {
@@ -363,6 +384,7 @@ async fn evaluate_op_scope(
                                     &table_schema.row,
                                     &op.op_scope,
                                 ),
+                                &op.concurrency_controller,
                                 memory,
                             )
                         })
@@ -379,6 +401,7 @@ async fn evaluate_op_scope(
                                     &table_schema.row,
                                     &op.op_scope,
                                 ),
+                                &op.concurrency_controller,
                                 memory,
                             )
                         })
@@ -396,6 +419,7 @@ async fn evaluate_op_scope(
                                     &table_schema.row,
                                     &op.op_scope,
                                 ),
+                                &op.concurrency_controller,
                                 memory,
                             )
                         })
@@ -464,6 +488,11 @@ pub async fn evaluate_source_entry(
     source_value: value::FieldValues,
     memory: &EvaluationMemory,
 ) -> Result<EvaluateSourceEntryOutput> {
+    let _permit = src_eval_ctx
+        .import_op
+        .concurrency_controller
+        .acquire_bytes_with_reservation(|| source_value.estimated_byte_size())
+        .await?;
     let root_schema = &src_eval_ctx.schema.schema;
     let root_scope_value = ScopeValueBuilder::new(root_schema.fields.len());
     let root_scope_entry = ScopeEntry::new(

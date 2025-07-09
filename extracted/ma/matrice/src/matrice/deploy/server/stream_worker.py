@@ -233,6 +233,15 @@ class StreamWorker:
         # Timing for model processing
         model_start_time = time.time()
         
+        # Extract enhanced metadata for better processing
+        fps = stream_info.get("fps", 30)
+        original_fps = stream_info.get("original_fps", fps)
+        frame_sample_rate = stream_info.get("frame_sample_rate", 1.0)
+        video_timestamp = stream_info.get("video_timestamp", 0.0)
+        is_video_chunk = input_settings.get("is_video_chunk", False)
+        chunk_duration = input_settings.get("chunk_duration_seconds", 0.0)
+        video_properties = input_settings.get("video_properties", {})
+        
         try:
             result, post_processing_result = await self.inference_interface.inference(
                 input_bytes, 
@@ -244,20 +253,31 @@ class StreamWorker:
             model_process_time = time.time() - model_start_time
             total_process_time = model_process_time  # For now, same as model time
 
-            # Structure the response in the new format
+            # Enhanced structure the response in the new format with improved metadata
             structured_response = {
                 "stream_info": {
                     "stream_key": stream_key,
-                    "fps": stream_info.get("fps", 30),
+                    "fps": fps,
+                    "original_fps": original_fps,  # Added original FPS
+                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
+                    "video_timestamp": video_timestamp,  # Added video timestamp
                     "stream_time": stream_info.get("stream_time", 
-                                                 datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC")),
+                                                 datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")),
+                    "is_video_chunk": is_video_chunk,  # Added video chunk flag
+                    "chunk_duration_seconds": chunk_duration,  # Added chunk duration
                     "input_settings": [{
                         "video_file": input_settings.get("video_file"),
                         "camera_id": input_settings.get("camera_id"),
                         "location_info": input_settings.get("location_info"),
                         "start_frame": input_settings.get("start_frame", input_order),
                         "end_frame": input_settings.get("end_frame", input_order),
-                        "stream_key": stream_key
+                        "stream_key": stream_key,
+                        "video_format": input_settings.get("video_format"),
+                        "video_properties": video_properties,  # Added video properties
+                        "quality": input_settings.get("quality"),
+                        "width": input_settings.get("width"),
+                        "height": input_settings.get("height"),
+                        "stream_type": input_settings.get("stream_type"),  # Added stream type
                     }]
                 },
                 "model_configs": [{
@@ -265,12 +285,19 @@ class StreamWorker:
                     "model_input": {
                         "start_frame": input_settings.get("start_frame", input_order),
                         "end_frame": input_settings.get("end_frame", input_order),
-                        "stream_key": stream_key
+                        "stream_key": stream_key,
+                        "video_timestamp": video_timestamp,  # Added video timestamp
+                        "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
+                        "is_video_chunk": is_video_chunk,  # Added video chunk flag
+                        "chunk_duration_seconds": chunk_duration,  # Added chunk duration
                     },
                     "model_process_time_sec": round(model_process_time, 3),
                     "total_process_time_sec": round(total_process_time, 3),
                     "model_output": {
-                        "raw_output": result
+                        "raw_output": result,
+                        "is_video_chunk": is_video_chunk,  # Flag to help with processing
+                        "original_fps": original_fps,  # Include original FPS in output
+                        "frame_sample_rate": frame_sample_rate,  # Include frame sample rate
                     }
                 }],
                 "agg_summary": {
@@ -306,13 +333,20 @@ class StreamWorker:
                                 "human_text": f"{summary}\n" + "\n".join(insights) if insights else summary
                             }]
 
-            # Add original metadata for backward compatibility
+            # Enhanced original metadata for backward compatibility
             structured_response["original_metadata"] = {
                 "input_order": input_order,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "worker_id": self.worker_id,
                 "post_processing_applied": post_processing_result is not None,
                 "stream_key": stream_key,  # Include the stream key in response
+                "fps": fps,
+                "original_fps": original_fps,  # Added original FPS
+                "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
+                "video_timestamp": video_timestamp,  # Added video timestamp
+                "is_video_chunk": is_video_chunk,  # Added video chunk flag
+                "chunk_duration_seconds": chunk_duration,  # Added chunk duration
+                "video_properties": video_properties,  # Added video properties
             }
             
             return structured_response
@@ -322,43 +356,58 @@ class StreamWorker:
             
             error_response = {
                 "stream_info": {
-                    "fps": stream_info.get("fps", 30),
+                    "fps": fps,
+                    "original_fps": original_fps,  # Added original FPS
+                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
+                    "video_timestamp": video_timestamp,  # Added video timestamp
                     "stream_time": stream_info.get("stream_time", 
-                                                 datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC")),
+                                                 datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")),
+                    "is_video_chunk": is_video_chunk,  # Added video chunk flag
+                    "chunk_duration_seconds": chunk_duration,  # Added chunk duration
                     "input_settings": [{
-                        "video_file": stream_info.get("video_file"),
-                        "camera_id": stream_info.get("camera_id"),
+                        "video_file": input_settings.get("video_file"),
+                        "camera_id": input_settings.get("camera_id"),
                         "location_info": None,
-                        "start_frame": stream_info.get("start_frame", input_order),
-                        "end_frame": stream_info.get("end_frame", input_order),
-                        "stream_key": stream_key
+                        "start_frame": input_settings.get("start_frame", input_order),
+                        "end_frame": input_settings.get("end_frame", input_order),
+                        "stream_key": stream_key,
+                        "video_format": input_settings.get("video_format"),
+                        "video_properties": video_properties,  # Added video properties
+                        "stream_type": input_settings.get("stream_type"),  # Added stream type
                     }]
                 },
                 "model_configs": [{
                     "deployment_id": self.deployment_id,
                     "model_input": {
-                        "start_frame": stream_info.get("start_frame", input_order),
-                        "end_frame": stream_info.get("end_frame", input_order),
-                        "stream_key": stream_key
+                        "start_frame": input_settings.get("start_frame", input_order),
+                        "end_frame": input_settings.get("end_frame", input_order),
+                        "stream_key": stream_key,
+                        "video_timestamp": video_timestamp,  # Added video timestamp
+                        "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
+                        "is_video_chunk": is_video_chunk,  # Added video chunk flag
+                        "chunk_duration_seconds": chunk_duration,  # Added chunk duration
                     },
                     "model_process_time_sec": round(model_process_time, 3),
                     "total_process_time_sec": round(model_process_time, 3),
                     "model_output": {
                         "raw_output": None,
-                        "error": str(exc)
+                        "error": str(exc),
+                        "is_video_chunk": is_video_chunk,  # Flag to help with error handling
+                        "original_fps": original_fps,  # Include original FPS in error response
+                        "frame_sample_rate": frame_sample_rate,  # Include frame sample rate
                     }
                 }],
                 "agg_summary": {
                     "events": [{
                         "type": "error",
-                        "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
+                        "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC"),
                         "level": "critical",
                         "intensity": 5,
                         "config": {"min_value": 0, "max_value": 10, "level_settings": {"info": 2, "warning": 5, "critical": 7}},
                         "application_name": "Model Processing",
                         "application_version": "1.0",
                         "location_info": None,
-                        "human_text": f"Event: Processing Error\nLevel: Critical\nTime: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')}\nError: {str(exc)}"
+                        "human_text": f"Event: Processing Error\nLevel: Critical\nTime: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S.%f UTC')}\nError: {str(exc)}"
                     }],
                     "tracking_stats": []
                 },
@@ -367,11 +416,17 @@ class StreamWorker:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "worker_id": self.worker_id,
                     "error": str(exc),
-                    "status": "error",
-                    "stream_key": stream_key
+                    "stream_key": stream_key,
+                    "fps": fps,
+                    "original_fps": original_fps,  # Added original FPS
+                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
+                    "video_timestamp": video_timestamp,  # Added video timestamp
+                    "is_video_chunk": is_video_chunk,  # Added video chunk flag
+                    "chunk_duration_seconds": chunk_duration,  # Added chunk duration
+                    "video_properties": video_properties,  # Added video properties
                 }
             }
-            logging.error(f"Error processing Kafka message for stream {stream_key}: {str(exc)}")
+
             return error_response
     
 

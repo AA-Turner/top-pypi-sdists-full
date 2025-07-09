@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.client_exceptions import ClientError
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from scrapegraph_py.config import API_BASE_URL, DEFAULT_HEADERS
 from scrapegraph_py.exceptions import APIError
 from scrapegraph_py.logger import sgai_logger as logger
+from scrapegraph_py.models.crawl import CrawlRequest, GetCrawlRequest
 from scrapegraph_py.models.feedback import FeedbackRequest
 from scrapegraph_py.models.markdownify import GetMarkdownifyRequest, MarkdownifyRequest
 from scrapegraph_py.models.searchscraper import (
@@ -174,6 +175,7 @@ class AsyncClient:
         website_html: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
         output_schema: Optional[BaseModel] = None,
+        number_of_scrolls: Optional[int] = None,
     ):
         """Send a smartscraper request"""
         logger.info("🔍 Starting smartscraper request")
@@ -183,6 +185,8 @@ class AsyncClient:
             logger.debug("📄 Using provided HTML content")
         if headers:
             logger.debug("🔧 Using custom headers")
+        if number_of_scrolls is not None:
+            logger.debug(f"🔄 Number of scrolls: {number_of_scrolls}")
         logger.debug(f"📝 Prompt: {user_prompt}")
 
         request = SmartScraperRequest(
@@ -191,7 +195,9 @@ class AsyncClient:
             headers=headers,
             user_prompt=user_prompt,
             output_schema=output_schema,
+            number_of_scrolls=number_of_scrolls,
         )
+
         logger.debug("✅ Request validation passed")
 
         result = await self._make_request(
@@ -248,17 +254,29 @@ class AsyncClient:
     async def searchscraper(
         self,
         user_prompt: str,
+        num_results: Optional[int] = 3,
         headers: Optional[dict[str, str]] = None,
         output_schema: Optional[BaseModel] = None,
     ):
-        """Send a searchscraper request"""
+        """Send a searchscraper request
+        
+        Args:
+            user_prompt: The search prompt string
+            num_results: Number of websites to scrape (3-20). Default is 3.
+                        More websites provide better research depth but cost more credits.
+                        Credit calculation: 30 base + 10 per additional website beyond 3.
+            headers: Optional headers to send with the request
+            output_schema: Optional schema to structure the output
+        """
         logger.info("🔍 Starting searchscraper request")
         logger.debug(f"📝 Prompt: {user_prompt}")
+        logger.debug(f"🌐 Number of results: {num_results}")
         if headers:
             logger.debug("🔧 Using custom headers")
 
         request = SearchScraperRequest(
             user_prompt=user_prompt,
+            num_results=num_results,
             headers=headers,
             output_schema=output_schema,
         )
@@ -282,6 +300,58 @@ class AsyncClient:
             "GET", f"{API_BASE_URL}/searchscraper/{request_id}"
         )
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
+        return result
+
+    async def crawl(
+        self,
+        url: str,
+        prompt: str,
+        schema: Dict[str, Any],
+        cache_website: bool = True,
+        depth: int = 2,
+        max_pages: int = 2,
+        same_domain_only: bool = True,
+        batch_size: int = 1,
+    ):
+        """Send a crawl request"""
+        logger.info("🔍 Starting crawl request")
+        logger.debug(f"🌐 URL: {url}")
+        logger.debug(f"📝 Prompt: {prompt}")
+        logger.debug(f"📊 Schema provided: {bool(schema)}")
+        logger.debug(f"💾 Cache website: {cache_website}")
+        logger.debug(f"🔍 Depth: {depth}")
+        logger.debug(f"📄 Max pages: {max_pages}")
+        logger.debug(f"🏠 Same domain only: {same_domain_only}")
+        logger.debug(f"📦 Batch size: {batch_size}")
+
+        request = CrawlRequest(
+            url=url,
+            prompt=prompt,
+            schema=schema,
+            cache_website=cache_website,
+            depth=depth,
+            max_pages=max_pages,
+            same_domain_only=same_domain_only,
+            batch_size=batch_size,
+        )
+        logger.debug("✅ Request validation passed")
+
+        result = await self._make_request(
+            "POST", f"{API_BASE_URL}/crawl", json=request.model_dump()
+        )
+        logger.info("✨ Crawl request completed successfully")
+        return result
+
+    async def get_crawl(self, crawl_id: str):
+        """Get the result of a previous crawl request"""
+        logger.info(f"🔍 Fetching crawl result for request {crawl_id}")
+
+        # Validate input using Pydantic model
+        GetCrawlRequest(crawl_id=crawl_id)
+        logger.debug("✅ Request ID validation passed")
+
+        result = await self._make_request("GET", f"{API_BASE_URL}/crawl/{crawl_id}")
+        logger.info(f"✨ Successfully retrieved result for request {crawl_id}")
         return result
 
     async def close(self):

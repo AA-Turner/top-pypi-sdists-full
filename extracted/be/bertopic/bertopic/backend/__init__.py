@@ -31,6 +31,21 @@ except ModuleNotFoundError:
     msg = "`pip install model2vec` \n\n"
     Model2VecBackend = NotInstalled("Model2Vec", "Model2Vec", custom_msg=msg)
 
+# FasteEmbed Embeddings
+try:
+    from bertopic.backend._fastembed import FastEmbedBackend
+except ModuleNotFoundError:
+    msg = "`pip install fastembed` \n\n"
+    FastEmbedBackend = NotInstalled("FastEmbed", "FastEmbed", custom_msg=msg)
+
+
+# Langchain Embedddings
+try:
+    from bertopic.backend._langchain import LangChainBackend
+except ModuleNotFoundError:
+    msg = "`pip install langchain` \n\n"
+    LangChainBackend = NotInstalled("LangChain", "LangChain", custom_msg=msg)
+
 
 __all__ = [
     "BaseEmbedder",
@@ -39,5 +54,7 @@ __all__ = [
     "CohereBackend",
     "Model2VecBackend",
     "MultiModalBackend",
+    "FastEmbedBackend",
+    "LangChainBackend",
     "languages",
 ]

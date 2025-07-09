@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog
-Version: 0.51.0
+Version: 0.52.0
 Summary: The Datadog Python library
 Project-URL: Bug Tracker, https://github.com/DataDog/datadogpy/issues
 Project-URL: Documentation, https://datadogpy.readthedocs.io/en/latest/

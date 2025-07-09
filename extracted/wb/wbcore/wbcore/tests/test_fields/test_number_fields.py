@@ -41,9 +41,8 @@ class TestIntegerField:
                 "max_digits": 34,
                 "decorators": [],
                 "depends_on": [],
-                "decimal_mark": ".",
-                "delimiter": ",",
                 "signed": True,
+                "disable_formatting": False,
             },
         )
 
@@ -84,9 +83,8 @@ class TestDecimalField:
                 "decorators": [],
                 "depends_on": [],
                 "display_mode": "decimal",
-                "decimal_mark": ".",
-                "delimiter": ",",
                 "signed": True,
+                "disable_formatting": False,
             },
         )
 
@@ -106,9 +104,8 @@ class TestDecimalField:
                 "decorators": [],
                 "depends_on": [],
                 "display_mode": "decimal",
-                "decimal_mark": ".",
-                "delimiter": ",",
                 "signed": True,
+                "disable_formatting": False,
             },
         )
 
@@ -146,9 +143,8 @@ class TestFloatField:
                 "decorators": [],
                 "depends_on": [],
                 "display_mode": "decimal",
-                "decimal_mark": ".",
-                "delimiter": ",",
                 "signed": True,
+                "disable_formatting": False,
             },
         )
 
@@ -164,8 +160,7 @@ class TestYearField:
         ],
     )
     def test_year_field_values(self, key, label):
-        field = YearField(label=label, precision=2, decimal_mark="*", delimiter=",")
+        field = YearField(label=label, precision=2)
         representation = field.get_representation(None, key)[1]
         assert representation["precision"] == 0
-        assert representation["decimal_mark"] == "."
-        assert representation["delimiter"] == ""
+        assert representation["disable_formatting"] == True

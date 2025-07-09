@@ -1,7 +1,7 @@
 from typing import Optional, Literal
 from uuid import UUID
 import pandas as pd
-from sempy_labs._helper_functions import (
+from ._helper_functions import (
     _base_api,
     _create_dataframe,
     resolve_workspace_name_and_id,
@@ -44,19 +44,19 @@ def list_sql_endpoints(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
         request=f"/v1/workspaces/{workspace_id}/sqlEndpoints", uses_pagination=True
     )
 
-    dfs = []
+    rows = []
     for r in responses:
         for v in r.get("value", []):
+            rows.append(
+                {
+                    "SQL Endpoint Id": v.get("id"),
+                    "SQL Endpoint Name": v.get("displayName"),
+                    "Description": v.get("description"),
+                }
+            )
 
-            new_data = {
-                "SQL Endpoint Id": v.get("id"),
-                "SQL Endpoint Name": v.get("displayName"),
-                "Description": v.get("description"),
-            }
-            dfs.append(pd.DataFrame(new_data, index=[0]))
-
-    if dfs:
-        df = pd.concat(dfs, ignore_index=True)
+    if rows:
+        df = pd.DataFrame(rows, columns=list(columns.keys()))
 
     return df
 
@@ -142,6 +142,7 @@ def refresh_sql_endpoint_metadata(
     result = _base_api(
         request=f"v1/workspaces/{workspace_id}/sqlEndpoints/{sql_endpoint_id}/refreshMetadata?preview=true",
         method="post",
+        client="fabric_sp",
         status_codes=[200, 202],
         lro_return_json=True,
         payload=payload,

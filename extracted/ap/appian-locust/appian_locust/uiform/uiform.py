@@ -1145,6 +1145,40 @@ class SailUiForm:
 
         return self._reconcile_state(new_state)
 
+    def select_grouped_dropdown_item_by_index(self, index: int, choice_index: List[int],
+                                              locust_request_label: str = "") -> 'SailUiForm':
+        """
+        Selects a grouped dropdown item on the form by index (1-based)
+        If no grouped dropdown found, throws a NotFoundException
+        If no element found, throws a ChoiceNotFoundException
+
+        Args:
+            index(int): Index of the grouped dropdown to select
+            choice_index([int]): List of indexes of dropdown items to select
+
+        Keyword Args:
+            locust_request_label(str): Label used to identify the request for locust statistics
+
+        Returns (SailUiForm): The latest state of the UiForm
+
+        Examples:
+
+            >>> form.select_grouped_item_by_index(2, [1,2,3])
+
+        """
+        component = find_component_by_index_in_dict(
+            'GroupedDropdownField', index, self._state)
+        locust_label = locust_request_label or f'{self.breadcrumb}.GroupedDropdownField.SelectByIndex.{choice_index}'
+        exception_label = f"index {index}"
+        reeval_url = self._get_update_url_for_reeval(self._state)
+
+        new_state = self._interactor.construct_and_send_grouped_dropdown_update(
+            component=component, choice_index=choice_index, context=self.context, uuid=self.uuid,
+            context_label=locust_label, exception_label=exception_label, reeval_url=reeval_url,
+            identifier=self._get_record_list_identifier())
+
+        return self._reconcile_state(new_state)
+
     def _check_checkbox_by_attribute(self, attribute: str, value_for_attribute: str, indices: List[int], locust_request_label: str = "") -> 'SailUiForm':
         """
         Function that checks checkboxes.

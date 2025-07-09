@@ -178,7 +178,7 @@ def status_column(in_name, out_name=None, **kwargs):
     return subobject_column(in_name, out_name, "status", **kwargs)
 
 
-def constant_if_exists(column: OutputColumn, constant):
+def constant_if_exists(column: OutputColumn, constant, default=None):
     orig = column.format_fn
 
     def check(val):
@@ -187,16 +187,60 @@ def constant_if_exists(column: OutputColumn, constant):
 
         if val:
             return constant
-        return None
+        return default
 
     column.format_fn = check
+    return column
+
+
+def list_count(column: OutputColumn):
+    orig = column.format_fn
+
+    def formatter(val):
+        if isinstance(val, list):
+            return len(val)
+        if orig:
+            val = orig(val)
+        return val
+
+    column.format_fn = formatter
+    return column
+
+
+def list_map(column: OutputColumn, mapfn: Callable):
+    orig = column.getter
+
+    def getter(record, getter):
+        if orig:
+            val = orig(record, getter)
+        else:
+            val = getter(column.in_name)(record)
+        if isinstance(val, list):
+            val = [mapfn(v) for v in val]
+        return val
+
+    column.getter = getter
     return column
 
 
 def summarize(column: OutputColumn, max_length: int):
     orig = column.format_fn
 
+    def format_list(val):
+        if len(val) <= max_length:
+            if orig:
+                val = orig(val)
+            return val
+
+        val = val[:max_length]
+        if orig:
+            val = orig(val)
+        return val + "[truncated]"
+
     def formatter(val):
+        if isinstance(val, list):
+            return format_list(val)
+
         if orig:
             val = orig(val)
 

@@ -1,0 +1,80 @@
+# Copyright 2020-2025 Jij Inc.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+codecov:
+  ci:
+    - github.com
+  require_ci_to_pass: false
+  notify:
+    wait_for_ci: false
+   
+comment:
+  behavior: default
+  layout: "reach, diff, flags, files"
+  require_base: no
+  require_changes: false
+  require_head: no
+  
+coverage:
+  status:
+    patch:
+      default:
+        informational: true
+        only_pulls: false
+        target: auto
+        
+    project:
+      default:
+        informational: true
+        only_pulls: false
+        target: auto
+        
+      cxxcimod:
+        informational: true
+        only_pulls: false
+        target: auto
+        flags:
+          - cxxcimod
+      cimod:
+        informational: true
+        only_pulls: false
+        target: auto
+        flags:
+          - cimod
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: yes
+      macro: yes
+      
+flag_management:
+  default_rules: 
+    carryforward: true
+flags:
+  cxxcimod:
+    paths: 
+      - include
+    carryforward: true
+  cimod:
+    paths: 
+      - cimod
+    carryforward: true
+
+ignore:
+  - "test"
+ 
+github_checks:
+  annotations: true

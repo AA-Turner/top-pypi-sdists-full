@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from aind_data_schema_models.harp_types import HarpDeviceType
 from aind_data_schema_models.organizations import Organization
-from aind_data_schema_models.registries import Registry
 from aind_data_schema_models.species import Species
 from aind_data_schema_models.mouse_anatomy import MouseAnatomy, MouseAnatomyModel, MouseEmgMuscles
 
@@ -28,15 +27,6 @@ class LiteralAndDefaultTests(unittest.TestCase):
 
         for harp in HarpDeviceType.ALL:
             model = harp()
-            round_trip = model.model_validate_json(model.model_dump_json())
-            self.assertIsNotNone(round_trip)
-            self.assertEqual(model, round_trip)
-
-    def test_registry(self):
-        """Test Literals match defaults"""
-
-        for registry in Registry.ALL:
-            model = registry()
             round_trip = model.model_validate_json(model.model_dump_json())
             self.assertIsNotNone(round_trip)
             self.assertEqual(model, round_trip)

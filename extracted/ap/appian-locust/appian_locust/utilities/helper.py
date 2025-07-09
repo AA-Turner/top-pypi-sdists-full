@@ -465,3 +465,17 @@ def _remove_type_info(sail_dict: Any) -> Any:
     else:
         return sail_dict
     return modified_sail_dict
+
+
+def get_in_dict(dct: dict, keys: list, default_value: Any = None) -> Any:
+    """
+    Recursively fetches a nested value in a dictionary and returns a default value if none is found
+
+    Ex. get_in_dict(my_dict, ['val1', 'val2', 3, 'val4']) would fetch my_dict.val1.val2[3].val4
+    """
+    for key in keys:
+        try:
+            dct = dct[key]
+        except KeyError:
+            return default_value
+    return dct

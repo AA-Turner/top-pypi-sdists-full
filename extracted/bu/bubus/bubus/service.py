@@ -1,6 +1,5 @@
 import asyncio
 import contextvars
-import gc
 import inspect
 import logging
 import warnings
@@ -144,8 +143,18 @@ class ReentrantLock:
     """A re-entrant lock that works across different asyncio tasks using ContextVar."""
 
     def __init__(self):
-        self._semaphore = asyncio.Semaphore(1)
+        self._semaphore: asyncio.Semaphore | None = None
         self._depth = 0  # Track re-entrance depth
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def _get_semaphore(self) -> asyncio.Semaphore:
+        """Get or create the semaphore for the current event loop."""
+        current_loop = asyncio.get_running_loop()
+        if self._semaphore is None or self._loop != current_loop:
+            # Create new semaphore for this event loop
+            self._semaphore = asyncio.Semaphore(1)
+            self._loop = current_loop
+        return self._semaphore
 
     async def __aenter__(self):
         if holds_global_lock.get():
@@ -154,7 +163,7 @@ class ReentrantLock:
             return self
 
         # Acquire the lock
-        await self._semaphore.acquire()
+        await self._get_semaphore().acquire()
         holds_global_lock.set(True)
         self._depth = 1
         return self
@@ -168,11 +177,19 @@ class ReentrantLock:
         if self._depth == 0:
             # Last exit, release the lock
             holds_global_lock.set(False)
-            self._semaphore.release()
+            self._get_semaphore().release()
 
     def locked(self) -> bool:
         """Check if the lock is currently held."""
-        return self._semaphore.locked()
+        # If semaphore doesn't exist yet or is from a different loop, it's not locked
+        try:
+            current_loop = asyncio.get_running_loop()
+            if self._semaphore is None or self._loop != current_loop:
+                return False
+            return self._semaphore.locked()
+        except RuntimeError:
+            # No running loop, can't check
+            return False
 
 
 # Global re-entrant lock shared by all EventBus instances
@@ -249,14 +266,46 @@ class EventBus:
         assert self.name.isidentifier(), f'EventBus name must be a unique identifier string, got: {self.name}'
 
         # Force garbage collection to clean up any dead EventBus instances in the WeakSet
-        gc.collect()
+        # gc.collect()  # Commented out - this is expensive and causes 5s delays when creating many EventBus instances
 
         # Check for name uniqueness among existing instances
-        for existing_bus in EventBus.all_instances:
+        # We'll collect potential conflicts and check if they're still alive
+        original_name = self.name
+        conflicting_buses = []
+        
+        for existing_bus in list(EventBus.all_instances):  # Make a list copy to avoid modification during iteration
             if existing_bus is not self and existing_bus.name == self.name:
-                raise ValueError(
-                    f'EventBus with name "{self.name}" already exists. Please choose a unique name or let it auto-generate.'
-                )
+                # Try to trigger collection of just this object by checking if it's collectable
+                # First, temporarily remove from WeakSet to see if that was the only reference
+                EventBus.all_instances.discard(existing_bus)
+
+                # Check if the object is still reachable by creating a new weak reference
+                # If the object only existed in the WeakSet, it should be unreachable now
+                try:
+                    # Try to access an attribute to see if the object is still valid
+                    _ = existing_bus.name  # This will work if object is still alive
+
+                    # Object is still alive with real references, restore to WeakSet
+                    EventBus.all_instances.add(existing_bus)
+                    conflicting_buses.append(existing_bus)
+                except Exception:
+                    # Object was garbage collected or is invalid (e.g., AttributeError), that's fine
+                    # Don't re-add to WeakSet, let it stay removed
+                    pass
+        
+        # If we found conflicting buses, auto-generate a unique suffix
+        if conflicting_buses:
+            # Generate a unique suffix using the last 8 chars of a UUID
+            unique_suffix = uuid7str()[-8:]
+            self.name = f"{original_name}_{unique_suffix}"
+            
+            warnings.warn(
+                f'⚠️ EventBus with name "{original_name}" already exists. '
+                f'Auto-generated unique name: "{self.name}" to avoid conflicts. '
+                f'Consider using unique names or stop(clear=True) on unused buses.',
+                UserWarning,
+                stacklevel=2,
+            )
 
         self.event_queue = None
         self.event_history = {}

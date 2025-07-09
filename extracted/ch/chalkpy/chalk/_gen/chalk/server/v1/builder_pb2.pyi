@@ -543,6 +543,8 @@ class EnvoyGatewaySpecs(_message.Message):
         "listeners",
         "config",
         "include_chalk_node_selector",
+        "ip_allowlist",
+        "tls_certificate",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -550,12 +552,16 @@ class EnvoyGatewaySpecs(_message.Message):
     LISTENERS_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CHALK_NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    IP_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
+    TLS_CERTIFICATE_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     gateway_name: str
     gateway_class_name: str
     listeners: _containers.RepeatedCompositeFieldContainer[EnvoyGatewayListener]
     config: GatewayProviderConfig
     include_chalk_node_selector: bool
+    ip_allowlist: _containers.RepeatedScalarFieldContainer[str]
+    tls_certificate: TLSCertificateConfig
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -564,6 +570,8 @@ class EnvoyGatewaySpecs(_message.Message):
         listeners: _Optional[_Iterable[_Union[EnvoyGatewayListener, _Mapping]]] = ...,
         config: _Optional[_Union[GatewayProviderConfig, _Mapping]] = ...,
         include_chalk_node_selector: bool = ...,
+        ip_allowlist: _Optional[_Iterable[str]] = ...,
+        tls_certificate: _Optional[_Union[TLSCertificateConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):
@@ -630,6 +638,20 @@ class GCPGatewayProviderConfig(_message.Message):
     DNS_HOSTNAME_FIELD_NUMBER: _ClassVar[int]
     dns_hostname: str
     def __init__(self, dns_hostname: _Optional[str] = ...) -> None: ...
+
+class TLSCertificateConfig(_message.Message):
+    __slots__ = ("manual_certificate",)
+    MANUAL_CERTIFICATE_FIELD_NUMBER: _ClassVar[int]
+    manual_certificate: TLSManualCertificateRef
+    def __init__(self, manual_certificate: _Optional[_Union[TLSManualCertificateRef, _Mapping]] = ...) -> None: ...
+
+class TLSManualCertificateRef(_message.Message):
+    __slots__ = ("secret_name", "secret_namespace")
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    secret_name: str
+    secret_namespace: str
+    def __init__(self, secret_name: _Optional[str] = ..., secret_namespace: _Optional[str] = ...) -> None: ...
 
 class CreateClusterGatewayResponse(_message.Message):
     __slots__ = ()

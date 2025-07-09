@@ -1,7 +1,7 @@
 import pandas as pd
 from uuid import UUID
 from typing import Optional
-from sempy_labs._helper_functions import (
+from ._helper_functions import (
     _base_api,
     _create_dataframe,
     resolve_workspace_id,
@@ -47,18 +47,19 @@ def list_graphql_apis(workspace: Optional[str | UUID]) -> pd.DataFrame:
         client="fabric_sp",
     )
 
-    dfs = []
+    rows = []
     for r in responses:
         for v in r.get("value", []):
-            new_data = {
-                "GraphQL API Name": v.get("displayName"),
-                "GraphQL API Id": v.get("id"),
-                "Description": v.get("description"),
-            }
-            dfs.append(pd.DataFrame(new_data, index=[0]))
+            rows.append(
+                {
+                    "GraphQL API Name": v.get("displayName"),
+                    "GraphQL API Id": v.get("id"),
+                    "Description": v.get("description"),
+                }
+            )
 
-    if dfs:
-        df = pd.concat(dfs, ignore_index=True)
+    if rows:
+        df = pd.DataFrame(rows, columns=list(columns.keys()))
 
     return df
 

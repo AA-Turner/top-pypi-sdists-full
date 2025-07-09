@@ -8946,14 +8946,14 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
     is_paid = False
     till_paid = ''
 
-    print(f"upd_user_data_main: {USER_LSTS=}")
+    print(f"upd_user_data_main: {lc=}, {USER_LSTS=}")
     try:
-        sql = f"SELECT USER_TID, USER_GAMES, USER_VARS, USER_LSTS FROM \"USER\" WHERE USER_TID=$1"
+        sql = f"SELECT USER_TID, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS FROM \"USER\" WHERE USER_TID=$1"
         data_user = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # region data
         if len(data_user):
-            USER_TID, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
+            USER_TID, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
             USER_GAMES = json.loads(USER_GAMES)
             USER_VARS = json.loads(USER_VARS)
             USER_LSTS = json.loads(USER_LSTS)
@@ -8976,7 +8976,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
                 # europe
                 elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
                     lz = 'ru'
-                USER_VARS['USER_LZ'] = lz
+                USER_VARS['USER_LZ'] = lz if not USER_LZ else USER_LZ
 
         now = datetime.now(timezone.utc)
         USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now.strftime('%Y-%m-%d')]))
@@ -8985,7 +8985,6 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
         USER_VARS['USER_ISPREMIUM'] = is_premium
         lz = USER_VARS.get('USER_LZ', 'en')
 
-        print(f"before {USER_VARS=}")
         if not USER_VARS.get('USER_DT') and not USER_VARS.get('USER_UTM') and utm:
             USER_VARS['USER_UTM'] = utm
         if not USER_VARS.get('USER_DT'):

@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "deprecated command")]
+
 use std::cmp::min;
 use std::collections::HashMap;
 use std::env;
@@ -239,7 +241,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
         " ___SENTRY_TAGS___",
         &tags
             .iter()
-            .map(|tag| format!(" --tag \"{}\"", tag))
+            .map(|tag| format!(" --tag \"{tag}\""))
             .collect::<Vec<_>>()
             .join(""),
     );
@@ -247,7 +249,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
     script = match release {
         Some(release) => script.replace(
             " ___SENTRY_RELEASE___",
-            format!(" --release \"{}\"", release).as_str(),
+            format!(" --release \"{release}\"").as_str(),
         ),
         None => script.replace(" ___SENTRY_RELEASE___", ""),
     };

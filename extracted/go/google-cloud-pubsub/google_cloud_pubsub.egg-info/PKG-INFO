@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-pubsub
-Version: 2.30.0
+Version: 2.31.0
 Summary: Google Cloud Pub/Sub API client library
 Home-page: https://github.com/googleapis/python-pubsub
 Author: Google LLC

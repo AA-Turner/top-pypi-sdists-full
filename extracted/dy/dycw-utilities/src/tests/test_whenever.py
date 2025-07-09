@@ -17,6 +17,7 @@ from whenever import (
     Time,
     TimeDelta,
     TimeZoneNotFoundError,
+    Weekday,
     YearMonth,
     ZonedDateTime,
 )
@@ -26,7 +27,6 @@ from utilities.hypothesis import (
     assume_does_not_raise,
     date_deltas,
     dates,
-    freqs,
     pairs,
     plain_datetimes,
     sentinels,
@@ -34,8 +34,6 @@ from utilities.hypothesis import (
     zoned_datetimes,
 )
 from utilities.sentinel import Sentinel, sentinel
-from utilities.types import DateOrDateTimeDelta, DateTimeRoundUnit, TimeOrDateTimeDelta
-from utilities.typing import get_literal_elements
 from utilities.tzdata import HongKong, Tokyo
 from utilities.tzlocal import LOCAL_TIME_ZONE_NAME
 from utilities.whenever import (
@@ -50,6 +48,7 @@ from utilities.whenever import (
     DAY,
     MICROSECOND,
     MINUTE,
+    MONTH,
     NOW_LOCAL,
     NOW_UTC,
     SECOND,
@@ -60,24 +59,28 @@ from utilities.whenever import (
     ZERO_DAYS,
     ZONED_DATE_TIME_MAX,
     ZONED_DATE_TIME_MIN,
-    Delta,
-    Freq,
     MeanDateTimeError,
     MinMaxDateError,
     ToMonthsAndDaysError,
-    ToNanosError,
+    ToNanosecondsError,
     ToPyTimeDeltaError,
     WheneverLogRecord,
-    _FreqDayIncrementError,
-    _FreqIncrementError,
-    _FreqParseError,
     _MinMaxDateMaxDateError,
     _MinMaxDateMinDateError,
     _MinMaxDatePeriodError,
+    _RoundDateOrDateTimeDateTimeIntraDayWithWeekdayError,
+    _RoundDateOrDateTimeDateWithIntradayDeltaError,
+    _RoundDateOrDateTimeDateWithWeekdayError,
+    _RoundDateOrDateTimeIncrementError,
+    _RoundDateOrDateTimeInvalidDurationError,
     _ToDaysMonthsError,
     _ToDaysNanosecondsError,
     _ToHoursMonthsError,
     _ToHoursNanosecondsError,
+    _ToMicrosecondsMonthsError,
+    _ToMicrosecondsNanosecondsError,
+    _ToMillisecondsMonthsError,
+    _ToMillisecondsNanosecondsError,
     _ToMinutesMonthsError,
     _ToMinutesNanosecondsError,
     _ToMonthsDaysError,
@@ -103,16 +106,19 @@ from utilities.whenever import (
     get_today_local,
     mean_datetime,
     min_max_date,
+    round_date_or_date_time,
     sub_year_month,
     to_date,
     to_date_time_delta,
     to_days,
     to_hours,
     to_local_plain,
+    to_microseconds,
+    to_milliseconds,
     to_minutes,
     to_months,
     to_months_and_days,
-    to_nanos,
+    to_nanoseconds,
     to_py_date_or_date_time,
     to_py_time_delta,
     to_seconds,
@@ -130,7 +136,14 @@ if TYPE_CHECKING:
     from _pytest.mark import ParameterSet
 
     from utilities.sentinel import Sentinel
-    from utilities.types import MaybeCallableDate, MaybeCallableZonedDateTime
+    from utilities.types import (
+        DateOrDateTimeDelta,
+        DateTimeRoundMode,
+        Delta,
+        MaybeCallableDate,
+        MaybeCallableZonedDateTime,
+        TimeOrDateTimeDelta,
+    )
 
 
 class TestAddAndSubYearMonth:
@@ -242,73 +255,6 @@ class TestFormatCompact:
         assert parsed.nanosecond == 0
         expected = datetime.round()
         assert parsed == expected
-
-
-class TestFreq:
-    @given(freq=freqs())
-    def test_main(self, *, freq: Freq) -> None:
-        _ = get_now().round(unit=freq.unit, increment=freq.increment, mode="floor")
-
-    @given(unit=sampled_from(get_literal_elements(DateTimeRoundUnit)))
-    def test_abbreviate_and_expand(self, *, unit: DateTimeRoundUnit) -> None:
-        result = Freq._expand(Freq._abbreviate(unit))
-        assert result == unit
-
-    @given(freqs=pairs(freqs()))
-    def test_eq(self, *, freqs: tuple[Freq, Freq]) -> None:
-        x, y = freqs
-        result = x == y
-        assert isinstance(result, bool)
-
-    @given(freq=freqs())
-    def test_eq_non_freq(self, *, freq: Freq) -> None:
-        result = freq == 0
-        assert not result
-
-    @given(freq=freqs())
-    def test_hashable(self, *, freq: Freq) -> None:
-        _ = hash(freq)
-
-    @given(freq=freqs())
-    def test_repr(self, *, freq: Freq) -> None:
-        _ = repr(freq)
-
-    @given(freq=freqs())
-    def test_serialize_and_parse(self, *, freq: Freq) -> None:
-        result = Freq.parse(freq.serialize())
-        assert result == freq
-
-    def test_error_day(self) -> None:
-        with raises(
-            _FreqDayIncrementError,
-            match="Increment must be 1 for the 'day' unit; got 2",
-        ):
-            _ = Freq(unit="day", increment=2)
-
-    def test_error_hour(self) -> None:
-        with raises(
-            _FreqIncrementError,
-            match="Increment must be a proper divisor of 24 for the 'hour' unit; got 5",
-        ):
-            _ = Freq(unit="hour", increment=5)
-
-    def test_error_minute(self) -> None:
-        with raises(
-            _FreqIncrementError,
-            match="Increment must be a proper divisor of 60 for the 'minute' unit; got 7",
-        ):
-            _ = Freq(unit="minute", increment=7)
-
-    def test_error_milliseond(self) -> None:
-        with raises(
-            _FreqIncrementError,
-            match="Increment must be a proper divisor of 1000 for the 'millisecond' unit; got 3",
-        ):
-            _ = Freq(unit="millisecond", increment=3)
-
-    def test_error_parse(self) -> None:
-        with raises(_FreqParseError, match="Unable to parse frequency; got 's'"):
-            _ = Freq.parse("s")
 
 
 class TestFromTimeStamp:
@@ -426,24 +372,24 @@ class TestMinMax:
             self._format_parse_date_delta(DATE_DELTA_PARSABLE_MAX + DateDelta(days=1))
 
     def test_date_time_delta_min(self) -> None:
-        nanos = to_nanos(DATE_TIME_DELTA_MIN)
+        nanos = to_nanoseconds(DATE_TIME_DELTA_MIN)
         with raises(ValueError, match="Out of range"):
             _ = to_date_time_delta(nanos - 1)
 
     def test_date_time_delta_max(self) -> None:
-        nanos = to_nanos(DATE_TIME_DELTA_MAX)
+        nanos = to_nanoseconds(DATE_TIME_DELTA_MAX)
         with raises(ValueError, match="Out of range"):
             _ = to_date_time_delta(nanos + 1)
 
     def test_date_time_delta_parsable_min(self) -> None:
         self._format_parse_date_time_delta(DATE_TIME_DELTA_PARSABLE_MIN)
-        nanos = to_nanos(DATE_TIME_DELTA_PARSABLE_MIN)
+        nanos = to_nanoseconds(DATE_TIME_DELTA_PARSABLE_MIN)
         with raises(ValueError, match="Invalid format or out of range: '.*'"):
             self._format_parse_date_time_delta(to_date_time_delta(nanos - 1))
 
     def test_date_time_delta_parsable_max(self) -> None:
         self._format_parse_date_time_delta(DATE_TIME_DELTA_PARSABLE_MAX)
-        nanos = to_nanos(DATE_TIME_DELTA_PARSABLE_MAX)
+        nanos = to_nanoseconds(DATE_TIME_DELTA_PARSABLE_MAX)
         with raises(ValueError, match="Invalid format or out of range: '.*'"):
             _ = self._format_parse_date_time_delta(to_date_time_delta(nanos + 1))
 
@@ -540,6 +486,185 @@ class TestMinMaxDate:
             _ = min_max_date(min_date=dates[1], max_date=dates[0])
 
 
+class TestRoundDateOrDateTime:
+    @mark.parametrize(
+        ("date", "delta", "mode", "expected"),
+        [
+            param(Date(2000, 1, 1), DateDelta(days=1), "half_even", Date(2000, 1, 1)),
+            param(Date(2000, 1, 1), DateDelta(days=2), "half_even", Date(2000, 1, 2)),
+            param(Date(2000, 1, 1), DateDelta(days=2), "ceil", Date(2000, 1, 2)),
+            param(Date(2000, 1, 1), DateDelta(days=2), "floor", Date(1999, 12, 31)),
+            param(Date(2000, 1, 1), DateDelta(days=2), "half_ceil", Date(2000, 1, 2)),
+            param(
+                Date(2000, 1, 1), DateDelta(days=2), "half_floor", Date(1999, 12, 31)
+            ),
+            param(Date(2000, 1, 2), DateDelta(days=2), "half_even", Date(2000, 1, 2)),
+            param(Date(2000, 1, 2), DateDelta(days=2), "ceil", Date(2000, 1, 2)),
+            param(Date(2000, 1, 2), DateDelta(days=2), "floor", Date(2000, 1, 2)),
+            param(Date(2000, 1, 2), DateDelta(days=2), "half_ceil", Date(2000, 1, 2)),
+            param(Date(2000, 1, 2), DateDelta(days=2), "half_floor", Date(2000, 1, 2)),
+            param(Date(2000, 1, 1), DateDelta(days=3), "half_even", Date(2000, 1, 1)),
+            param(Date(2000, 1, 1), DateDelta(days=3), "ceil", Date(2000, 1, 1)),
+            param(Date(2000, 1, 1), DateDelta(days=3), "floor", Date(2000, 1, 1)),
+            param(Date(2000, 1, 1), DateDelta(days=3), "half_ceil", Date(2000, 1, 1)),
+            param(Date(2000, 1, 1), DateDelta(days=3), "half_floor", Date(2000, 1, 1)),
+            param(Date(2000, 1, 2), DateDelta(days=3), "half_even", Date(2000, 1, 4)),
+            param(Date(2000, 1, 2), DateDelta(days=3), "ceil", Date(2000, 1, 4)),
+            param(Date(2000, 1, 2), DateDelta(days=3), "floor", Date(2000, 1, 1)),
+            param(Date(2000, 1, 2), DateDelta(days=3), "half_ceil", Date(2000, 1, 4)),
+            param(Date(2000, 1, 2), DateDelta(days=3), "half_floor", Date(2000, 1, 1)),
+            param(Date(2000, 1, 3), DateDelta(days=3), "half_even", Date(2000, 1, 4)),
+            param(Date(2000, 1, 3), DateDelta(days=3), "ceil", Date(2000, 1, 4)),
+            param(Date(2000, 1, 3), DateDelta(days=3), "floor", Date(2000, 1, 1)),
+            param(Date(2000, 1, 3), DateDelta(days=3), "half_ceil", Date(2000, 1, 4)),
+            param(Date(2000, 1, 3), DateDelta(days=3), "half_floor", Date(2000, 1, 4)),
+        ],
+    )
+    def test_date_daily(
+        self,
+        *,
+        date: Date,
+        delta: Delta,
+        mode: DateTimeRoundMode,
+        expected: ZonedDateTime,
+    ) -> None:
+        result = round_date_or_date_time(date, delta, mode=mode)
+        assert result == expected
+
+    @mark.parametrize(
+        ("date", "weekday", "expected"),
+        [
+            param(Date(2000, 1, 1), None, Date(1999, 12, 27)),
+            param(Date(2000, 1, 2), None, Date(1999, 12, 27)),
+            param(Date(2000, 1, 3), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 4), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 5), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 6), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 7), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 8), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 9), None, Date(2000, 1, 3)),
+            param(Date(2000, 1, 10), None, Date(2000, 1, 10)),
+            param(Date(2000, 1, 11), None, Date(2000, 1, 10)),
+            param(Date(2000, 1, 1), Weekday.WEDNESDAY, Date(1999, 12, 29)),
+            param(Date(2000, 1, 2), Weekday.WEDNESDAY, Date(1999, 12, 29)),
+            param(Date(2000, 1, 3), Weekday.WEDNESDAY, Date(1999, 12, 29)),
+            param(Date(2000, 1, 4), Weekday.WEDNESDAY, Date(1999, 12, 29)),
+            param(Date(2000, 1, 5), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 6), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 7), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 8), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 9), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 10), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 11), Weekday.WEDNESDAY, Date(2000, 1, 5)),
+            param(Date(2000, 1, 12), Weekday.WEDNESDAY, Date(2000, 1, 12)),
+            param(Date(2000, 1, 13), Weekday.WEDNESDAY, Date(2000, 1, 12)),
+        ],
+    )
+    def test_date_weekly(
+        self, *, date: Date, weekday: Weekday | None, expected: ZonedDateTime
+    ) -> None:
+        result = round_date_or_date_time(
+            date, DateDelta(weeks=1), mode="floor", weekday=weekday
+        )
+        assert result == expected
+        if weekday is not None:
+            assert result.day_of_week() is weekday
+
+    @mark.parametrize(
+        ("delta", "expected"),
+        [
+            param(TimeDelta(hours=2), ZonedDateTime(2000, 1, 2, 2, tz=UTC.key)),
+            param(TimeDelta(minutes=2), ZonedDateTime(2000, 1, 2, 3, 4, tz=UTC.key)),
+            param(TimeDelta(seconds=2), ZonedDateTime(2000, 1, 2, 3, 4, 4, tz=UTC.key)),
+            param(
+                TimeDelta(milliseconds=2),
+                ZonedDateTime(2000, 1, 2, 3, 4, 5, nanosecond=122000000, tz=UTC.key),
+            ),
+            param(
+                TimeDelta(microseconds=2),
+                ZonedDateTime(2000, 1, 2, 3, 4, 5, nanosecond=123456000, tz=UTC.key),
+            ),
+            param(
+                TimeDelta(nanoseconds=2),
+                ZonedDateTime(2000, 1, 2, 3, 4, 5, nanosecond=123456788, tz=UTC.key),
+            ),
+        ],
+    )
+    def test_date_time_intraday(self, *, delta: Delta, expected: ZonedDateTime) -> None:
+        now = ZonedDateTime(2000, 1, 2, 3, 4, 5, nanosecond=123456789, tz=UTC.key)
+        result = round_date_or_date_time(now, delta, mode="floor")
+        assert result.exact_eq(expected)
+
+    @mark.parametrize(
+        ("date_time", "expected"),
+        [
+            param(
+                ZonedDateTime(2000, 1, 1, 2, 3, 4, nanosecond=123456789, tz=UTC.key),
+                ZonedDateTime(1999, 12, 31, tz=UTC.key),
+            ),
+            param(
+                ZonedDateTime(2000, 1, 1, tz=UTC.key),
+                ZonedDateTime(1999, 12, 31, tz=UTC.key),
+            ),
+            param(
+                ZonedDateTime(2000, 1, 2, tz=UTC.key),
+                ZonedDateTime(2000, 1, 2, tz=UTC.key),
+            ),
+        ],
+    )
+    def test_date_time_daily(
+        self, *, date_time: ZonedDateTime, expected: ZonedDateTime
+    ) -> None:
+        result = round_date_or_date_time(date_time, DateDelta(days=2), mode="floor")
+        assert result.exact_eq(expected)
+
+    @mark.parametrize(
+        "delta",
+        [
+            param(TimeDelta(hours=5)),
+            param(TimeDelta(minutes=7)),
+            param(TimeDelta(seconds=7)),
+            param(TimeDelta(milliseconds=3)),
+            param(TimeDelta(microseconds=3)),
+            param(TimeDelta(nanoseconds=3)),
+        ],
+    )
+    def test_error_increment(self, *, delta: TimeDelta) -> None:
+        with raises(
+            _RoundDateOrDateTimeIncrementError,
+            match=r"Duration PT.* increment must be a proper divisor of \d+; got \d+",
+        ):
+            _ = round_date_or_date_time(TODAY_UTC, delta)
+
+    def test_error_invalid(self) -> None:
+        with raises(
+            _RoundDateOrDateTimeInvalidDurationError,
+            match="Duration must be valid; got P1M",
+        ):
+            _ = round_date_or_date_time(TODAY_UTC, MONTH)
+
+    def test_error_date_with_weekday(self) -> None:
+        with raises(
+            _RoundDateOrDateTimeDateWithWeekdayError,
+            match=r"Daily rounding must not be given a weekday; got Weekday\.MONDAY",
+        ):
+            _ = round_date_or_date_time(TODAY_UTC, DAY, weekday=Weekday.MONDAY)
+
+    def test_error_date_with_intraday_delta(self) -> None:
+        with raises(
+            _RoundDateOrDateTimeDateWithIntradayDeltaError,
+            match="Dates must not be given intraday durations; got .* and PT1S",
+        ):
+            _ = round_date_or_date_time(TODAY_UTC, SECOND)
+
+    def test_error_date_time_intra_day_with_weekday(self) -> None:
+        with raises(
+            _RoundDateOrDateTimeDateTimeIntraDayWithWeekdayError,
+            match=r"Date-times and intraday rounding must not be given a weekday; got .*, PT1S and Weekday\.MONDAY",
+        ):
+            _ = round_date_or_date_time(NOW_UTC, SECOND, weekday=Weekday.MONDAY)
+
+
 class TestToDate:
     @given(date=dates())
     def test_date(self, *, date: Date) -> None:
@@ -567,32 +692,6 @@ class TestToDate:
     @given(date=dates())
     def test_callable(self, *, date: Date) -> None:
         assert to_date(date=lambda: date) == date
-
-
-class TestToDateTimeDeltaAndNanos:
-    @given(func=sampled_from([to_time_delta, to_date_time_delta]), nanos=integers())
-    def test_main(
-        self, *, func: Callable[[int], TimeOrDateTimeDelta], nanos: int
-    ) -> None:
-        with (
-            assume_does_not_raise(ValueError, match="Out of range"),
-            assume_does_not_raise(ValueError, match="TimeDelta out of range"),
-            assume_does_not_raise(ValueError, match="hours out of range"),
-            assume_does_not_raise(ValueError, match="total days out of range"),
-            assume_does_not_raise(
-                OverflowError, match="Python int too large to convert to C long"
-            ),
-            assume_does_not_raise(OverflowError, match="int too big to convert"),
-        ):
-            delta = func(nanos)
-        assert to_nanos(delta) == nanos
-
-    @mark.parametrize(
-        "delta", [param(DateDelta(months=1)), param(DateTimeDelta(months=1))]
-    )
-    def test_error(self, *, delta: DateOrDateTimeDelta) -> None:
-        with raises(ToNanosError, match="Delta must not contain months; got 1"):
-            _ = to_nanos(delta)
 
 
 class TestToDays:
@@ -694,6 +793,102 @@ class TestToLocalPlain:
         assert isinstance(result, PlainDateTime)
 
 
+class TestToMicroseconds:
+    @given(days=integers())
+    def test_date_delta(self, *, days: int) -> None:
+        with (
+            assume_does_not_raise(ValueError, match="Out of range"),
+            assume_does_not_raise(ValueError, match="days out of range"),
+            assume_does_not_raise(
+                OverflowError, match="Python int too large to convert to C long"
+            ),
+        ):
+            delta = DateDelta(days=days)
+        assert to_microseconds(delta) == (24 * 60 * 60 * int(1e6) * days)
+
+    @given(cls=sampled_from([TimeDelta, DateTimeDelta]), microseconds=integers())
+    def test_time_or_date_time_delta(
+        self, *, cls: type[TimeOrDateTimeDelta], microseconds: int
+    ) -> None:
+        with (
+            assume_does_not_raise(ValueError, match="Out of range"),
+            assume_does_not_raise(ValueError, match="microseconds out of range"),
+            assume_does_not_raise(OverflowError, match="int too big to convert"),
+            assume_does_not_raise(
+                OverflowError, match="Python int too large to convert to C long"
+            ),
+        ):
+            delta = cls(microseconds=microseconds)
+        assert to_microseconds(delta) == microseconds
+
+    @mark.parametrize(
+        "delta", [param(DateDelta(months=1)), param(DateTimeDelta(months=1))]
+    )
+    def test_error_months(self, *, delta: DateOrDateTimeDelta) -> None:
+        with raises(
+            _ToMicrosecondsMonthsError, match="Delta must not contain months; got 1"
+        ):
+            _ = to_microseconds(delta)
+
+    @mark.parametrize(
+        "delta", [param(TimeDelta(nanoseconds=1)), param(DateTimeDelta(nanoseconds=1))]
+    )
+    def test_error_nanoseconds(self, *, delta: TimeOrDateTimeDelta) -> None:
+        with raises(
+            _ToMicrosecondsNanosecondsError,
+            match="Delta must not contain extra nanoseconds; got .*",
+        ):
+            _ = to_microseconds(delta)
+
+
+class TestToMilliseconds:
+    @given(days=integers())
+    def test_date_delta(self, *, days: int) -> None:
+        with (
+            assume_does_not_raise(ValueError, match="Out of range"),
+            assume_does_not_raise(ValueError, match="days out of range"),
+            assume_does_not_raise(
+                OverflowError, match="Python int too large to convert to C long"
+            ),
+        ):
+            delta = DateDelta(days=days)
+        assert to_milliseconds(delta) == (24 * 60 * 60 * int(1e3) * days)
+
+    @given(cls=sampled_from([TimeDelta, DateTimeDelta]), milliseconds=integers())
+    def test_time_or_date_time_delta(
+        self, *, cls: type[TimeOrDateTimeDelta], milliseconds: int
+    ) -> None:
+        with (
+            assume_does_not_raise(ValueError, match="Out of range"),
+            assume_does_not_raise(ValueError, match="milliseconds out of range"),
+            assume_does_not_raise(OverflowError, match="int too big to convert"),
+            assume_does_not_raise(
+                OverflowError, match="Python int too large to convert to C long"
+            ),
+        ):
+            delta = cls(milliseconds=milliseconds)
+        assert to_milliseconds(delta) == milliseconds
+
+    @mark.parametrize(
+        "delta", [param(DateDelta(months=1)), param(DateTimeDelta(months=1))]
+    )
+    def test_error_months(self, *, delta: DateOrDateTimeDelta) -> None:
+        with raises(
+            _ToMillisecondsMonthsError, match="Delta must not contain months; got 1"
+        ):
+            _ = to_milliseconds(delta)
+
+    @mark.parametrize(
+        "delta", [param(TimeDelta(nanoseconds=1)), param(DateTimeDelta(nanoseconds=1))]
+    )
+    def test_error_nanoseconds(self, *, delta: TimeOrDateTimeDelta) -> None:
+        with raises(
+            _ToMillisecondsNanosecondsError,
+            match="Delta must not contain extra nanoseconds; got .*",
+        ):
+            _ = to_milliseconds(delta)
+
+
 class TestToMinutes:
     @given(days=integers())
     def test_date_delta(self, *, days: int) -> None:
@@ -793,6 +988,31 @@ class TestToMonthsAndDays:
             ToMonthsAndDaysError, match="Delta must not contain a time part; got .*"
         ):
             _ = to_months_and_days(delta)
+
+
+class TestToNanoseconds:
+    @given(func=sampled_from([to_time_delta, to_date_time_delta]), nanos=integers())
+    def test_main(
+        self, *, func: Callable[[int], TimeOrDateTimeDelta], nanos: int
+    ) -> None:
+        with (
+            assume_does_not_raise(ValueError, match="Out of range"),
+            assume_does_not_raise(ValueError, match="TimeDelta out of range"),
+            assume_does_not_raise(ValueError, match="total days out of range"),
+            assume_does_not_raise(
+                OverflowError, match="Python int too large to convert to C long"
+            ),
+            assume_does_not_raise(OverflowError, match="int too big to convert"),
+        ):
+            delta = func(nanos)
+        assert to_nanoseconds(delta) == nanos
+
+    @mark.parametrize(
+        "delta", [param(DateDelta(months=1)), param(DateTimeDelta(months=1))]
+    )
+    def test_error(self, *, delta: DateOrDateTimeDelta) -> None:
+        with raises(ToNanosecondsError, match="Delta must not contain months; got 1"):
+            _ = to_nanoseconds(delta)
 
 
 class TestToPyDateOrDateTime:

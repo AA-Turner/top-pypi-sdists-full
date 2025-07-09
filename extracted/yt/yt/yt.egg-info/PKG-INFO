@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: yt
-Version: 4.4.0
+Version: 4.4.1
 Summary: An analysis and visualization toolkit for volumetric data
 Author-email: The yt project <yt-dev@python.org>
 License: BSD 3-Clause
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Astronomy
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.10.3
+Requires-Python: >=3.10.4
 Description-Content-Type: text/markdown
 License-File: COPYING.txt
 Requires-Dist: cmyt>=1.1.2
@@ -190,6 +190,8 @@ Requires-Dist: pytest>=6.1; extra == "test"
 Requires-Dist: pytest-mpl>=0.16.1; extra == "test"
 Requires-Dist: sympy!=1.10,!=1.9; extra == "test"
 Requires-Dist: imageio!=2.35.0; extra == "test"
+Requires-Dist: contourpy; extra == "test"
+Dynamic: license-file
 
 # The yt Project
 

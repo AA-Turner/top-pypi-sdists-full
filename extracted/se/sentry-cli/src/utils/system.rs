@@ -52,7 +52,8 @@ pub fn is_npm_install() -> bool {
 /// Expands variables in a string
 pub fn expand_vars<F: Fn(&str) -> String>(s: &str, f: F) -> Cow<'_, str> {
     lazy_static! {
-        static ref VAR_RE: Regex = Regex::new(r"\$(\$|[a-zA-Z0-9_]+|\([^)]+\)|\{[^}]+\})").unwrap();
+        static ref VAR_RE: Regex =
+            Regex::new(r"\$(\$|[a-zA-Z0-9_]+|\([^)]+\)|\{[^}]+\})").expect("this regex is valid");
     }
     VAR_RE.replace_all(s, |caps: &Captures<'_>| {
         let key = &caps[1];
@@ -75,9 +76,7 @@ pub fn print_error(err: &Error) {
     // Debug style for error includes cause chain and backtrace (if available).
     eprintln!("{} {:?}", style("error:").red(), err);
 
-    if Config::current_opt().map_or(true, |config| {
-        config.get_log_level() < log::LevelFilter::Info
-    }) {
+    if Config::current_opt().is_none_or(|config| config.get_log_level() < log::LevelFilter::Info) {
         eprintln!();
         eprintln!("{}", style("Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.").dim());
         eprintln!(
@@ -128,7 +127,7 @@ pub fn load_dotenv() -> Result<()> {
 
     for path in custom_dotenv_paths {
         dotenvy::from_path_override(path)
-            .with_context(|| format!("Failed to load custom .env file: {}", path))?;
+            .with_context(|| format!("Failed to load custom .env file: {path}"))?;
     }
 
     Ok(())
@@ -170,7 +169,7 @@ fn display_technical_details(info: &PanicHookInfo, backtrace: &Backtrace) -> Str
 /// Formats the current thread name for display in the panic message
 fn display_thread_details() -> String {
     match thread::current().name() {
-        Some(name) => format!("thread '{}'", name),
+        Some(name) => format!("thread '{name}'"),
         None => "unknown thread".into(),
     }
 }

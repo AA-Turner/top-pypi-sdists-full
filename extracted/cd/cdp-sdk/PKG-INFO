@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cdp-sdk
-Version: 1.19.0
+Version: 1.20.0
 Summary: CDP SDK
 License: MIT
 Requires-Python: >=3.10
@@ -9,7 +9,7 @@ Requires-Dist: aiohttp==3.11.16
 Requires-Dist: base58>=2.1.1
 Requires-Dist: cryptography>=42.0.0
 Requires-Dist: nest-asyncio<2,>=1.6.0
-Requires-Dist: pydantic<=2.10.4,>=2.10.3
+Requires-Dist: pydantic>=2.10.3
 Requires-Dist: pyjwt>=2.10.1
 Requires-Dist: python-dateutil==2.9.0.post0
 Requires-Dist: solana>=0.36.6

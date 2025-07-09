@@ -359,7 +359,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
 
     def wait_for_order_submission(self, ticket: QuantConnect.Orders.OrderTicket) -> None:
         """
-        Wait for the order to be handled by the _processingThread
+        Wait for the order to be handled by the _processingThreads
         
         This method is protected.
         

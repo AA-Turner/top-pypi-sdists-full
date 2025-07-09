@@ -1,4 +1,4 @@
-from datetime import datetime
+import datetime
 
 import pymap3d as pm
 import pytest
@@ -9,37 +9,88 @@ try:
 except ImportError:
     astropy = None
 
+ECI = (-2981784, 5207055, 3161595)
+ECEF = [-5762640, -1682738, 3156028]
+UTC = datetime.datetime(2019, 1, 4, 12, tzinfo=datetime.timezone.utc)
+
 
 def test_eci2ecef():
     pytest.importorskip("numpy")
     # this example from Matlab eci2ecef docs
-    eci = [-2981784, 5207055, 3161595]
-    utc = datetime(2019, 1, 4, 12)
-    ecef = pm.eci2ecef(*eci, utc)
+    ecef = pm.eci2ecef(*ECI, UTC)
 
-    rel = 0.025 if astropy is None else 0.0001
-
-    assert ecef == approx([-5.7627e6, -1.6827e6, 3.1560e6], rel=rel)
+    assert isinstance(ecef[0], float)
+    assert isinstance(ecef[1], float)
+    assert isinstance(ecef[2], float)
 
 
-def test_ecef2eci():
+def test_eci2ecef_numpy():
+    pytest.importorskip("numpy")
+
+    ecef = pm.eci2ecef(*ECI, UTC, force_non_astropy=True)
+
+    rel = 0.025
+
+    assert ecef == approx(ECEF, rel=rel)
+    assert isinstance(ecef[0], float)
+    assert isinstance(ecef[1], float)
+    assert isinstance(ecef[2], float)
+
+
+def test_eci2ecef_astropy():
+    pytest.importorskip("astropy")
+
+    ecef = pm.eci2ecef(*ECI, UTC)
+
+    rel = 0.0001
+
+    assert ecef == approx(ECEF, rel=rel)
+    assert isinstance(ecef[0], float)
+    assert isinstance(ecef[1], float)
+    assert isinstance(ecef[2], float)
+
+
+@pytest.mark.parametrize("force_non_astropy", [True, False])
+def test_ecef2eci(force_non_astropy):
     pytest.importorskip("numpy")
     # this example from Matlab ecef2eci docs
-    ecef = [-5762640, -1682738, 3156028]
-    utc = datetime(2019, 1, 4, 12)
-    eci = pm.ecef2eci(*ecef, utc)
+    eci = pm.ecef2eci(*ECEF, UTC, force_non_astropy=force_non_astropy)
 
-    rel = 0.01 if astropy is None else 0.0001
+    assert isinstance(eci[0], float)
+    assert isinstance(eci[1], float)
+    assert isinstance(eci[2], float)
 
-    assert eci == approx([-2981810.6, 5207039.5, 3161595.1], rel=rel)
+
+def test_ecef2eci_numpy():
+    pytest.importorskip("numpy")
+
+    eci = pm.eci.ecef2eci_numpy(*ECEF, UTC)
+
+    rel = 0.025
+
+    assert eci == approx(ECI, rel=rel)
+    assert isinstance(eci[0], float)
+    assert isinstance(eci[1], float)
+    assert isinstance(eci[2], float)
+
+
+def test_ecef2eci_astropy():
+    pytest.importorskip("astropy")
+
+    eci = pm.eci.ecef2eci_astropy(*ECEF, UTC)
+
+    rel = 0.0001
+
+    assert eci == approx(ECI, rel=rel)
+    assert isinstance(eci[0], float)
+    assert isinstance(eci[1], float)
+    assert isinstance(eci[2], float)
 
 
 def test_eci2geodetic():
     pytest.importorskip("numpy")
 
-    eci = [-2981784, 5207055, 3161595]
-    utc = datetime(2019, 1, 4, 12)
-    lla = pm.eci2geodetic(*eci, utc)
+    lla = pm.eci2geodetic(*ECI, UTC)
 
     rel = 0.01 if astropy is None else 0.0001
 
@@ -50,8 +101,8 @@ def test_geodetic2eci():
     pytest.importorskip("numpy")
 
     lla = [27.880801, -163.722058, 408850.646]
-    utc = datetime(2019, 1, 4, 12)
-    eci = pm.geodetic2eci(*lla, utc)
+
+    eci = pm.geodetic2eci(*lla, UTC)
 
     rel = 0.01 if astropy is None else 0.0001
 
@@ -61,7 +112,7 @@ def test_geodetic2eci():
 def test_eci_aer():
     # test coords from Matlab eci2aer
     pytest.importorskip("numpy")
-    t = datetime(2022, 1, 2, 3, 4, 5)
+    t = datetime.datetime(2022, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
 
     eci = [4500000, -45000000, 3000000]
     lla = [28, -80, 100]

@@ -31,25 +31,53 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
         customer_areas: Dict of area_name -> polygon (list of [x, y]).
         staff_areas: Dict of area_name -> polygon (list of [x, y]).
     """
-    from ..utils import get_bbox_center, point_in_polygon
+    # First, collect all person detections and their centers
+    staff_ids = set()
     for det in detections:
         if det.get('category') == 'person':
             bbox = det.get('bbox', det.get('bounding_box', None))
             if bbox and len(bbox) == 4:
                 center = get_bbox_center(bbox)
-                # Check staff areas first
+                # If in any staff area, mark as staff
                 for polygon in staff_areas.values():
                     if point_in_polygon(center, polygon):
                         det['category'] = 'staff'
+                        staff_ids.add(id(det))
                         break
-                else:
-                    # Check customer areas
-                    for polygon in customer_areas.values():
-                        if point_in_polygon(center, polygon):
-                            det['category'] = 'customer'
-                            break
+    # All other person detections are customers
+    for det in detections:
+        if det.get('category') == 'person' and id(det) not in staff_ids:
+            det['category'] = 'customer'
 
 class AdvancedCustomerServiceUseCase(BaseProcessor):
+    # --- Chunk tracking for per-chunk analytics ---
+    def _init_chunk_tracking(self):
+        self._chunk_frame_count = 0
+        self._chunk_customer_ids = set()
+        self._chunk_area_customer_ids = defaultdict(set)
+
+    def _update_chunk_tracking(self, customer_detections):
+        for customer in customer_detections:
+            track_id = customer.get('track_id')
+            if track_id is not None:
+                self._chunk_customer_ids.add(track_id)
+                # Find all areas this customer is in (from current_areas or by geometry)
+                if 'current_areas' in customer:
+                    for area in customer['current_areas']:
+                        self._chunk_area_customer_ids[area].add(track_id)
+                else:
+                    # fallback: try to infer from bbox and self.customer_areas
+                    customer_center = get_bbox_center(customer.get('bbox', customer.get('bounding_box', {})))
+                    for area_name, polygon in getattr(self, 'customer_areas', {}).items():
+                        if point_in_polygon(customer_center, polygon):
+                            self._chunk_area_customer_ids[area_name].add(track_id)
+
+    def _maybe_reset_chunk(self):
+        if not hasattr(self, '_chunk_frame_count'):
+            self._init_chunk_tracking()
+        self._chunk_frame_count += 1
+        if self._chunk_frame_count > 10:
+            self._init_chunk_tracking()
     def __init__(self):
         """Initialize advanced customer service use case."""
         super().__init__("advanced_customer_service")
@@ -65,6 +93,13 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         self.staff_availability = {}
         self.staff_service_count = defaultdict(int)
         self.staff_active_services = {}
+        
+        # Persistent unique staff tracking
+        self.global_staff_ids = set()
+        self.global_staff_ids_by_area = defaultdict(set)
+        
+        # Persistent unique customer tracking
+        self.global_customer_ids = set()
         
         # Analytics
         self.queue_wait_times = defaultdict(list)
@@ -206,6 +241,8 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "confidence_threshold": 0.5,
             "enable_tracking": True,
             "enable_analytics": True,
+            "enable_journey_analysis": True,
+            "enable_queue_analytics": True,
             "staff_categories": ["staff", "employee"],
             "customer_categories": ["customer", "person"],
             "service_proximity_threshold": 100.0,
@@ -287,6 +324,11 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 detections, config.staff_categories, config.customer_categories
             )
             self.logger.debug(f"Extracted {len(staff_detections)} staff and {len(customer_detections)} customer detections")
+
+
+            # --- Chunk tracking logic ---
+            self._maybe_reset_chunk()
+            self._update_chunk_tracking(customer_detections)
 
             # Step 4: Process comprehensive analytics
             current_time = time.time()
@@ -428,10 +470,10 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             staff_center = get_bbox_center(staff.get('bbox', staff.get('bounding_box', {})))
             if not staff_center:
                 continue
-            
             track_id = staff.get('track_id', f"staff_{hash(str(staff_center))}")
-            
-            # Update staff area occupancy
+            # Update persistent global staff ids
+            self.global_staff_ids.add(track_id)
+            # Update staff area occupancy and persistent area staff ids
             for area_name, polygon in self.staff_areas.items():
                 if point_in_polygon(staff_center, polygon):
                     self.staff_occupancy[area_name].append({
@@ -439,6 +481,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                         'center': staff_center,
                         'timestamp': current_time
                     })
+                    self.global_staff_ids_by_area[area_name].add(track_id)
     
     def _process_customer_detections(self, customer_detections: List[Dict], current_time: float):
         """Process customer detections and update journey tracking."""
@@ -446,15 +489,15 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             customer_center = get_bbox_center(customer.get('bbox', customer.get('bounding_box', {})))
             if not customer_center:
                 continue
-            
             track_id = customer.get('track_id', f"customer_{hash(str(customer_center))}")
-            
+            # Update persistent global customer ids
+            self.global_customer_ids.add(track_id)
             # Initialize customer journey if new
+            is_new_journey = False
             if track_id not in self.customer_journey:
                 self._initialize_customer_journey(track_id, current_time)
-            
+                is_new_journey = True
             journey = self.customer_journey[track_id]
-            
             # Update customer area occupancy
             current_areas = []
             for area_name, polygon in self.customer_areas.items():
@@ -465,7 +508,6 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                         'center': customer_center,
                         'timestamp': current_time
                     })
-            
             # Update journey state based on current areas
             journey['current_areas'] = current_areas
             journey['last_seen'] = current_time
@@ -474,7 +516,13 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 'timestamp': current_time,
                 'areas': current_areas.copy()
             })
-            
+            # --- Staff service count: handle BEING_SERVED at initialization ---
+            if is_new_journey and self._is_customer_being_served(track_id, current_time):
+                # Customer starts in BEING_SERVED state, increment staff_service_count for the nearest staff
+                nearest_staff = self._find_nearest_staff(customer_center)
+                if nearest_staff:
+                    staff_id, _ = nearest_staff
+                    self.staff_service_count[staff_id] += 1
             # Update journey state logic
             self._update_customer_journey_state(track_id, current_areas, current_time)
     
@@ -498,16 +546,13 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
     def _update_customer_journey_state(self, track_id: int, current_areas: List[str], current_time: float):
         """Update customer journey state based on current location."""
         journey = self.customer_journey[track_id]
-        
         # Update areas visited
         journey['areas_visited'].update(current_areas)
-        
         # State transition logic
         if journey['state'] == self.JOURNEY_STATES['ENTERING']:
             if current_areas:
                 journey['state'] = self.JOURNEY_STATES['QUEUING']
                 journey['queue_start_time'] = current_time
-        
         elif journey['state'] == self.JOURNEY_STATES['QUEUING']:
             # Check if customer is being served (near staff)
             if self._is_customer_being_served(track_id, current_time):
@@ -515,7 +560,13 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 journey['service_start_time'] = current_time
                 if journey['queue_start_time']:
                     journey['total_wait_time'] = current_time - journey['queue_start_time']
-        
+                # --- Staff service count: increment only on QUEUING -> BEING_SERVED transition ---
+                customer_center = journey['positions'][-1]['center'] if journey['positions'] else None
+                if customer_center:
+                    nearest_staff = self._find_nearest_staff(customer_center)
+                    if nearest_staff:
+                        staff_id, _ = nearest_staff
+                        self.staff_service_count[staff_id] += 1
         elif journey['state'] == self.JOURNEY_STATES['BEING_SERVED']:
             # Check if service is completed
             if not self._is_customer_being_served(track_id, current_time):
@@ -563,80 +614,108 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 if journey['positions']:
                     customer_center = journey['positions'][-1]['center']
                     nearest_staff = self._find_nearest_staff(customer_center)
-                    
                     if nearest_staff:
                         staff_id, distance = nearest_staff
-                        
-                        # Record interaction
+                        # Record interaction (do not increment staff_service_count here)
                         interaction = {
                             'customer_id': customer_id,
                             'staff_id': staff_id,
                             'distance': distance,
                             'timestamp': current_time
                         }
-                        
                         journey['staff_interactions'].append(interaction)
-                        self.staff_service_count[staff_id] += 1
+        # Note: staff_service_count is now incremented only on state transition or at initialization
     
     def _compile_analytics_results(self, current_time: float) -> Dict[str, Any]:
         """Compile comprehensive analytics results."""
+        # --- Previous approach (commented out): ---
+        # real_time_occupancy = {
+        #     "customer_areas": self.customer_occupancy,
+        #     "staff_areas": self.staff_occupancy,
+        #     "service_areas": self.service_occupancy
+        # }
+
+        # --- New approach: Only keep the last detection per track_id per area ---
+        def get_latest_per_track(area_dict):
+            latest = {}
+            for area_name, occupants in area_dict.items():
+                track_map = {}
+                for occ in occupants:
+                    tid = occ.get('track_id')
+                    ts = occ.get('timestamp', 0)
+                    if tid is not None:
+                        if tid not in track_map or ts > track_map[tid]['timestamp']:
+                            track_map[tid] = occ
+                latest[area_name] = list(track_map.values())
+            return latest
+
+        real_time_occupancy = {
+            "customer_areas": get_latest_per_track(self.customer_occupancy),
+            "staff_areas": get_latest_per_track(self.staff_occupancy),
+            "service_areas": get_latest_per_track(self.service_occupancy)
+        }
+
         return {
             "customer_queue_analytics": self._get_customer_queue_results(),
             "staff_management_analytics": self._get_staff_management_results(),
             "service_area_analytics": self._get_service_area_results(),
             "customer_journey_analytics": self._get_customer_journey_results(),
             "business_metrics": self._calculate_analytics(current_time),
-            "real_time_occupancy": {
-                "customer_areas": self.customer_occupancy,
-                "staff_areas": self.staff_occupancy,
-                "service_areas": self.service_occupancy
-            },
+            "real_time_occupancy": real_time_occupancy,
             "processing_timestamp": current_time
         }
     
     def _get_customer_queue_results(self) -> Dict[str, Any]:
-        """Get customer queue analytics."""
-        queue_analytics = {
-            "active_customers": len(self.customer_journey),
-            "customers_queuing": 0,
-            "customers_being_served": 0,
-            "customers_completed": 0,
-            "average_wait_time": 0.0,
-            "queue_lengths_by_area": {}
-        }
-        
+        """Get customer queue analytics (per chunk of 10 frames)."""
+        # Use chunk-based customer ids for per-chunk analytics
+        active_customers = len(getattr(self, '_chunk_customer_ids', set()))
+        queue_lengths_by_area = {}
+        for area_name in self.customer_occupancy:
+            queue_lengths_by_area[area_name] = len(getattr(self, '_chunk_area_customer_ids', defaultdict(set))[area_name])
+
+        # For state counts, only count journeys whose track_id is in the current chunk
+        customers_queuing = 0
+        customers_being_served = 0
+        customers_completed = 0
         wait_times = []
-        for journey in self.customer_journey.values():
+        chunk_ids = getattr(self, '_chunk_customer_ids', set())
+        for track_id in chunk_ids:
+            journey = self.customer_journey.get(track_id)
+            if not journey:
+                continue
             if journey['state'] == self.JOURNEY_STATES['QUEUING']:
-                queue_analytics["customers_queuing"] += 1
+                customers_queuing += 1
             elif journey['state'] == self.JOURNEY_STATES['BEING_SERVED']:
-                queue_analytics["customers_being_served"] += 1
+                customers_being_served += 1
             elif journey['state'] == self.JOURNEY_STATES['COMPLETED']:
-                queue_analytics["customers_completed"] += 1
+                customers_completed += 1
                 if journey['total_wait_time'] > 0:
                     wait_times.append(journey['total_wait_time'])
-        
-        if wait_times:
-            queue_analytics["average_wait_time"] = sum(wait_times) / len(wait_times)
-        
-        # Calculate queue lengths by area
-        for area_name, occupants in self.customer_occupancy.items():
-            queue_analytics["queue_lengths_by_area"][area_name] = len(occupants)
-        
+
+        queue_analytics = {
+            "active_customers": active_customers,
+            "customers_queuing": customers_queuing,
+            "customers_being_served": customers_being_served,
+            "customers_completed": customers_completed,
+            "average_wait_time": sum(wait_times) / len(wait_times) if wait_times else 0.0,
+            "queue_lengths_by_area": queue_lengths_by_area
+        }
         return queue_analytics
     
     def _get_staff_management_results(self) -> Dict[str, Any]:
         """Get staff management analytics."""
+        # Previous (non-persistent) logic:
+        # staff_analytics = {
+        #     "total_staff": sum(len(staff_list) for staff_list in self.staff_occupancy.values()),
+        #     "staff_distribution": {area_name: len(staff_list) ...}
+        # }
+        # Persistent unique logic:
         staff_analytics = {
-            "total_staff": sum(len(staff_list) for staff_list in self.staff_occupancy.values()),
-            "staff_distribution": {},
+            "total_staff": len(self.global_staff_ids),
+            "staff_distribution": {area_name: len(self.global_staff_ids_by_area[area_name]) for area_name in self.staff_areas},
             "staff_efficiency": {},
             "staff_utilization": 0.0
         }
-        
-        # Calculate staff distribution
-        for area_name, staff_list in self.staff_occupancy.items():
-            staff_analytics["staff_distribution"][area_name] = len(staff_list)
         
         # Calculate staff efficiency
         total_services = sum(self.staff_service_count.values())
@@ -662,22 +741,39 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "total_active_services": 0,
             "service_efficiency": {}
         }
-        
+
+        # Use service_proximity_threshold from config or fallback to default
+        service_proximity_threshold = getattr(self, '_service_proximity_threshold', 100.0)
+
         for area_name, polygon in self.service_areas.items():
-            # Count customers and staff in service area
-            customers_in_area = len(self.customer_occupancy.get(area_name, []))
-            staff_in_area = len(self.staff_occupancy.get(area_name, []))
-            
+            # Find customers and staff within proximity threshold of the service area polygon
+            customers_in_area = 0
+            staff_in_area = 0
+            # For each customer, check if within threshold of any point in polygon
+            for occ in self.customer_occupancy.get(area_name, []):
+                center = occ.get('center')
+                if center and any(
+                    math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
+                ):
+                    customers_in_area += 1
+            for occ in self.staff_occupancy.get(area_name, []):
+                center = occ.get('center')
+                if center and any(
+                    math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
+                ):
+                    staff_in_area += 1
+
             service_analytics["service_areas_status"][area_name] = {
                 "customers": customers_in_area,
                 "staff": staff_in_area,
                 "service_ratio": customers_in_area / max(staff_in_area, 1),
-                "status": "active" if staff_in_area > 0 else "inactive"
+                "status": "active" if staff_in_area > 0 else "inactive",
+                "service_proximity_threshold": service_proximity_threshold
             }
-            
+
             if staff_in_area > 0:
                 service_analytics["total_active_services"] += 1
-        
+
         return service_analytics
     
     def _get_customer_journey_results(self) -> Dict[str, Any]:
@@ -687,7 +783,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "journey_states": {state: 0 for state in self.JOURNEY_STATES.values()},
             "average_journey_time": 0.0,
             "popular_areas": {},
-            "journey_patterns": {}
+            # "journey_patterns": {}
         }
         
         journey_times = []
@@ -720,36 +816,39 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         """Calculate comprehensive business metrics."""
         total_customers = len(self.customer_journey)
         total_staff = sum(len(staff_list) for staff_list in self.staff_occupancy.values())
-        
+
+        # Calculate customers_queuing and customers_being_served
+        customers_queuing = sum(1 for j in self.customer_journey.values() if j['state'] == self.JOURNEY_STATES['QUEUING'])
+        customers_being_served = sum(1 for j in self.customer_journey.values() if j['state'] == self.JOURNEY_STATES['BEING_SERVED'])
+
         metrics = {
-            "customer_to_staff_ratio": total_customers / max(total_staff, 1),
+            # Corrected customer_to_staff_ratio as per user request
+            "customer_to_staff_ratio": (customers_queuing + customers_being_served) / max(total_staff, 1),
             "service_efficiency": 0.0,
             "queue_performance": 0.0,
             "staff_productivity": 0.0,
             "overall_performance": 0.0
         }
-        
+
         # Calculate service efficiency
         completed_services = sum(1 for j in self.customer_journey.values() 
                                if j['state'] == self.JOURNEY_STATES['COMPLETED'])
         metrics["service_efficiency"] = completed_services / max(total_customers, 1)
-        
+
         # Calculate queue performance
-        customers_queuing = sum(1 for j in self.customer_journey.values() 
-                              if j['state'] == self.JOURNEY_STATES['QUEUING'])
         metrics["queue_performance"] = max(0, 1 - (customers_queuing / max(total_customers, 1)))
-        
+
         # Calculate staff productivity
         total_services = sum(self.staff_service_count.values())
         metrics["staff_productivity"] = total_services / max(total_staff, 1)
-        
+
         # Calculate overall performance
         metrics["overall_performance"] = (
             metrics["service_efficiency"] * 0.4 +
             metrics["queue_performance"] * 0.3 +
             metrics["staff_productivity"] * 0.3
         )
-        
+
         return metrics
     
     def _check_alerts(self, analytics_results: Dict, config: CustomerServiceConfig) -> List[Dict]:

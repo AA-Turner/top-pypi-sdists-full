@@ -40,6 +40,7 @@ black_version = "23.11.0"
 requirements = [
     "torch==2.5.0",
     f"black=={black_version}",
+    "lightning==2.4.0",
     "numpy==1.26.4",
     "scipy",
     "SimpleITK!=2.0.*",
@@ -55,6 +56,7 @@ requirements = [
     "pyyaml",
     "matplotlib",
     "gdown==5.1.0",
+    "overrides==7.7.0",
     "pytest",
     "coverage",
     "pytest-cov",
@@ -76,10 +78,9 @@ requirements = [
     "twine",
     "keyring",
     "monai==1.4.0",
-    "click>=8.0.0",
+    "click==8.1.8",
     "deprecated",
     "packaging==24.0",
-    "typer==0.9.0",
     "colorlog",
     "opacus==1.5.2",
     "huggingface-hub==0.25.1",
@@ -87,7 +88,7 @@ requirements = [
     "openslide-python==1.4.1",
     "lion-pytorch==0.2.2",
     "pydantic==2.10.6",
-    "panoptica>=1.3.3",
+    "panoptica>=1.4.1",
 ]
 
 if __name__ == "__main__":

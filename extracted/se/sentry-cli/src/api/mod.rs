@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "contains legacy code which uses unwrap")]
+
 //! This module implements the API access to the Sentry API as well
 //! as some other APIs we interact with.  In particular it can talk
 //! to the GitHub API to figure out if there are new releases of the
@@ -1016,6 +1018,33 @@ impl<'a> AuthenticatedApi<'a> {
             .convert_rnf(ApiErrorKind::ReleaseNotFound)
     }
 
+    #[cfg(feature = "unstable-mobile-app")]
+    pub fn assemble_mobile_app(
+        &self,
+        org: &str,
+        project: &str,
+        checksum: Digest,
+        chunks: &[Digest],
+        git_sha: Option<&str>,
+        build_configuration: Option<&str>,
+    ) -> ApiResult<AssembleMobileAppResponse> {
+        let url = format!(
+            "/projects/{}/{}/files/preprodartifacts/assemble/",
+            PathArg(org),
+            PathArg(project)
+        );
+
+        self.request(Method::Post, &url)?
+            .with_json_body(&ChunkedMobileAppRequest {
+                checksum,
+                chunks,
+                git_sha,
+                build_configuration,
+            })?
+            .send()?
+            .convert_rnf(ApiErrorKind::ProjectNotFound)
+    }
+
     pub fn associate_proguard_mappings(
         &self,
         org: &str,
@@ -1553,7 +1582,6 @@ fn handle_req<W: Write>(
 }
 
 /// Iterator over response headers
-#[allow(dead_code)]
 pub struct Headers<'a> {
     lines: &'a [String],
     idx: usize,
@@ -1857,7 +1885,6 @@ impl ApiResponse {
     }
 
     /// Iterates over the headers.
-    #[allow(dead_code)]
     pub fn headers(&self) -> Headers<'_> {
         Headers {
             lines: &self.headers[..],
@@ -1866,7 +1893,6 @@ impl ApiResponse {
     }
 
     /// Looks up the first matching header for a key.
-    #[allow(dead_code)]
     pub fn get_header(&self, key: &str) -> Option<&str> {
         for (header_key, header_value) in self.headers() {
             if header_key.eq_ignore_ascii_case(key) {

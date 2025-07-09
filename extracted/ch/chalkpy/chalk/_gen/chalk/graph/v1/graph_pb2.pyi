@@ -1633,17 +1633,44 @@ class FeatureDecoder(_message.Message):
         self, global_function_reference: _Optional[_Union[FunctionGlobalCapturedFunction, _Mapping]] = ...
     ) -> None: ...
 
+class RichClassType(_message.Message):
+    __slots__ = ("module_name", "qualname", "params")
+    MODULE_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUALNAME_FIELD_NUMBER: _ClassVar[int]
+    PARAMS_FIELD_NUMBER: _ClassVar[int]
+    module_name: str
+    qualname: str
+    params: _containers.RepeatedCompositeFieldContainer[RichClassType]
+    def __init__(
+        self,
+        module_name: _Optional[str] = ...,
+        qualname: _Optional[str] = ...,
+        params: _Optional[_Iterable[_Union[RichClassType, _Mapping]]] = ...,
+    ) -> None: ...
+
+class FeatureRichType(_message.Message):
+    __slots__ = ("class_type",)
+    CLASS_TYPE_FIELD_NUMBER: _ClassVar[int]
+    class_type: RichClassType
+    def __init__(self, class_type: _Optional[_Union[RichClassType, _Mapping]] = ...) -> None: ...
+
 class FeatureRichTypeInfo(_message.Message):
-    __slots__ = ("rich_type_is_same_as_primitive_type", "encoder", "decoder")
+    __slots__ = ("rich_type_is_same_as_primitive_type", "encoder", "decoder", "rich_type", "rich_type_name")
     RICH_TYPE_IS_SAME_AS_PRIMITIVE_TYPE_FIELD_NUMBER: _ClassVar[int]
     ENCODER_FIELD_NUMBER: _ClassVar[int]
     DECODER_FIELD_NUMBER: _ClassVar[int]
+    RICH_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RICH_TYPE_NAME_FIELD_NUMBER: _ClassVar[int]
     rich_type_is_same_as_primitive_type: bool
     encoder: FeatureEncoder
     decoder: FeatureDecoder
+    rich_type: FeatureRichType
+    rich_type_name: str
     def __init__(
         self,
         rich_type_is_same_as_primitive_type: bool = ...,
         encoder: _Optional[_Union[FeatureEncoder, _Mapping]] = ...,
         decoder: _Optional[_Union[FeatureDecoder, _Mapping]] = ...,
+        rich_type: _Optional[_Union[FeatureRichType, _Mapping]] = ...,
+        rich_type_name: _Optional[str] = ...,
     ) -> None: ...

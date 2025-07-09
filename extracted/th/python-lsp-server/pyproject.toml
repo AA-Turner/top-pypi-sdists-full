@@ -2,7 +2,7 @@
 # Copyright 2021- Python Language Server Contributors.
 
 [build-system]
-requires = ["setuptools>=61.2.0", "setuptools_scm[toml]>=3.4.3"]
+requires = ["setuptools>=69.0.0", "setuptools_scm[toml]>=3.4.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,7 +11,7 @@ authors = [{name = "Python Language Server Contributors"}]
 description = "Python Language Server for the Language Server Protocol"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "docstring-to-markdown",
     "importlib_metadata>=4.8.3;python_version<\"3.10\"",
@@ -19,6 +19,7 @@ dependencies = [
     "pluggy>=1.0.0",
     "python-lsp-jsonrpc>=1.1.0,<2.0.0",
     "ujson>=3.0.0",
+    "black"
 ]
 dynamic = ["version"]
 
@@ -58,6 +59,7 @@ test = [
     "matplotlib",
     "pyqt5",
     "flaky",
+    "websockets>=10.3",
 ]
 
 [project.entry-points.pylsp]
@@ -66,6 +68,7 @@ folding = "pylsp.plugins.folding"
 flake8 = "pylsp.plugins.flake8_lint"
 jedi_completion = "pylsp.plugins.jedi_completion"
 jedi_definition = "pylsp.plugins.definition"
+jedi_type_definition = "pylsp.plugins.type_definition"
 jedi_hover = "pylsp.plugins.hover"
 jedi_highlight = "pylsp.plugins.highlight"
 jedi_references = "pylsp.plugins.references"
@@ -120,8 +123,8 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.8
-target-version = "py38"
+# Assume Python 3.9
+target-version = "py39"
 
 [tool.ruff.lint]
 # https://docs.astral.sh/ruff/rules/

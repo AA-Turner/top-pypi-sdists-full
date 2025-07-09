@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "contains legacy code which uses unwrap")]
+
 //! Searches, processes and uploads debug information files (DIFs). See
 //! `DifUpload` for more information.
 
@@ -864,7 +866,7 @@ fn collect_object_dif<'a>(
         // We retain the buffer and the borrowed object in a new SelfCell. This is
         // incredibly unsafe, but in our case it is fine, since the SelfCell owns the same
         // buffer that was used to retrieve the object.
-        #[allow(clippy::missing_transmute_annotations)]
+        #[expect(clippy::missing_transmute_annotations)]
         let cell = unsafe {
             SelfCell::from_raw(
                 buffer.clone(),

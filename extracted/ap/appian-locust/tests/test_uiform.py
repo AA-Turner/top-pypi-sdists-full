@@ -25,6 +25,9 @@ from appian_locust._reports import REPORTS_INTERFACE_PATH
 from appian_locust._actions import ACTIONS_INTERFACE_PATH, ACTIONS_FEED_PATH
 from appian_locust._data_fabric import DATA_FABRIC_URI_PATH
 
+from appian_locust.exceptions import ComponentNotFoundException, ChoiceNotFoundException
+from appian_locust.uiform import SailUiForm
+
 
 class TestSailUiForm(unittest.TestCase):
     reports = read_mock_file("reports_response.json")
@@ -35,6 +38,7 @@ class TestSailUiForm(unittest.TestCase):
     sites_task_report_resp = read_mock_file("sites_task_report.json")
     date_response = read_mock_file("date_task.json")
     multi_dropdown_response = read_mock_file("dropdown_test_ui.json")
+    grouped_dropdown_initial = read_mock_file("grouped_dropdown_test_ui.json")
     checkbox_initial = read_mock_file("checkbox_link_duplicate_label.json")
     sail_ui_actions_response = read_mock_file("sail_ui_actions_cmf.json")
     file_upload_initial = read_mock_file("multiple_file_upload_widget.json")
@@ -1579,6 +1583,23 @@ class TestSailUiForm(unittest.TestCase):
         self.custom_locust.client.set_response("/suite/rest/a/sites/latest/api-dashboard/pages/api-dashboard/interface", 204, None)
         async_timer_response = gridfield_async_form.click_link("async_timer")
         self.assertEqual(original_state, async_timer_response.get_latest_state(), "Unexpected state change")
+
+    @patch('appian_locust._interactor._Interactor.send_grouped_dropdown_update')
+    def test_select_grouped_dropdown_item_by_index(self, mock_send_grouped_dropdown_update: MagicMock) -> None:
+        """
+        Test that select_grouped_dropdown_item_by_index selects items in a grouped dropdown
+        and returns the updated form state.
+        """
+        test_form = SailUiForm(self.task_set.appian._interactor, json.loads(self.grouped_dropdown_initial))
+        test_form_state = test_form.get_latest_state()
+
+        grouped_dropdown_index = 1
+        choice_index = [1, 2, 3]
+
+        test_form.select_grouped_dropdown_item_by_index(grouped_dropdown_index, choice_index)
+
+        mock_send_grouped_dropdown_update.assert_called_once()
+        self.assertNotEqual(test_form.get_latest_state(), test_form_state)
 
 
 if __name__ == '__main__':

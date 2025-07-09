@@ -33,10 +33,8 @@ from .mathfun import (
 
 __all__ = ["vdist", "vreckon", "track2"]
 
-ELL = Ellipsoid.from_name("wgs84")
 
-
-def vdist(Lat1, Lon1, Lat2, Lon2, ell: Ellipsoid = ELL, deg: bool = True) -> tuple:
+def vdist(Lat1, Lon1, Lat2, Lon2, ell: Ellipsoid | None = None, deg: bool = True) -> tuple:
     """
     Using the reference ellipsoid, compute the distance between two points
     within a few millimeters of accuracy, compute forward azimuth,
@@ -116,6 +114,9 @@ def vdist(Lat1, Lon1, Lat2, Lon2, ell: Ellipsoid = ELL, deg: bool = True) -> tup
         Lon2 = atleast_1d(Lon2)
     except NameError:
         pass
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
     # %% Supply WGS84 earth ellipsoid axis lengths in meters:
     a = ell.semimajor_axis
     b = ell.semiminor_axis
@@ -283,7 +284,7 @@ def vdist(Lat1, Lon1, Lat2, Lon2, ell: Ellipsoid = ELL, deg: bool = True) -> tup
         return dist_m, a12
 
 
-def vreckon(Lat1, Lon1, Rng, Azim, ell: Ellipsoid = ELL, deg: bool = True) -> tuple:
+def vreckon(Lat1, Lon1, Rng, Azim, ell: Ellipsoid | None = None, deg: bool = True) -> tuple:
     """
     This is the Vincenty "forward" solution.
 
@@ -353,6 +354,9 @@ def vreckon(Lat1, Lon1, Rng, Azim, ell: Ellipsoid = ELL, deg: bool = True) -> tu
     except NameError:
         if Rng < 0.0:
             raise ValueError("Ground distance must be positive")
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     a = ell.semimajor_axis
     b = ell.semiminor_axis
@@ -474,7 +478,7 @@ def track2(
     lon1,
     lat2,
     lon2,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     npts: int = 100,
     deg: bool = True,
 ) -> tuple[list, list]:

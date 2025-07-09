@@ -7,20 +7,12 @@ from .number import IntegerField
 
 class StarRatingField(IntegerField):
     field_type = "starrating"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.delimiter = ""
-        self.decimal_mark = ""
+    disable_formatting = True
 
 
 class EmojiRatingField(IntegerField):
     field_type = "emojirating"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.delimiter = ""
-        self.decimal_mark = ""
+    disable_formatting = True
 
 
 class RangeSelectField(WBCoreSerializerFieldMixin, serializers.FloatField):

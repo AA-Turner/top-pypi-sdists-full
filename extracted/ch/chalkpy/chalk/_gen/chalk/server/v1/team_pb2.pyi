@@ -171,7 +171,13 @@ class CreateEnvironmentResponse(_message.Message):
     def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
 
 class UpdateEnvironmentOperation(_message.Message):
-    __slots__ = ("specs_config_json", "additional_env_vars", "private_pip_repositories")
+    __slots__ = (
+        "specs_config_json",
+        "additional_env_vars",
+        "private_pip_repositories",
+        "online_store_secret",
+        "feature_store_secret",
+    )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -183,14 +189,20 @@ class UpdateEnvironmentOperation(_message.Message):
     SPECS_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     ADDITIONAL_ENV_VARS_FIELD_NUMBER: _ClassVar[int]
     PRIVATE_PIP_REPOSITORIES_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
     private_pip_repositories: str
+    online_store_secret: str
+    feature_store_secret: str
     def __init__(
         self,
         specs_config_json: _Optional[str] = ...,
         additional_env_vars: _Optional[_Mapping[str, str]] = ...,
         private_pip_repositories: _Optional[str] = ...,
+        online_store_secret: _Optional[str] = ...,
+        feature_store_secret: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):

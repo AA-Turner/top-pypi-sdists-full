@@ -28,10 +28,10 @@ class ShortcutAndPerformanceMixin(WBCoreFilterMixin):
 
     def get_representation(self, request, name, view):
         representation, lookup_expr = super().get_representation(request, name, view)
-        representation["performance_mode"] = self.performance_mode
+        lookup_expr["input_properties"]["performance_mode"] = self.performance_mode
 
         if self.shortcuts:
-            representation["shortcuts"] = self.shortcuts
+            lookup_expr["input_properties"]["shortcuts"] = self.shortcuts
 
         return representation, lookup_expr
 
@@ -66,7 +66,7 @@ class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
         representation["lookup_expr"] = {"exact": self.field_name}
         with suppress(KeyError):  # TODO frontend needs to support both exact and overlaps lookup
             initial = representation["initial"].pop(self.lookup_expr)
-            representation["initial"]["exact"] = initial
+            lookup_expr["input_properties"]["initial"]["exact"] = initial
 
         return representation, lookup_expr
 

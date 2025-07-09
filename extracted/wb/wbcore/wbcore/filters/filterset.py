@@ -11,6 +11,7 @@ from django_filters.rest_framework import FilterSet as DjangoFilterSet
 
 from wbcore.filters import fields
 from wbcore.filters.fields.multiple_lookups import MultipleLookupFilter
+from wbcore.models.fields import YearField
 from wbcore.signals.filters import add_filters
 
 from .utils import check_required_filters
@@ -84,6 +85,7 @@ class FilterSet(DjangoFilterSet, metaclass=CustomFilterSetMetaClass):
         models.DecimalField: {"filter_class": fields.NumberFilter},
         DateTimeRangeField: {"filter_class": fields.DateTimeRangeFilter},
         DateRangeField: {"filter_class": fields.DateRangeFilter},
+        YearField: {"filter_class": fields.YearFilter},
         # models.DurationField: {"filter_class": DurationFilter},
         # models.SmallIntegerField: {"filter_class": NumberFilter},
         # models.AutoField: {"filter_class": NumberFilter},

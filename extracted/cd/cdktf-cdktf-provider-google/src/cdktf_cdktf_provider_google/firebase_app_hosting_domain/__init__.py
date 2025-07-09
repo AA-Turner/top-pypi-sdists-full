@@ -1,7 +1,7 @@
 r'''
 # `google_firebase_app_hosting_domain`
 
-Refer to the Terraform Registry for docs: [`google_firebase_app_hosting_domain`](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain).
+Refer to the Terraform Registry for docs: [`google_firebase_app_hosting_domain`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirebaseAppHostingDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.firebaseAppHostingDomain.FirebaseAppHostingDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain google_firebase_app_hosting_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain google_firebase_app_hosting_domain}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class FirebaseAppHostingDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain google_firebase_app_hosting_domain} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain google_firebase_app_hosting_domain} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backend: The ID of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#backend FirebaseAppHostingDomain#backend}
-        :param domain_id: Id of the domain to create. Must be a valid domain name, such as "foo.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#domain_id FirebaseAppHostingDomain#domain_id}
-        :param location: The location of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#location FirebaseAppHostingDomain#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#id FirebaseAppHostingDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#project FirebaseAppHostingDomain#project}.
-        :param serve: serve block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#serve FirebaseAppHostingDomain#serve}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#timeouts FirebaseAppHostingDomain#timeouts}
+        :param backend: The ID of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#backend FirebaseAppHostingDomain#backend}
+        :param domain_id: Id of the domain to create. Must be a valid domain name, such as "foo.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#domain_id FirebaseAppHostingDomain#domain_id}
+        :param location: The location of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#location FirebaseAppHostingDomain#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#id FirebaseAppHostingDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#project FirebaseAppHostingDomain#project}.
+        :param serve: serve block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#serve FirebaseAppHostingDomain#serve}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#timeouts FirebaseAppHostingDomain#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class FirebaseAppHostingDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirebaseAppHostingDomain to import.
-        :param import_from_id: The id of the existing FirebaseAppHostingDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirebaseAppHostingDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirebaseAppHostingDomain to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class FirebaseAppHostingDomain(
         redirect: typing.Optional[typing.Union["FirebaseAppHostingDomainServeRedirect", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#redirect FirebaseAppHostingDomain#redirect}
+        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#redirect FirebaseAppHostingDomain#redirect}
         '''
         value = FirebaseAppHostingDomainServe(redirect=redirect)
 
@@ -154,9 +154,9 @@ class FirebaseAppHostingDomain(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#create FirebaseAppHostingDomain#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#delete FirebaseAppHostingDomain#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#update FirebaseAppHostingDomain#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#create FirebaseAppHostingDomain#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#delete FirebaseAppHostingDomain#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#update FirebaseAppHostingDomain#update}.
         '''
         value = FirebaseAppHostingDomainTimeouts(
             create=create, delete=delete, update=update
@@ -388,13 +388,13 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backend: The ID of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#backend FirebaseAppHostingDomain#backend}
-        :param domain_id: Id of the domain to create. Must be a valid domain name, such as "foo.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#domain_id FirebaseAppHostingDomain#domain_id}
-        :param location: The location of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#location FirebaseAppHostingDomain#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#id FirebaseAppHostingDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#project FirebaseAppHostingDomain#project}.
-        :param serve: serve block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#serve FirebaseAppHostingDomain#serve}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#timeouts FirebaseAppHostingDomain#timeouts}
+        :param backend: The ID of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#backend FirebaseAppHostingDomain#backend}
+        :param domain_id: Id of the domain to create. Must be a valid domain name, such as "foo.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#domain_id FirebaseAppHostingDomain#domain_id}
+        :param location: The location of the Backend that this Domain is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#location FirebaseAppHostingDomain#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#id FirebaseAppHostingDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#project FirebaseAppHostingDomain#project}.
+        :param serve: serve block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#serve FirebaseAppHostingDomain#serve}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#timeouts FirebaseAppHostingDomain#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -514,7 +514,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backend(self) -> builtins.str:
         '''The ID of the Backend that this Domain is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#backend FirebaseAppHostingDomain#backend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#backend FirebaseAppHostingDomain#backend}
         '''
         result = self._values.get("backend")
         assert result is not None, "Required property 'backend' is missing"
@@ -524,7 +524,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domain_id(self) -> builtins.str:
         '''Id of the domain to create. Must be a valid domain name, such as "foo.com".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#domain_id FirebaseAppHostingDomain#domain_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#domain_id FirebaseAppHostingDomain#domain_id}
         '''
         result = self._values.get("domain_id")
         assert result is not None, "Required property 'domain_id' is missing"
@@ -534,7 +534,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the Backend that this Domain is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#location FirebaseAppHostingDomain#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#location FirebaseAppHostingDomain#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -542,7 +542,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#id FirebaseAppHostingDomain#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#id FirebaseAppHostingDomain#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -552,7 +552,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#project FirebaseAppHostingDomain#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#project FirebaseAppHostingDomain#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -560,7 +560,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def serve(self) -> typing.Optional["FirebaseAppHostingDomainServe"]:
         '''serve block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#serve FirebaseAppHostingDomain#serve}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#serve FirebaseAppHostingDomain#serve}
         '''
         result = self._values.get("serve")
         return typing.cast(typing.Optional["FirebaseAppHostingDomainServe"], result)
@@ -569,7 +569,7 @@ class FirebaseAppHostingDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirebaseAppHostingDomainTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#timeouts FirebaseAppHostingDomain#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#timeouts FirebaseAppHostingDomain#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirebaseAppHostingDomainTimeouts"], result)
@@ -2051,7 +2051,7 @@ class FirebaseAppHostingDomainServe:
         redirect: typing.Optional[typing.Union["FirebaseAppHostingDomainServeRedirect", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#redirect FirebaseAppHostingDomain#redirect}
+        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#redirect FirebaseAppHostingDomain#redirect}
         '''
         if isinstance(redirect, dict):
             redirect = FirebaseAppHostingDomainServeRedirect(**redirect)
@@ -2066,7 +2066,7 @@ class FirebaseAppHostingDomainServe:
     def redirect(self) -> typing.Optional["FirebaseAppHostingDomainServeRedirect"]:
         '''redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#redirect FirebaseAppHostingDomain#redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#redirect FirebaseAppHostingDomain#redirect}
         '''
         result = self._values.get("redirect")
         return typing.cast(typing.Optional["FirebaseAppHostingDomainServeRedirect"], result)
@@ -2111,8 +2111,8 @@ class FirebaseAppHostingDomainServeOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The URI of the redirect's intended destination. This URI will be prepended to the original request path. URI without a scheme are assumed to be HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#uri FirebaseAppHostingDomain#uri}
-        :param status: The status code to use in a redirect response. Must be a valid HTTP 3XX status code. Defaults to 302 if not present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#status FirebaseAppHostingDomain#status}
+        :param uri: The URI of the redirect's intended destination. This URI will be prepended to the original request path. URI without a scheme are assumed to be HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#uri FirebaseAppHostingDomain#uri}
+        :param status: The status code to use in a redirect response. Must be a valid HTTP 3XX status code. Defaults to 302 if not present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#status FirebaseAppHostingDomain#status}
         '''
         value = FirebaseAppHostingDomainServeRedirect(uri=uri, status=status)
 
@@ -2163,8 +2163,8 @@ class FirebaseAppHostingDomainServeRedirect:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The URI of the redirect's intended destination. This URI will be prepended to the original request path. URI without a scheme are assumed to be HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#uri FirebaseAppHostingDomain#uri}
-        :param status: The status code to use in a redirect response. Must be a valid HTTP 3XX status code. Defaults to 302 if not present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#status FirebaseAppHostingDomain#status}
+        :param uri: The URI of the redirect's intended destination. This URI will be prepended to the original request path. URI without a scheme are assumed to be HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#uri FirebaseAppHostingDomain#uri}
+        :param status: The status code to use in a redirect response. Must be a valid HTTP 3XX status code. Defaults to 302 if not present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#status FirebaseAppHostingDomain#status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4b5d08b6e3873a90a268b1e55cfa9459544ca667bd4bd818f99cf4f8be32993)
@@ -2184,7 +2184,7 @@ class FirebaseAppHostingDomainServeRedirect:
         prepended to the original request path. URI without a scheme are
         assumed to be HTTPS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#uri FirebaseAppHostingDomain#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#uri FirebaseAppHostingDomain#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -2197,7 +2197,7 @@ class FirebaseAppHostingDomainServeRedirect:
         Must be a valid HTTP 3XX
         status code. Defaults to 302 if not present.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#status FirebaseAppHostingDomain#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#status FirebaseAppHostingDomain#status}
         '''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2302,9 +2302,9 @@ class FirebaseAppHostingDomainTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#create FirebaseAppHostingDomain#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#delete FirebaseAppHostingDomain#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#update FirebaseAppHostingDomain#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#create FirebaseAppHostingDomain#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#delete FirebaseAppHostingDomain#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#update FirebaseAppHostingDomain#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b1060814127e0ca6604486568ba1a6223080abe1691ce6f052d110d8f239973)
@@ -2321,19 +2321,19 @@ class FirebaseAppHostingDomainTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#create FirebaseAppHostingDomain#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#create FirebaseAppHostingDomain#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#delete FirebaseAppHostingDomain#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#delete FirebaseAppHostingDomain#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/firebase_app_hosting_domain#update FirebaseAppHostingDomain#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/firebase_app_hosting_domain#update FirebaseAppHostingDomain#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

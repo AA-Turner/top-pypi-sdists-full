@@ -43,7 +43,7 @@ joined_valid_occ_types: str = ", ".join(valid_occ_types)
 SUPPORTED_MODELS: list = ["SOBOL", "FACTORIAL", "SAASBO", "BOTORCH_MODULAR", "UNIFORM", "BO_MIXED", "RANDOMFOREST", "EXTERNAL_GENERATOR", "PSEUDORANDOM", "TPE"]
 joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 
-special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "trial_index", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname"]
+special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "trial_index", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname", "submit_time", "queue_time"]
 IGNORABLE_COLUMNS: list = ["start_time", "end_time", "hostname", "signal", "exit_code", "run_time", "program_string"] + special_col_names
 
 uncontinuable_models: list = ["RANDOMFOREST", "EXTERNAL_GENERATOR", "TPE", "PSEUDORANDOM", "HUMAN_INTERVENTION_MINIMUM"]
@@ -141,9 +141,6 @@ try:
 
     with console.status("[bold green]Importing rich.prompt..."):
         from rich.prompt import Prompt, FloatPrompt, IntPrompt
-
-    with console.status("[bold green]Importing fcntl..."):
-        import fcntl
 
     with console.status("[bold green]Importing types.FunctionType..."):
         from types import FunctionType
@@ -3275,36 +3272,115 @@ def get_results(input_string: Optional[Union[int, str]]) -> Optional[Union[Dict[
 
     return None
 
+
 @beartype
 def add_to_csv(file_path: str, new_heading: list, new_data: list) -> None:
     new_data = [helpers.to_int_when_possible(x) for x in new_data]
+    formatted_data = _add_to_csv_format_data(new_data)
+    _add_to_csv_with_lock(file_path, new_heading, formatted_data)
 
-    with open(file_path, 'a+', encoding="utf-8", newline='') as file:
-        fcntl.flock(file, fcntl.LOCK_EX)
 
-        file.seek(0)
-        rows = list(csv.reader(file))
-        existing_heading = rows[0] if rows else []
+@beartype
+def _add_to_csv_format_data(new_data: List[object]) -> List[object]:
+    return [
+        ("{:.20f}".format(x).rstrip('0').rstrip('.')) if isinstance(x, float) else x
+        for x in new_data
+    ]
 
-        all_headings = list(dict.fromkeys(existing_heading + new_heading))
 
-        updated_rows = [all_headings] + [
-            [row[existing_heading.index(h)] if h in existing_heading else "" for h in all_headings]
-            for row in rows[1:]
-        ]
+@beartype
+def _add_to_csv_with_lock(file_path: str, new_heading: list, formatted_data: list) -> None:
+    lockfile = file_path + ".lock"
+    if not _add_to_csv_acquire_lock(lockfile, os.path.dirname(file_path)):
+        return
+    try:
+        _add_to_csv_handle_file(file_path, new_heading, formatted_data)
+    finally:
+        _add_to_csv_release_lock(lockfile)
 
-        formatted_data = [
-            ("{:.20f}".format(x).rstrip('0').rstrip('.')) if isinstance(x, float) else x
-            for x in new_data
-        ]
-        new_row = [formatted_data[new_heading.index(h)] if h in new_heading else "" for h in all_headings]
-        updated_rows.append(new_row)
 
-        file.seek(0)
-        file.truncate()
-        csv.writer(file).writerows(updated_rows)
+@beartype
+def _add_to_csv_acquire_lock(lockfile: str, dir_path: str) -> bool:
+    wait_time = 0.01
+    max_wait = 30.0  # seconds
+    while max_wait > 0:
+        try:
+            tmp = tempfile.NamedTemporaryFile(delete=False, dir=dir_path)
+            tmp.close()
+            os.link(tmp.name, lockfile)
+            os.unlink(tmp.name)
+            return True
+        except FileExistsError:
+            time.sleep(wait_time)
+            max_wait -= wait_time
+        except Exception as e:
+            print("Lock error:", e)
+            return False
+    return False
 
-        fcntl.flock(file, fcntl.LOCK_UN)
+
+@beartype
+def _add_to_csv_release_lock(lockfile: str) -> None:
+    try:
+        os.unlink(lockfile)
+    except FileNotFoundError:
+        pass
+
+
+@beartype
+def _add_to_csv_handle_file(file_path: str, new_heading: list, formatted_data: list) -> None:
+    if not os.path.exists(file_path):
+        _add_to_csv_create_new_file(file_path, new_heading, formatted_data)
+        return
+
+    with open(file_path, 'r', encoding="utf-8", newline='') as f:
+        rows = list(csv.reader(f))
+
+    existing_heading = rows[0] if rows else []
+    all_headings = list(dict.fromkeys(existing_heading + new_heading))
+
+    if all_headings != existing_heading:
+        _add_to_csv_rewrite_file(file_path, rows, existing_heading, all_headings, new_heading, formatted_data)
+    else:
+        _add_to_csv_append_row(file_path, existing_heading, new_heading, formatted_data)
+
+
+@beartype
+def _add_to_csv_create_new_file(file_path: str, heading: list, data: list) -> None:
+    with open(file_path, 'w', encoding="utf-8", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(heading)
+        writer.writerow(data)
+
+
+@beartype
+def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading: list,
+                             all_headings: list, new_heading: list, formatted_data: list) -> None:
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".csv")
+    with os.fdopen(tmp_fd, 'w', encoding="utf-8", newline='') as tmp_file:
+        writer = csv.writer(tmp_file)
+        writer.writerow(all_headings)
+        for row in rows[1:]:
+            tmp_file.writerow([
+                row[existing_heading.index(h)] if h in existing_heading else ""
+                for h in all_headings
+            ])
+        tmp_file.writerow([
+            formatted_data[new_heading.index(h)] if h in new_heading else ""
+            for h in all_headings
+        ])
+    shutil.move(tmp_path, file_path)
+
+
+@beartype
+def _add_to_csv_append_row(file_path: str, existing_heading: list,
+                           new_heading: list, formatted_data: list) -> None:
+    with open(file_path, 'a', encoding="utf-8", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            formatted_data[new_heading.index(h)] if h in new_heading else ""
+            for h in existing_heading
+        ])
 
 @beartype
 def find_file_paths(_text: str) -> List[str]:
@@ -3596,21 +3672,7 @@ def get_return_in_case_of_errors() -> dict:
     return return_in_case_of_error
 
 @beartype
-def write_job_infos_csv(parameters: dict, stdout: Optional[str], program_string_with_params: str,
-                        exit_code: Optional[int], _signal: Optional[int],
-                        result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]],
-                        start_time: Union[int, float], end_time: Union[int, float],
-                        run_time: Union[float, int],
-                        trial_index: int) -> None:
-    _write_job_infos_csv_main(parameters, stdout, program_string_with_params, exit_code, _signal, result, start_time, end_time, run_time, trial_index)
-
-@beartype
-def _write_job_infos_csv_main(parameters: dict, stdout: Optional[str], program_string_with_params: str,
-                              exit_code: Optional[int], _signal: Optional[int],
-                              result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]],
-                              start_time: Union[int, float], end_time: Union[int, float],
-                              run_time: Union[float, int],
-                              trial_index: int) -> None:
+def write_job_infos_csv(parameters: dict, stdout: Optional[str], program_string_with_params: str, exit_code: Optional[int], _signal: Optional[int], result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]], start_time: Union[int, float], end_time: Union[int, float], run_time: Union[float, int], trial_index: int, submit_time: Union[float, int], queue_time: Union[float, int]) -> None:
     str_parameters_values = _write_job_infos_csv_parameters_to_str(parameters)
     extra_vars_names, extra_vars_values = _write_job_infos_csv_extract_extra_vars(stdout)
     extra_vars_names, extra_vars_values = _write_job_infos_csv_add_slurm_job_id(extra_vars_names, extra_vars_values)
@@ -3625,8 +3687,8 @@ def _write_job_infos_csv_main(parameters: dict, stdout: Optional[str], program_s
     headline = _write_job_infos_csv_replace_none_with_str(headline)
     values = _write_job_infos_csv_replace_none_with_str(values)
 
-    headline = ["trial_index", *headline]
-    values = [str(trial_index), *values]
+    headline = ["trial_index", "submit_time", "queue_time", *headline]
+    values = [str(trial_index), submit_time, queue_time, *values]
 
     run_folder = get_current_run_folder()
     if run_folder is not None and os.path.exists(run_folder):
@@ -3689,9 +3751,9 @@ def _write_job_infos_csv_build_values(start_time: Union[int, float], end_time: U
                                       result_values: List[str], exit_code: Optional[int], _signal: Optional[int],
                                       extra_vars_values: List[str]) -> List[str]:
     return [
-        str(start_time),
-        str(end_time),
-        str(run_time),
+        str(int(start_time)),
+        str(int(end_time)),
+        str(int(run_time)),
         program_string_with_params,
         *str_parameters_values,
         *result_values,
@@ -3796,7 +3858,7 @@ def print_stdout_and_stderr(stdout: Optional[str], stderr: Optional[str]) -> Non
             original_print("stderr was empty")
 
 @beartype
-def _evaluate_print_stuff(parameters: dict, program_string_with_params: str, stdout: Optional[str], stderr: Optional[str], exit_code: Optional[int], _signal: Optional[int], result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]], start_time: Union[float, int], end_time: Union[float, int], run_time: Union[float, int], final_result: dict, trial_index: int) -> None:
+def _evaluate_print_stuff(parameters: dict, program_string_with_params: str, stdout: Optional[str], stderr: Optional[str], exit_code: Optional[int], _signal: Optional[int], result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]], start_time: Union[float, int], end_time: Union[float, int], run_time: Union[float, int], final_result: dict, trial_index: int, submit_time: Union[float, int], queue_time: Union[float, int]) -> None:
     if not args.tests:
         original_print(f"Parameters: {json.dumps(parameters)}")
 
@@ -3811,7 +3873,7 @@ def _evaluate_print_stuff(parameters: dict, program_string_with_params: str, std
 
         original_print(f"Final-results: {final_result}")
 
-    write_job_infos_csv(parameters, stdout, program_string_with_params, exit_code, _signal, result, start_time, end_time, run_time, trial_index)
+    write_job_infos_csv(parameters, stdout, program_string_with_params, exit_code, _signal, result, start_time, end_time, run_time, trial_index, submit_time, queue_time)
 
     if not args.tests:
         original_print(f"EXIT_CODE: {exit_code}")
@@ -3978,6 +4040,9 @@ def pretty_process_output(stdout_path: str, stderr_path: str, exit_code: Optiona
 def evaluate(parameters_with_trial_index: dict) -> Optional[Union[int, float, Dict[str, Optional[Union[int, float, Tuple]]], List[float]]]:
     parameters = parameters_with_trial_index["params"]
     trial_index = parameters_with_trial_index["trial_idx"]
+    submit_time = parameters_with_trial_index["submit_time"]
+
+    queue_time = abs(int(time.time()) - int(submit_time))
 
     start_nvidia_smi_thread()
     return_in_case_of_error: dict = get_return_in_case_of_errors()
@@ -4023,7 +4088,9 @@ def evaluate(parameters_with_trial_index: dict) -> Optional[Union[int, float, Di
                 end_time,
                 end_time - start_time,
                 final_result,
-                trial_index
+                trial_index,
+                submit_time,
+                queue_time
             )
 
         except tuple(signal_messages.values()) as sig:
@@ -4057,7 +4124,18 @@ def disable_logging() -> None:
 
         fool_linter(f"logging.getLogger().disabled set to {logging.getLogger().disabled}")
 
-        categories = [FutureWarning, RuntimeWarning, UserWarning, Warning]
+        categories = [
+            Warning,
+            UserWarning,
+            DeprecationWarning,
+            PendingDeprecationWarning,
+            SyntaxWarning,
+            RuntimeWarning,
+            FutureWarning,
+            ImportWarning,
+            UnicodeWarning,
+            BytesWarning
+        ]
 
         modules = [
             "ax",
@@ -5965,7 +6043,7 @@ def progressbar_description(new_msgs: List[str] = []) -> None:
 @beartype
 def clean_completed_jobs() -> None:
     job_states_to_be_removed = ["early_stopped", "abandoned", "cancelled", "timeout", "interrupted", "failed", "preempted", "node_fail", "boot_fail"]
-    job_states_to_be_ignored = ["completed", "unknown", "pending", "running", "completing", "out_of_memory", "requeued", "resv_del_hold"]
+    job_states_to_be_ignored = ["ready", "completed", "unknown", "pending", "running", "completing", "out_of_memory", "requeued", "resv_del_hold"]
 
     for job, trial_index in global_vars["jobs"][:]:
         _state = state_from_job(job)
@@ -7076,7 +7154,7 @@ def is_already_in_defective_nodes(hostname: str) -> bool:
 @beartype
 def orchestrator_start_trial(params_from_out_file: Union[dict, str], trial_index: int) -> None:
     if executor and ax_client:
-        new_job = executor.submit(evaluate, {"params": params_from_out_file, "trial_idx": trial_index})
+        new_job = executor.submit(evaluate, {"params": params_from_out_file, "trial_idx": trial_index, "submit_time": int(time.time())})
         submitted_jobs(1)
 
         _trial = ax_client.get_trial(trial_index)
@@ -7226,7 +7304,7 @@ def execute_evaluation(_params: list) -> Optional[int]:
 
     try:
         initialize_job_environment()
-        new_job = executor.submit(evaluate, {"params": parameters, "trial_idx": trial_index})
+        new_job = executor.submit(evaluate, {"params": parameters, "trial_idx": trial_index, "submit_time": int(time.time())})
         submitted_jobs(1)
 
         print_debug(f"execute_evaluation: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
@@ -10089,7 +10167,7 @@ def set_run_folder() -> None:
 @beartype
 def print_run_info() -> None:
     with console.status("[bold green]Printing run info..."):
-        original_print(f"Run-folder: {get_current_run_folder()}")
+        console.print(f"[bold]Run-folder[/bold]: [underline]{get_current_run_folder()}[/underline]")
         if args.continue_previous_job:
             original_print(f"Continuation from {args.continue_previous_job}")
 
@@ -10519,13 +10597,13 @@ Exit-Code: 159
 
     nr_errors += is_equal(
             "evaluate({'x': 123})",
-            json.dumps(evaluate({"params": {'x': 123.0}, "trial_idx": 0})),
+            json.dumps(evaluate({"params": {'x': 123.0}, "trial_idx": 0, "submit_time": int(time.time())})),
             json.dumps({'RESULT': 123.0})
     )
 
     nr_errors += is_equal(
             "evaluate({'x': -0.05})",
-            json.dumps(evaluate({"params": {'x': -0.05}, "trial_idx": 0})),
+            json.dumps(evaluate({"params": {'x': -0.05}, "trial_idx": 0, "submit_time": int(time.time())})),
             json.dumps({'RESULT': -0.05})
     )
 

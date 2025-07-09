@@ -79,7 +79,8 @@ from .usecases import (
     ColorDetectionUseCase,
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
-    FireSmokeUseCase
+    FireSmokeUseCase,
+    FlareAnalysisUseCase
 )
 
 # Register use cases automatically
@@ -92,6 +93,7 @@ _color_detection = ColorDetectionUseCase()
 _ppe_compliance = PPEComplianceUseCase()
 _vehicle_monitoring = VehicleMonitoringUseCase()
 _fire_detection = FireSmokeUseCase()
+_flare_analysis = FlareAnalysisUseCase()
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
@@ -101,6 +103,7 @@ registry.register_use_case(_color_detection.category, _color_detection.name, Col
 registry.register_use_case(_ppe_compliance.category, _ppe_compliance.name, PPEComplianceUseCase)
 registry.register_use_case(_vehicle_monitoring.category,_vehicle_monitoring.name,VehicleMonitoringUseCase)
 registry.register_use_case(_fire_detection.category,_fire_detection.name,FireSmokeUseCase)
+registry.register_use_case(_flare_analysis.category,_flare_analysis.name,FlareAnalysisUseCase)
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
     # Geometry utilities
@@ -240,6 +243,7 @@ __all__ = [
     'config_manager',
     'ConfigValidationError',
     'FireSmokeConfig',
+    'FlareAnalysisConfig'
     
     # Use case classes
     'PeopleCountingUseCase',
@@ -251,6 +255,7 @@ __all__ = [
     'PPEComplianceUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
+    'FlareAnalysisUseCase'
     
     # Base classes for extension
     'BaseProcessor',

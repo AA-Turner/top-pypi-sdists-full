@@ -61574,6 +61574,7 @@ class scout_datareview_api_DataReview(ConjureBeanType):
         return {
             'rid': ConjureFieldDefinition('rid', scout_rids_api_DataReviewRid),
             'run_rid': ConjureFieldDefinition('runRid', scout_run_api_RunRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
             'created_at': ConjureFieldDefinition('createdAt', str),
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
             'checklist': ConjureFieldDefinition('checklist', OptionalTypeWrapper[scout_datareview_api_ChecklistEvaluation]),
@@ -61582,11 +61583,12 @@ class scout_datareview_api_DataReview(ConjureBeanType):
             'archived': ConjureFieldDefinition('archived', bool)
         }
 
-    __slots__: List[str] = ['_rid', '_run_rid', '_created_at', '_created_by', '_checklist', '_checklist_ref', '_check_evaluations', '_archived']
+    __slots__: List[str] = ['_rid', '_run_rid', '_asset_rid', '_created_at', '_created_by', '_checklist', '_checklist_ref', '_check_evaluations', '_archived']
 
-    def __init__(self, archived: bool, check_evaluations: List["scout_datareview_api_AutomaticCheckEvaluation"], checklist_ref: "scout_checks_api_PinnedChecklistRef", created_at: str, created_by: str, rid: str, run_rid: str, checklist: Optional["scout_datareview_api_ChecklistEvaluation"] = None) -> None:
+    def __init__(self, archived: bool, asset_rid: str, check_evaluations: List["scout_datareview_api_AutomaticCheckEvaluation"], checklist_ref: "scout_checks_api_PinnedChecklistRef", created_at: str, created_by: str, rid: str, run_rid: str, checklist: Optional["scout_datareview_api_ChecklistEvaluation"] = None) -> None:
         self._rid = rid
         self._run_rid = run_rid
+        self._asset_rid = asset_rid
         self._created_at = created_at
         self._created_by = created_by
         self._checklist = checklist
@@ -61601,6 +61603,10 @@ class scout_datareview_api_DataReview(ConjureBeanType):
     @builtins.property
     def run_rid(self) -> str:
         return self._run_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
 
     @builtins.property
     def created_at(self) -> str:

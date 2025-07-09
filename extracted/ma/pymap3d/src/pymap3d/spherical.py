@@ -3,6 +3,7 @@ Transformation of 3D coordinates between geocentric geodetic (latitude,
 longitude, height) and geocentric spherical (spherical latitude, longitude,
 radius).
 """
+
 from __future__ import annotations
 
 from .ellipsoid import Ellipsoid
@@ -13,14 +14,12 @@ __all__ = [
     "spherical2geodetic",
 ]
 
-ELL = Ellipsoid.from_name("wgs84")
-
 
 def geodetic2spherical(
     lat,
     lon,
     alt,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """
@@ -60,6 +59,9 @@ def geodetic2spherical(
     doi:10.1007/s00190-002-0273-6
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         lat = radians(lat)
         lon = radians(lon)
@@ -92,7 +94,7 @@ def spherical2geodetic(
     lat,
     lon,
     radius,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ) -> tuple:
     """
@@ -126,6 +128,9 @@ def spherical2geodetic(
     geodetic coordinates. Journal of Geodesy. 76. 451-454.
     doi:10.1007/s00190-002-0273-6
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         lat = radians(lat)

@@ -344,10 +344,11 @@ if _C_flashattention3 is not None:
         window_right: int = -1,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         query_shape = query.shape
+        out_shape = (*query_shape[:-1], value.shape[-1])
         if query.dtype == torch.float8_e4m3fn or query.dtype == torch.float8_e5m2:
-            out = query.new_empty(query_shape, dtype=torch.bfloat16)
+            out = query.new_empty(out_shape, dtype=torch.bfloat16)
         else:
-            out = query.new_empty(query_shape)
+            out = query.new_empty(out_shape)
         # Query is (B, M, H, K) or (total_M, H, K)
         # LSE is (B, H, M) or (H, total_M)
         lse_shape = (
@@ -509,10 +510,7 @@ if _C_flashattention3 is not None:
         window_left: int,
         window_right: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        dq = torch.empty_like(query)
-        dk = torch.empty_like(key)
-        dv = torch.empty_like(value)
-        return dq, dk, dv
+        return _create_dq_dk_dv(grads_share_storage, query, key, value)
 
     @register_flop_formula(torch.ops.xformers_flash3.flash_bwd, get_raw=True)
     def mha_bwd_flops(

@@ -138,7 +138,6 @@ class Column(ArraySchema[pd.DataFrame]):
         """Used to set or modify the name of a column object.
 
         :param str name: the name of the column object
-
         """
         self.name = name
         return self
@@ -380,6 +379,11 @@ class MultiIndex(DataFrameSchema):
     def names(self):
         """Get index names in the MultiIndex schema component."""
         return [index.name for index in self.indexes]
+
+    @property
+    def named_indexes(self) -> Dict[str, Any]:
+        """Get named indexes."""
+        return {index.name: index for index in self.indexes}
 
     @property
     def coerce(self):

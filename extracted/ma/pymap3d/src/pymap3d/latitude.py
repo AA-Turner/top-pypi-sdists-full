@@ -23,7 +23,6 @@ from .mathfun import (
     tan,
 )
 
-ELL = Ellipsoid.from_name("wgs84")
 COS_EPS = 1e-9  # tolerance for angles near abs([90, 270])
 
 __all__ = [
@@ -47,7 +46,7 @@ __all__ = [
 def geoc2geod(
     geocentric_lat,
     geocentric_distance,
-    ell: Ellipsoid = ELL,
+    ell: Ellipsoid | None = None,
     deg: bool = True,
 ):
     """
@@ -79,6 +78,9 @@ def geoc2geod(
         doi: 10.1007/BF01230214"
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         geocentric_lat = radians(geocentric_lat)
 
@@ -93,7 +95,7 @@ def geoc2geod(
     return degrees(geodetic_lat) if deg else geodetic_lat
 
 
-def geodetic2geocentric(geodetic_lat, alt_m, ell: Ellipsoid = ELL, deg: bool = True):
+def geodetic2geocentric(geodetic_lat, alt_m, ell: Ellipsoid | None = None, deg: bool = True):
     """
     convert geodetic latitude to geocentric latitude on spheroid surface
 
@@ -123,6 +125,9 @@ def geodetic2geocentric(geodetic_lat, alt_m, ell: Ellipsoid = ELL, deg: bool = T
     Office, Washington, DC, 1987, pp. 13-18.
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         geodetic_lat = radians(geodetic_lat)
 
@@ -135,7 +140,7 @@ def geodetic2geocentric(geodetic_lat, alt_m, ell: Ellipsoid = ELL, deg: bool = T
 geod2geoc = geodetic2geocentric
 
 
-def geocentric2geodetic(geocentric_lat, alt_m, ell: Ellipsoid = ELL, deg: bool = True):
+def geocentric2geodetic(geocentric_lat, alt_m, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from geocentric latitude to geodetic latitude
 
@@ -165,6 +170,9 @@ def geocentric2geodetic(geocentric_lat, alt_m, ell: Ellipsoid = ELL, deg: bool =
     Office, Washington, DC, 1987, pp. 13-18.
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         geocentric_lat = radians(geocentric_lat)
 
@@ -174,7 +182,7 @@ def geocentric2geodetic(geocentric_lat, alt_m, ell: Ellipsoid = ELL, deg: bool =
     return degrees(geodetic_lat) if deg else geodetic_lat
 
 
-def geodetic2isometric(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def geodetic2isometric(geodetic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     computes isometric latitude on an ellipsoid
 
@@ -203,6 +211,9 @@ def geodetic2isometric(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     School of Mathematical and Geospatial Sciences, RMIT University,
     January 2010
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         geodetic_lat = radians(geodetic_lat)
@@ -235,7 +246,7 @@ def geodetic2isometric(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
         return isometric_lat
 
 
-def isometric2geodetic(isometric_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def isometric2geodetic(isometric_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from isometric latitude to geodetic latitude
 
@@ -271,7 +282,7 @@ def isometric2geodetic(isometric_lat, ell: Ellipsoid = ELL, deg: bool = True):
     return degrees(geodetic_lat) if deg else geodetic_lat
 
 
-def conformal2geodetic(conformal_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def conformal2geodetic(conformal_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from conformal latitude to geodetic latitude
 
@@ -298,6 +309,9 @@ def conformal2geodetic(conformal_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Office, Washington, DC, 1987, pp. 13-18.
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         conformal_lat = radians(conformal_lat)
 
@@ -318,7 +332,7 @@ def conformal2geodetic(conformal_lat, ell: Ellipsoid = ELL, deg: bool = True):
     return degrees(geodetic_lat) if deg else geodetic_lat
 
 
-def geodetic2conformal(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def geodetic2conformal(geodetic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from geodetic latitude to conformal latitude
 
@@ -343,8 +357,10 @@ def geodetic2conformal(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Equations from J. P. Snyder, "Map Projections - A Working Manual",
     US Geological Survey Professional Paper 1395, US Government Printing
     Office, Washington, DC, 1987, pp. 13-18.
-
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         geodetic_lat = radians(geodetic_lat)
@@ -367,7 +383,7 @@ def geodetic2conformal(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
 
 
 # %% rectifying
-def geodetic2rectifying(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def geodetic2rectifying(geodetic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from geodetic latitude to rectifying latitude
 
@@ -392,8 +408,10 @@ def geodetic2rectifying(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Equations from J. P. Snyder, "Map Projections - A Working Manual",
     US Geological Survey Professional Paper 1395, US Government Printing
     Office, Washington, DC, 1987, pp. 13-18.
-
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         geodetic_lat = radians(geodetic_lat)
@@ -415,7 +433,7 @@ def geodetic2rectifying(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     return degrees(rectifying_lat) if deg else rectifying_lat
 
 
-def rectifying2geodetic(rectifying_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def rectifying2geodetic(rectifying_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from rectifying latitude to geodetic latitude
 
@@ -442,6 +460,9 @@ def rectifying2geodetic(rectifying_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Office, Washington, DC, 1987, pp. 13-18.
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         rectifying_lat = radians(rectifying_lat)
 
@@ -463,7 +484,7 @@ def rectifying2geodetic(rectifying_lat, ell: Ellipsoid = ELL, deg: bool = True):
 
 
 # %% authalic
-def geodetic2authalic(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def geodetic2authalic(geodetic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from geodetic latitude to authalic latitude
 
@@ -488,8 +509,10 @@ def geodetic2authalic(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Equations from J. P. Snyder, "Map Projections - A Working Manual",
     US Geological Survey Professional Paper 1395, US Government Printing
     Office, Washington, DC, 1987, pp. 13-18.
-
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         geodetic_lat = radians(geodetic_lat)
@@ -509,7 +532,7 @@ def geodetic2authalic(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     return degrees(authalic_lat) if deg else authalic_lat
 
 
-def authalic2geodetic(authalic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def authalic2geodetic(authalic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from authalic latitude to geodetic latitude
 
@@ -536,6 +559,9 @@ def authalic2geodetic(authalic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Office, Washington, DC, 1987, pp. 13-18.
     """
 
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
+
     if deg:
         authalic_lat = radians(authalic_lat)
 
@@ -555,7 +581,7 @@ def authalic2geodetic(authalic_lat, ell: Ellipsoid = ELL, deg: bool = True):
 
 
 # %% parametric
-def geodetic2parametric(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def geodetic2parametric(geodetic_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from geodetic latitude to parametric latitude
 
@@ -580,8 +606,10 @@ def geodetic2parametric(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     Equations from J. P. Snyder, "Map Projections - A Working Manual",
     US Geological Survey Professional Paper 1395, US Government Printing
     Office, Washington, DC, 1987, pp. 13-18.
-
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         geodetic_lat = radians(geodetic_lat)
@@ -591,7 +619,7 @@ def geodetic2parametric(geodetic_lat, ell: Ellipsoid = ELL, deg: bool = True):
     return degrees(parametric_lat) if deg else parametric_lat
 
 
-def parametric2geodetic(parametric_lat, ell: Ellipsoid = ELL, deg: bool = True):
+def parametric2geodetic(parametric_lat, ell: Ellipsoid | None = None, deg: bool = True):
     """
     converts from parametric latitude to geodetic latitude
 
@@ -617,6 +645,9 @@ def parametric2geodetic(parametric_lat, ell: Ellipsoid = ELL, deg: bool = True):
     US Geological Survey Professional Paper 1395, US Government Printing
     Office, Washington, DC, 1987, pp. 13-18.
     """
+
+    if ell is None:
+        ell = Ellipsoid.from_name("wgs84")
 
     if deg:
         parametric_lat = radians(parametric_lat)

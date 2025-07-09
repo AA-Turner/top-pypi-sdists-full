@@ -166,7 +166,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/cascading_delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use cascading_delete_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/cascading_delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use cascading_delete_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
@@ -284,7 +284,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/change_oracle_db_azure_vault_association_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_vault_association_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/change_oracle_db_azure_vault_association_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_vault_association_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
@@ -401,7 +401,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/create_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use create_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/create_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use create_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -501,7 +501,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use delete_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use delete_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
@@ -610,7 +610,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/get_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use get_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/get_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use get_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
@@ -763,7 +763,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/list_oracle_db_azure_vault_associations.py.html>`__ to see an example of how to use list_oracle_db_azure_vault_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/list_oracle_db_azure_vault_associations.py.html>`__ to see an example of how to use list_oracle_db_azure_vault_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -905,7 +905,7 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/dbmulticloud/update_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use update_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.1/dbmulticloud/update_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use update_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']

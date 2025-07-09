@@ -7,21 +7,19 @@ from wbcore.serializers import WBCoreType
 class NumberFilter(WBCoreFilterMixin, django_filters.NumberFilter):
     filter_type = "number"
 
-    def __init__(self, precision: int = 0, percent: bool = False, delimiter=",", decimal_mark=".", *args, **kwargs):
+    def __init__(self, precision: int = 0, percent: bool = False, disable_formatting: bool = False, *args, **kwargs):
         self.precision = precision
         self.percent = percent
-        self.delimiter = delimiter
-        self.decimal_mark = decimal_mark
+        self.disable_formatting = disable_formatting
         super().__init__(*args, **kwargs)
 
     def get_representation(self, request, name, view):
         representation, lookup_expr = super().get_representation(request, name, view)
-        representation["precision"] = self.precision
-        representation["delimiter"] = self.delimiter
-        representation["decimal_mark"] = self.decimal_mark
+        lookup_expr["input_properties"]["precision"] = self.precision
         if self.percent:  # TODO: Discuss with Christoph if this is necessary like this
             lookup_expr["input_properties"]["type"] = WBCoreType.PERCENT.value
-            representation["precision"] = max(self.precision - 2, 0)
+            lookup_expr["input_properties"]["precision"] = max(self.precision - 2, 0)
+        lookup_expr["input_properties"]["disable_formatting"] = self.disable_formatting
         return representation, lookup_expr
 
     def filter(self, qs, value):
@@ -33,8 +31,7 @@ class NumberFilter(WBCoreFilterMixin, django_filters.NumberFilter):
 class YearFilter(NumberFilter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.delimiter = ""
-        self.decimal_mark = "."
+        self.disable_formatting = True
 
 
 class RangeSelectFilter(NumberFilter):

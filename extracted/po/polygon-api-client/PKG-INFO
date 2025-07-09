@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: polygon-api-client
-Version: 1.15.0
+Version: 1.15.1
 Summary: Official Polygon.io REST and Websocket client.
 License: MIT
 Keywords: polygon,free,rest,stock,market,data,api,polygon.io,websocket,client

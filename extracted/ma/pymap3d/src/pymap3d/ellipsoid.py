@@ -4,12 +4,6 @@ from __future__ import annotations
 from math import sqrt
 from dataclasses import dataclass, field
 from typing import TypedDict
-import sys
-
-if sys.version_info < (3, 9):
-    from typing import Dict
-else:
-    Dict = dict
 
 
 class Model(TypedDict):
@@ -66,10 +60,17 @@ class Ellipsoid:
     flattening: float
     thirdflattening: float
     eccentricity: float
-    models = field(default_factory=Dict[str, Model])
+    models = field(default_factory=dict[str, Model])
 
     def __init__(
-        self, semimajor_axis: float, semiminor_axis: float, name: str = "", model: str = ""
+        self,
+        semimajor_axis: float,
+        semiminor_axis: float,
+        name: str = "",
+        model: str = "",
+        flattening: float | None = None,
+        thirdflattening: float | None = None,
+        eccentricity: float | None = None,
     ):
         """
         Ellipsoidal model of world
@@ -86,10 +87,25 @@ class Ellipsoid:
             Short name for the ellipsoid
         """
 
-        self.flattening = (semimajor_axis - semiminor_axis) / semimajor_axis
+        self.flattening = (
+            flattening
+            if flattening is not None
+            else (semimajor_axis - semiminor_axis) / semimajor_axis
+        )
+
         assert self.flattening >= 0, "flattening must be >= 0"
-        self.thirdflattening = (semimajor_axis - semiminor_axis) / (semimajor_axis + semiminor_axis)
-        self.eccentricity = sqrt(2 * self.flattening - self.flattening**2)
+
+        self.thirdflattening = (
+            thirdflattening
+            if thirdflattening is not None
+            else (semimajor_axis - semiminor_axis) / (semimajor_axis + semiminor_axis)
+        )
+
+        self.eccentricity = (
+            eccentricity
+            if eccentricity is not None
+            else sqrt(2 * self.flattening - self.flattening**2)
+        )
 
         self.name = name
         self.model = model

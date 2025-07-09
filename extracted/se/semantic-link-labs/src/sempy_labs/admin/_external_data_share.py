@@ -1,8 +1,8 @@
 from uuid import UUID
 import sempy_labs._icons as icons
 import pandas as pd
-from sempy_labs.admin._basic_functions import _resolve_workspace_name_and_id
-from sempy_labs._helper_functions import (
+from ._basic_functions import _resolve_workspace_name_and_id
+from .._helper_functions import (
     _base_api,
     _create_dataframe,
     _update_dataframe_datatypes,
@@ -41,28 +41,30 @@ def list_external_data_shares() -> pd.DataFrame:
 
     response = _base_api(request="/v1/admin/items/externalDataShares")
 
-    dfs = []
+    rows = []
     for i in response.json().get("value", []):
         cp = i.get("creatorPrincipal", {})
-        new_data = {
-            "External Data Share Id": i.get("id"),
-            "Paths": [i.get("paths", [])],
-            "Creater Principal Id": cp.get("id"),
-            "Creater Principal Name": cp.get("displayName"),
-            "Creater Principal Type": cp.get("type"),
-            "Creater Principal UPN": cp.get("userDetails", {}).get("userPrincipalName"),
-            "Recipient UPN": i.get("recipient", {}).get("userPrincipalName"),
-            "Status": i.get("status"),
-            "Expiration Time UTC": i.get("expirationTimeUtc"),
-            "Workspace Id": i.get("workspaceId"),
-            "Item Id": i.get("itemId"),
-            "Invitation URL": i.get("invitationUrl"),
-        }
+        rows.append(
+            {
+                "External Data Share Id": i.get("id"),
+                "Paths": [i.get("paths", [])],
+                "Creater Principal Id": cp.get("id"),
+                "Creater Principal Name": cp.get("displayName"),
+                "Creater Principal Type": cp.get("type"),
+                "Creater Principal UPN": cp.get("userDetails", {}).get(
+                    "userPrincipalName"
+                ),
+                "Recipient UPN": i.get("recipient", {}).get("userPrincipalName"),
+                "Status": i.get("status"),
+                "Expiration Time UTC": i.get("expirationTimeUtc"),
+                "Workspace Id": i.get("workspaceId"),
+                "Item Id": i.get("itemId"),
+                "Invitation URL": i.get("invitationUrl"),
+            }
+        )
 
-        dfs.append(pd.DataFrame(new_data, index=[0]))
-
-    if dfs:
-        df = pd.concat(dfs, ignore_index=True)
+    if rows:
+        df = pd.DataFrame(rows, columns=list(columns.keys()))
         _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df

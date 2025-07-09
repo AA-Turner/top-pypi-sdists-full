@@ -12,8 +12,9 @@ use temporal_sdk_core_api::telemetry::metrics::{
     MetricEvent, MetricKeyValue, MetricKind, MetricParameters, MetricUpdateVal, NewAttributes,
     NoOpCoreMeter,
 };
-use temporal_sdk_core_protos::temporal::api::enums::v1::WorkflowTaskFailedCause;
-use temporal_sdk_core_protos::temporal::api::failure::v1::Failure;
+use temporal_sdk_core_protos::temporal::api::{
+    enums::v1::WorkflowTaskFailedCause, failure::v1::Failure,
+};
 
 /// Used to track context associated with metrics, and record/update them
 ///
@@ -556,10 +557,10 @@ impl Display for FailureReason {
             FailureReason::Nondeterminism => "NonDeterminismError".to_owned(),
             FailureReason::Workflow => "WorkflowError".to_owned(),
             FailureReason::Timeout => "timeout".to_owned(),
-            FailureReason::NexusOperation(op) => format!("operation_{}", op),
-            FailureReason::NexusHandlerError(op) => format!("handler_error_{}", op),
+            FailureReason::NexusOperation(op) => format!("operation_{op}"),
+            FailureReason::NexusHandlerError(op) => format!("handler_error_{op}"),
         };
-        write!(f, "{}", str)
+        write!(f, "{str}")
     }
 }
 impl From<WorkflowTaskFailedCause> for FailureReason {

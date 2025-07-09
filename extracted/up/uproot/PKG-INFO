@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uproot
-Version: 5.6.2
+Version: 5.6.3
 Summary: ROOT I/O in pure Python and NumPy.
 Project-URL: Download, https://github.com/scikit-hep/uproot5/releases
 Project-URL: Homepage, https://github.com/scikit-hep/uproot5
@@ -37,6 +37,10 @@ Requires-Dist: numpy
 Requires-Dist: packaging
 Requires-Dist: typing-extensions>=4.1.0; python_version < '3.11'
 Requires-Dist: xxhash
+Provides-Extra: gds-cu11
+Requires-Dist: kvikio-cu11>=25.02.01; extra == 'gds-cu11'
+Provides-Extra: gds-cu12
+Requires-Dist: kvikio-cu12>=25.02.01; extra == 'gds-cu12'
 Provides-Extra: http
 Requires-Dist: aiohttp; extra == 'http'
 Provides-Extra: s3

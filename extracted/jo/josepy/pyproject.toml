@@ -8,7 +8,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "josepy"
-version = "2.0.0"
+version = "2.1.0"
 description = "JOSE protocol implementation in Python"
 license = "Apache License 2.0"
 classifiers = [
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Security",
 ]
@@ -37,7 +38,12 @@ include = [
 [tool.poetry.dependencies]
 # This should be kept in sync with the value of target-version in our
 # configuration for black below.
-python = "^3.9"
+#
+# python 3.9.2 is used as a lower bound here because newer versions of
+# cryptography dropped support for python 3.9.0 and 3.9.1. see
+# https://github.com/pyca/cryptography/pull/12045. when we drop support for
+# python 3.9 altogether, this line can be changed to the simpler 'python = "^3.10"'.
+python = ">=3.9.2,<4.0"
 # load_pem_private/public_key (>=0.6)
 # rsa_recover_prime_factors (>=0.8)
 # add sign() and verify() to asymetric keys (RSA >=1.4, ECDSA >=1.5)
@@ -74,6 +80,7 @@ jws = "josepy.jws:CLI.run"
 line-length = 100
 # This should be kept in sync with the version of Python specified in poetry's
 # dependencies above.
+# TODO add 'py314' once black supports it, see #232 for details
 target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
 
 # Mypy tooling configuration

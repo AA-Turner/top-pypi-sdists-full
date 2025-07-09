@@ -24,6 +24,7 @@ from liger_kernel.transformers import apply_liger_kernel_to_gemma3_text
 from liger_kernel.transformers import apply_liger_kernel_to_glm4
 from liger_kernel.transformers import apply_liger_kernel_to_granite
 from liger_kernel.transformers import apply_liger_kernel_to_llama
+from liger_kernel.transformers import apply_liger_kernel_to_llama4
 from liger_kernel.transformers import apply_liger_kernel_to_llava
 from liger_kernel.transformers import apply_liger_kernel_to_mistral
 from liger_kernel.transformers import apply_liger_kernel_to_mixtral
@@ -38,12 +39,15 @@ from liger_kernel.transformers import apply_liger_kernel_to_qwen3_moe
 from test.utils import DEFAULT_DATASET_PATH
 from test.utils import MiniModelConfig
 from test.utils import assert_verbose_allclose
+from test.utils import get_logprobs
+from test.utils import get_topk
 from test.utils import revert_liger_kernel_to_gemma
 from test.utils import revert_liger_kernel_to_gemma2
 from test.utils import revert_liger_kernel_to_gemma3_text
 from test.utils import revert_liger_kernel_to_glm4
 from test.utils import revert_liger_kernel_to_granite
 from test.utils import revert_liger_kernel_to_llama
+from test.utils import revert_liger_kernel_to_llama4
 from test.utils import revert_liger_kernel_to_llava
 from test.utils import revert_liger_kernel_to_mistral
 from test.utils import revert_liger_kernel_to_mixtral
@@ -59,6 +63,14 @@ from test.utils import set_seed
 from test.utils import simple_collate_fn
 
 try:
+    from transformers.models.llama4.configuration_llama4 import Llama4TextConfig
+    from transformers.models.llama4.modeling_llama4 import Llama4ForCausalLM
+
+    LLAMA4_AVAILABLE = True
+except ImportError:
+    LLAMA4_AVAILABLE = False
+
+try:
     # Mllama is only available in transformers>=4.45.0
     from transformers.models.mllama.configuration_mllama import MllamaTextConfig
     from transformers.models.mllama.modeling_mllama import MllamaForCausalLM
@@ -68,20 +80,26 @@ except ImportError:
     MLLAMA_AVAILABLE = False
 
 try:
-    # Qwen2-VL is only available in transformers>4.44.2
+    # Qwen2-VL is only available in transformers>4.52.4
+    import transformers
+
+    from packaging import version
     from transformers.models.qwen2_vl.configuration_qwen2_vl import Qwen2VLConfig
     from transformers.models.qwen2_vl.modeling_qwen2_vl import Qwen2VLForConditionalGeneration
 
-    QWEN2_VL_AVAILABLE = True
+    QWEN2_VL_AVAILABLE = version.parse(transformers.__version__) >= version.parse("4.52.4")
 except ImportError:
     QWEN2_VL_AVAILABLE = False
 
 try:
-    # Qwen2.5-VL is only available in transformers>4.48.2
+    # Qwen2.5-VL is only available in transformers>4.52.4
+    import transformers
+
+    from packaging import version
     from transformers.models.qwen2_5_vl.configuration_qwen2_5_vl import Qwen2_5_VLConfig
     from transformers.models.qwen2_5_vl.modeling_qwen2_5_vl import Qwen2_5_VLForConditionalGeneration
 
-    QWEN2_5_VL_AVAILABLE = True
+    QWEN2_5_VL_AVAILABLE = version.parse(transformers.__version__) >= version.parse("4.52.4")
 except ImportError:
     QWEN2_5_VL_AVAILABLE = False
 
@@ -370,6 +388,36 @@ MINI_MODEL_SETUPS = {
         ),
     ),
 }
+if LLAMA4_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_llama4"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_llama4,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_llama4,
+        model_class=Llama4ForCausalLM,
+        mini_model_config=Llama4TextConfig(
+            bos_token_id=1,  # None
+            eos_token_id=2,  # 151329, 151336, 151338
+            pad_token_id=2,  # 151329
+            partial_rotary_factor=1.0,
+            cross_attention_layers=None,
+            dropout=0,
+            hidden_act="silu",
+            hidden_size=1024,  # 6144
+            initializer_range=0.02,
+            intermediate_size=2048,  # 14336
+            max_position_embeddings=4096,  # 32768
+            num_attention_heads=8,  # 48
+            num_hidden_layers=4,  # 61
+            num_key_value_heads=2,
+            rms_norm_eps=1e-5,
+            rope_scaling=None,
+            rope_theta=10000.0,
+            tie_word_embeddings=False,
+            use_cache=True,
+            vocab_size=32000,  # 151552
+            attention_bias=True,
+            attn_implementation="sdpa",  # default value, pytorch native attention
+        ),
+    )
 
 if QWEN3_AVAILABLE:
     MINI_MODEL_SETUPS["mini_qwen3"] = MiniModelConfig(
@@ -795,7 +843,7 @@ def run_mini_model(
             "rms_norm": True,
         }
 
-        if "glm4" in model_name:
+        if "glm4" in model_name or "llama4" in model_name:
             kwargs["rope"] = False
 
         model_supports_layer_norm = "qwen2_vl" in model_name
@@ -835,14 +883,35 @@ def run_mini_model(
         print(f"Step {i}, Loss: {output.loss.item()}")
         loss_list.append(output.loss.item())
 
+    topk_logprobs = get_topk(get_logprobs(output.logits))
     MINI_MODEL_SETUPS[model_name].liger_kernel_patch_revert_func(**revert_kwargs)
-    return {"loss": loss_list, "logits": output.logits, "model": model}
+    return {
+        "loss": loss_list,
+        "topk_logprobs": topk_logprobs.values,
+        "model": model,
+    }
 
 
 @pytest.mark.parametrize(
-    "model_name, num_steps, lr, dtype, loss_atol, loss_rtol, logits_atol, logits_rtol, param_atol, param_rtol",
+    "model_name, num_steps, lr, dtype, loss_atol, loss_rtol, logprobs_atol, logprobs_rtol, param_atol, param_rtol",
     [
-        ("mini_llama3", 32, 1e-4, torch.float32, 1e-8, 2e-5, 1e-4, 1e-5, 5e-3, 1e-5),
+        pytest.param(
+            "mini_llama4",
+            32,
+            1e-4,
+            torch.float32,
+            1e-8,
+            1e-5,
+            5e-3,
+            1e-5,
+            5e-3,
+            1e-5,
+            marks=pytest.mark.skipif(
+                not LLAMA4_AVAILABLE,
+                reason="Llama4 not available in this version of transformers",
+            ),
+        ),
+        ("mini_llama3", 32, 1e-4, torch.float32, 1e-8, 2e-5, 5e-3, 1e-5, 5e-3, 1e-5),
         pytest.param(
             "mini_llava",
             32,
@@ -878,11 +947,11 @@ def run_mini_model(
         pytest.param(
             "mini_gemma3_text",
             32,
-            1e-4,
+            1e-5,
             torch.float32,
             1e-8,
             1e-4,
-            5e-3,
+            5e-2,
             1e-5,
             5e-3,
             1e-5,
@@ -911,7 +980,7 @@ def run_mini_model(
         pytest.param(
             "mini_qwen3_moe",
             32,
-            1e-4,
+            1e-5,
             torch.float32,
             1e-8,
             1e-5,
@@ -993,7 +1062,7 @@ def run_mini_model(
         # TODO: mixtral is flaky so disable the test for now
         # ("mini_mixtral", 32, 1e-4, torch.float32, 5e-4, 1e-4, 5e-3, 1e-5, 1e-2, 1e-5),
         # Gemma 1.1 and 2 has more tolerance because currently, the kernel is not a perfect match
-        ("mini_gemma1", 32, 1e-4, torch.float32, 1e-8, 1e-4, 5e-3, 1e-5, 5e-3, 1e-5),
+        ("mini_gemma1", 32, 1e-5, torch.float32, 1e-8, 1e-4, 5e-3, 1e-5, 5e-3, 1e-5),
         ("mini_gemma1.1", 32, 1e-4, torch.float32, 1e-8, 1e-4, 5e-3, 1e-5, 5e-3, 1e-5),
         ("mini_gemma2", 32, 1e-4, torch.float32, 1e-8, 1e-4, 5e-3, 1e-5, 5e-3, 1e-5),
         pytest.param(
@@ -1021,8 +1090,8 @@ def test_mini_model(
     dtype,
     loss_atol,
     loss_rtol,
-    logits_atol,
-    logits_rtol,
+    logprobs_atol,
+    logprobs_rtol,
     param_atol,
     param_rtol,
 ):
@@ -1038,16 +1107,17 @@ def test_mini_model(
         torch.tensor([actual_output["loss"]]),
         atol=loss_atol,
         rtol=loss_rtol,
+        extra_info="[Loss]",
     )
 
     # No logits are materialized
     # import pdb; pdb.set_trace()
-    # Compare the logits from the last step
     assert_verbose_allclose(
-        expected_output["logits"],
-        actual_output["logits"],
-        atol=logits_atol,
-        rtol=logits_rtol,
+        expected_output["topk_logprobs"],
+        actual_output["topk_logprobs"],
+        atol=logprobs_atol,
+        rtol=logprobs_rtol,
+        extra_info="[Top K Logprobs]",
     )
 
     # Compare the params from the last step
@@ -1056,4 +1126,10 @@ def test_mini_model(
         expected_output["model"].named_parameters(),
         actual_output["model"].named_parameters(),
     ):
-        assert_verbose_allclose(expected_param[1], actual_param[1], atol=param_atol, rtol=param_rtol)
+        assert_verbose_allclose(
+            expected_param[1],
+            actual_param[1],
+            atol=param_atol,
+            rtol=param_rtol,
+            extra_info="[Model parameters]",
+        )

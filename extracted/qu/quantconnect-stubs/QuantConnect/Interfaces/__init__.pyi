@@ -2741,6 +2741,16 @@ class IBrokerage(QuantConnect.Interfaces.IBrokerageCashSynchronizer, System.IDis
         """Returns the brokerage account's base currency"""
         ...
 
+    @property
+    @abc.abstractmethod
+    def concurrency_enabled(self) -> bool:
+        """Enables or disables concurrent processing of messages to and from the brokerage."""
+        ...
+
+    @concurrency_enabled.setter
+    def concurrency_enabled(self, value: bool) -> None:
+        ...
+
     def cancel_order(self, order: QuantConnect.Orders.Order) -> bool:
         """
         Cancels the order with the specified ID

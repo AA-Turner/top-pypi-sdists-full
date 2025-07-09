@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.13.65
+Version: 0.13.67
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -179,7 +179,7 @@ Requires-Dist: snowflake-connector-python==3.14.0
 Requires-Dist: snowflake-sqlalchemy==1.6.1
 Requires-Dist: sortedcontainers==2.4.0
 Requires-Dist: sqlalchemy-bigquery==1.12.1
-Requires-Dist: sqlalchemy-cratedb==0.42.0.dev2
+Requires-Dist: sqlalchemy-cratedb==0.41.0
 Requires-Dist: sqlalchemy-hana==2.0.0
 Requires-Dist: sqlalchemy-redshift==0.8.14
 Requires-Dist: sqlalchemy-spanner==1.11.0
@@ -202,7 +202,7 @@ Requires-Dist: tzdata==2025.1
 Requires-Dist: tzlocal==5.3
 Requires-Dist: uritemplate==4.1.1
 Requires-Dist: urllib3==2.3.0
-Requires-Dist: verlib2==0.3.1
+Requires-Dist: verlib2==0.2.0
 Requires-Dist: wrapt==1.17.2
 Requires-Dist: yarl==1.18.3
 Requires-Dist: zeep==4.3.1

@@ -35,7 +35,8 @@ from .usecases import (
     ColorDetectionUseCase,
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
-    FireSmokeUseCase
+    FireSmokeUseCase,
+    FlareAnalysisUseCase
 )
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ class PostProcessor:
 
         registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
+        registry.register_use_case("flare_detection", "flare_analysis", FlareAnalysisUseCase)
         
         logger.debug("Registered use cases with registry")
     

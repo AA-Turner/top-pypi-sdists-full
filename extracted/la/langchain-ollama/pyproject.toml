@@ -8,11 +8,11 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "ollama>=0.4.8,<1.0.0",
-    "langchain-core<1.0.0,>=0.3.60",
+    "ollama>=0.5.1,<1.0.0",
+    "langchain-core<1.0.0,>=0.3.68",
 ]
 name = "langchain-ollama"
-version = "0.3.3"
+version = "0.3.4"
 description = "An integration package connecting Ollama and LangChain"
 readme = "README.md"
 
@@ -39,7 +39,7 @@ codespell = [
 ]
 test_integration = []
 lint = [
-    "ruff<1.0.0,>=0.1.8",
+    "ruff<0.13,>=0.12.2",
 ]
 dev = [
     "langchain-core",
@@ -65,15 +65,63 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "I",
-    "T201",
+    "A",
+    "B",
+    "ASYNC",
+    "C4",
+    "COM",
     "D",
+    "DOC",
+    "E",
+    "EM",
+    "F",
+    "FA",
+    "FBT",
+    "FLY",
+    "I",
+    "ICN",
+    "INT",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PERF",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "T20",
+    "TID",
     "UP",
+    "W",
+    "YTT",
 ]
 ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D203",
+    "D407",
+    "COM812",
+    "ISC001",
+    "PERF203",
+    "S112",
+    "RUF012",
+    "SLF001",
     "UP007",
+    "UP045",
+]
+unfixable = [
+    "B028",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -82,6 +130,12 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "D",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
 ]
 
 [tool.coverage.run]

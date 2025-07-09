@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.25.3
+Version: 0.26.0
 Summary: LLMs on Apple silicon with MLX and the Hugging Face Hub
 Home-page: https://github.com/ml-explore/mlx-lm
 Author: MLX Contributors
@@ -11,7 +11,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mlx>=0.25.0
 Requires-Dist: numpy
-Requires-Dist: transformers[sentencepiece]>=4.39.3
+Requires-Dist: transformers>=4.39.3
 Requires-Dist: protobuf
 Requires-Dist: pyyaml
 Requires-Dist: jinja2

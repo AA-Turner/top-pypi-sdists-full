@@ -7,6 +7,7 @@ import numpy as np
 
 from ._clean_x import categorical_encode, unify_columns
 from ._native import Native
+from multiprocessing import shared_memory
 
 _log = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ def bin_native(
     sample_weight,
     feature_names_in,
     feature_types_in,
+    shared,
 ):
     # called under: fit
 
@@ -99,61 +101,69 @@ def bin_native(
         _log.error(msg)
         raise ValueError(msg)
 
-    dataset = np.empty(n_bytes, np.ubyte)  # joblib loky doesn't support RawArray
+    if shared is not None:
+        shared_mem = shared_memory.SharedMemory(create=True, size=n_bytes, name=None)
+        shared.shared_memory = shared_mem
+        shared.name = shared_mem.name
 
-    native.fill_dataset_header(len(feature_idxs), n_weights, 1, dataset)
+        dataset = np.ndarray(n_bytes, dtype=np.ubyte, buffer=shared_mem.buf)
+        shared.dataset = dataset
 
-    get_col = unify_columns(
-        X, n_samples, feature_names_in, feature_types_in, None, False, False
-    )
-    for feature_idx, feature_bins in zip(feature_idxs, bins_iter):
-        feature_type = feature_types_in[feature_idx]
-        if feature_type == "ignore":
-            # TODO: exclude ignored features from the compressed dataset
-            raise Exception("ignored features not supported yet")
+        native.fill_dataset_header(len(feature_idxs), n_weights, 1, dataset)
 
-        _, nonmissings, uniques, X_col, bad = get_col(feature_idx)
-
-        if isinstance(feature_bins, dict):
-            # categorical feature
-
-            X_col = categorical_encode(uniques, X_col, nonmissings, feature_bins)
-            bad = X_col == -1
-            if not bad.any():
-                bad = None
-
-            n_bins = 2 if len(feature_bins) == 0 else (max(feature_bins.values()) + 2)
-        else:
-            # continuous feature
-
-            X_col = native.discretize(X_col, feature_bins)
-            n_bins = len(feature_bins) + 3
-
-        if bad is not None:
-            X_col[bad] = n_bins - 1
-
-        native.fill_feature(
-            n_bins,
-            np.count_nonzero(X_col) != len(X_col),
-            bad is not None,
-            feature_type == "nominal",
-            X_col,
-            dataset,
+        get_col = unify_columns(
+            X, n_samples, feature_names_in, feature_types_in, None, False, False
         )
+        for feature_idx, feature_bins in zip(feature_idxs, bins_iter):
+            feature_type = feature_types_in[feature_idx]
+            if feature_type == "ignore":
+                # TODO: exclude ignored features from the compressed dataset
+                raise Exception("ignored features not supported yet")
 
-    if sample_weight is not None:
-        native.fill_weight(sample_weight, dataset)
+            _, nonmissings, uniques, X_col, bad = get_col(feature_idx)
 
-    if y.dtype == np.float64:
-        native.fill_regression_target(y, dataset)
-    elif y.dtype == np.int64:
-        native.fill_classification_target(n_classes, y, dataset)
-    else:
-        msg = "y must be either float64 or int64"
-        _log.error(msg)
-        raise ValueError(msg)
+            if isinstance(feature_bins, dict):
+                # categorical feature
 
-    return dataset
+                X_col = categorical_encode(uniques, X_col, nonmissings, feature_bins)
+                bad = X_col == -1
+                if not bad.any():
+                    bad = None
+
+                n_bins = (
+                    2 if len(feature_bins) == 0 else (max(feature_bins.values()) + 2)
+                )
+            else:
+                # continuous feature
+
+                X_col = native.discretize(X_col, feature_bins)
+                n_bins = len(feature_bins) + 3
+
+            if bad is not None:
+                X_col[bad] = n_bins - 1
+
+            native.fill_feature(
+                n_bins,
+                np.count_nonzero(X_col) != len(X_col),
+                bad is not None,
+                feature_type == "nominal",
+                X_col,
+                dataset,
+            )
+
+        if sample_weight is not None:
+            native.fill_weight(sample_weight, dataset)
+
+        if y.dtype == np.float64:
+            native.fill_regression_target(y, dataset)
+        elif y.dtype == np.int64:
+            native.fill_classification_target(n_classes, y, dataset)
+        else:
+            msg = "y must be either float64 or int64"
+            _log.error(msg)
+            raise ValueError(msg)
+
+    return n_bytes
 
 
 def bin_native_by_dimension(
@@ -165,6 +175,7 @@ def bin_native_by_dimension(
     sample_weight,
     feature_names_in,
     feature_types_in,
+    shared,
 ):
     # called under: fit
 
@@ -184,4 +195,5 @@ def bin_native_by_dimension(
         sample_weight,
         feature_names_in,
         feature_types_in,
+        shared,
     )

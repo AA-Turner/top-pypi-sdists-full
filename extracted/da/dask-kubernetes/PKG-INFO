@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-kubernetes
-Version: 2025.4.3
+Version: 2025.7.0
 Summary: Native Kubernetes integration for Dask
 Project-URL: Homepage, https://github.com/dask/dask-kubernetes
 Maintainer: Jacob Tomlinson
@@ -38,7 +38,7 @@ Keywords: dask,distributed,kubernetes
 Requires-Python: >=3.10
 Requires-Dist: dask>=2022.08.1
 Requires-Dist: distributed>=2022.08.1
-Requires-Dist: kopf>=1.35.3
+Requires-Dist: kopf>=1.38.0
 Requires-Dist: kr8s==0.20.*
 Requires-Dist: kubernetes-asyncio>=12.0.1
 Requires-Dist: kubernetes>=12.0.1

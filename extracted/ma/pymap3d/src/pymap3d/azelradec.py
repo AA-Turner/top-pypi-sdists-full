@@ -5,6 +5,7 @@ Azimuth / elevation <==> Right ascension, declination
 from __future__ import annotations
 
 from datetime import datetime
+import sys
 
 from .timeconv import str2dt  # astropy can't handle xarray times (yet)
 from .vallado import azel2radec as vazel2radec
@@ -26,6 +27,7 @@ def azel2radec(
     lat_deg: float,
     lon_deg: float,
     time: datetime,
+    force_non_astropy: bool = False,
 ) -> tuple[float, float]:
     """
     viewing angle (az, el) to sky coordinates (ra, dec)
@@ -42,6 +44,8 @@ def azel2radec(
               observer longitude [-180, 180] (degrees)
     time : datetime.datetime or str
            time of observation
+    force_non_astropy : bool
+        if True, force use of less accurate Numpy implementation even if Astropy is available
 
     Returns
     -------
@@ -51,18 +55,25 @@ def azel2radec(
          ecliptic declination (degrees)
     """
 
-    try:
-        obs = EarthLocation(lat=lat_deg * u.deg, lon=lon_deg * u.deg)
-
-        direc = AltAz(
-            location=obs, obstime=Time(str2dt(time)), az=az_deg * u.deg, alt=el_deg * u.deg
-        )
-
-        sky = SkyCoord(direc.transform_to(ICRS()))
-
-        return sky.ra.deg, sky.dec.deg
-    except NameError:
+    if force_non_astropy or "astropy" not in sys.modules:
         return vazel2radec(az_deg, el_deg, lat_deg, lon_deg, time)
+    else:
+        return azel2radec_astropy(az_deg, el_deg, lat_deg, lon_deg, time)
+
+
+def azel2radec_astropy(
+    az_deg: float, el_deg: float, lat_deg: float, lon_deg: float, time: datetime
+) -> tuple[float, float]:
+    """azel2radec using Astropy
+    see azel2radec() for description
+    """
+    obs = EarthLocation(lat=lat_deg * u.deg, lon=lon_deg * u.deg)
+
+    direc = AltAz(location=obs, obstime=Time(str2dt(time)), az=az_deg * u.deg, alt=el_deg * u.deg)
+
+    sky = SkyCoord(direc.transform_to(ICRS()))
+
+    return sky.ra.deg, sky.dec.deg
 
 
 def radec2azel(
@@ -71,6 +82,7 @@ def radec2azel(
     lat_deg: float,
     lon_deg: float,
     time: datetime,
+    force_non_astropy: bool = False,
 ) -> tuple[float, float]:
     """
     sky coordinates (ra, dec) to viewing angle (az, el)
@@ -87,6 +99,8 @@ def radec2azel(
               observer longitude [-180, 180] (degrees)
     time : datetime.datetime or str
            time of observation
+    force_non_astropy : bool
+        if True, force use of less accurate Numpy implementation even if Astropy is available
 
     Returns
     -------
@@ -96,11 +110,28 @@ def radec2azel(
              elevation [degrees above horizon (neglecting aberration)]
     """
 
-    try:
-        obs = EarthLocation(lat=lat_deg * u.deg, lon=lon_deg * u.deg)
-        points = SkyCoord(Angle(ra_deg, unit=u.deg), Angle(dec_deg, unit=u.deg), equinox="J2000.0")
-        altaz = points.transform_to(AltAz(location=obs, obstime=Time(str2dt(time))))
-
-        return altaz.az.degree, altaz.alt.degree
-    except NameError:
+    if force_non_astropy or "astropy" not in sys.modules:
         return vradec2azel(ra_deg, dec_deg, lat_deg, lon_deg, time)
+    else:
+        return radec2azel_astropy(ra_deg, dec_deg, lat_deg, lon_deg, time)
+
+
+def radec2azel_astropy(
+    ra_deg: float,
+    dec_deg: float,
+    lat_deg: float,
+    lon_deg: float,
+    time: datetime,
+) -> tuple[float, float]:
+    """
+    rade2azel using Astropy
+    see radec2azel() for description
+    """
+
+    obs = EarthLocation(lat=lat_deg * u.deg, lon=lon_deg * u.deg)
+
+    points = SkyCoord(Angle(ra_deg, unit=u.deg), Angle(dec_deg, unit=u.deg), equinox="J2000.0")
+
+    altaz = points.transform_to(AltAz(location=obs, obstime=Time(str2dt(time))))
+
+    return altaz.az.degree, altaz.alt.degree

@@ -43,6 +43,15 @@ class DatabaseConnectionSpec:
     password: str | None = None
 
 
+@dataclass
+class DefaultExecutionOptions:
+    """Default execution options."""
+
+    # The maximum number of concurrent inflight requests.
+    source_max_inflight_rows: int | None = 256
+    source_max_inflight_bytes: int | None = 1024 * 1024 * 1024
+
+
 def _load_field(
     target: dict[str, Any],
     name: str,
@@ -55,7 +64,15 @@ def _load_field(
         if required:
             raise ValueError(f"{env_name} is not set")
     else:
-        target[name] = value if parse is None else parse(value)
+        if parse is None:
+            target[name] = value
+        else:
+            try:
+                target[name] = parse(value)
+            except Exception as e:
+                raise ValueError(
+                    f"failed to parse environment variable {env_name}: {value}"
+                ) from e
 
 
 @dataclass
@@ -64,6 +81,7 @@ class Settings:
 
     database: DatabaseConnectionSpec | None = None
     app_namespace: str = ""
+    default_execution_options: DefaultExecutionOptions | None = None
 
     @classmethod
     def from_env(cls) -> Self:
@@ -79,9 +97,28 @@ class Settings:
         else:
             database = None
 
+        exec_kwargs: dict[str, Any] = dict()
+        _load_field(
+            exec_kwargs,
+            "source_max_inflight_rows",
+            "COCOINDEX_SOURCE_MAX_INFLIGHT_ROWS",
+            parse=int,
+        )
+        _load_field(
+            exec_kwargs,
+            "source_max_inflight_bytes",
+            "COCOINDEX_SOURCE_MAX_INFLIGHT_BYTES",
+            parse=int,
+        )
+        default_execution_options = DefaultExecutionOptions(**exec_kwargs)
+
         app_namespace = os.getenv("COCOINDEX_APP_NAMESPACE", "")
 
-        return cls(database=database, app_namespace=app_namespace)
+        return cls(
+            database=database,
+            app_namespace=app_namespace,
+            default_execution_options=default_execution_options,
+        )
 
 
 @dataclass

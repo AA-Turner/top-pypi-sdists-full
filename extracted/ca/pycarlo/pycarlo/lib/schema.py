@@ -5674,7 +5674,9 @@ class AssetFilterUnionInput(sgqlc.types.Input):
         "table_type",
         "table_tags",
         "table_tags_operator",
-        "days",
+        "read_days",
+        "write_days",
+        "read_write_days",
         "type",
         "negated",
     )
@@ -5694,7 +5696,11 @@ class AssetFilterUnionInput(sgqlc.types.Input):
         AssetFilterTableTagOperator, graphql_name="tableTagsOperator"
     )
 
-    days = sgqlc.types.Field(Int, graphql_name="days")
+    read_days = sgqlc.types.Field(Int, graphql_name="readDays")
+
+    write_days = sgqlc.types.Field(Int, graphql_name="writeDays")
+
+    read_write_days = sgqlc.types.Field(Int, graphql_name="readWriteDays")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(AssetFilterType), graphql_name="type")
 
@@ -18995,6 +19001,64 @@ class EventEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class EventGroup(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("group_key", "group_metadata", "group_events")
+    group_key = sgqlc.types.Field(sgqlc.types.non_null("EventGroupKey"), graphql_name="groupKey")
+    """Attributes that uniquely defines an event group"""
+
+    group_metadata = sgqlc.types.Field(
+        sgqlc.types.non_null("EventGroupMetadata"), graphql_name="groupMetadata"
+    )
+    """Additional metadata of the event group (not used to create the
+    event group)
+    """
+
+    group_events = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("Event")), graphql_name="groupEvents"
+    )
+    """List of events in an event group"""
+
+
+class EventGroupKey(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "event_type", "table_mcon", "metric")
+    monitor_uuid = sgqlc.types.Field(UUID, graphql_name="monitorUuid")
+    """The UUID of the monitor of the grouped events"""
+
+    event_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="eventType")
+    """The type of the grouped events"""
+
+    table_mcon = sgqlc.types.Field(String, graphql_name="tableMcon")
+    """MCON of the table of the grouped events"""
+
+    metric = sgqlc.types.Field(String, graphql_name="metric")
+    """The metric type of the grouped events"""
+
+
+class EventGroupMetadata(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "newest_event_generated_time",
+        "group_title",
+        "table",
+        "warehouse",
+        "total_events",
+    )
+    newest_event_generated_time = sgqlc.types.Field(
+        DateTime, graphql_name="newestEventGeneratedTime"
+    )
+
+    group_title = sgqlc.types.Field(String, graphql_name="groupTitle")
+
+    table = sgqlc.types.Field("WarehouseTable", graphql_name="table")
+
+    warehouse = sgqlc.types.Field("Warehouse", graphql_name="warehouse")
+
+    total_events = sgqlc.types.Field(Int, graphql_name="totalEvents")
+    """Total number of events in the event group"""
+
+
 class EventMutingRule(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -22626,6 +22690,48 @@ class MetricDimensions(sgqlc.types.Type):
     data_source_uuid = sgqlc.types.Field(UUID, graphql_name="dataSourceUuid")
 
 
+class MetricEventGroup(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("group_key", "group_metadata")
+    group_key = sgqlc.types.Field(
+        sgqlc.types.non_null("MetricEventGroupKey"), graphql_name="groupKey"
+    )
+    """Attributes that uniquely defines an event group"""
+
+    group_metadata = sgqlc.types.Field(
+        sgqlc.types.non_null("MetricEventGroupMetadata"), graphql_name="groupMetadata"
+    )
+    """Additional metadata of the event group (not used to create the
+    event group)
+    """
+
+
+class MetricEventGroupKey(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "metric")
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """The UUID of the metric monitor of the grouped events"""
+
+    metric = sgqlc.types.Field(String, graphql_name="metric")
+    """The name of the metric of the grouped events"""
+
+
+class MetricEventGroupMetadata(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("newest_event_generated_time", "group_title", "tables", "total_events")
+    newest_event_generated_time = sgqlc.types.Field(
+        DateTime, graphql_name="newestEventGeneratedTime"
+    )
+
+    group_title = sgqlc.types.Field(String, graphql_name="groupTitle")
+
+    tables = sgqlc.types.Field(sgqlc.types.list_of("WarehouseTable"), graphql_name="tables")
+    """All tables associated with the metric event group"""
+
+    total_events = sgqlc.types.Field(Int, graphql_name="totalEvents")
+    """Total number of events in the event group"""
+
+
 class MetricInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("display_name", "metric", "metric_data_type")
@@ -23068,6 +23174,14 @@ class MonitorLabelObject(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -23123,6 +23237,9 @@ class MonitorLabelObject(sgqlc.types.Type):
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors that have at least 1 linked table with all of
+      the provided tags
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -41593,6 +41710,8 @@ class Query(sgqlc.types.Type):
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
         "get_schema_changes",
+        "get_event_groups",
+        "get_metric_event_groups",
         "get_events",
         "get_events_for_incidents",
         "get_events_for_alerts",
@@ -47669,6 +47788,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -47724,6 +47851,9 @@ class Query(sgqlc.types.Type):
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors that have at least 1 linked table with all of
+      the provided tags
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -47870,6 +48000,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -47925,6 +48063,9 @@ class Query(sgqlc.types.Type):
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors that have at least 1 linked table with all of
+      the provided tags
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -48071,6 +48212,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -48126,6 +48275,9 @@ class Query(sgqlc.types.Type):
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors that have at least 1 linked table with all of
+      the provided tags
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -48272,6 +48424,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -48327,6 +48487,9 @@ class Query(sgqlc.types.Type):
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors that have at least 1 linked table with all of
+      the provided tags
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -48473,6 +48636,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -48528,6 +48699,9 @@ class Query(sgqlc.types.Type):
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors that have at least 1 linked table with all of
+      the provided tags
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50394,6 +50568,50 @@ class Query(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    """
+
+    get_event_groups = sgqlc.types.Field(
+        sgqlc.types.list_of(EventGroup),
+        graphql_name="getEventGroups",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get event groups, excluding metric events
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): Filter by alert (grouping of related
+      events)
+    """
+
+    get_metric_event_groups = sgqlc.types.Field(
+        sgqlc.types.list_of(MetricEventGroup),
+        graphql_name="getMetricEventGroups",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get event groups, including only metric events
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): Filter by alert (grouping of related
+      events)
     """
 
     get_events = sgqlc.types.Field(
@@ -64967,20 +65185,20 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
 class AssetFilterActivityRead(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
-    __field_names__ = ("days",)
-    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+    __field_names__ = ("read_days",)
+    read_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="readDays")
 
 
 class AssetFilterActivityReadWrite(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
-    __field_names__ = ("days",)
-    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+    __field_names__ = ("read_write_days",)
+    read_write_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="readWriteDays")
 
 
 class AssetFilterActivityWrite(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
-    __field_names__ = ("days",)
-    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+    __field_names__ = ("write_days",)
+    write_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="writeDays")
 
 
 class AssetFilterTableName(sgqlc.types.Type, AssetFilterInterface):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: causalml
-Version: 0.15.4
+Version: 0.15.5
 Summary: Python Package for Uplift Modeling and Causal Inference with Machine Learning Algorithms
 Author: Huigang Chen, Totte Harinen, Jeong-Yoon Lee, Jing Pan, Mike Yung, Zhenyu Zhao
 Maintainer: Jeong-Yoon Lee
@@ -13,14 +13,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: forestci==0.6
 Requires-Dist: pathos==0.2.9
-Requires-Dist: pip>=10.0
 Requires-Dist: numpy>=1.18.5
-Requires-Dist: scipy>=1.4.1
+Requires-Dist: scipy<1.16.0,>=1.4.1
 Requires-Dist: matplotlib
 Requires-Dist: pandas>=0.24.1
-Requires-Dist: scikit-learn>=1.5.2
+Requires-Dist: scikit-learn>=1.6.0
 Requires-Dist: statsmodels>=0.9.0
-Requires-Dist: Cython
 Requires-Dist: seaborn
 Requires-Dist: xgboost
 Requires-Dist: pydotplus

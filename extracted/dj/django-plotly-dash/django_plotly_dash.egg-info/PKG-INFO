@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-plotly-dash
-Version: 2.4.7
+Version: 2.5.0
 Summary: Django use of plotly dash apps through template tags
 Home-page: https://github.com/GibbsConsulting/django-plotly-dash
 Author: Mark Gibbs
@@ -19,13 +19,26 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: plotly
-Requires-Dist: dash<3.0,>=2.0
-Requires-Dist: dpd-components
+Requires-Dist: dash>=2.0
+Requires-Dist: dpd-components>=0.2.0
 Requires-Dist: dash-bootstrap-components
 Requires-Dist: channels>=4.0
 Requires-Dist: Django>=4.0.0
 Requires-Dist: Flask>=1.0.2
 Requires-Dist: Werkzeug
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # django-plotly-dash
 

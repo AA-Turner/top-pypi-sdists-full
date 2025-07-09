@@ -1,13 +1,16 @@
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from .._interactor import _Interactor
 from ..client_mode import ClientMode
 from ..uiform import DesignObjectUiForm
+from ..exceptions import DisabledComponentException, ComponentNotFoundException
+from ..utilities import logger, get_in_dict
 
 from ..utilities.helper import (find_component_by_attribute_in_dict,
                                 find_component_by_type_and_attribute_and_index_in_dict)
 
+log = logger.getLogger(__name__)
 
 class SourceType(Enum):
     LIVE_VIEW = "LIVE_VIEW"
@@ -324,3 +327,98 @@ class InterfaceDesignerUiForm(DesignObjectUiForm):
                                                            new_value=new_value_dictionary,
                                                            label=locust_label)
         self._reconcile_state(new_state, skipValidations=True)
+
+    def _find_literal_view_model_by_label(self, label: str) -> Dict[str, Any]:
+        trees_to_search = [self._state]
+        while trees_to_search:
+            tree = trees_to_search.pop(0)
+
+            if not isinstance(tree, (dict, list)):
+                continue
+
+            if isinstance(tree, list):
+                trees_to_search = tree + trees_to_search
+                continue
+
+            if tree.get('#t') == 'LiteralViewModel' and get_in_dict(tree, ['componentViewModel', 'title', '#v']) == label:
+                return tree
+
+            trees_to_search = list(tree.values()) + trees_to_search
+
+        raise Exception(f'Literal View Model with label {label} not found')
+
+    def select_designview_choice_component(self, label: str, choice_label: str, locust_request_label: str = '', 
+                                           is_test_label: bool = True) -> None:
+        try: # pre 25.3
+            self.select_dropdown_item(label=label, choice_label=choice_label,
+                                      is_test_label=is_test_label, locust_request_label=locust_request_label)
+        except ComponentNotFoundException: # 25.3 and after
+            literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
+            component = self._find_literal_view_model_by_label(literal_view_model_label)
+            
+            client_params = get_in_dict(component, ['componentViewModel', 'additionalClientParameters'], {})
+            choice_label_index = client_params.get('choiceLabels', []).index(choice_label)
+            choice_value = client_params.get('choiceValues', [])[choice_label_index]
+
+            self._update_client_view_model(component, choice_value, locust_request_label)
+            
+    def fill_designview_text_field(self, label: str, value: str, locust_request_label: str = '', 
+                                   is_test_label: bool = True) -> None:
+        try: # pre 25.3
+            self.fill_text_field(label=label, value=value, is_test_label=is_test_label, locust_request_label=locust_request_label)
+        except ComponentNotFoundException: # 25.3 and after
+            literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
+            self.update_client_view_model_with_label(label=literal_view_model_label, value=value, locust_request_label=locust_request_label)
+    
+    def fill_designview_paragraph_field(self, label: str, value: str, locust_request_label: str = '', 
+                                        is_test_label: bool = True) -> None:
+        try: # pre 25.3
+            self.fill_paragraph_field(label=label, value=value, is_test_label=is_test_label, locust_request_label=locust_request_label)
+        except ComponentNotFoundException: # 25.3 and after
+            literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
+            self.update_client_view_model_with_label(label=literal_view_model_label, value=value, locust_request_label=locust_request_label)
+    
+    def toggle_designview_boolean_field(self, label: str, checked: bool, locust_request_label: str = '', 
+                                        is_test_label: bool = True) -> None:
+        try: # pre 25.3
+            indices = [1] if checked else [0]
+            if is_test_label:
+                self.check_checkbox_by_test_label(test_label=label, indices=indices, locust_request_label=locust_request_label)
+            else:
+                self.check_checkbox_by_label(label=label, indices=indices, locust_request_label=locust_request_label)
+        except ComponentNotFoundException: # 25.3 and after
+            literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
+            self.update_client_view_model_with_label(label=literal_view_model_label, value=checked, locust_request_label=locust_request_label)
+
+    def update_client_view_model_with_label(self, label: str, value: Any, locust_request_label: str = '') -> None:
+        component = self._find_literal_view_model_by_label(label)
+        self._update_client_view_model(component, value, locust_request_label)
+
+    def _test_label_to_label(self, test_label: str) -> str:
+        # Test labels for common components in the design view all have the format "{label} - {path}"
+        dash_index = test_label.find('-')
+        return test_label[:dash_index-1]
+
+    def _update_client_view_model(self, component: Dict[str, Any], value: str, locust_request_label: str = '') -> None:
+        if get_in_dict(component, ['componentViewModel', 'readOnly', '#v'], False):
+            raise DisabledComponentException(label=get_in_dict(component, ['componentViewModel', 'title', '#v']))
+
+        interface_designer_manager = find_component_by_type_and_attribute_and_index_in_dict(
+            component_tree=self._state,
+            type='InterfaceDesignerManager'
+        )
+        manager_actions = interface_designer_manager.get('actions', [])
+        client_view_model_link = [a for a in manager_actions if a.get('_actionName') == 'clientViewModelUpdate'][0]
+
+        value_dictionary = {
+            "#t": "Dictionary",
+            "#v": {
+                'path': get_in_dict(component, ['componentViewModel', 'path', '#v']),
+                'comments': get_in_dict(component, ['componentViewModel', 'comments', '#v']),
+                'value': value
+            }
+        }
+
+        self._interactor.click_component(self.form_url, client_view_model_link, self.context, self.uuid,
+                                        label=locust_request_label, value=value_dictionary)
+

@@ -1,11 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-lsp-server
-Version: 1.12.2
+Version: 1.13.0
 Summary: Python Language Server for the Language Server Protocol
 Author: Python Language Server Contributors
 License: MIT
 Project-URL: Homepage, https://github.com/python-lsp/python-lsp-server
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: docstring-to-markdown
@@ -14,6 +14,7 @@ Requires-Dist: jedi<0.20.0,>=0.17.2
 Requires-Dist: pluggy>=1.0.0
 Requires-Dist: python-lsp-jsonrpc<2.0.0,>=1.1.0
 Requires-Dist: ujson>=3.0.0
+Requires-Dist: black
 Provides-Extra: all
 Requires-Dist: autopep8<2.1.0,>=2.0.4; extra == "all"
 Requires-Dist: flake8<8,>=7.1; extra == "all"
@@ -56,6 +57,8 @@ Requires-Dist: pandas; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: pyqt5; extra == "test"
 Requires-Dist: flaky; extra == "test"
+Requires-Dist: websockets>=10.3; extra == "test"
+Dynamic: license-file
 
 # Python LSP Server
 

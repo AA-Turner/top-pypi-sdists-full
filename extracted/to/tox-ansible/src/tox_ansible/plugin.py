@@ -523,11 +523,11 @@ def conf_commands_for_galaxy(
     env_tmp_dir = env_conf["env_tmp_dir"]
     env_log_dir = env_conf["env_log_dir"]
     env_python = env_conf["env_python"]
-    work_dir = env_conf._conf.work_dir  # noqa: SLF001
+    config_dir = env_conf._conf.src_path.parent.resolve()
     commands.append(
         f"bash -c 'cd {env_log_dir} && "
         f"{env_python} -m galaxy_importer.main "
-        f"--git-clone-path {work_dir} --output-path {env_tmp_dir}'"
+        f"--git-clone-path {config_dir} --output-path {env_tmp_dir}'"
     )
 
     return commands
@@ -618,7 +618,7 @@ def conf_deps(env_conf: EnvConfigSet, test_type: str) -> str:
     deps = []
     cwd = Path.cwd()
     if test_type == "galaxy":
-        deps.append("galaxy-importer")
+        deps.append("galaxy-importer>=0.4.31")
     else:
         if test_type in ["integration", "unit"]:
             deps.extend(OUR_DEPS)
@@ -677,4 +677,9 @@ def conf_setenv(env_conf: EnvConfigSet) -> str:
         f"{envvar_name}={envtmpdir}/collections/",
         f"XDG_CACHE_HOME={env_conf['env_dir']}/.cache",
     ]
+    # due to the ceilings used by galaxy-importer, use of constraints will
+    # likely cause installation failures.
+    if env_conf.name == "galaxy":
+        setenv.append("PIP_CONSTRAINT=/dev/null")
+        setenv.append("UV_CONSTRAINT=/dev/null")
     return "\n".join(setenv)

@@ -1,23 +1,19 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyulog
-Version: 1.2.0
-Summary: Python log parser for ULog.
-Home-page: https://github.com/PX4/pyulog
-Download-URL: https://github.com/PX4/pyulog
-Author: Beat Kueng
-Author-email: beat-kueng@gmx.net
-Maintainer: James Goppert
-Maintainer-email: james.goppert@gmail.com
-License: BSD 3-Clause
+Version: 1.2.1
+Summary: Python log parser for ULog
+Maintainer-email: James Goppert <james.goppert@gmail.com>, Beat Kueng <beat-kueng@gmx.net>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/PX4/pyulog
+Project-URL: Repository, https://github.com/PX4/pyulog
 Platform: Windows
 Platform: Linux
 Platform: Solaris
 Platform: Mac OS-X
 Platform: Unix
-Classifier: Development Status :: 1 - Planning
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Other
@@ -29,24 +25,21 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
+Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 Requires-Dist: numpy<1.25; python_version < "3.9"
 Requires-Dist: numpy>=1.25; python_version >= "3.9"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: ddt; extra == "test"
 Dynamic: description
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
-Dynamic: maintainer
-Dynamic: maintainer-email
+Dynamic: description-content-type
+Dynamic: license-file
 Dynamic: platform
-Dynamic: requires-dist
-Dynamic: summary
+
 
 This module allows you to parse ULog files, which are used within the PX4
 autopilot middleware.
 
-The file format is documented on https://docs.px4.io/master/en/dev_log/ulog_file_format.html
+The file format is documented on https://docs.px4.io/main/en/dev_log/ulog_file_format.html
 

@@ -6,6 +6,7 @@ import threading
 import time
 import tempfile
 import os
+from datetime import datetime, timezone
 from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
 
 
@@ -38,6 +39,7 @@ class ClientStreamUtils:
         self.stream_support = self.kafka_deployment.setup_success
         self.input_order = {}  # Dictionary to track input counter for each stream key
         self._stop_streaming = False
+        self.video_start_times = {}  # Track video start times for timestamp calculation
 
     def _validate_stream_params(
         self, fps: int, quality: int, width: Optional[int], height: Optional[int]
@@ -70,13 +72,16 @@ class ClientStreamUtils:
         self, input: Union[str, int], width: Optional[int], height: Optional[int]
     ) -> cv2.VideoCapture:
         """Set up video capture with proper configuration."""
+        stream_type = "unknown"
         # Handle different input types
         if isinstance(input, int) or (isinstance(input, str) and input.isdigit()):
             cap = cv2.VideoCapture(int(input) if isinstance(input, str) else input)
             logging.info(f"Opening webcam device: {input}")
+            stream_type = "camera"
         else:
             cap = cv2.VideoCapture(input)
             logging.info(f"Opening video source: {input}")
+            stream_type = "video_file"
 
         if not cap.isOpened():
             logging.error(f"Failed to open video source: {input}")
@@ -90,7 +95,30 @@ class ClientStreamUtils:
             if height is not None:
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-        return cap
+        return cap, stream_type
+
+    def _get_video_properties(self, cap: cv2.VideoCapture) -> Dict:
+        """Get video properties including original FPS."""
+        properties = {
+            "original_fps": cap.get(cv2.CAP_PROP_FPS),
+            "frame_count": cap.get(cv2.CAP_PROP_FRAME_COUNT),
+            "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        }
+        return properties
+
+    def _get_high_precision_timestamp(self) -> str:
+        """Get high precision timestamp with microsecond granularity."""
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+    def _calculate_video_timestamp(self, stream_key: str, frame_number: int, fps: float) -> float:
+        """Calculate video timestamp from start of video (starting at 0)."""
+        if stream_key not in self.video_start_times:
+            self.video_start_times[stream_key] = time.time()
+        
+        # Calculate timestamp based on frame number and FPS
+        video_timestamp = frame_number / fps
+        return video_timestamp
 
     def _handle_frame_read_failure(
         self, input: Union[str, int], cap: cv2.VideoCapture, retry_count: int, max_retries: int,
@@ -217,7 +245,7 @@ class ClientStreamUtils:
         cap = None
         
         try:
-            cap = self._setup_video_capture(input, width, height)
+            cap, stream_type = self._setup_video_capture(input, width, height)
             
             retry_count = 0
             max_retries = 3
@@ -267,10 +295,19 @@ class ClientStreamUtils:
                         logging.error(f"Failed to encode frame even with default settings: {fallback_exc}")
                         continue
 
-                # Prepare metadata for this frame
+                # Calculate video timestamp for this frame
+                video_timestamp = self._calculate_video_timestamp(
+                    stream_key or "default", frame_counter, fps
+                )
+                
+                
+                # Prepare enhanced metadata for this frame
                 frame_metadata = {
                     "fps": fps,
-                    "stream_time": time.strftime("%Y-%m-%d-%H:%M:%S UTC", time.gmtime()),
+                    "original_fps": fps,  # For live streams, original FPS is the same as processing FPS
+                    "frame_sample_rate": 1.0,  # For individual frames, sample rate is 1:1
+                    "stream_time": self._get_high_precision_timestamp(),  # Use high precision timestamp
+                    "video_timestamp": video_timestamp,  # Added video timestamp
                     "video_file": self._get_input_filename(input),
                     "camera_id": input if isinstance(input, int) or (isinstance(input, str) and input.isdigit()) else None,
                     "location_info": None,  # Can be enhanced later
@@ -278,7 +315,10 @@ class ClientStreamUtils:
                     "end_frame": frame_counter,
                     "quality": quality,
                     "width": width,
-                    "height": height
+                    "height": height,
+                    "is_video_chunk": False,  # Flag to indicate this is a single frame
+                    "chunk_duration_seconds": 1.0 / fps,  # Duration of single frame
+                    "stream_type": stream_type,  # Added stream type
                 }
                 
                 if not self.produce_request(buffer.tobytes(), stream_key, metadata=frame_metadata):
@@ -326,7 +366,10 @@ class ClientStreamUtils:
             enhanced_metadata = {
                 "stream_info": {
                     "fps": metadata.get("fps", 30),
-                    "stream_time": metadata.get("stream_time"),
+                    "original_fps": metadata.get("original_fps", metadata.get("fps", 30)),  # Added original FPS
+                    "frame_sample_rate": metadata.get("frame_sample_rate", 1.0),  # Added frame sample rate
+                    "stream_time": metadata.get("stream_time", self._get_high_precision_timestamp()),  # Use high precision timestamp
+                    "video_timestamp": metadata.get("video_timestamp", 0.0),  # Added video timestamp
                     "input_settings": {
                         "video_file": metadata.get("video_file"),
                         "camera_id": metadata.get("camera_id"),
@@ -336,7 +379,12 @@ class ClientStreamUtils:
                         "quality": metadata.get("quality"),
                         "width": metadata.get("width"),
                         "height": metadata.get("height"),
-                        "stream_key": stream_key
+                        "stream_key": stream_key,
+                        "is_video_chunk": metadata.get("is_video_chunk", False),  # Added video chunk flag
+                        "chunk_duration_seconds": metadata.get("chunk_duration_seconds", 0.0),  # Added chunk duration
+                        "video_format": metadata.get("video_format"),  # Added video format
+                        "video_properties": metadata.get("video_properties", {}),  # Added video properties
+                        "stream_type": metadata.get("stream_type"),  # Added stream type
                     }
                 },
                 **metadata  # Include any additional metadata
@@ -381,7 +429,10 @@ class ClientStreamUtils:
             enhanced_metadata = {
                 "stream_info": {
                     "fps": metadata.get("fps", 30),
-                    "stream_time": metadata.get("stream_time"),
+                    "original_fps": metadata.get("original_fps", metadata.get("fps", 30)),  # Added original FPS
+                    "frame_sample_rate": metadata.get("frame_sample_rate", 1.0),  # Added frame sample rate
+                    "stream_time": metadata.get("stream_time", self._get_high_precision_timestamp()),  # Use high precision timestamp
+                    "video_timestamp": metadata.get("video_timestamp", 0.0),  # Added video timestamp
                     "input_settings": {
                         "video_file": metadata.get("video_file"),
                         "camera_id": metadata.get("camera_id"),
@@ -391,7 +442,12 @@ class ClientStreamUtils:
                         "quality": metadata.get("quality"),
                         "width": metadata.get("width"),
                         "height": metadata.get("height"),
-                        "stream_key": stream_key
+                        "stream_key": stream_key,
+                        "is_video_chunk": metadata.get("is_video_chunk", False),  # Added video chunk flag
+                        "chunk_duration_seconds": metadata.get("chunk_duration_seconds", 0.0),  # Added chunk duration
+                        "video_format": metadata.get("video_format"),  # Added video format
+                        "video_properties": metadata.get("video_properties", {}),  # Added video properties
+                        "stream_type": metadata.get("stream_type"),  # Added stream type
                     }
                 },
                 **metadata  # Include any additional metadata
@@ -554,8 +610,12 @@ class ClientStreamUtils:
         cap = None
         
         try:
-            cap = self._setup_video_capture(input, width, height)
-
+            cap, stream_type = self._setup_video_capture(input, width, height)
+            
+            # Get video properties including original FPS
+            video_props = self._get_video_properties(cap)
+            original_fps = video_props["original_fps"]
+            
             # Get actual frame dimensions
             actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -581,6 +641,9 @@ class ClientStreamUtils:
                 chunk_frames = max_frames
             else:
                 chunk_frames = int(fps * 5.0)  # Default to 5 seconds
+
+            # Calculate frame sample rate (how many original frames per processed frame)
+            frame_sample_rate = original_fps / fps if original_fps > 0 else 1.0
 
             retry_count = 0
             max_retries = 3
@@ -656,7 +719,13 @@ class ClientStreamUtils:
 
                             chunk_count += 1
                             chunk_end_frame = chunk_start_frame + frames_in_chunk - 1
-                                                        
+                            
+                            # Calculate video timestamp from start
+                            video_timestamp = self._calculate_video_timestamp(
+                                stream_key or "default", chunk_start_frame, original_fps
+                            )
+                            
+                            # Enhanced metadata with all requested information
                             success = self.produce_request(
                                 video_bytes, stream_key, 
                                 metadata={
@@ -665,6 +734,8 @@ class ClientStreamUtils:
                                     "duration": time.time() - chunk_start_time,
                                     "video_format": video_format,
                                     "fps": fps,
+                                    "original_fps": original_fps,  # Added original video FPS
+                                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
                                     "width": actual_width,
                                     "height": actual_height,
                                     "quality": quality,
@@ -672,12 +743,17 @@ class ClientStreamUtils:
                                     "camera_id": input if isinstance(input, int) or (isinstance(input, str) and input.isdigit()) else None,
                                     "start_frame": chunk_start_frame,
                                     "end_frame": chunk_end_frame,
-                                    "stream_time": time.strftime("%Y-%m-%d-%H:%M:%S UTC", time.gmtime())
+                                    "video_timestamp": video_timestamp,  # Added video timestamp from start
+                                    "stream_time": self._get_high_precision_timestamp(),  # Increased granularity
+                                    "is_video_chunk": True,  # Flag to indicate this is a video chunk
+                                    "chunk_duration_seconds": chunk_frames / fps,  # Duration of this chunk
+                                    "video_properties": video_props,  # Include all video properties
+                                    "stream_type": stream_type,  # Added stream type
                                 }
                             )
                             
                             if success:
-                                logging.debug(f"Successfully sent video chunk {chunk_count} with {frames_in_chunk} frames (frames {chunk_start_frame}-{chunk_end_frame})")
+                                logging.debug(f"Successfully sent video chunk {chunk_count} with {frames_in_chunk} frames (frames {chunk_start_frame}-{chunk_end_frame}) at video timestamp {video_timestamp:.3f}s")
                             else:
                                 logging.warning(f"Failed to produce video chunk {chunk_count} to Kafka stream")
 
@@ -715,3 +791,7 @@ class ClientStreamUtils:
             if cap is not None:
                 cap.release()
                 logging.info(f"Released video source: {input}")
+            
+            # Clean up stream session
+            if stream_key in self.video_start_times:
+                del self.video_start_times[stream_key]

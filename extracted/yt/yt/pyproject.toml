@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yt"
-version = "4.4.0"
+version = "4.4.1"
 description = "An analysis and visualization toolkit for volumetric data"
 authors = [
     { name = "The yt project", email = "yt-dev@python.org" },
@@ -38,7 +38,7 @@ classifiers = [
 keywords = [
     "astronomy astrophysics visualization amr adaptivemeshrefinement",
 ]
-requires-python = ">=3.10.3"
+requires-python = ">=3.10.4"
 
 # keep in sync with minimal_requirements.txt
 dependencies = [
@@ -200,6 +200,7 @@ test = [
     "pytest-mpl>=0.16.1",
     "sympy!=1.10,!=1.9", # see https://github.com/sympy/sympy/issues/22241
     "imageio!=2.35.0", # see https://github.com/yt-project/yt/issues/4966
+    "contourpy",
 ]
 
 [project.scripts]
@@ -381,7 +382,6 @@ addopts = '''
     --ignore-glob='/*/yt/visualization/tests/test_particle_plot.py'
     --ignore-glob='/*/yt/visualization/tests/test_plot_modifications.py'
     --ignore-glob='/*/yt/visualization/tests/test_plotwindow.py'
-    --ignore-glob='/*/yt/visualization/tests/test_profile_plots.py'
     --ignore-glob='/*/yt/visualization/tests/test_raw_field_slices.py'
     --ignore-glob='/*/yt/visualization/volume_rendering/tests/test_mesh_render.py'
     --ignore-glob='/*/yt/visualization/volume_rendering/tests/test_vr_orientation.py'
@@ -462,12 +462,11 @@ show_error_context = true
 exclude = "(test_*|lodgeit)"
 
 [tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-* cp313-*"
 build-verbosity = 1
 test-skip = "*-musllinux*"
 test-extras = "test"
 test-command = [
-    "pytest -c {project}/pyproject.toml --rootdir . --color=yes --pyargs yt -ra",
+    "python -m pytest -c {project}/pyproject.toml --rootdir . --color=yes --pyargs yt -ra",
 ]
 
 [tool.cibuildwheel.linux]

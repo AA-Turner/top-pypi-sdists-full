@@ -78,24 +78,22 @@ class EmojiRatingField(_BaseField):
 class FloatField(_BaseField):
     type: str = "number"
     precision: int = 2
-    delimiter: str = ","
-    decimal_mark: str = "."
     percent: bool = False
     display_mode: DisplayMode = None
+    disable_formatting: bool = False
 
     def to_dict(self):
         base = super().to_dict()
         base.update(
             {
                 "precision": self.precision,
-                "delimiter": self.delimiter,
-                "decimal_mark": self.decimal_mark,
             }
         )
         if self.percent:
             base["type"] = "percent"
         if self.display_mode:
             base["display_mode"] = self.display_mode.value
+        base["disable_formatting"] = self.disable_formatting
         return base
 
     def to_representation(self, value: pd.Series) -> pd.Series:
@@ -114,13 +112,10 @@ class IntegerField(FloatField):
 @dataclass
 class YearField(IntegerField):
     precision: int = 0
-    delimiter: str = ""
-    decimal_mark: str = "."
+    disable_formatting: bool = True
 
     def __post_init__(self):
         self.precision = 0
-        self.delimiter = ""
-        self.decimal_mark = "."
 
 
 @dataclass

@@ -86,6 +86,7 @@ from .features.features import format_features
 from .credentials_commands import credentials_main
 from .files_pkg import files_main
 from .policy_config import policy_config_main
+from .licensing import licensing_main
 
 from .version import __version__
 
@@ -8823,6 +8824,7 @@ def main():
     policy_config_main.add_commands(cli)
     messages_main.add_commands(cli)
     databases.add_commands(cli)
+    licensing_main.add_commands(cli)
 
     cli(auto_envvar_prefix="AGILICUS")
 

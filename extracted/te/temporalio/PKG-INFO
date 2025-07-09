@@ -1,6 +1,7 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.13.0
+Version: 1.14.0
+Requires-Dist: nexus-rpc>=1.1.0
 Requires-Dist: protobuf>=3.20,<6
 Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
 Requires-Dist: types-protobuf>=3.20
@@ -9,7 +10,8 @@ Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
-Requires-Dist: openai-agents>=0.0.19 ; extra == 'openai-agents'
+Requires-Dist: openai-agents>=0.1,<0.2 ; extra == 'openai-agents'
+Requires-Dist: eval-type-backport>=0.2.2 ; python_full_version < '3.10' and extra == 'openai-agents'
 Provides-Extra: grpc
 Provides-Extra: opentelemetry
 Provides-Extra: pydantic
@@ -122,6 +124,7 @@ informal introduction to the features and their implementation.
         - [Heartbeating and Cancellation](#heartbeating-and-cancellation)
         - [Worker Shutdown](#worker-shutdown)
       - [Testing](#testing-1)
+    - [Nexus](#nexus)
     - [Workflow Replay](#workflow-replay)
     - [Observability](#observability)
       - [Metrics](#metrics)
@@ -974,19 +977,12 @@ workflow will not progress until fixed.
 The sandbox is not foolproof and non-determinism can still occur. It is simply a best-effort way to catch bad code
 early. Users are encouraged to define their workflows in files with no other side effects.
 
-The sandbox offers a mechanism to pass through modules from outside the sandbox. By default this already includes all
+The sandbox offers a mechanism to "pass through" modules from outside the sandbox. By default this already includes all
 standard library modules and Temporal modules. **For performance and behavior reasons, users are encouraged to pass
-through all third party modules whose calls will be deterministic.** This includes modules containing the activities to
-be referenced in workflows. See "Passthrough Modules" below on how to do this.
+through all modules whose calls will be deterministic.** In particular, this advice extends to modules containing the
+activities to be referenced in workflows, and modules containing dataclasses and Pydantic models, which can be
+particularly expensive to import. See "Passthrough Modules" below on how to do this.
 
-If you are getting an error like:
-
-> temporalio.worker.workflow_sandbox._restrictions.RestrictedWorkflowAccessError: Cannot access
-> http.client.IncompleteRead.\_\_mro_entries\_\_ from inside a workflow. If this is code from a module not used in a
-> workflow or known to only be used deterministically from a workflow, mark the import as pass through.
-
-Then you are either using an invalid construct from the workflow, this is a known limitation of the sandbox, or most
-commonly this is from a module that is safe to pass through (see "Passthrough Modules" section below).
 
 ##### How the Sandbox Works
 
@@ -995,12 +991,13 @@ The sandbox is made up of two components that work closely together:
 * Global state isolation
 * Restrictions preventing known non-deterministic library calls
 
-Global state isolation is performed by using `exec`. Upon workflow start, the file that the workflow is defined in is
-imported into a new sandbox created for that workflow run. In order to keep the sandbox performant a known set of
-"passthrough modules" are passed through from outside of the sandbox when they are imported. These are expected to be
-side-effect free on import and have their non-deterministic aspects restricted. By default the entire Python standard
-library, `temporalio`, and a couple of other modules are passed through from outside of the sandbox. To update this
-list, see "Customizing the Sandbox".
+Global state isolation is performed by using `exec`. Upon workflow start, and every time that the workflow is replayed,
+the file that the workflow is defined in is re-imported into a new sandbox created for that workflow run. In order to
+keep the sandbox performant, not all modules are re-imported in this way: instead, a known set of "passthrough modules"
+are obtained as references to the already-imported module _outside_ the sandbox. These modules should be side-effect
+free on import and, if they make any non-deterministic calls, then these should be restricted by sandbox restriction
+rules. By default the entire Python standard library, `temporalio`, and a couple of other modules are "passed through"
+in this way from outside of the sandbox. To update this list, see "Customizing the Sandbox".
 
 Restrictions preventing known non-deterministic library calls are achieved using proxy objects on modules wrapped around
 the custom importer set in the sandbox. Many restrictions apply at workflow import time and workflow run time, while
@@ -1012,7 +1009,7 @@ and isn't restricted, see "Customizing the Sandbox".
 ##### Avoiding the Sandbox
 
 There are three increasingly-scoped ways to avoid the sandbox. Users are discouraged from avoiding the sandbox if
-possible.
+possible, except for passing through safe modules, which is recommended.
 
 To remove restrictions around a particular block of code, use `with temporalio.workflow.unsafe.sandbox_unrestricted():`.
 The workflow will still be running in the sandbox, but no restrictions for invalid library calls will be applied.
@@ -1039,11 +1036,12 @@ is immutable and contains three fields that can be customized, but only two have
 ###### Passthrough Modules
 
 By default the sandbox completely reloads non-standard-library and non-Temporal modules for every workflow run. To make
-the sandbox quicker and use less memory when importing known-side-effect-free third party modules, they can be marked
+the sandbox quicker and use less memory when importing known-side-effect-free modules, they can be marked
 as passthrough modules.
 
 **For performance and behavior reasons, users are encouraged to pass through all third party modules whose calls will be
-deterministic.**
+deterministic.** In particular, this advice extends to modules containing the activities to be referenced in workflows,
+and modules containing dataclasses and Pydantic models, which can be particularly expensive to import.
 
 One way to pass through a module is at import time in the workflow file using the `imports_passed_through` context
 manager like so:
@@ -1340,6 +1338,113 @@ affect calls activity code might make to functions on the `temporalio.activity` 
 * `on_heartbeat` property can be set to handle `activity.heartbeat()` calls
 * `cancel()` can be invoked to simulate a cancellation of the activity
 * `worker_shutdown()` can be invoked to simulate a worker shutdown during execution of the activity
+
+
+### Nexus
+
+⚠️  **Nexus support is currently at an experimental release stage. Backwards-incompatible changes are anticipated until a stable release is announced.** ⚠️
+
+[Nexus](https://github.com/nexus-rpc/) is a synchronous RPC protocol. Arbitrary duration operations that can respond
+asynchronously are modeled on top of a set of pre-defined synchronous RPCs.
+
+Temporal supports calling Nexus operations **from a workflow**. See https://docs.temporal.io/nexus. There is no support
+currently for calling a Nexus operation from non-workflow code.
+
+To get started quickly using Nexus with Temporal, see the Python Nexus sample:
+https://github.com/temporalio/samples-python/tree/nexus/hello_nexus.
+
+
+Two types of Nexus operation are supported, each using a decorator:
+
+- `@temporalio.nexus.workflow_run_operation`: a Nexus operation that is backed by a Temporal workflow. The operation
+  handler you write will start the handler workflow and then respond with a token indicating that the handler workflow
+  is in progress. When the handler workflow completes, Temporal server will automatically deliver the result (success or
+  failure) to the caller workflow.
+- `@nexusrpc.handler.sync_operation`: an operation that responds synchronously. It may be `def` or `async def` and it
+may do network I/O, but it must respond within 10 seconds.
+
+The following steps are an overview of the [Python Nexus sample](
+https://github.com/temporalio/samples-python/tree/nexus/hello_nexus).
+
+1. Create the caller and handler namespaces, and the Nexus endpoint. For example,
+    ```
+    temporal operator namespace create --namespace my-handler-namespace
+    temporal operator namespace create --namespace my-caller-namespace
+
+    temporal operator nexus endpoint create \
+      --name my-nexus-endpoint \
+      --target-namespace my-handler-namespace \
+      --target-task-queue my-handler-task-queue
+    ```
+
+2. Define your service contract. This specifies the names and input/output types of your operations. You will use this
+   to refer to the operations when calling them from a workflow.
+    ```python
+    @nexusrpc.service
+    class MyNexusService:
+        my_sync_operation: nexusrpc.Operation[MyInput, MyOutput]
+        my_workflow_run_operation: nexusrpc.Operation[MyInput, MyOutput]
+    ```
+
+3. Implement your operation handlers in a service handler:
+    ```python
+    @service_handler(service=MyNexusService)
+    class MyNexusServiceHandler:
+        @sync_operation
+        async def my_sync_operation(
+            self, ctx: StartOperationContext, input: MyInput
+        ) -> MyOutput:
+            return MyOutput(message=f"Hello {input.name} from sync operation!")
+
+        @workflow_run_operation
+        async def my_workflow_run_operation(
+            self, ctx: WorkflowRunOperationContext, input: MyInput
+        ) -> nexus.WorkflowHandle[MyOutput]:
+            return await ctx.start_workflow(
+                WorkflowStartedByNexusOperation.run,
+                input,
+                id=str(uuid.uuid4()),
+            )
+    ```
+
+4. Register your service handler with a Temporal worker.
+    ```python
+    client = await Client.connect("localhost:7233", namespace="my-handler-namespace")
+    worker = Worker(
+        client,
+        task_queue="my-handler-task-queue",
+        workflows=[WorkflowStartedByNexusOperation],
+        nexus_service_handlers=[MyNexusServiceHandler()],
+    )
+    await worker.run()
+    ```
+
+5. Call your Nexus operations from your caller workflow.
+    ```python
+    @workflow.defn
+    class CallerWorkflow:
+        def __init__(self):
+            self.nexus_client = workflow.create_nexus_client(
+                service=MyNexusService, endpoint="my-nexus-endpoint"
+            )
+
+        @workflow.run
+        async def run(self, name: str) -> tuple[MyOutput, MyOutput]:
+            # Start the Nexus operation and wait for the result in one go, using execute_operation.
+            wf_result = await self.nexus_client.execute_operation(
+                MyNexusService.my_workflow_run_operation,
+                MyInput(name),
+            )
+            # Or alternatively, obtain the operation handle using start_operation,
+            # and then use it to get the result:
+            sync_operation_handle = await self.nexus_client.start_operation(
+                MyNexusService.my_sync_operation,
+                MyInput(name),
+            )
+            sync_result = await sync_operation_handle
+            return sync_result, wf_result
+    ```
+
 
 ### Workflow Replay
 

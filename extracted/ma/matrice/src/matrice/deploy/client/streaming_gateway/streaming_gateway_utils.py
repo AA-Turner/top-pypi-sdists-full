@@ -1,7 +1,8 @@
 from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import Dict, Optional, Union, Callable, Any, List, Tuple
+from typing import Dict, Optional, Union, List, Tuple
 import os
+import uuid
 
 from matrice.deploy.utils.post_processing.core.config import (
     BaseConfig as PostProcessingConfig,
@@ -108,6 +109,22 @@ class InputConfig:
             if not any(str(self.source).lower().endswith(ext) for ext in video_extensions):
                 import warnings
                 warnings.warn(f"URL does not appear to point to a video file: {self.source}")
+        
+        # Generate unique stream key if not provided
+        if self.stream_key is None:
+            if self.type == InputType.CAMERA:
+                self.stream_key = f"camera_{self.source}_{uuid.uuid4().hex[:8]}"
+            elif self.type == InputType.VIDEO_FILE:
+                filename = os.path.splitext(os.path.basename(str(self.source)))[0]
+                self.stream_key = f"video_{filename}_{uuid.uuid4().hex[:8]}"
+            elif self.type == InputType.RTSP_STREAM:
+                self.stream_key = f"rtsp_{uuid.uuid4().hex[:8]}"
+            elif self.type == InputType.HTTP_STREAM:
+                self.stream_key = f"http_{uuid.uuid4().hex[:8]}"
+            elif self.type == InputType.HTTP_VIDEO_FILE:
+                self.stream_key = f"http_video_{uuid.uuid4().hex[:8]}"
+            else:
+                self.stream_key = f"stream_{uuid.uuid4().hex[:8]}"
 
     def to_dict(self) -> Dict:
         """Convert to dictionary."""

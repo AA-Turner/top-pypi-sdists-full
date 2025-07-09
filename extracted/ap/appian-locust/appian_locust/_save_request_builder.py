@@ -30,7 +30,7 @@ class _SaveRequestBuilder:
         self._context = context
         return self
 
-    def value(self, value: Union[dict, list]) -> '_SaveRequestBuilder':
+    def value(self, value: Optional[Union[dict, list]]) -> '_SaveRequestBuilder':
         self._value = value
         return self
 

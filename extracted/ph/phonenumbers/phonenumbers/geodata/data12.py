@@ -19,6 +19,8 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '61752932':{'en': 'Caboolture'},
+ '61752933':{'en': 'Caloundra'},
  '61752934':{'en': 'Caloundra'},
  '61752935':{'en': 'Caloundra'},
  '61752936':{'en': 'Caloundra'},
@@ -10017,6 +10019,4 @@ data = {
  '61885872':{'en': 'Taplan'},
  '61885873':{'en': 'Paruna'},
  '61885874':{'en': 'Wanbi'},
- '61885875':{'en': 'Wanbi'},
- '61885876':{'en': 'Wunkar'},
 }

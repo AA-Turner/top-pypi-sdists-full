@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 0.0.74
+Version: 0.0.75
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Source, https://github.com/pipecat-ai/pipecat
@@ -27,13 +27,13 @@ Requires-Dist: pydantic~=2.10.6
 Requires-Dist: pyloudnorm~=0.1.1
 Requires-Dist: resampy~=0.4.3
 Requires-Dist: soxr~=0.5.0
-Requires-Dist: openai~=1.70.0
+Requires-Dist: openai~=1.74.0
 Provides-Extra: anthropic
 Requires-Dist: anthropic~=0.49.0; extra == "anthropic"
 Provides-Extra: assemblyai
 Requires-Dist: websockets~=13.1; extra == "assemblyai"
 Provides-Extra: aws
-Requires-Dist: boto3~=1.37.16; extra == "aws"
+Requires-Dist: aioboto3~=15.0.0; extra == "aws"
 Requires-Dist: websockets~=13.1; extra == "aws"
 Provides-Extra: aws-nova-sonic
 Requires-Dist: aws_sdk_bedrock_runtime~=0.0.2; extra == "aws-nova-sonic"
@@ -113,7 +113,7 @@ Provides-Extra: qwen
 Provides-Extra: rime
 Requires-Dist: websockets~=13.1; extra == "rime"
 Provides-Extra: riva
-Requires-Dist: nvidia-riva-client~=2.19.1; extra == "riva"
+Requires-Dist: nvidia-riva-client~=2.21.1; extra == "riva"
 Provides-Extra: sambanova
 Provides-Extra: sentry
 Requires-Dist: sentry-sdk~=2.23.1; extra == "sentry"

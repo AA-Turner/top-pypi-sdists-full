@@ -29,7 +29,6 @@ from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.namespace_context import build_namespaced_name
 from chalk.features.tag import Tags
 from chalk.features.underscore import Underscore
-from chalk.features.underscore_features import NamedUnderscoreExpr
 from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.streams import Windowed
 from chalk.streams._windows import GroupByWindowed, get_name_with_duration
@@ -1326,36 +1325,30 @@ def _class_setattr(
 
         fqn = build_namespaced_name(name=f"{cls.namespace}.{key}")
         existing_feature = next((f for f in cls.features if f.fqn == fqn), None)
-
+        typ = parse_inline_setattr_annotation(key)
         is_notebook_expression: bool = notebook.is_notebook()
-        if is_notebook_expression:
-            # In notebooks, newly-defined underscores are stored separately, as "feature expressions".
-            # These don't correspond to real features
-            if existing_feature is not None:
-                raise ValueError(f"Can't overwrite feature '{fqn}' because it already exists in the deployment source.")
-            cls.__chalk_notebook_feature_expressions__[key] = NamedUnderscoreExpr(expr=value, fqn=fqn, short_name=key)
-        else:
-            typ = parse_inline_setattr_annotation(key)
-            if typ is None:
-                if existing_feature is None:
-                    raise TypeError(f"Please define a type annotation for feature '{fqn}'")
-                else:
-                    parsed_annotation = ParsedAnnotation(underlying=existing_feature.typ.parsed_annotation)
-            else:
-                parsed_annotation = ParsedAnnotation(underlying=typ)
 
-            if existing_feature is not None:
-                existing_feature.typ = parsed_annotation
-                existing_feature.underscore_expression = value
+        if typ is None:
+            # Notebook defined features require a type annotation
+            if is_notebook_expression or existing_feature is None:
+                raise TypeError(f"Please define a type annotation for feature '{fqn}'")
             else:
-                f = Feature(
-                    namespace=cls.namespace,
-                    name=key,
-                    attribute_name=key,
-                    features_cls=cls,
-                    typ=parsed_annotation,
-                    underscore_expression=value,
-                )
+                parsed_annotation = ParsedAnnotation(underlying=existing_feature.typ.parsed_annotation)
+        else:
+            parsed_annotation = ParsedAnnotation(underlying=typ)
+
+        if existing_feature is not None:
+            existing_feature.typ = parsed_annotation
+            existing_feature.underscore_expression = value
+        else:
+            f = Feature(
+                namespace=cls.namespace,
+                name=key,
+                attribute_name=key,
+                features_cls=cls,
+                typ=parsed_annotation,
+                underscore_expression=value,
+            )
     elif isinstance(value, Feature):
         # Handle the case of `User.new_feat = feature(....)` in a notebook
         f = value

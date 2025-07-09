@@ -59,7 +59,7 @@ from bertopic.backend import BaseEmbedder
 from bertopic.representation._mmr import mmr
 from bertopic.backend._utils import select_backend
 from bertopic.vectorizers import ClassTfidfTransformer
-from bertopic.representation import BaseRepresentation
+from bertopic.representation import BaseRepresentation, KeyBERTInspired
 from bertopic.dimensionality import BaseDimensionalityReduction
 from bertopic.cluster._utils import hdbscan_delegator, is_supported_hdbscan
 from bertopic._utils import (
@@ -1574,7 +1574,7 @@ class BERTopic:
         self.topic_representations_ = self._extract_words_per_topic(words, documents)
 
         # Update topic vectors
-        if set(topics) != self.topics_:
+        if set(topics) != set(self.topics_):
             # Remove outlier topic embedding if all that has changed is the outlier class
             same_position = all(
                 [
@@ -3488,14 +3488,32 @@ class BERTopic:
         merged_model = BERTopic.merge_models([topic_model_1, topic_model_2, topic_model_3])
         ```
         """
-        import torch
+
+        def choose_backend():
+            """Choose the backend to use for saving the model."""
+            try:
+                import torch  # noqa: F401
+
+                return "pytorch"
+            except (ModuleNotFoundError, ImportError):
+                try:
+                    import safetensors  # noqa: F401
+
+                    return "safetensors"
+                except (ModuleNotFoundError, ImportError):
+                    raise ImportError(
+                        "Neither pytorch nor safetensors is installed. "
+                        "Please install at least one of these packages:\n"
+                        "  pip install torch\n"
+                        "  pip install safetensors"
+                    )
 
         # Temporarily save model and push to HF
         with TemporaryDirectory() as tmpdir:
             # Save model weights and config.
             all_topics, all_params, all_tensors = [], [], []
             for index, model in enumerate(models):
-                model.save(tmpdir, serialization="pytorch")
+                model.save(tmpdir, serialization=choose_backend())
                 topics, params, tensors, _, _, _ = save_utils.load_local_files(Path(tmpdir))
                 all_topics.append(topics)
                 all_params.append(params)
@@ -3570,7 +3588,7 @@ class BERTopic:
             merged_topics["topic_sizes"] = dict(Counter(merged_topics["topics"]))
 
         # Create a new model from the merged parameters
-        merged_tensors = {"topic_embeddings": torch.from_numpy(merged_tensors)}
+        merged_tensors = {"topic_embeddings": merged_tensors}
         merged_model = _create_model_from_files(
             merged_topics,
             merged_params,
@@ -4033,6 +4051,7 @@ class BERTopic:
             documents,
             fine_tune_representation=fine_tune_representation,
             calculate_aspects=fine_tune_representation,
+            embeddings=embeddings,
         )
         self._create_topic_vectors(documents=documents, embeddings=embeddings, mappings=mappings)
 
@@ -4293,6 +4312,7 @@ class BERTopic:
         c_tf_idf: csr_matrix = None,
         fine_tune_representation: bool = True,
         calculate_aspects: bool = True,
+        embeddings: np.ndarray = None,
     ) -> Mapping[str, List[Tuple[str, float]]]:
         """Based on tf_idf scores per topic, extract the top n words per topic.
 
@@ -4308,6 +4328,8 @@ class BERTopic:
             fine_tune_representation: If True, the topic representation will be fine-tuned using representation models.
                                       If False, the topic representation will remain as the base c-TF-IDF representation.
             calculate_aspects: Whether to calculate additional topic aspects
+            embeddings: Pre-trained document embeddings. These can be used
+                        instead of an embedding model
 
         Returns:
             topics: The top words per topic
@@ -4343,6 +4365,8 @@ class BERTopic:
         elif fine_tune_representation and isinstance(self.representation_model, list):
             for tuner in self.representation_model:
                 topics = tuner.extract_topics(self, documents, c_tf_idf, topics)
+        elif fine_tune_representation and isinstance(self.representation_model, KeyBERTInspired):
+            topics = self.representation_model.extract_topics(self, documents, c_tf_idf, topics, embeddings)
         elif fine_tune_representation and isinstance(self.representation_model, BaseRepresentation):
             topics = self.representation_model.extract_topics(self, documents, c_tf_idf, topics)
         elif fine_tune_representation and isinstance(self.representation_model, dict):
@@ -4485,7 +4509,6 @@ class BERTopic:
         """
         topics = documents.Topic.tolist().copy()
         unique_topics = sorted(list(documents.Topic.unique()))[self._outliers :]
-        max_topic = unique_topics[-1]
 
         # Find similar topics
         embeddings = select_topic_representation(
@@ -4505,12 +4528,23 @@ class BERTopic:
                 min_cluster_size=2, metric="euclidean", cluster_selection_method="eom", n_jobs=-1
             ).fit_predict(norm_data[self._outliers :])
 
-        # Map similar topics
-        mapped_topics = {
-            unique_topics[index]: prediction + max_topic
-            for index, prediction in enumerate(predictions)
-            if prediction != -1
-        }
+        # Map clusters to their lowest topic_id
+        cluster_to_lowest = {}
+        for cluster, topic_id in zip(predictions, unique_topics):
+            if cluster != -1:  # Ignore unclustered items
+                if cluster not in cluster_to_lowest:
+                    cluster_to_lowest[cluster] = topic_id
+                else:
+                    cluster_to_lowest[cluster] = min(cluster_to_lowest[cluster], topic_id)
+
+        # Map each topic_id to the lowest topic_id in its cluster
+        mapped_topics = {}
+        for cluster, topic_id in zip(predictions, unique_topics):
+            if cluster == -1:
+                mapped_topics[topic_id] = topic_id  # No clustering, stays the same
+            else:
+                mapped_topics[topic_id] = cluster_to_lowest[cluster]
+
         documents.Topic = documents.Topic.map(mapped_topics).fillna(documents.Topic).astype(int)
         mapped_topics = {from_topic: to_topic for from_topic, to_topic in zip(topics, documents.Topic.tolist())}
 

@@ -372,6 +372,18 @@ from agilicus_api.model.launcher_config import LauncherConfig
 from agilicus_api.model.launcher_spec import LauncherSpec
 from agilicus_api.model.launcher_status import LauncherStatus
 from agilicus_api.model.learning_mode_spec import LearningModeSpec
+from agilicus_api.model.license import License
+from agilicus_api.model.license_constraint import LicenseConstraint
+from agilicus_api.model.license_constraint_expression import LicenseConstraintExpression
+from agilicus_api.model.license_constraint_name import LicenseConstraintName
+from agilicus_api.model.license_constraint_variables import LicenseConstraintVariables
+from agilicus_api.model.license_details import LicenseDetails
+from agilicus_api.model.license_evaluation_input import LicenseEvaluationInput
+from agilicus_api.model.license_spec import LicenseSpec
+from agilicus_api.model.licensed_feature import LicensedFeature
+from agilicus_api.model.licensed_feature_name import LicensedFeatureName
+from agilicus_api.model.licensed_product import LicensedProduct
+from agilicus_api.model.licensed_product_name import LicensedProductName
 from agilicus_api.model.list_api_keys_response import ListAPIKeysResponse
 from agilicus_api.model.list_access_requests_response import ListAccessRequestsResponse
 from agilicus_api.model.list_active_users_response import ListActiveUsersResponse
@@ -432,6 +444,8 @@ from agilicus_api.model.list_jwks import ListJWKS
 from agilicus_api.model.list_labelled_objects_response import ListLabelledObjectsResponse
 from agilicus_api.model.list_labels_response import ListLabelsResponse
 from agilicus_api.model.list_launchers_response import ListLaunchersResponse
+from agilicus_api.model.list_license_details_response import ListLicenseDetailsResponse
+from agilicus_api.model.list_licenses_response import ListLicensesResponse
 from agilicus_api.model.list_logs_response import ListLogsResponse
 from agilicus_api.model.list_mfa_challenge_methods import ListMFAChallengeMethods
 from agilicus_api.model.list_message_endpoints_response import ListMessageEndpointsResponse
@@ -442,6 +456,7 @@ from agilicus_api.model.list_point_of_presences_response import ListPointOfPrese
 from agilicus_api.model.list_policies_response import ListPoliciesResponse
 from agilicus_api.model.list_policy_rules_response import ListPolicyRulesResponse
 from agilicus_api.model.list_policy_template_instances_response import ListPolicyTemplateInstancesResponse
+from agilicus_api.model.list_product_table_versions_response import ListProductTableVersionsResponse
 from agilicus_api.model.list_products_response import ListProductsResponse
 from agilicus_api.model.list_public_file_org_links_response import ListPublicFileOrgLinksResponse
 from agilicus_api.model.list_region_response import ListRegionResponse
@@ -619,6 +634,10 @@ from agilicus_api.model.previous_page_email import PreviousPageEmail
 from agilicus_api.model.product import Product
 from agilicus_api.model.product_spec import ProductSpec
 from agilicus_api.model.product_status import ProductStatus
+from agilicus_api.model.product_table import ProductTable
+from agilicus_api.model.product_table_version import ProductTableVersion
+from agilicus_api.model.product_table_version_spec import ProductTableVersionSpec
+from agilicus_api.model.product_table_version_string import ProductTableVersionString
 from agilicus_api.model.public_file_org_link import PublicFileOrgLink
 from agilicus_api.model.public_file_org_link_spec import PublicFileOrgLinkSpec
 from agilicus_api.model.raw_token import RawToken
@@ -767,6 +786,8 @@ from agilicus_api.model.stats_publishing_connector_type_config import StatsPubli
 from agilicus_api.model.stats_publishing_level_config import StatsPublishingLevelConfig
 from agilicus_api.model.storage_info import StorageInfo
 from agilicus_api.model.storage_region import StorageRegion
+from agilicus_api.model.subscription_evaluation_input import SubscriptionEvaluationInput
+from agilicus_api.model.subscription_usage_input import SubscriptionUsageInput
 from agilicus_api.model.support_request import SupportRequest
 from agilicus_api.model.support_request_acknowledgement import SupportRequestAcknowledgement
 from agilicus_api.model.support_request_acknowledgement_spec import SupportRequestAcknowledgementSpec

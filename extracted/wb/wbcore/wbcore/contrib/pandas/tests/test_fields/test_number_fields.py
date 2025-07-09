@@ -14,8 +14,6 @@ class TestPandasYearField:
         ],
     )
     def test_pandas_year_field_values(self, key, label):
-        field = PandasYearField(key=key, label=label, precision=2, decimal_mark="*", delimiter=",")
+        field = PandasYearField(key=key, label=label, precision=2)
         representation = field.to_dict()
         assert representation["precision"] == 0
-        assert representation["decimal_mark"] == "."
-        assert representation["delimiter"] == ""

@@ -2,6 +2,7 @@
 # yapf: disable
 
 import datetime
+import fnmatch
 import functools
 import io
 import os
@@ -43,8 +44,14 @@ from modelscope.hub.constants import (API_HTTP_CLIENT_MAX_RETRIES,
                                       MODELSCOPE_REQUEST_ID,
                                       MODELSCOPE_URL_SCHEME, ONE_YEAR_SECONDS,
                                       REQUESTS_API_HTTP_METHOD,
-                                      TEMPORARY_FOLDER_NAME, DatasetVisibility,
-                                      Licenses, ModelVisibility, Visibility,
+                                      TEMPORARY_FOLDER_NAME,
+                                      UPLOAD_MAX_FILE_COUNT,
+                                      UPLOAD_MAX_FILE_COUNT_IN_DIR,
+                                      UPLOAD_MAX_FILE_SIZE,
+                                      UPLOAD_NORMAL_FILE_SIZE_TOTAL_LIMIT,
+                                      UPLOAD_SIZE_THRESHOLD_TO_ENFORCE_LFS,
+                                      DatasetVisibility, Licenses,
+                                      ModelVisibility, Visibility,
                                       VisibilityMap)
 from modelscope.hub.errors import (InvalidParameter, NotExistError,
                                    NotLoginException, RequestError,
@@ -839,7 +846,7 @@ class HubApi:
                         model_id: str,
                         revision: Optional[str] = DEFAULT_MODEL_REVISION,
                         root: Optional[str] = None,
-                        recursive: Optional[str] = False,
+                        recursive: Optional[bool] = False,
                         use_cookies: Union[bool, CookieJar] = False,
                         headers: Optional[dict] = {},
                         endpoint: Optional[str] = None) -> List[dict]:
@@ -849,7 +856,7 @@ class HubApi:
             model_id (str): The model id
             revision (Optional[str], optional): The branch or tag name.
             root (Optional[str], optional): The root path. Defaults to None.
-            recursive (Optional[str], optional): Is recursive list files. Defaults to False.
+            recursive (Optional[bool], optional): Is recursive list files. Defaults to False.
             use_cookies (Union[bool, CookieJar], optional): If is cookieJar, we will use this cookie, if True,
                         will load cookie from local. Defaults to False.
             headers: request headers
@@ -2087,6 +2094,114 @@ class HubApi:
 
         return region_id
 
+    def delete_files(self,
+                     repo_id: str,
+                     repo_type: str,
+                     delete_patterns: Union[str, List[str]],
+                     *,
+                     revision: Optional[str] = DEFAULT_MODEL_REVISION,
+                     endpoint: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Delete files in batch using glob (wildcard) patterns, e.g. '*.py', 'data/*.csv', 'foo*', etc.
+
+        Example:
+            # Delete all Python and Markdown files in a model repo
+            api.delete_files(
+                repo_id='your_username/your_model',
+                repo_type=REPO_TYPE_MODEL,
+                delete_patterns=['*.py', '*.md']
+            )
+
+            # Delete all CSV files in the data/ directory of a dataset repo
+            api.delete_files(
+                repo_id='your_username/your_dataset',
+                repo_type=REPO_TYPE_DATASET,
+                delete_patterns='data/*.csv'
+            )
+
+        Args:
+            repo_id (str): 'owner/repo_name' or 'owner/dataset_name', e.g. 'Koko/my_model'
+            repo_type (str): REPO_TYPE_MODEL or REPO_TYPE_DATASET
+            delete_patterns (str or List[str]): List of glob patterns, e.g. '*.py', 'data/*.csv', 'foo*'
+            revision (str, optional): Branch or tag name
+            endpoint (str, optional): API endpoint
+        Returns:
+            dict: Deletion result
+        """
+        if repo_type not in REPO_TYPE_SUPPORT:
+            raise ValueError(f'Unsupported repo_type: {repo_type}')
+        if not delete_patterns:
+            raise ValueError('delete_patterns cannot be empty')
+        if isinstance(delete_patterns, str):
+            delete_patterns = [delete_patterns]
+
+        cookies = ModelScopeConfig.get_cookies()
+        if not endpoint:
+            endpoint = self.endpoint
+        if cookies is None:
+            raise ValueError('Token does not exist, please login first.')
+        headers = self.builder_headers(self.headers)
+
+        # List all files in the repo
+        if repo_type == REPO_TYPE_MODEL:
+            files = self.get_model_files(
+                repo_id,
+                revision=revision or DEFAULT_MODEL_REVISION,
+                recursive=True,
+                endpoint=endpoint
+            )
+            file_list = [f['Path'] for f in files]
+        else:
+            namespace, dataset_name = repo_id.split('/')
+            dataset_hub_id, _ = self.get_dataset_id_and_type(dataset_name, namespace, endpoint=endpoint)
+            dataset_info = self.get_dataset_infos(
+                dataset_hub_id,
+                revision or DEFAULT_DATASET_REVISION,
+                recursive='True',
+                endpoint=endpoint
+            )
+            files = dataset_info.get('Data', {}).get('Files', [])
+            file_list = [f['Path'] for f in files]
+
+        # Glob pattern matching
+        to_delete = []
+        for path in file_list:
+            for delete_pattern in delete_patterns:
+                if fnmatch.fnmatch(path, delete_pattern):
+                    to_delete.append(path)
+                    break
+
+        deleted_files, failed_files = [], []
+        for path in to_delete:
+            try:
+                if repo_type == REPO_TYPE_MODEL:
+                    owner, repo_name = repo_id.split('/')
+                    url = f'{endpoint}/api/v1/models/{owner}/{repo_name}/file'
+                    params = {
+                        'Revision': revision or DEFAULT_MODEL_REVISION,
+                        'FilePath': path
+                    }
+                else:
+                    owner, dataset_name = repo_id.split('/')
+                    url = f'{endpoint}/api/v1/datasets/{owner}/{dataset_name}/repo'
+                    params = {
+                        'FilePath': path
+                    }
+                r = self.session.delete(url, params=params, cookies=cookies, headers=headers)
+                raise_for_http_status(r)
+                resp = r.json()
+                raise_on_error(resp)
+                deleted_files.append(path)
+            except Exception as e:
+                failed_files.append(path)
+                logger.error(f'Failed to delete {path}: {str(e)}')
+
+        return {
+            'deleted_files': deleted_files,
+            'failed_files': failed_files,
+            'total_files': len(to_delete)
+        }
+
 
 class ModelScopeConfig:
     path_credential = expanduser(DEFAULT_CREDENTIALS_PATH)
@@ -2234,11 +2349,11 @@ class ModelScopeConfig:
 class UploadingCheck:
     def __init__(
             self,
-            max_file_count: int = 100_000,
-            max_file_count_in_dir: int = 50_000,
-            max_file_size: int = 50 * 1024 ** 3,
-            size_threshold_to_enforce_lfs: int = 1 * 1024 * 1024,
-            normal_file_size_total_limit: int = 500 * 1024 * 1024,
+            max_file_count: int = UPLOAD_MAX_FILE_COUNT,
+            max_file_count_in_dir: int = UPLOAD_MAX_FILE_COUNT_IN_DIR,
+            max_file_size: int = UPLOAD_MAX_FILE_SIZE,
+            size_threshold_to_enforce_lfs: int = UPLOAD_SIZE_THRESHOLD_TO_ENFORCE_LFS,
+            normal_file_size_total_limit: int = UPLOAD_NORMAL_FILE_SIZE_TOTAL_LIMIT,
     ):
         self.max_file_count = max_file_count
         self.max_file_count_in_dir = max_file_count_in_dir
@@ -2254,8 +2369,8 @@ class UploadingCheck:
 
         file_size: int = get_file_size(file_path_or_obj)
         if file_size > self.max_file_size:
-            raise ValueError(f'File exceeds size limit: {self.max_file_size / (1024 ** 3)} GB, '
-                             f'got {round(file_size / (1024 ** 3), 4)} GB')
+            logger.warning(f'File exceeds size limit: {self.max_file_size / (1024 ** 3)} GB, '
+                           f'got {round(file_size / (1024 ** 3), 4)} GB')
 
     def check_folder(self, folder_path: Union[str, Path]):
         file_count = 0
@@ -2269,8 +2384,8 @@ class UploadingCheck:
                 file_count += 1
                 item_size: int = get_file_size(item)
                 if item_size > self.max_file_size:
-                    raise ValueError(f'File {item} exceeds size limit: {self.max_file_size / (1024 ** 3)} GB',
-                                     f'got {round(item_size / (1024 ** 3), 4)} GB')
+                    logger.warning(f'File {item} exceeds size limit: {self.max_file_size / (1024 ** 3)} GB',
+                                   f'got {round(item_size / (1024 ** 3), 4)} GB')
             elif item.is_dir():
                 dir_count += 1
                 # Count items in subdirectories recursively

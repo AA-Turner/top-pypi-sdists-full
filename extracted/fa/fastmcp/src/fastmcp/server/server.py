@@ -43,6 +43,7 @@ from starlette.routing import BaseRoute, Route
 import fastmcp
 import fastmcp.server
 from fastmcp.exceptions import DisabledError, NotFoundError
+from fastmcp.mcp_config import MCPConfig
 from fastmcp.prompts import Prompt, PromptManager
 from fastmcp.prompts.prompt import FunctionPrompt
 from fastmcp.resources import Resource, ResourceManager
@@ -63,7 +64,6 @@ from fastmcp.utilities.cache import TimedCache
 from fastmcp.utilities.cli import log_server_banner
 from fastmcp.utilities.components import FastMCPComponent
 from fastmcp.utilities.logging import get_logger
-from fastmcp.utilities.mcp_config import MCPConfig
 from fastmcp.utilities.types import NotSet, NotSetT
 
 if TYPE_CHECKING:
@@ -1931,10 +1931,39 @@ class FastMCP(Generic[LifespanResultT]):
 
         if isinstance(backend, Client):
             client = backend
-        else:
-            client = ProxyClient(backend)
+            # Session strategy based on client connection state:
+            # - Connected clients: reuse existing session for all requests
+            # - Disconnected clients: create fresh sessions per request for isolation
+            if client.is_connected():
+                from fastmcp.utilities.logging import get_logger
 
-        return FastMCPProxy(client=client, **settings)
+                logger = get_logger(__name__)
+                logger.info(
+                    "Proxy detected connected client - reusing existing session for all requests. "
+                    "This may cause context mixing in concurrent scenarios."
+                )
+
+                # Reuse sessions - return the same client instance
+                def reuse_client_factory():
+                    return client
+
+                client_factory = reuse_client_factory
+            else:
+                # Fresh sessions per request
+                def fresh_client_factory():
+                    return client.new()
+
+                client_factory = fresh_client_factory
+        else:
+            base_client = ProxyClient(backend)
+
+            # Fresh client created from transport - use fresh sessions per request
+            def proxy_client_factory():
+                return base_client.new()
+
+            client_factory = proxy_client_factory
+
+        return FastMCPProxy(client_factory=client_factory, **settings)
 
     @classmethod
     def from_client(

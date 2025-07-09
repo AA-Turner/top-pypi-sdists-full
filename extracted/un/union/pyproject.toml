@@ -26,9 +26,10 @@ dependencies = [
     "flytekit>=v1.15.4",
     "flyteidl>=v1.15.3",
     "sentry-sdk>=2.0.0",
+    "tomli; python_version <= '3.10'",
     "mashumaro",
     # Actors are only required for linux and execution
-    "unionai-actor>=0.1.9; platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "unionai-actor>=0.1.10; platform_system == 'Linux' and platform_machine == 'x86_64'",
     "pyyaml",
     "typing_extensions",
     # Temporary fix for segfault issue on windows

@@ -9,9 +9,13 @@ rlla0 = (radians(lla0[0]), radians(lla0[1]), lla0[2])
 
 xyz0 = (660675.2518247, -4700948.68316, 4245737.66222)
 
-ELL = pm.Ellipsoid.from_name("wgs84")
-A = ELL.semimajor_axis
-B = ELL.semiminor_axis
+
+def get_ellipsoid_params():
+    ell = pm.Ellipsoid.from_name("wgs84")
+    return ell.semimajor_axis, ell.semiminor_axis
+
+
+A, B = get_ellipsoid_params()
 
 xyzlla = [
     ((A, 0, 0), (0, 0, 0)),
@@ -66,9 +70,12 @@ def test_scalar_geodetic2ecef(lla):
     lla1 = pm.ecef2geodetic(*xyz)
 
     try:
-        np.testing.assert_allclose(lla1, lla, rtol=1e-4)
+        lla1 = np.array(lla1)
+        lla = np.array(lla)
     except NameError:
-        assert lla1 == approx(lla, rel=1e-4)
+        pass
+
+    assert lla1 == approx(lla, rel=1e-4)
 
     if scalar:
         assert all(isinstance(n, float) for n in xyz)
@@ -103,9 +110,12 @@ def test_scalar_ecef2geodetic(xyz):
     xyz1 = pm.geodetic2ecef(*lla)
 
     try:
-        np.testing.assert_allclose(xyz1, xyz, rtol=1e-4)
+        xyz1 = np.array(xyz1)
+        xyz = np.array(xyz)
     except NameError:
-        assert xyz1 == approx(xyz, rel=1e-4)
+        pass
+
+    assert xyz1 == approx(xyz, rel=1e-4)
 
     if scalar:
         assert all(isinstance(n, float) for n in xyz1)

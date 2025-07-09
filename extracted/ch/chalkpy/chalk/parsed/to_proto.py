@@ -33,6 +33,7 @@ from chalk.features import (
 )
 from chalk.features._encoding.converter import PrimitiveFeatureConverter
 from chalk.features._encoding.rich import TRich
+from chalk.features._encoding.serialized_rich_type import SerializedRichType
 from chalk.features.pseudofeatures import PSEUDONAMESPACE
 from chalk.features.resolver import (
     Cron,
@@ -820,6 +821,33 @@ class ToProtoConverter:
         )
         return res
 
+    @staticmethod
+    def _serialized_rich_type_to_proto(typ: SerializedRichType) -> pb.RichClassType:
+        return pb.RichClassType(
+            module_name=typ.module_name,
+            qualname=typ.qualname,
+            params=tuple(ToProtoConverter._serialized_rich_type_to_proto(p) for p in typ.type_params),
+        )
+
+    @classmethod
+    def convert_rich_type_info(cls, f: Feature) -> pb.FeatureRichTypeInfo:
+        typ = f.typ.parsed_annotation
+        proto_rich_type: pb.FeatureRichType | None = None
+        try:
+            serialized_rich_type = SerializedRichType.from_typ(typ)
+            proto_rich_type = pb.FeatureRichType(
+                class_type=ToProtoConverter._serialized_rich_type_to_proto(serialized_rich_type)
+            )
+        except:
+            pass
+        return pb.FeatureRichTypeInfo(
+            rich_type_is_same_as_primitive_type=not f.converter.has_nontrivial_rich_type(),
+            encoder=None,  # TODO ENCODER,
+            decoder=None,  # TODO DECODER,
+            rich_type=proto_rich_type,
+            rich_type_name=str(typ),
+        )
+
     @classmethod
     def convert_scalar(cls, f: Feature) -> pb.FeatureType:
         if not f.is_scalar:
@@ -828,9 +856,7 @@ class ToProtoConverter:
             raise ValueError("Should not be called on features with `path`")
 
         wmp = f.window_materialization_parsed
-        rich_type_info = pb.FeatureRichTypeInfo(
-            rich_type_is_same_as_primitive_type=not f.converter.has_nontrivial_rich_type(),
-        )
+        rich_type_info = cls.convert_rich_type_info(f)
         res = pb.FeatureType(
             scalar=pb.ScalarFeatureType(
                 name=f.name,

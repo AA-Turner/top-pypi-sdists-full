@@ -1,21 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: launchdarkly-openfeature-server
-Version: 0.3.0
+Version: 0.4.2
 Summary: An OpenFeature provider for the LaunchDarkly Python server SDK
-Home-page: https://github.com/launchdarkly/openfeature-python-server
 License: Apache-2.0
 Author: LaunchDarkly
 Author-email: dev@launchdarkly.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: launchdarkly-server-sdk (<10)
@@ -50,7 +49,7 @@ This provider is designed primarily for use in multi-user systems such as web se
 
 ## Supported Python versions
 
-This version of the LaunchDarkly provider works with Python 3.8 and above.
+This version of the LaunchDarkly provider works with Python 3.9 and above.
 
 ## Getting started
 
