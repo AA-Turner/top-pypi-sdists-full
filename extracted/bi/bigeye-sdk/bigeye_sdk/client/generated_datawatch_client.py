@@ -1768,12 +1768,28 @@ class GeneratedDatawatchClient(abc.ABC):
         return self._call_datawatch(Method.POST, url=url, body=request.to_json())
 
     def get_bulk_metric_observed_column(
-            self, *, metric_ids: List[int] = [], column_ids: List[int] = []
+            self,
+            *,
+            metric_ids: List[int] = [],
+            column_ids: List[int] = [],
+            table_ids: List[int] = [],
+            schema_ids: List[int] = [],
+            source_ids: List[int] = [],
+            is_for_custom_rule: bool = False,
+            remove_duplicate_metrics: bool = False
     ) -> MetricObservedColumnListResponse:
         url = "/api/v1/metric-observed-column/bulk-list"
-        request = GetMetricObservedColumnBulkRequest(metric_ids=metric_ids, column_ids=column_ids)
+        request = GetMetricObservedColumnBulkRequest(
+            metric_ids=metric_ids,
+            column_ids=column_ids,
+            table_ids=table_ids,
+            schema_ids=schema_ids,
+            source_ids=source_ids,
+        ).to_dict()
+
+        request.update({"isForCustomRule": is_for_custom_rule, "removeDuplicateMetrics": remove_duplicate_metrics})
         return MetricObservedColumnListResponse().from_dict(
-            self._call_datawatch(method=Method.POST, url=url, body=request.to_json())
+            self._call_datawatch(method=Method.POST, url=url, body=json.dumps(request))
         )
 
     def create_metric_observed_column(

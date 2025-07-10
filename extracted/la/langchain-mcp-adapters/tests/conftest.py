@@ -16,10 +16,12 @@ def websocket_server_port() -> int:
     raise ValueError("Free port not found!")
 
 
-@pytest.fixture()
+@pytest.fixture
 def websocket_server(websocket_server_port: int) -> Generator[None, None, None]:
     proc = multiprocessing.Process(
-        target=run_server, kwargs={"server_port": websocket_server_port}, daemon=True
+        target=run_server,
+        kwargs={"server_port": websocket_server_port},
+        daemon=True,
     )
     proc.start()
 

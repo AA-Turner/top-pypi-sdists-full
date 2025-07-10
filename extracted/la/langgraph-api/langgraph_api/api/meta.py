@@ -1,3 +1,4 @@
+import langgraph.version
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from langgraph_api import __version__, config, metadata
@@ -16,6 +17,7 @@ async def meta_info(request: ApiRequest):
     return JSONResponse(
         {
             "version": __version__,
+            "langgraph_py_version": langgraph.version.__version__,
             "flags": {
                 "assistants": True,
                 "crons": plus and config.FF_CRONS_ENABLED,

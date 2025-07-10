@@ -78,6 +78,13 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
     This field is protected.
     """
 
+    NO_DELETE_PERMISSIONS_ERROR: str = ...
+    """
+    No delete permissions error message
+    
+    This field is protected.
+    """
+
     @property
     def error_raised(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], None], None]:
         """Event raised each time there's an error"""

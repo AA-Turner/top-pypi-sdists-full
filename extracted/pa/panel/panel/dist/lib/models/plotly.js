@@ -319,7 +319,7 @@ export class PlotlyPlotView extends HTMLBoxView {
         });
     }
     async plot(new_plot = false) {
-        if (!window.Plotly) {
+        if (!window.Plotly || !this.container) {
             return;
         }
         const data = this._trace_data();

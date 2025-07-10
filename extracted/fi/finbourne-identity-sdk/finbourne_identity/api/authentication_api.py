@@ -212,7 +212,7 @@ class AuthenticationApi:
 
     @validate_arguments
     def get_password_policy(self, user_type : Annotated[StrictStr, Field(..., description="The type of user (should only be personal or service)")], async_req: Optional[bool]=None, **kwargs) -> Union[PasswordPolicyResponse, Awaitable[PasswordPolicyResponse]]:  # noqa: E501
-        """[EXPERIMENTAL] GetPasswordPolicy: Gets password policy for a user type  # noqa: E501
+        """GetPasswordPolicy: Gets password policy for a user type  # noqa: E501
 
         Get the password policy for a given user type  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -243,7 +243,7 @@ class AuthenticationApi:
 
     @validate_arguments
     def get_password_policy_with_http_info(self, user_type : Annotated[StrictStr, Field(..., description="The type of user (should only be personal or service)")], **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] GetPasswordPolicy: Gets password policy for a user type  # noqa: E501
+        """GetPasswordPolicy: Gets password policy for a user type  # noqa: E501
 
         Get the password policy for a given user type  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -975,7 +975,7 @@ class AuthenticationApi:
 
     @validate_arguments
     def update_password_policy(self, user_type : Annotated[StrictStr, Field(..., description="The type of user (should only be personal or service)")], update_password_policy_request : Annotated[Optional[UpdatePasswordPolicyRequest], Field(description="The password policy for the given user type")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[PasswordPolicyResponse, Awaitable[PasswordPolicyResponse]]:  # noqa: E501
-        """[EXPERIMENTAL] UpdatePasswordPolicy: Updates password policy for a user type  # noqa: E501
+        """UpdatePasswordPolicy: Updates password policy for a user type  # noqa: E501
 
         Update the password policy for a given user type  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -1008,7 +1008,7 @@ class AuthenticationApi:
 
     @validate_arguments
     def update_password_policy_with_http_info(self, user_type : Annotated[StrictStr, Field(..., description="The type of user (should only be personal or service)")], update_password_policy_request : Annotated[Optional[UpdatePasswordPolicyRequest], Field(description="The password policy for the given user type")] = None, **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] UpdatePasswordPolicy: Updates password policy for a user type  # noqa: E501
+        """UpdatePasswordPolicy: Updates password policy for a user type  # noqa: E501
 
         Update the password policy for a given user type  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an

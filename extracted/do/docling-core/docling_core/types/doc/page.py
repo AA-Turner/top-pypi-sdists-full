@@ -25,9 +25,21 @@ import numpy as np
 from PIL import Image as PILImage
 from PIL import ImageColor, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont
-from pydantic import AnyUrl, BaseModel, Field, model_validator
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    Field,
+    FieldSerializationInfo,
+    field_serializer,
+    model_validator,
+)
 
-from docling_core.types.doc.base import BoundingBox, CoordOrigin
+from docling_core.types.doc.base import (
+    BoundingBox,
+    CoordOrigin,
+    PydanticSerCtxKey,
+    round_pydantic_float,
+)
 from docling_core.types.doc.document import ImageRef
 
 _logger = logging.getLogger(__name__)
@@ -104,6 +116,10 @@ class BoundingRectangle(BaseModel):
     r_y3: float
 
     coord_origin: CoordOrigin = CoordOrigin.BOTTOMLEFT
+
+    @field_serializer("r_x0", "r_y0", "r_x1", "r_y1", "r_x2", "r_y2", "r_x3", "r_y3")
+    def _serialize(self, value: float, info: FieldSerializationInfo) -> float:
+        return round_pydantic_float(value, info.context, PydanticSerCtxKey.COORD_PREC)
 
     @property
     def width(self) -> float:
@@ -273,6 +289,10 @@ class TextCell(ColorMixin, OrderedElement):
 
     confidence: float = 1.0
     from_ocr: bool
+
+    @field_serializer("confidence")
+    def _serialize(self, value: float, info: FieldSerializationInfo) -> float:
+        return round_pydantic_float(value, info.context, PydanticSerCtxKey.CONFID_PREC)
 
     def to_bounding_box(self) -> BoundingBox:
         """Convert the cell rectangle to a BoundingBox."""

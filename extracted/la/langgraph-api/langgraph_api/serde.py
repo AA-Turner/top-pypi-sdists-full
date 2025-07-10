@@ -123,16 +123,18 @@ def _sanitise(o: Any) -> Any:
 
 def json_dumpb(obj) -> bytes:
     try:
-        return orjson.dumps(obj, default=default, option=_option).replace(
-            rb"\u0000", b""
-        )  # null unicode char not allowed in json
+        dumped = orjson.dumps(obj, default=default, option=_option)
     except TypeError as e:
         if "surrogates not allowed" not in str(e):
             raise
-        surrogate_sanitized = _sanitise(obj)
-        return orjson.dumps(
-            surrogate_sanitized, default=default, option=_option
-        ).replace(rb"\u0000", b"")
+        dumped = orjson.dumps(_sanitise(obj), default=default, option=_option)
+    return (
+        # Unfortunately simply doing ``.replace(rb"\\u0000", b"")`` on
+        # the dumped bytes can leave an **orphaned back-slash** (e.g. ``\\q``)
+        # which makes the resulting JSON invalid.  The fix is to delete the *double*
+        # back-slash form **first**, then (optionally) the single-escapes.
+        dumped.replace(rb"\\u0000", b"").replace(rb"\u0000", b"")
+    )
 
 
 def json_loads(content: bytes | Fragment | dict) -> Any:
@@ -153,6 +155,10 @@ class Serializer(JsonPlusSerializer):
             return super().dumps_typed(obj)
         except TypeError:
             return "pickle", cloudpickle.dumps(obj)
+
+    def dumps(self, obj: Any) -> bytes:
+        # See comment above (in json_dumpb)
+        return super().dumps(obj).replace(rb"\\u0000", b"").replace(rb"\u0000", b"")
 
     def loads_typed(self, data: tuple[str, bytes]) -> Any:
         if data[0] == "pickle":

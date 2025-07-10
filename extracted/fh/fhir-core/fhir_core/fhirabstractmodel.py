@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import decimal
-
 import inspect
 import logging
 import typing
@@ -437,6 +436,7 @@ class FHIRAbstractModel(BaseModel):
         *,
         strict: bool | None = None,
         context: typing.Any | None = None,
+        xmlparser: typing.Any | None = None,
     ) -> Self:
         """Usage docs: https://pypi.org/project/fhir.resources/#XML
 
@@ -446,6 +446,7 @@ class FHIRAbstractModel(BaseModel):
             xml_data: The YAML data to validate.
             strict: Whether to enforce types strictly.
             context: Extra variables to pass to the validator.
+            xmlparser: Custom XML parser to use. If not provided, the default parser will be used.
 
         Returns:
             The validated Pydantic model.
@@ -457,8 +458,11 @@ class FHIRAbstractModel(BaseModel):
             raise ModuleNotFoundError(
                 "You need to install ``lxml`` package to use this method. "
             )
+        if typing.TYPE_CHECKING and xmlparser is not None:
+            from lxml.etree import XMLParser
 
-        me = xml_loads(cls, xml_data)
+            xmlparser = typing.cast(XMLParser, xmlparser)
+        me = xml_loads(cls, xml_data, xmlparser=xmlparser)
         if typing.TYPE_CHECKING:
             me = typing.cast(Self, me)
         return me
@@ -484,7 +488,6 @@ class FHIRAbstractModel(BaseModel):
         alias_maps = self.__class__.get_alias_mapping()
         summery_elements_sequence = self.__class__.summary_elements_sequence()
         for prop_name in self.__class__.elements_sequence():
-
             if (
                 self.__fhir_serialization_summary_only__
                 and prop_name not in summery_elements_sequence
@@ -504,8 +507,11 @@ class FHIRAbstractModel(BaseModel):
             if value is not None or (info.exclude_none is False and value is None):
                 yield dict_key, value
 
-            # looking for comments or primitive extension for primitive data type
-            if is_primitive:
+            # Conditional looking for comments or primitive extension for primitive data type
+            # xxx: we are intentionally ignore any primitive type extension
+            # even if the main primitive field doesn't have value. Fx.
+            # Patient.gender is None, but Patient.gender_ext (_gender) has value.
+            if is_primitive and not self.__fhir_serialization_summary_only__:
                 ext_key = f"{field_key}__ext"
                 ext_val = self.__dict__.get(ext_key, None)
                 if ext_val is not None:
@@ -520,11 +526,13 @@ class FHIRAbstractModel(BaseModel):
                     )
                     if ext_val is not None and len(ext_val) > 0:
                         yield dict_key_, ext_val
-        # looking for comments
-        comments = self.__dict__.get(FHIR_COMMENTS_FIELD_NAME, None)
+        if not self.__fhir_serialization_summary_only__:
+            # Potential comments should be included, if not summary mode is off
+            # looking for comments
+            comments = self.__dict__.get(FHIR_COMMENTS_FIELD_NAME, None)
 
-        if comments is not None and not self.__fhir_serialization_exclude_comment__:
-            yield FHIR_COMMENTS_FIELD_NAME, comments
+            if comments is not None and not self.__fhir_serialization_exclude_comment__:
+                yield FHIR_COMMENTS_FIELD_NAME, comments
 
     def _serialize_non_primitive_value(
         self,
@@ -548,6 +556,7 @@ class FHIRAbstractModel(BaseModel):
         if isinstance(value, FHIRAbstractModel):
             return value.model_dump(
                 exclude_comments=self.__fhir_serialization_exclude_comment__,
+                summary_only=self.__fhir_serialization_summary_only__,
                 mode=info.mode,
                 by_alias=info.by_alias,
                 exclude_none=info.exclude_none,

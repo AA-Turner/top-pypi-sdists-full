@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.13.67
+Version: 0.13.68
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -48,7 +48,7 @@ Requires-Dist: dataclasses-json==0.6.7
 Requires-Dist: decorator==5.2.1
 Requires-Dist: deprecation==2.1.0
 Requires-Dist: dlt-cratedb==0.0.1
-Requires-Dist: dlt==1.10.0
+Requires-Dist: dlt==1.11.0
 Requires-Dist: dnspython==2.7.0
 Requires-Dist: duckdb-engine==0.17.0
 Requires-Dist: duckdb==1.2.1

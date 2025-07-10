@@ -2961,6 +2961,7 @@ class Instance(ServiceResource):
     tags: List[TagTypeDef]
     virtualization_type: VirtualizationTypeType
     cpu_options: CpuOptionsTypeDef
+    capacity_block_id: str
     capacity_reservation_id: str
     capacity_reservation_specification: CapacityReservationSpecificationResponseTypeDef
     hibernation_options: HibernationOptionsTypeDef

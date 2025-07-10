@@ -17,10 +17,7 @@ from clarifai.utils.constants import (
     DEFAULT_LOCAL_DEV_NODEPOOL_ID,
 )
 from clarifai.utils.logging import logger
-from clarifai.utils.misc import (
-    clone_github_repo,
-    format_github_repo_url,
-)
+from clarifai.utils.misc import clone_github_repo, format_github_repo_url
 
 
 @cli.group(
@@ -60,7 +57,12 @@ def model():
     required=False,
     help='Git branch to clone from the GitHub repository. If not specified, the default branch will be used.',
 )
-def init(model_path, model_type_id, github_pat, github_repo, branch):
+@click.option(
+    '--local-ollama-model',
+    is_flag=True,
+    help='Create an Ollama model template by cloning from GitHub repository.',
+)
+def init(model_path, model_type_id, github_pat, github_repo, branch, local_ollama_model):
     """Initialize a new model directory structure.
 
     Creates the following structure in the specified directory:
@@ -76,6 +78,15 @@ def init(model_path, model_type_id, github_pat, github_repo, branch):
 
     MODEL_PATH: Path where to create the model directory structure. If not specified, the current directory is used by default.
     """
+    # Handle the --local-ollama-model flag
+    if local_ollama_model:
+        if github_repo or branch:
+            raise click.ClickException(
+                "Cannot specify both --local-ollama-model and --github-repo/--branch"
+            )
+        github_repo = "https://github.com/Clarifai/runners-examples"
+        branch = "ollama"
+
     # Resolve the absolute path
     model_path = os.path.abspath(model_path)
 
@@ -407,8 +418,16 @@ def run_locally(model_path, port, mode, keep_env, keep_image, skip_dockerfile=Fa
     required=False,
     default=".",
 )
+@click.option(
+    "--pool_size",
+    type=int,
+    is_flag=True,
+    default=1,  # default to 1 thread for local dev runner to avoid rapid depletion of compute time.
+    show_default=True,
+    help="The number of threads to use. On community plan, the compute time allocation is drained at a rate proportional to the number of threads.",
+)  # pylint: disable=range-builtin-not-iterating
 @click.pass_context
-def local_dev(ctx, model_path):
+def local_dev(ctx, model_path, pool_size):
     """Run the model as a local dev runner to help debug your model connected to the API or to
     leverage local compute resources manually. This relies on many variables being present in the env
     of the currently selected context. If they are not present then default values will be used to
@@ -731,6 +750,8 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     # This reads the config.yaml from the model_path so we alter it above first.
     serve(
         model_path,
+        pool_size=pool_size,
+        num_threads=pool_size,
         user_id=user_id,
         compute_cluster_id=compute_cluster_id,
         nodepool_id=nodepool_id,

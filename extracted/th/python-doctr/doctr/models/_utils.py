@@ -63,7 +63,7 @@ def estimate_orientation(
         thresh = img.astype(np.uint8)
 
     page_orientation, orientation_confidence = general_page_orientation or (None, 0.0)
-    if page_orientation and orientation_confidence >= min_confidence:
+    if page_orientation is not None and orientation_confidence >= min_confidence:
         # We rotate the image to the general orientation which improves the detection
         # No expand needed bitmap is already padded
         thresh = rotate_image(thresh, -page_orientation)
@@ -100,7 +100,7 @@ def estimate_orientation(
         estimated_angle = -round(median) if abs(median) != 0 else 0
 
     # combine with the general orientation and the estimated angle
-    if page_orientation and orientation_confidence >= min_confidence:
+    if page_orientation is not None and orientation_confidence >= min_confidence:
         # special case where the estimated angle is mostly wrong:
         # case 1: - and + swapped
         # case 2: estimated angle is completely wrong
@@ -184,7 +184,7 @@ def invert_data_structure(
         dictionary of list when x is a list of dictionaries or a list of dictionaries when x is dictionary of lists
     """
     if isinstance(x, dict):
-        assert len({len(v) for v in x.values()}) == 1, "All the lists in the dictionnary should have the same length."
+        assert len({len(v) for v in x.values()}) == 1, "All the lists in the dictionary should have the same length."
         return [dict(zip(x, t)) for t in zip(*x.values())]
     elif isinstance(x, list):
         return {k: [dic[k] for dic in x] for k in x[0]}

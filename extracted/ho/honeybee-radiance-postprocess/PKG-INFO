@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: honeybee-radiance-postprocess
-Version: 0.4.546
+Version: 0.4.548
 Summary: Postprocessing of Radiance results and matrices
 Home-page: https://github.com/ladybug-tools/honeybee-radiance-postprocess
 Author: Ladybug Tools
@@ -13,7 +13,7 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: honeybee-radiance==1.66.183
+Requires-Dist: honeybee-radiance==1.66.184
 Requires-Dist: numpy<2.0.0
 
 [![Build Status](https://github.com/ladybug-tools/honeybee-radiance-postprocess/actions/workflows/ci.yaml/badge.svg)](https://github.com/ladybug-tools/honeybee-radiance-postprocess/actions)

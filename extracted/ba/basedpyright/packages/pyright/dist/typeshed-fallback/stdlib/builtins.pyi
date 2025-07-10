@@ -2189,7 +2189,7 @@ class bytes(Sequence[int]):
         characters, all remaining cased characters have lowercase.
         """
         ...
-    def translate(self, table: ReadableBuffer | None, /, delete: bytes = b"") -> bytes:
+    def translate(self, table: ReadableBuffer | None, /, delete: ReadableBuffer = b"") -> bytes:
         """
         Return a copy with each character mapped by the given translation table.
 

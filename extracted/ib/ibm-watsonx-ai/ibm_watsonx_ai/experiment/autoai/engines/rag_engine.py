@@ -2,6 +2,9 @@
 #  (C) Copyright IBM Corp. 2024-2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+import gzip
+import io
+import json
 import time
 from copy import deepcopy
 
@@ -466,6 +469,7 @@ class RAGEngine(WMLResource):
         :rtype: RAGPattern
 
         """
+        from ibm_watsonx_ai.foundation_models.extensions.rag.pattern import RAGPattern
 
         details = self.get_run_details()
 
@@ -473,6 +477,19 @@ class RAGEngine(WMLResource):
             details=details, pattern_name=pattern_name
         )
 
+        service_code = self._get_inference_service(details, pattern_name)
+        service_metadata = (
+            self._get_service_metadata(details, pattern_name) if service_code else None
+        )
+
+        if service_metadata and service_code:
+            return RAGPattern(
+                space_id=details["metadata"].get("space_id"),
+                project_id=details["metadata"].get("project_id"),
+                api_client=self._client,
+                store_params=service_metadata,
+                _service_code=service_code,  # if empty, fallback to legacy params for backward compatibility
+            )
         embeddings_settings = pattern_details["context"]["rag_pattern"]["settings"][
             "embeddings"
         ]
@@ -716,8 +733,6 @@ class RAGEngine(WMLResource):
         ]
         chunker = LangChainChunker(**chunking_settings)
 
-        from ibm_watsonx_ai.foundation_models.extensions.rag.pattern import RAGPattern
-
         data_connections = None
         if vector_store._datasource_type == "chroma" and (
             input_data_references := details["entity"]["input_data_references"]
@@ -730,8 +745,8 @@ class RAGEngine(WMLResource):
         pattern = RAGPattern(
             retriever=retriever,
             model=model,
-            prompt_template_text=generation_settings["prompt_template_text"],
-            context_template_text=generation_settings["context_template_text"],
+            prompt_template_text=generation_settings.get("prompt_template_text"),
+            context_template_text=generation_settings.get("context_template_text"),
             space_id=details["metadata"].get("space_id"),
             project_id=details["metadata"].get("project_id"),
             api_client=self._client,
@@ -1178,3 +1193,84 @@ class RAGEngine(WMLResource):
             return response_autoai_rag_api.status_code != 404
         except:
             return False
+
+    def _get_inference_service(
+        self, details: dict, pattern_name: str | None = None
+    ) -> str | None:
+
+        code_connection = self._determine_connection(
+            details=details,
+            location_key="inference_service_code",
+            pattern_name=pattern_name,
+        )
+
+        if not code_connection:
+            return None
+
+        # return to fallback mode for older CPD versions
+        if self._client.CPD_version < 5.3:
+            return None
+
+        code_compressed = bytes(code_connection.read(binary=True))
+
+        with gzip.GzipFile(fileobj=io.BytesIO(code_compressed)) as gz_file:
+            source_code = gz_file.read()
+
+        service_code = source_code.decode()
+        return service_code
+
+    def _get_service_metadata(
+        self, details: dict, pattern_name: str | None = None
+    ) -> dict | None:
+
+        connection = self._determine_connection(
+            details=details,
+            location_key="inference_service_metadata",
+            pattern_name=pattern_name,
+        )
+
+        if not connection:
+            return None
+
+        metadata_binary = bytes(connection.read(binary=True))
+
+        return json.loads(metadata_binary.decode("utf-8"))
+
+    def _determine_connection(
+        self,
+        details: dict,
+        location_key: str,
+        pattern_name: str | None = None,
+    ) -> DataConnection | None:
+
+        pattern_details = self.get_best_pattern_details(
+            details=details, pattern_name=pattern_name
+        )
+
+        file_location = (
+            pattern_details.get("context", {})
+            .get("rag_pattern", {})
+            .get("location", {})
+            .get(location_key)
+        )
+
+        if not file_location:  # Older CPD versions may not contain `location_key`
+            self._logger.debug(
+                f"Could not find specific location for `{location_key}`."
+            )
+            return None
+
+        results_ref = details["entity"]["results_reference"]
+
+        data_connection = DataConnection.from_dict(results_ref)
+
+        if data_connection.location is not None:
+            if hasattr(data_connection.location, "file_name"):
+                setattr(data_connection.location, "file_name", file_location)
+
+            if hasattr(data_connection.location, "path"):
+                setattr(data_connection.location, "path", file_location)
+
+        data_connection.set_client(self._client)
+
+        return data_connection

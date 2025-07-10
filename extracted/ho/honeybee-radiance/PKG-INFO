@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: honeybee-radiance
-Version: 1.66.183
+Version: 1.66.184
 Summary: Daylight and light simulation extension for honeybee.
 Home-page: https://github.com/ladybug-tools/honeybee-radiance
 Author: Ladybug Tools
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: honeybee-core==1.61.29
+Requires-Dist: honeybee-core==1.61.30
 Requires-Dist: honeybee-radiance-folder==2.11.16
 Requires-Dist: honeybee-radiance-command==1.22.5
 Requires-Dist: honeybee-standards==2.0.7

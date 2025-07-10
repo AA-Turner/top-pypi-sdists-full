@@ -23,6 +23,46 @@ class LegacyAuthRequirementsErrorVariant(t.Protocol):
     def to_auth_requirements_error(self) -> GARE: ...
 
 
+class LegacyDependentConsentRequiredAuthError(Serializable):
+    """
+    The dependent_consent_required error format emitted by the Globus Auth service.
+    """
+
+    def __init__(
+        self,
+        *,
+        error: t.Literal["dependent_consent_required"],
+        errors: list[dict[str, str]],
+        extra: dict[str, t.Any] | None = None,
+    ) -> None:
+        self.error = _validate_dependent_consent_required_literal("error", error)
+
+        try:
+            first_error = errors[0]
+            if not isinstance(first_error, dict):
+                raise TypeError
+        except (AttributeError, KeyError, TypeError) as _error:
+            msg = "'errors' must be list of errors with at least one error object"
+            raise exc.ValidationError(msg) from _error
+        self.errors = errors
+        self.unapproved_scopes = validators.str_list(
+            "unapproved_scopes", first_error.get("unapproved_scopes", [])
+        )
+        self.extra = extra or {}
+
+    def to_auth_requirements_error(self) -> GARE:
+        """
+        Return a GlobusAuthRequirementsError representing this error.
+        """
+
+        return GARE(
+            code="ConsentRequired",
+            authorization_parameters=GlobusAuthorizationParameters(
+                required_scopes=self.unapproved_scopes,
+            ),
+        )
+
+
 class LegacyConsentRequiredTransferError(Serializable):
     """
     The ConsentRequired error format emitted by the Globus Transfer service.
@@ -191,3 +231,12 @@ def _validate_consent_required_literal(
     if value == "ConsentRequired":
         return "ConsentRequired"
     raise exc.ValidationError(f"'{name}' must be the string 'ConsentRequired'")
+
+
+def _validate_dependent_consent_required_literal(
+    name: str, value: t.Any
+) -> t.Literal["dependent_consent_required"]:
+    if value == "dependent_consent_required":
+        return "dependent_consent_required"
+    msg = f"'{name}' must be the string 'dependent_consent_required'"
+    raise exc.ValidationError(msg)

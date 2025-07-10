@@ -155,7 +155,7 @@ POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, defau
 RESUMABLE_STREAM_TTL_SECONDS = env(
     "RESUMABLE_STREAM_TTL_SECONDS",
     cast=int,
-    default=3600,  # 1 hour
+    default=120,  # 2 minutes
 )
 
 

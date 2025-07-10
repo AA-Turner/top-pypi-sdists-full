@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpm
-Version: 2.1.0
+Version: 2.3.0
 Summary: MCPM - Model Context Protocol Manager
 Project-URL: Homepage, https://mcpm.sh
 Project-URL: Repository, https://github.com/pathintegral-institute/mcpm.sh
@@ -14,7 +14,7 @@ Requires-Python: >=3.11
 Requires-Dist: click>=8.1.3
 Requires-Dist: deprecated>=1.2.18
 Requires-Dist: duckdb>=1.2.2
-Requires-Dist: fastmcp>=2.0.0
+Requires-Dist: fastmcp==2.10.2
 Requires-Dist: inquirerpy>=0.3.4
 Requires-Dist: mcp>=1.8.0
 Requires-Dist: prompt-toolkit>=3.0.0
@@ -25,6 +25,8 @@ Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich-gradient>=0.3.2
 Requires-Dist: rich>=12.0.0
 Requires-Dist: ruamel-yaml>=0.18.10
+Requires-Dist: tomli-w>=1.2.0
+Requires-Dist: tomli>=2.2.1
 Requires-Dist: watchfiles>=1.0.4
 Description-Content-Type: text/markdown
 

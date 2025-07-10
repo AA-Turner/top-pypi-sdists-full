@@ -645,14 +645,18 @@ class CloudController(BaseController):
         gcp_cloud_storage_bucket_id = cloud_resources["storage.v1.bucket"]
         gcp_deployment_manager_id = deployment_name
 
-        gcp_filestore_config = gcp_utils.get_gcp_filestore_config(
-            factory,
-            project_id,
-            gcp_vpc_id,
-            cloud_resources["filestore_location"],
-            cloud_resources["filestore_instance"],
-            self.log,
-        )
+        gcp_filestore_config = None
+        if cloud_resources.get("filestore_location") and cloud_resources.get(
+            "filestore_instance"
+        ):
+            gcp_filestore_config = gcp_utils.get_gcp_filestore_config(
+                factory,
+                project_id,
+                gcp_vpc_id,
+                cloud_resources["filestore_location"],
+                cloud_resources["filestore_instance"],
+                self.log,
+            )
         memorystore_instance_config = gcp_utils.get_gcp_memorystore_config(
             factory, cloud_resources.get("memorystore_name"),
         )

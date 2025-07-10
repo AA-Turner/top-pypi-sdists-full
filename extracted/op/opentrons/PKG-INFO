@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opentrons
-Version: 8.4.1
+Version: 8.5.0
 Summary: The Opentrons API is a simple framework designed to make writing automated biology lab protocols easy.
 Author: Opentrons
 Author-email: engineering@opentrons.com
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 License-File: ../LICENSE
-Requires-Dist: opentrons-shared-data==8.4.1
+Requires-Dist: opentrons-shared-data==8.5.0
 Requires-Dist: aionotify==0.3.1
 Requires-Dist: anyio<4.0.0,>=3.6.1
 Requires-Dist: jsonschema<4.18.0,>=3.0.1
@@ -35,9 +35,9 @@ Requires-Dist: pyusb==1.2.1
 Requires-Dist: importlib-metadata>=1.0; python_version < "3.8"
 Requires-Dist: packaging>=21.0
 Provides-Extra: ot2-hardware
-Requires-Dist: opentrons-hardware==8.4.1; extra == "ot2-hardware"
+Requires-Dist: opentrons-hardware==8.5.0; extra == "ot2-hardware"
 Provides-Extra: flex-hardware
-Requires-Dist: opentrons-hardware[FLEX]==8.4.1; extra == "flex-hardware"
+Requires-Dist: opentrons-hardware[FLEX]==8.5.0; extra == "flex-hardware"
 
 .. _Full API Documentation: http://docs.opentrons.com
 

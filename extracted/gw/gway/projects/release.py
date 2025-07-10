@@ -213,7 +213,16 @@ def build(
                 text=True
             )
             if check_result.returncode != 0:
-                gw.error(f"PyPI README rendering check failed, aborting upload:\n{check_result.stdout}")
+                gw.error(
+                    "PyPI README rendering check failed, aborting upload:\n"
+                    f"{check_result.stdout}"
+                )
+                gw.info("Stashing release changes due to build failure...")
+                subprocess.run(
+                    ["git", "stash", "--include-untracked", "-m", "gway-release-abort"],
+                    check=False,
+                )
+                gw.error("Build aborted. README syntax errors detected.")
                 return
 
             gw.info("Twine check passed. Uploading to PyPI...")
@@ -353,6 +362,34 @@ def loc(*paths):
 
     file_counts['total'] = total_lines
     return file_counts
+
+
+def benchmark_sigils(iterations: int = 10000) -> float:
+    """Benchmark Sigil resolution performance."""
+    from time import perf_counter
+    from gway.sigils import Sigil
+
+    ctx = {
+        "name": "Bench",
+        "num": 42,
+        "info": {"x": 1, "y": 2},
+    }
+    samples = [
+        Sigil("[name]"),
+        Sigil("Value [num]"),
+        Sigil("[info.x]"),
+        Sigil("[info]")
+    ]
+
+    start = perf_counter()
+    for _ in range(iterations):
+        for s in samples:
+            _ = s % ctx
+    elapsed = perf_counter() - start
+    gw.info(
+        f"Resolved {iterations * len(samples)} sigils in {elapsed:.4f}s"
+    )
+    return elapsed
 
 
 def create_shortcut(
@@ -603,10 +640,15 @@ def update_changelog(version: str, build_hash: str, prev_build: str | None = Non
 
 
 def view_changelog():
-    """Render the changelog including any Unreleased section."""
-    from projects.web import site
+    """Render the changelog, hiding an empty ``Unreleased`` section."""
+    from docutils.core import publish_parts
 
-    return site.view_reader(title="CHANGELOG", ext="rst")
+    text = _ensure_changelog()
+    unreleased_body, trimmed = _pop_unreleased(text)
+    if not unreleased_body.strip():
+        text = trimmed
+
+    return publish_parts(source=text, writer_name="html")["html_body"]
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ from torch import nn
 
 from doctr.datasets import VOCABS
 
-from ..resnet.pytorch import ResNet
+from ..resnet import ResNet
 
 __all__ = ["magc_resnet31"]
 
@@ -72,7 +72,7 @@ class MAGC(nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         batch, _, height, width = inputs.size()
         # (N * headers, C / headers, H , W)
-        x = inputs.view(batch * self.headers, self.single_header_inplanes, height, width)
+        x = inputs.contiguous().view(batch * self.headers, self.single_header_inplanes, height, width)
         shortcut = x
         # (N * headers, C / headers, H * W)
         shortcut = shortcut.view(batch * self.headers, self.single_header_inplanes, height * width)

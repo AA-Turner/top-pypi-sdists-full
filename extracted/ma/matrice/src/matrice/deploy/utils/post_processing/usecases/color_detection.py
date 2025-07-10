@@ -905,21 +905,22 @@ class ColorDetectionUseCase(BaseProcessor):
         frame_tracking_stats = tracking_stats[0][frame_key]
         total_detections = color_summary.get("total_detections", 0)
 
-        if total_detections > 0:
-            track_ids_info = self._get_track_ids_info(color_summary.get("detections", []))
-            tracking_stat = {
-                "type": "color_tracking",
-                "category": "visual_appearance",
-                "count": total_detections,
-                "insights": insights,
-                "summary": summary,
-                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-                "human_text": self._generate_human_text_for_tracking(total_detections, color_summary, insights, summary, config),
-                "track_ids_info": track_ids_info,
-                "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-                "local_frame_id": frame_key
-            }
-            frame_tracking_stats.append(tracking_stat)
+        # Always generate tracking stats, even when there are no detections
+        # This ensures track_ids_info and total_count are always available
+        track_ids_info = self._get_track_ids_info(color_summary.get("detections", []))
+        tracking_stat = {
+            "type": "color_tracking",
+            "category": "visual_appearance",
+            "count": total_detections,
+            "insights": insights,
+            "summary": summary,
+            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
+            "human_text": self._generate_human_text_for_tracking(total_detections, color_summary, insights, summary, config),
+            "track_ids_info": track_ids_info,
+            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
+            "local_frame_id": frame_key
+        }
+        frame_tracking_stats.append(tracking_stat)
 
         return tracking_stats
     

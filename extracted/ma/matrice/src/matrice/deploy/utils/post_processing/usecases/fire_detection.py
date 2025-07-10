@@ -4,7 +4,7 @@ Fire and Smoke Detection use case implementation.
 This module provides a structured implementation of fire and smoke detection
 with counting, insights generation, alerting, and tracking.
 """
-
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import time
@@ -228,7 +228,9 @@ class FireSmokeUseCase(BaseProcessor):
             # Step 10: Events and tracking stats
             events = self._generate_events(fire_smoke_summary, alerts, config, frame_number=frame_number)
             tracking_stats = self._generate_tracking_stats(
-                fire_smoke_summary, insights, summary_text, config, frame_number=frame_number
+                fire_smoke_summary, insights, summary_text, config,
+                frame_number=frame_number,
+                stream_info=stream_info
             )
 
             # Finalize context and return result
@@ -564,12 +566,14 @@ class FireSmokeUseCase(BaseProcessor):
             else:
                 level = "info"
 
-            # 🔸 Only keep alerts in human_text
+            # Use consistent formatting for human_text
             human_lines = []
             if total_fire > 0:
-                human_lines.append("Alert: Fire detected")
+                human_lines.append("    - fire detected")
             if total_smoke > 0:
-                human_lines.append("Alert: Smoke detected")
+                human_lines.append("    - smoke detected")
+            if total_fire == 0 and total_smoke == 0:
+                human_lines.append("    - no fire or smoke detected")
 
             fire_smoke_event = {
                 "type": "fire_smoke_detection",
@@ -590,13 +594,15 @@ class FireSmokeUseCase(BaseProcessor):
 
         # Add alert events
         for alert in alerts:
-            alert_text = "Alert triggered"
-            if total_fire > 0 and total_smoke > 0:
-                alert_text = "Fire and Smoke alert triggered"
-            elif total_fire > 0:
-                alert_text = "Fire alert triggered"
-            elif total_smoke > 0:
-                alert_text = "Smoke alert triggered"
+            alert_lines = []
+            if total_fire > 0:
+                alert_lines.append("    - fire detected")
+            if total_smoke > 0:
+                alert_lines.append("    - smoke detected")
+            if total_fire == 0 and total_smoke == 0:
+                alert_lines.append("    - no fire or smoke detected")
+
+            alert_text = "\n".join(alert_lines)
 
             alert_event = {
                 "type": alert.get("type", "fire_smoke_alert"),
@@ -623,7 +629,8 @@ class FireSmokeUseCase(BaseProcessor):
             insights: List[str],
             summary_text: str,
             config: FireSmokeConfig,
-            frame_number: Optional[int] = None
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats for fire and smoke detection with frame-based keys."""
 
@@ -658,13 +665,15 @@ class FireSmokeUseCase(BaseProcessor):
         threshold_area = 10000.0
         intensity_pct = min(100.0, (total_area / threshold_area) * 100)
 
-        # Build human-readable tracking text
+        # Build human-readable tracking text using timestamp-aware method
         human_text = self._generate_human_text_for_tracking(
             total_fire=total_fire,
             total_smoke=total_smoke,
             intensity_pct=intensity_pct,
             insights=insights,
-            summary_text=summary_text
+            summary_text=summary_text,
+            frame_number=frame_number,
+            stream_info=stream_info  #  Ensure timestamp context is passed
         )
 
         tracking_stat = {
@@ -682,24 +691,47 @@ class FireSmokeUseCase(BaseProcessor):
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
+        frame_tracking_stats.append(tracking_stat)
+        return tracking_stats
+
     def _generate_human_text_for_tracking(
             self,
             total_fire: int,
             total_smoke: int,
             intensity_pct: float,
             insights: List[str],
-            summary_text: str
+            summary_text: str,
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Generate alert-only human-readable tracking summary."""
+        """Generate structured and formatted human_text for tracking stats."""
 
+        # Get formatted timestamps using internal helpers
+        current_time_str = self._get_current_timestamp_str(stream_info)
+        start_time_str = self._get_start_timestamp_str(stream_info)
+
+        # Current frame status
+        current_lines = [f"CURRENT FRAME @ {current_time_str}:"]
+        if total_fire > 0:
+            current_lines.append("    - fire detected")
+        if total_smoke > 0:
+            current_lines.append("    - smoke detected")
+        if total_fire == 0 and total_smoke == 0:
+            current_lines.append("    - no fire or smoke detected")
+
+        # Since beginning (start_time_str) block
+        since_lines = [f"\nSINCE {start_time_str}:"]
         if total_fire > 0 and total_smoke > 0:
-            return "Alert: Fire and Smoke detected"
+            since_lines.append("    - alert for fire and smoke")
         elif total_fire > 0:
-            return "Alert: Fire detected"
+            since_lines.append("    - alert for fire")
         elif total_smoke > 0:
-            return "Alert: Smoke detected"
+            since_lines.append("    - alert for smoke")
         else:
-            return "No hazard detected"
+            since_lines.append("    - no alert triggered")
+
+        # Final human text
+        return "\n".join(current_lines + since_lines)
 
     def _count_unique_tracks(self, summary: Dict) -> Optional[int]:
         """Count unique track IDs from detections, if tracking info exists."""
@@ -714,5 +746,67 @@ class FireSmokeUseCase(BaseProcessor):
                 unique_tracks.add(track_id)
 
         return len(unique_tracks) if unique_tracks else None
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+
+        if is_video_chunk:
+            video_timestamp = stream_info.get("video_timestamp", 0.0)
+            return self._format_timestamp_for_video(video_timestamp)
+        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            return stream_info.get("video_timestamp", "")
+        else:
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                try:
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'SINCE' block."""
+        if not stream_info:
+            return "00:00:00"
+
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+
+        if is_video_chunk or stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            return "00:00:00"
+        else:
+            if self._tracking_start_time is None:
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
 
 

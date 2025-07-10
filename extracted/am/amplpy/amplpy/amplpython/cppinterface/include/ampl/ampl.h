@@ -278,15 +278,6 @@ class AMPL {
   }
 
   /**
-   * Get the table with the corresponding name
-   * \param name Name of the table to be found
-   * \throws std::out_of_range exception if the specified table does not exist
-   **/
-  Table getTable(fmt::CStringRef name) const {
-    return Table(ampl_, name.c_str());
-  }
-
-  /**
    * Parses %AMPL code and evaluates it as a possibly empty sequence of %AMPL
    * declarations and statements.
    * <p>
@@ -319,6 +310,11 @@ class AMPL {
    * and invalidates all entities
    */
   void reset() { AMPL_CALL_CPP(AMPL_Reset(ampl_)); }
+
+  /**
+   * Clears all data.
+   */
+  void resetData() { AMPL_CALL_CPP(AMPL_ResetData(ampl_)); }
 
   /**
    * Stops the underlying engine, and release all any further attempt to execute
@@ -911,13 +907,6 @@ class AMPL {
    */
   EntityMap<Parameter> getParameters() const {
     return ampl::EntityMap<ampl::Parameter>(ampl_, AMPL_PARAMETER);
-  }
-
-  /**
-   * Get all the tables declared.
-   */
-  EntityMap<Table> getTables() const {
-    return ampl::EntityMap<ampl::Table>(ampl_, AMPL_TABLE);
   }
 
   /**

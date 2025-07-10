@@ -804,7 +804,12 @@ class VaultUtils:
         cli = VaultUtils._client_from_conn(conn)
         mount, inner = _split_mount_and_path(full_path)
         kv = VaultUtils._kv_version_for_mount(cli, mount)
-        data = VaultUtils._read_kv(cli, mount, inner, kv) or {}
+        data = {}
+        try:
+            data = VaultUtils._read_kv(cli, mount, inner, kv)
+        except hvac.exceptions.InvalidPath:
+            logger.info(f"Secret path '{mount}/{inner}' does not exist – creating it now.")
+
         data[key] = value
         VaultUtils._write_kv(cli, mount, inner, data, kv)
 

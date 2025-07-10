@@ -1,7 +1,7 @@
 const THREE = require('three');
 const BufferGeometryUtils = require('three/examples/jsm/utils/BufferGeometryUtils');
-const {areAllChangesResolve} = require('../helpers/Fn');
-const {commonUpdate} = require('../helpers/Fn');
+const { areAllChangesResolve } = require('../helpers/Fn');
+const { commonUpdate } = require('../helpers/Fn');
 
 /**
  * Loader strategy to handle STL object
@@ -11,11 +11,12 @@ const {commonUpdate} = require('../helpers/Fn');
  * @return {Object} 3D object ready to render
  */
 module.exports = {
-    create(config) {
+    create(config, K3D) {
         config.visible = typeof (config.visible) !== 'undefined' ? config.visible : true;
         config.color = typeof (config.color) !== 'undefined' ? config.color : 255;
         config.wireframe = typeof (config.wireframe) !== 'undefined' ? config.wireframe : false;
         config.flat_shading = typeof (config.flat_shading) !== 'undefined' ? config.flat_shading : true;
+        config.shininess = typeof (config.shininess) !== 'undefined' ? config.shininess : 50.0;
 
         const loader = new THREE.STLLoader();
         const modelMatrix = new THREE.Matrix4();
@@ -23,14 +24,14 @@ module.exports = {
         let material = new MaterialConstructor({
             color: config.color,
             emissive: 0,
-            shininess: 50,
+            shininess: config.shininess,
             specular: 0x111111,
             flatShading: config.flat_shading,
             side: THREE.DoubleSide,
             wireframe: config.wireframe,
         });
-        const {text} = config;
-        const {binary} = config;
+        const { text } = config;
+        const { binary } = config;
         let geometry;
 
         if (text === null || typeof (text) === 'undefined') {
@@ -71,7 +72,7 @@ module.exports = {
         commonUpdate(config, changes, resolvedChanges, obj, K3D);
 
         if (areAllChangesResolve(changes, resolvedChanges)) {
-            return Promise.resolve({json: config, obj});
+            return Promise.resolve({ json: config, obj });
         }
         return false;
     },

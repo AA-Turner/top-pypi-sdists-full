@@ -8041,6 +8041,8 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param DescribeMachinePoolMachinesRequest describe_machine_pool_machines_request: (required)
+        :param str paging_token:
+        :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -8066,6 +8068,8 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param DescribeMachinePoolMachinesRequest describe_machine_pool_machines_request: (required)
+        :param str paging_token:
+        :param int count:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -8083,7 +8087,9 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'describe_machine_pool_machines_request'
+            'describe_machine_pool_machines_request',
+            'paging_token',
+            'count'
         ]
         all_params.extend(
             [
@@ -8107,11 +8113,19 @@ class DefaultApi(object):
                                                         local_var_params['describe_machine_pool_machines_request'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `describe_machine_pool_machines_request` when calling `describe_machine_pool_machines_api_v2_machine_pools_describe_machines_post`")  # noqa: E501
 
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `describe_machine_pool_machines_api_v2_machine_pools_describe_machines_post`, must be a value less than or equal to `1000`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `describe_machine_pool_machines_api_v2_machine_pools_describe_machines_post`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
 
         query_params = []
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
 
         header_params = {}
 
@@ -8159,6 +8173,8 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param DescribeMachinePoolRequestsRequest describe_machine_pool_requests_request: (required)
+        :param str paging_token:
+        :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -8184,6 +8200,8 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param DescribeMachinePoolRequestsRequest describe_machine_pool_requests_request: (required)
+        :param str paging_token:
+        :param int count:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -8201,7 +8219,9 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'describe_machine_pool_requests_request'
+            'describe_machine_pool_requests_request',
+            'paging_token',
+            'count'
         ]
         all_params.extend(
             [
@@ -8225,11 +8245,19 @@ class DefaultApi(object):
                                                         local_var_params['describe_machine_pool_requests_request'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `describe_machine_pool_requests_request` when calling `describe_machine_pool_requests_api_v2_machine_pools_describe_requests_post`")  # noqa: E501
 
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `describe_machine_pool_requests_api_v2_machine_pools_describe_requests_post`, must be a value less than or equal to `1000`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `describe_machine_pool_requests_api_v2_machine_pools_describe_requests_post`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
 
         query_params = []
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
 
         header_params = {}
 
@@ -30198,6 +30226,125 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='DecoratedcomputetemplateListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def search_machine_pools_api_v2_machine_pools_search_get(self, **kwargs):  # noqa: E501
+        """Search Machine Pools  # noqa: E501
+
+        Search machine pools.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.search_machine_pools_api_v2_machine_pools_search_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str paging_token:
+        :param int count:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: MachinepoolsearchresultListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.search_machine_pools_api_v2_machine_pools_search_get_with_http_info(**kwargs)  # noqa: E501
+
+    def search_machine_pools_api_v2_machine_pools_search_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Search Machine Pools  # noqa: E501
+
+        Search machine pools.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.search_machine_pools_api_v2_machine_pools_search_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str paging_token:
+        :param int count:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(MachinepoolsearchresultListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'paging_token',
+            'count'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method search_machine_pools_api_v2_machine_pools_search_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `search_machine_pools_api_v2_machine_pools_search_get`, must be a value less than or equal to `1000`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `search_machine_pools_api_v2_machine_pools_search_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/machine_pools/search', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='MachinepoolsearchresultListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

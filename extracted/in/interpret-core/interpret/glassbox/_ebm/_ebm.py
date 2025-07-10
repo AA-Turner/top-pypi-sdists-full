@@ -1166,7 +1166,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                             shm_name,
                             idx,
                             callback,
-                            shared.name,
+                            shared.name if shared.name is not None else shared.dataset,
                             n_intercept_rounds,
                             develop.get_option("intercept_learning_rate"),
                             bagged_intercept[idx],
@@ -1292,7 +1292,9 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                                 (
                                     shm_name,
                                     idx,
-                                    shared.name,
+                                    shared.name
+                                    if shared.name is not None
+                                    else shared.dataset,
                                     bagged_intercept[idx],
                                     internal_bags[idx],
                                     scores_bags[idx],
@@ -1434,7 +1436,9 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                                 shm_name,
                                 idx,
                                 callback,
-                                shared.name,
+                                shared.name
+                                if shared.name is not None
+                                else shared.dataset,
                                 0,  # intercept should already be close for pairs
                                 0.0,  # intercept should already be close for pairs
                                 bagged_intercept[idx],
@@ -1570,7 +1574,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                         None,
                         0,
                         None,
-                        shared.name,
+                        shared.dataset,
                         develop.get_option("n_intercept_rounds_final"),
                         develop.get_option("intercept_learning_rate"),
                         np.zeros(n_scores, np.float64),
@@ -1701,6 +1705,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             Estimated memory usage in bytes.
             The estimate does not include the memory from the
             caller's copy of X, nor the process's code or other data.
+            The estimate will be more accurate for larger datasets.
         """
 
         # number of classes does not affect memory much, so choose a sensible default
@@ -1740,8 +1745,9 @@ class EBMModel(ExplainerMixin, BaseEstimator):
         # One shared memory copy of the data mapped into all processes, plus a copy of
         # the test and train data for each outer bag. Assume all processes are started
         # at some point and are eating up memory.
-
-        max_bytes = n_bytes_mains + n_bytes_mains * self.outer_bags
+        # When we cannot use shared memory the parent has a copy of the dataset and
+        # all the children share one copy.
+        max_bytes = n_bytes_mains + n_bytes_mains + n_bytes_mains * self.outer_bags
 
         n_features_in = len(bins)
 
@@ -1765,14 +1771,21 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             # each outer bag makes a copy of the features. Only the training features
             # are kept for interaction detection, but don't estimate that for now.
             interaction_detection_bytes = (
-                n_bytes_pairs + n_bytes_pairs * self.outer_bags
+                n_bytes_pairs + n_bytes_pairs + n_bytes_pairs * self.outer_bags
             )
 
             max_bytes = max(max_bytes, interaction_detection_bytes)
 
             interaction_multiple = float(interactions) / float(n_features_in)
-            interaction_boosting_bytes = n_bytes_pairs + int(
-                n_bytes_pairs * interaction_multiple * self.outer_bags
+            # We merge the interactions together to make a combined interaction
+            # dataset, so if feature1 takes 4 bits and feature2 takes 10 bits
+            # then the resulting data storage should take approx 14 bits in total,
+            # so as a loose approximation we can add the bits in a pair.
+            interaction_multiple *= 2.0
+            interaction_boosting_bytes = (
+                n_bytes_pairs
+                + n_bytes_pairs
+                + int(n_bytes_pairs * interaction_multiple * self.outer_bags)
             )
 
             max_bytes = max(max_bytes, interaction_boosting_bytes)

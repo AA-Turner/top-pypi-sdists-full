@@ -21,10 +21,23 @@ namespace ampl {
 template <class EntityClass>
 class EntityMap {
   friend class AMPL;
-  typedef std::map<std::string, EntityClass> EntityInternMap;
 
  public:
-  typedef typename EntityInternMap::iterator iterator;
+  class iterator {
+    public:
+      iterator() : _it() {}
+      explicit iterator(typename std::map<std::string, EntityClass>::iterator it) : _it(it) {}
+      iterator& operator++() { ++_it; return *this; }
+      iterator operator++(int) { iterator tmp = *this; ++_it; return tmp; }
+      bool operator==(const iterator& other) const { return _it == other._it; }
+      bool operator!=(const iterator& other) const { return _it != other._it; }
+      EntityClass& operator*() const { return _it->second; }
+      EntityClass* operator->() const { return &(_it->second); }
+
+    private:
+      typename std::map<std::string, EntityClass>::iterator _it;
+    };
+
   /**
   Entity access
   Returns the entity identified by the specified name.
@@ -33,9 +46,9 @@ class EntityMap {
   \throws An std::out_of_range exception if the specified parameter does not
   exist
   */
-  EntityClass operator[](fmt::CStringRef name) const {
+  EntityClass& operator[](fmt::CStringRef name) const {
     std::string str(name.c_str());
-    return entity_map_.find(name)->second;
+    return *find(str);
   }
 
   /**
@@ -56,15 +69,15 @@ class EntityMap {
       std::cout << v.name() << "\n";
   \endrst
   */
-  iterator begin() {
-    return entity_map_.begin();
+  iterator begin() const {
+    return iterator(entity_map_.begin());
   }
 
   /**
   Return iterator to the end of this collection
   */
-  iterator end() {
-    return entity_map_.end();
+  iterator end() const {
+    return iterator(entity_map_.end());
   }
 
   /**
@@ -90,14 +103,14 @@ class EntityMap {
   found, or end() otherwise.
 
   */
-  iterator find(std::string name) {
-    return entity_map_.find(name);
+  iterator find(std::string name) const {
+    return iterator(entity_map_.find(name));
   }
 
  protected:
   ::AMPL *ampl_;
   AMPL_ENTITYTYPE type_;
-  EntityInternMap entity_map_;
+  mutable std::map<std::string, EntityClass> entity_map_;
 
  private:
   explicit EntityMap(::AMPL *ampl, AMPL_ENTITYTYPE type) : ampl_(ampl), type_(type) { 
@@ -146,16 +159,6 @@ class EntityMap {
         break;
       case AMPL_SET:
         AMPL_CALL_CPP(AMPL_GetSets(ampl_, &size, &names));
-        for (size_t i=0; i<size; i++) {
-          EntityClass entity(ampl_, names[i]);
-          std::string str(names[i]);
-          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
-          AMPL_StringFree(&names[i]);
-        }
-        free(names);
-        break;
-      case AMPL_TABLE:
-        AMPL_CALL_CPP(AMPL_GetTables(ampl_, &size, &names));
         for (size_t i=0; i<size; i++) {
           EntityClass entity(ampl_, names[i]);
           std::string str(names[i]);

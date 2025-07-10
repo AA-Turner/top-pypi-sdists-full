@@ -141,6 +141,10 @@ class LicensePlateUseCase(BaseProcessor):
             # For video chunks, use video_timestamp from stream_info
             video_timestamp = stream_info.get("video_timestamp", 0.0)
             return self._format_timestamp_for_video(video_timestamp)
+        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str
         else:
             # For streams, use stream_time from stream_info
             stream_time_str = stream_info.get("stream_time", "")
@@ -167,6 +171,9 @@ class LicensePlateUseCase(BaseProcessor):
         
         if is_video_chunk:
             # For video chunks, start from 00:00:00
+            return "00:00:00"
+        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+            # If video format, start from 00:00:00
             return "00:00:00"
         else:
             # For streams, use tracking start time or current time with minutes/seconds reset

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.51.54
+Version: 0.51.55
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -230,18 +230,21 @@ Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.9
 Requires-Dist: click
 Requires-Dist: diskcache==5.6.3
-Requires-Dist: emoji>=2.12.1
 Requires-Dist: gql[aiohttp,requests]
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: nest-asyncio==1.6.0
-Requires-Dist: numpy>1.21.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: rich
+Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
 Requires-Dist: tenacity!=8.4.0,>=8.3.0
-Requires-Dist: wandb>=0.17.1
 Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.18.0; extra == 'anthropic'
+Provides-Extra: autogen
+Requires-Dist: autogen-agentchat>=0.5.7; extra == 'autogen'
+Provides-Extra: autogen-tests
+Requires-Dist: autogen-agentchat>=0.5.7; extra == 'autogen-tests'
+Requires-Dist: autogen-ext[openai]>=0.5.7; extra == 'autogen-tests'
 Provides-Extra: bedrock
 Requires-Dist: boto3; extra == 'bedrock'
 Requires-Dist: moto[bedrock]>=5.0.24; extra == 'bedrock'
@@ -259,6 +262,7 @@ Provides-Extra: docs
 Requires-Dist: azure-storage-blob>=12.24.0; extra == 'docs'
 Requires-Dist: boto3>=1.34.0; extra == 'docs'
 Requires-Dist: ddtrace>=2.7.0; extra == 'docs'
+Requires-Dist: emoji>=2.12.1; extra == 'docs'
 Requires-Dist: google-cloud-storage>=2.7.0; extra == 'docs'
 Requires-Dist: lazydocs; extra == 'docs'
 Requires-Dist: litellm>=1.36.1; extra == 'docs'
@@ -271,10 +275,11 @@ Requires-Dist: playwright; extra == 'docs'
 Provides-Extra: dspy
 Requires-Dist: dspy>=2.6.3; extra == 'dspy'
 Requires-Dist: litellm<=1.61.6; extra == 'dspy'
+Requires-Dist: numpy>1.21.0; extra == 'dspy'
 Provides-Extra: google-ai-studio
 Requires-Dist: google-generativeai>=0.8.3; extra == 'google-ai-studio'
 Provides-Extra: google-genai
-Requires-Dist: google-genai>=1.0.0; extra == 'google-genai'
+Requires-Dist: google-genai<=1.23.0,>=1.0.0; extra == 'google-genai'
 Requires-Dist: pillow>=11.1.0; extra == 'google-genai'
 Provides-Extra: groq
 Requires-Dist: groq>=0.13.0; extra == 'groq'
@@ -292,6 +297,7 @@ Requires-Dist: langchain-core>=0.2.1; extra == 'langchain'
 Requires-Dist: langchain-google-genai>=2.1.5; extra == 'langchain'
 Requires-Dist: langchain-google-vertexai>=2.0.24; extra == 'langchain'
 Requires-Dist: langchain-openai>=0.1.7; extra == 'langchain'
+Requires-Dist: openai<1.92.0; extra == 'langchain'
 Requires-Dist: opentelemetry-exporter-otlp; extra == 'langchain'
 Requires-Dist: pysqlite3; extra == 'langchain'
 Provides-Extra: langchain-nvidia-ai-endpoints
@@ -300,13 +306,12 @@ Requires-Dist: langchain-nvidia-ai-endpoints; extra == 'langchain-nvidia-ai-endp
 Provides-Extra: litellm
 Requires-Dist: litellm>=1.36.1; extra == 'litellm'
 Provides-Extra: llamaindex
-Requires-Dist: llama-index<0.12.0,>=0.10.35; extra == 'llamaindex'
+Requires-Dist: llama-index>=0.10.35; extra == 'llamaindex'
+Requires-Dist: openai<1.92.0; extra == 'llamaindex'
 Provides-Extra: mcp
-Requires-Dist: mcp[cli]>=1.6.0; extra == 'mcp'
-Provides-Extra: mistral0
-Requires-Dist: mistralai<1.0.0,>=0.1.8; extra == 'mistral0'
-Provides-Extra: mistral1
-Requires-Dist: mistralai>=1.0.0; extra == 'mistral1'
+Requires-Dist: mcp[cli]<1.10.0,>=1.6.0; extra == 'mcp'
+Provides-Extra: mistral
+Requires-Dist: mistralai>=1.0.0; extra == 'mistral'
 Provides-Extra: modal
 Requires-Dist: modal; extra == 'modal'
 Requires-Dist: python-dotenv; extra == 'modal'
@@ -314,7 +319,7 @@ Provides-Extra: notdiamond
 Requires-Dist: litellm<=1.49.1; extra == 'notdiamond'
 Requires-Dist: notdiamond>=0.3.21; extra == 'notdiamond'
 Provides-Extra: openai
-Requires-Dist: openai>=1.0.0; extra == 'openai'
+Requires-Dist: openai<1.92.0,>=1.0.0; extra == 'openai'
 Provides-Extra: openai-agents
 Requires-Dist: openai-agents>=0.0.4; extra == 'openai-agents'
 Provides-Extra: pandas-test
@@ -325,6 +330,7 @@ Requires-Dist: presidio-anonymizer==2.2.357; extra == 'presidio'
 Provides-Extra: scorers
 Requires-Dist: levenshtein>=0.26.0; extra == 'scorers'
 Requires-Dist: litellm>=1.58; extra == 'scorers'
+Requires-Dist: numpy>1.21.0; extra == 'scorers'
 Requires-Dist: pip>=20.0; extra == 'scorers'
 Requires-Dist: presidio-analyzer>=2.2.0; extra == 'scorers'
 Requires-Dist: presidio-anonymizer>=2.2.0; extra == 'scorers'
@@ -337,7 +343,7 @@ Provides-Extra: smolagents
 Requires-Dist: huggingface-hub>=0.28.1; extra == 'smolagents'
 Requires-Dist: litellm>=1.58; extra == 'smolagents'
 Requires-Dist: openai>=1.0.0; extra == 'smolagents'
-Requires-Dist: smolagents>=1.17.0; extra == 'smolagents'
+Requires-Dist: smolagents<1.19.0,>=1.17.0; extra == 'smolagents'
 Requires-Dist: sqlalchemy>=2.0.38; extra == 'smolagents'
 Provides-Extra: test
 Requires-Dist: azure-storage-blob>=12.24.0; extra == 'test'
@@ -345,6 +351,7 @@ Requires-Dist: boto3>=1.34.0; extra == 'test'
 Requires-Dist: clickhouse-connect==0.7.0; extra == 'test'
 Requires-Dist: confluent-kafka; extra == 'test'
 Requires-Dist: ddtrace>=2.7.0; extra == 'test'
+Requires-Dist: emoji>=2.12.1; extra == 'test'
 Requires-Dist: eval-type-backport; extra == 'test'
 Requires-Dist: fastapi>=0.110.0; extra == 'test'
 Requires-Dist: filelock; extra == 'test'
@@ -365,6 +372,7 @@ Requires-Dist: pytest-cov>=5.0.0; extra == 'test'
 Requires-Dist: pytest-recording>=0.13.2; extra == 'test'
 Requires-Dist: pytest-rerunfailures>=12.0; extra == 'test'
 Requires-Dist: pytest-rerunfailures>=14.0; extra == 'test'
+Requires-Dist: pytest-shard==0.1.2; extra == 'test'
 Requires-Dist: pytest-xdist>=3.1.0; extra == 'test'
 Requires-Dist: pytest>=8.2.0; extra == 'test'
 Requires-Dist: sqlparse==0.5.0; extra == 'test'
@@ -374,6 +382,7 @@ Provides-Extra: trace-server
 Requires-Dist: azure-storage-blob>=12.24.0; extra == 'trace-server'
 Requires-Dist: boto3>=1.34.0; extra == 'trace-server'
 Requires-Dist: ddtrace>=2.7.0; extra == 'trace-server'
+Requires-Dist: emoji>=2.12.1; extra == 'trace-server'
 Requires-Dist: google-cloud-storage>=2.7.0; extra == 'trace-server'
 Requires-Dist: litellm>=1.36.1; extra == 'trace-server'
 Requires-Dist: openinference-semantic-conventions>=0.1.17; extra == 'trace-server'
@@ -381,12 +390,15 @@ Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'trace-server'
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'trace-server'
 Provides-Extra: trace-server-tests
 Requires-Dist: moto[s3]>=5.0.0; extra == 'trace-server-tests'
+Provides-Extra: verdict
+Requires-Dist: verdict>=0.2.3; extra == 'verdict'
 Provides-Extra: vertexai
 Requires-Dist: shapely<=2.0.6; extra == 'vertexai'
 Requires-Dist: vertexai>=1.70.0; extra == 'vertexai'
 Provides-Extra: video-support
 Requires-Dist: moviepy<=1.0.3; extra == 'video-support'
-Requires-Dist: pillow; extra == 'video-support'
+Provides-Extra: wandb
+Requires-Dist: wandb>=0.17.1; extra == 'wandb'
 Description-Content-Type: text/markdown
 
 # **Weave by Weights & Biases**

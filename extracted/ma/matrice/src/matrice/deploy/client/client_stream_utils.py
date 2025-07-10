@@ -246,7 +246,18 @@ class ClientStreamUtils:
         
         try:
             cap, stream_type = self._setup_video_capture(input, width, height)
-            
+            # Get video properties including original FPS
+            video_props = self._get_video_properties(cap)
+            original_fps = video_props["original_fps"]
+
+            actual_width = video_props["width"]
+            actual_height = video_props["height"]
+            # Override with specified dimensions if provided
+            if width is not None:
+                actual_width = width
+            if height is not None:
+                actual_height = height
+
             retry_count = 0
             max_retries = 3
             consecutive_failures = 0
@@ -297,14 +308,18 @@ class ClientStreamUtils:
 
                 # Calculate video timestamp for this frame
                 video_timestamp = self._calculate_video_timestamp(
-                    stream_key or "default", frame_counter, fps
+                    stream_key or "default", frame_counter, original_fps
                 )
-                
+                video_format = self._get_input_filename(input)
+                if isinstance(video_format, str) and '.' in video_format:
+                    video_format = '.'+video_format.split('.')[-1].lower()
+                else:
+                    video_format = '..mp4'
                 
                 # Prepare enhanced metadata for this frame
                 frame_metadata = {
                     "fps": fps,
-                    "original_fps": fps,  # For live streams, original FPS is the same as processing FPS
+                    "original_fps": original_fps,  # For live streams, original FPS is the same as processing FPS
                     "frame_sample_rate": 1.0,  # For individual frames, sample rate is 1:1
                     "stream_time": self._get_high_precision_timestamp(),  # Use high precision timestamp
                     "video_timestamp": video_timestamp,  # Added video timestamp
@@ -314,10 +329,12 @@ class ClientStreamUtils:
                     "start_frame": frame_counter,
                     "end_frame": frame_counter,
                     "quality": quality,
-                    "width": width,
-                    "height": height,
+                    "width": actual_width,
+                    "height": actual_height,
                     "is_video_chunk": False,  # Flag to indicate this is a single frame
                     "chunk_duration_seconds": 1.0 / fps,  # Duration of single frame
+                    "video_properties": video_props,
+                    "video_format": video_format,
                     "stream_type": stream_type,  # Added stream type
                 }
                 
@@ -366,10 +383,10 @@ class ClientStreamUtils:
             enhanced_metadata = {
                 "stream_info": {
                     "fps": metadata.get("fps", 30),
-                    "original_fps": metadata.get("original_fps", metadata.get("fps", 30)),  # Added original FPS
+                    "original_fps": str(round(float(metadata.get("original_fps", metadata.get("fps", 30))),2)),  # Added original FPS
                     "frame_sample_rate": metadata.get("frame_sample_rate", 1.0),  # Added frame sample rate
                     "stream_time": metadata.get("stream_time", self._get_high_precision_timestamp()),  # Use high precision timestamp
-                    "video_timestamp": metadata.get("video_timestamp", 0.0),  # Added video timestamp
+                    "video_timestamp": str(round(float(metadata.get("video_timestamp", 0.0)),3)),  # Added video timestamp
                     "input_settings": {
                         "video_file": metadata.get("video_file"),
                         "camera_id": metadata.get("camera_id"),
@@ -652,6 +669,7 @@ class ClientStreamUtils:
             max_consecutive_failures = 5
             global_frame_counter = 0
 
+            
             while not self._stop_streaming:
                 temp_path = None
                 out = None
@@ -725,6 +743,12 @@ class ClientStreamUtils:
                                 stream_key or "default", chunk_start_frame, original_fps
                             )
                             
+                            video_format = self._get_input_filename(input)
+                            if isinstance(video_format, str) and '.' in video_format:
+                                video_format = '.'+video_format.split('.')[-1].lower()
+                            else:
+                                video_format = '.mp4'
+
                             # Enhanced metadata with all requested information
                             success = self.produce_request(
                                 video_bytes, stream_key, 

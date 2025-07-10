@@ -14,7 +14,8 @@ from pyspark.sql.types import (
     StringType,
     MapType,
 )
-import uuid, enum
+import uuid, enum, json
+from prophecy.config.config_base import is_serverless
 
 
 class DiffKeys(enum.Enum):
@@ -613,7 +614,7 @@ class DataFrameDiff:
                 "duplicatePkCount": duplicate_df.count(),
             }
 
-        return {
+        diff_summary = {
             "label": diff_key,
             "data": {
                 "summaryTiles": [
@@ -668,6 +669,12 @@ class DataFrameDiff:
                 },
             },
         }
+
+        if is_serverless:
+            # printing diff summary to support serverless
+            # do not print if not serverless
+            print(json.dumps(diff_summary))
+        return diff_summary
 
     @classmethod
     def clean_joined_df(cls, joined_df, key_columns, value_columns, left_df, right_df):

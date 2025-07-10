@@ -1,6 +1,6 @@
 const THREE = require('three');
-const {cameraModes} = require('../../../core/lib/cameraMode');
-const {recalculateFrustum} = require('../helpers/Fn');
+const { cameraModes } = require('../../../core/lib/cameraMode');
+const { recalculateFrustum } = require('../helpers/Fn');
 
 /**
  * Camera initializer for Three.js library
@@ -31,7 +31,7 @@ module.exports = function (K3D) {
             if (typeof (this.camera.fov) !== 'undefined' && typeof (this.axesHelper.camera.fov) !== 'undefined') {
                 this.camera.fov = fov;
                 this.axesHelper.camera.fov = fov;
-                this.controls.dispatchEvent({type: 'change'});
+                this.controls.dispatchEvent({ type: 'change' });
             }
         }
 
@@ -40,6 +40,7 @@ module.exports = function (K3D) {
 
             if (array.length === 9) {
                 this.controls.object.up.fromArray(array, 6);
+                this.axesHelper.camera.up.copy(this.controls.object.up);
             }
 
             this.controls.target.fromArray(array, 3);
@@ -55,6 +56,10 @@ module.exports = function (K3D) {
 
     this.setCameraToFitScene = function (force, factor) {
         let sceneBoundingBox = new THREE.Box3().setFromArray(K3D.parameters.grid);
+
+        if (K3D.parameters.cameraMode === cameraModes.sliceViewer) {
+            return;
+        }
 
         if (!K3D.parameters.cameraAutoFit && !force) {
             return;

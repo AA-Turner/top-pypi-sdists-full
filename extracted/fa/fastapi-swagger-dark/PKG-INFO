@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-swagger-dark
-Version: 0.0.6
+Version: 0.0.7
 Summary: FastAPI plugin to add dark theme swagger docs.
 Project-URL: homepage, https://github.com/NRWLDev/fastapi-swagger-dark/
 Author-email: Daniel Edgecombe <daniel@nrwl.co>
@@ -32,6 +32,7 @@ Requires-Dist: pytest-cov>=4.1.0; extra == 'dev'
 Requires-Dist: pytest-httpx>=0.26.0; extra == 'dev'
 Requires-Dist: pytest-random-order>=1.0; extra == 'dev'
 Requires-Dist: pytest>=7.4.3; extra == 'dev'
+Requires-Dist: rcssmin; extra == 'dev'
 Requires-Dist: ruff>=0.6.4; extra == 'dev'
 Description-Content-Type: text/markdown
 

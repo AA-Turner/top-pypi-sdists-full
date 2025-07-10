@@ -147,6 +147,7 @@ class Environment {
     private:
       const AMPL_ENVIRONMENTVAR *current_;
     public:
+      iterator() : current_() {}
       explicit iterator(const AMPL_ENVIRONMENTVAR *envVar) : current_(envVar) {}
       const AMPL_ENVIRONMENTVAR& operator*() const { return *current_; }
       const AMPL_ENVIRONMENTVAR* operator->() const { return current_; }
@@ -154,6 +155,8 @@ class Environment {
       iterator operator++(int) { iterator temp = *this; ++current_; return temp; }
       bool operator==(const iterator& other) const { return current_ == other.current_; }
       bool operator!=(const iterator& other) const { return current_ != other.current_; }
+      std::string getName() const { std::string name(current_->name); return name; }
+      std::string getValue() const { std::string value(current_->value); return value; }
   };
 
   /**

@@ -10,7 +10,7 @@ import io
 import json
 import logging
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 from queue import Empty
 
 from ibm_watsonx_ai.utils import DisableWarningsLogger
@@ -27,23 +27,44 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _asynch_download(args):
+def _prepare_iterator(el: Any) -> Iterator[Any]:
+    from langchain_core.documents import Document
+
+    if hasattr(el, "__iter__") and not isinstance(el, Document):  # is iterable
+        yield from el
+    else:
+        yield el
+
+
+def _asynch_download(load_doc):
     """Helper function for parallel downloading documents (full asynchronous version)."""
-    (q_input, qs_output) = args
 
-    while True:
-        try:
-            i, doc = q_input.get(block=False)
+    def asynch_download(args):
+
+        (q_input, qs_output) = args
+
+        while True:
             try:
-                doc.download()
-                qs_output[i].put(TextLoader(doc).load())
-            except Exception as e:
-                if "cryptography>=3.1 is required for AES algorithm" in str(e):
-                    e = "Encrypted files are not supported. Please decrypt your file and try again."
+                i, doc = q_input.get(block=False)
+                try:
+                    loaded_doc = load_doc(doc)
 
-                qs_output[i].put(LoadingDocumentError(doc.document_id, e))
-        except Empty:
-            return
+                    for el in _prepare_iterator(loaded_doc):
+                        qs_output[i].put(el)
+
+                    qs_output[i].put(
+                        "End"
+                    )  # send signal that no more data will be sent via this queue
+                    qs_output[i].close()
+                except Exception as e:
+                    if "cryptography>=3.1 is required for AES algorithm" in str(e):
+                        e = "Encrypted files are not supported. Please decrypt your file and try again."
+
+                    qs_output[i].put(LoadingDocumentError(doc.document_id, e))
+            except Empty:
+                return
+
+    return asynch_download
 
 
 class TextLoader:
@@ -81,6 +102,9 @@ class TextLoader:
             "application/json": self._json_to_string,
             "application/x-yaml": self._yaml_to_string,
             "application/xml": self._xml_to_string,
+            "text/csv": self._csv_to_string,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": self._xlsx_to_string,
+            "application/vnd.ms-excel": self._xlsx_to_string,
         }
 
         try:
@@ -122,6 +146,12 @@ class TextLoader:
             return "application/x-yaml"
         elif filename.endswith(".xml"):
             return "application/xml"
+        elif filename.endswith(".csv"):
+            return "text/csv"
+        elif filename.endswith(".xlsx"):
+            return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif filename.endswith(".xls"):
+            return "application/vnd.ms-excel"
         else:
             raise WMLClientError(f"Cannot identify file type.")
 
@@ -272,3 +302,13 @@ class TextLoader:
         result = {root.tag: root_result}
 
         return "\n\n".join(cls._extract_content_from_py_structure(result))
+
+    @classmethod
+    def _csv_to_string(cls, binary_data: bytes) -> str:
+        return cls._txt_to_string(binary_data)
+
+    @classmethod
+    def _xlsx_to_string(cls, binary_data: bytes) -> str:
+        import pandas as pd
+
+        return pd.read_excel(binary_data).to_string()

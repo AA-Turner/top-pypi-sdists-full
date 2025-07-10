@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: targ
-Version: 0.5.0
+Version: 0.6.0
 Summary: Build a Python CLI for your app, just using type hints and docstrings.
 Home-page: https://github.com/piccolo-orm/targ/
 Author: Daniel Townsend

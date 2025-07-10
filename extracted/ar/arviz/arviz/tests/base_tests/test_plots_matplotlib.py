@@ -14,6 +14,7 @@ from pandas import DataFrame
 from scipy.stats import gaussian_kde, norm
 
 from ...data import from_dict, load_arviz_data
+from ...labels import MapLabeller
 from ...plots import (
     plot_autocorr,
     plot_bf,
@@ -598,6 +599,21 @@ def test_plot_kde_inference_data(models):
             "point_estimate": "mean",
             "reference_values": {"mu": 0, "tau": 0},
             "reference_values_kwargs": {"c": "C0", "marker": "*"},
+        },
+        {
+            "var_names": ["mu", "tau"],
+            "reference_values": {"mu": 0, "tau": 0},
+            "labeller": MapLabeller({"mu": r"$\mu$", "theta": r"$\theta"}),
+        },
+        {
+            "var_names": ["theta"],
+            "reference_values": {"theta": [0.0] * 8},
+            "labeller": MapLabeller({"theta": r"$\theta$"}),
+        },
+        {
+            "var_names": ["theta"],
+            "reference_values": {"theta": np.zeros(8)},
+            "labeller": MapLabeller({"theta": r"$\theta$"}),
         },
     ],
 )
@@ -1914,7 +1930,7 @@ def test_wilkinson_algorithm(continuous_model):
         },
     ],
 )
-def test_plot_lm(models, kwargs):
+def test_plot_lm_1d(models, kwargs):
     """Test functionality for 1D data."""
     idata = models.model_1
     if "constant_data" not in idata.groups():
@@ -2102,3 +2118,63 @@ def test_plot_bf():
     )
     _, bf_plot = plot_bf(idata, var_name="a", ref_val=0)
     assert bf_plot is not None
+
+
+def generate_lm_1d_data():
+    rng = np.random.default_rng()
+    return from_dict(
+        observed_data={"y": rng.normal(size=7)},
+        posterior_predictive={"y": rng.normal(size=(4, 1000, 7)) / 2},
+        posterior={"y_model": rng.normal(size=(4, 1000, 7))},
+        dims={"y": ["dim1"]},
+        coords={"dim1": range(7)},
+    )
+
+
+def generate_lm_2d_data():
+    rng = np.random.default_rng()
+    return from_dict(
+        observed_data={"y": rng.normal(size=(5, 7))},
+        posterior_predictive={"y": rng.normal(size=(4, 1000, 5, 7)) / 2},
+        posterior={"y_model": rng.normal(size=(4, 1000, 5, 7))},
+        dims={"y": ["dim1", "dim2"]},
+        coords={"dim1": range(5), "dim2": range(7)},
+    )
+
+
+@pytest.mark.parametrize("data", ("1d", "2d"))
+@pytest.mark.parametrize("kind", ("lines", "hdi"))
+@pytest.mark.parametrize("use_y_model", (True, False))
+def test_plot_lm(data, kind, use_y_model):
+    if data == "1d":
+        idata = generate_lm_1d_data()
+    else:
+        idata = generate_lm_2d_data()
+
+    kwargs = {"idata": idata, "y": "y", "kind_model": kind}
+    if data == "2d":
+        kwargs["plot_dim"] = "dim1"
+    if use_y_model:
+        kwargs["y_model"] = "y_model"
+    if kind == "lines":
+        kwargs["num_samples"] = 50
+
+    ax = plot_lm(**kwargs)
+    assert ax is not None
+
+
+@pytest.mark.parametrize(
+    "coords, expected_vars",
+    [
+        ({"school": ["Choate"]}, ["theta"]),
+        ({"school": ["Lawrenceville"]}, ["theta"]),
+        ({}, ["theta"]),
+    ],
+)
+def test_plot_autocorr_coords(coords, expected_vars):
+    """Test plot_autocorr with coords kwarg."""
+    idata = load_arviz_data("centered_eight")
+
+    axes = plot_autocorr(idata, var_names=expected_vars, coords=coords, show=False)
+
+    assert axes is not None

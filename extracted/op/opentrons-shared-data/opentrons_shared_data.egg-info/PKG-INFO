@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentrons_shared_data
-Version: 8.4.1
+Version: 8.5.0
 Summary: A bundle of data and python binding that supports the Opentrons API. Does not need to be installed manually; only a dependency of the opentrons package
 Author: Opentrons
 Author-email: engineering@opentrons.com

@@ -17,24 +17,29 @@ setup(
         "openai==1.78.1",
         "aiosqlite",
         "aiohttp",
-        "mcp==1.9.2",
+        "mcp>=1.9.2",
         "PyYAML>=5.0",  # Added PyYAML
         "datasets==3.6.0",  # For dataset loading functionality
         "fsspec==2025.3.0",  # For filesystem interactions, pinned for dataset compatibility
         "hydra-core>=1.3.2",  # For configuration management
         "omegaconf>=2.3.0",  # For configuration objects
+        "gymnasium>=0.29.0",  # For FrozenLake and other gym environments
+        "httpx>=0.24.0",  # For HTTP client functionality in agent resources
+        "fireworks-ai>=0.17.19",  # For Fireworks Build SDK integration
     ],
     extras_require={
         "dev": [
             "build",
             "twine",
             "pytest>=6.0.0",
+            "pytest-asyncio",
+            "pytest-httpserver",
+            "werkzeug>=2.0.0",  # needed for test_url_handling.py
             "black>=21.5b2",
             "mypy>=0.812",
             "flake8>=3.9.2",
             "autopep8>=1.5.0",
             "transformers>=4.0.0",
-            "pytest-asyncio",
             "types-setuptools",
             "types-requests",
             "types-PyYAML",
@@ -56,7 +61,7 @@ setup(
         "deepseek": [
             "difflib>=3.0.0",
         ],
-        "deepeval": ["deepeval>=3.0.0"],
+        # "deepeval": ["deepeval>=3.1.0"],
         "openevals": ["openevals>=0.1.0"],
     },
     entry_points={

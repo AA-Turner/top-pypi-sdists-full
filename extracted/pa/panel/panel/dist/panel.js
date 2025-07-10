@@ -76,7 +76,7 @@
     __esExport("ChatAreaInput", chatarea_input_1.ChatAreaInput);
     var column_1 = require("dd255421d9") /* ./column */;
     __esExport("Column", column_1.Column);
-    var comm_manager_1 = require("db82e464de") /* ./comm_manager */;
+    var comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
     __esExport("CommManager", comm_manager_1.CommManager);
     var customselect_1 = require("92bbd30bd1") /* ./customselect */;
     __esExport("CustomSelect", customselect_1.CustomSelect);
@@ -88,7 +88,7 @@
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
     var datetime_slider_1 = require("c97cc0eade") /* ./datetime_slider */;
     __esExport("DatetimeSlider", datetime_slider_1.DatetimeSlider);
-    var deckgl_1 = require("f3ddc6fd49") /* ./deckgl */;
+    var deckgl_1 = require("01df2ec63b") /* ./deckgl */;
     __esExport("DeckGLPlot", deckgl_1.DeckGLPlot);
     var discrete_player_1 = require("0dca2cd4f6") /* ./discrete_player */;
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
@@ -122,7 +122,7 @@
     __esExport("Perspective", perspective_1.Perspective);
     var player_1 = require("b5cfca1687") /* ./player */;
     __esExport("Player", player_1.Player);
-    var plotly_1 = require("ffbe075545") /* ./plotly */;
+    var plotly_1 = require("7d9124b744") /* ./plotly */;
     __esExport("PlotlyPlot", plotly_1.PlotlyPlot);
     var progress_1 = require("b1f4d68596") /* ./progress */;
     __esExport("Progress", progress_1.Progress);
@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("e97fdbf701") /* ./react_component */;
+    var react_component_1 = require("382eba5872") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("140084c190") /* ./reactive_esm */;
+    var reactive_esm_1 = require("5caa935b13") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -705,7 +705,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("140084c190") /* ./reactive_esm */;
+    const reactive_esm_1 = require("5caa935b13") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -869,7 +869,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"140084c190": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"5caa935b13": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -1601,9 +1601,15 @@ export default {render}`;
                 }).code;
             }
             catch (e) {
-                if (e instanceof SyntaxError && this.dev) {
-                    this.compile_error = e;
-                    return null;
+                if (e instanceof SyntaxError) {
+                    if (this.dev) {
+                        this.compile_error = e;
+                        return null;
+                    }
+                    else {
+                        e.message = `${e.message}. See more information with '--dev' flag.`;
+                        throw e;
+                    }
                 }
                 else {
                     throw e;
@@ -19272,7 +19278,7 @@ ${namesToRegister
         }));
     })();
 },
-"db82e464de": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
+"1bec1b1fcc": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const document_1 = require("@bokehjs/document");
@@ -19321,7 +19327,7 @@ ${namesToRegister
                     }
                 });
                 this._client_comm = this.ns.comm_manager.get_client_comm(this.plot_id, this.client_comm_id, (msg) => this.on_ack(msg));
-                this._reconnect = !this._client_comm.active;
+                this._reconnect = !this._client_comm?.active || false;
                 if (this.ns.shared_views == null) {
                     this.ns.shared_views = new Map();
                 }
@@ -19345,7 +19351,7 @@ ${namesToRegister
                 return;
             }
             this._event_buffer.push(event);
-            if (this._reconnect && this._client_comm.connected) {
+            if (this._reconnect && this._client_comm?.connected) {
                 this.on_ack({ metadata: { msg_type: "Ready" } });
             }
             else if (!exports.comm_settings.debounce) {
@@ -19593,7 +19599,7 @@ ${namesToRegister
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const tables_1 = require("@bokehjs/models/widgets/tables");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const comm_manager_1 = require("db82e464de") /* ./comm_manager */;
+    const comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
     const data_1 = require("be689f0377") /* ./data */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
     const util_1 = require("6ae1cb3800") /* ./util */;
@@ -24118,7 +24124,7 @@ ${namesToRegister
         });
     })();
 },
-"f3ddc6fd49": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
+"01df2ec63b": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -24388,6 +24394,9 @@ ${namesToRegister
             this._initialized = false;
         }
         resize() {
+            if (this.deckGL == null) {
+                return;
+            }
             this.deckGL.redraw(true);
             if (this._map) {
                 this._map.resize();
@@ -27927,7 +27936,7 @@ ${namesToRegister
     .psp-header-group-corner
   ){box-shadow:1px 0px var(--inactive--color, #eaedef), 0px 10px 0 -9px var(--inactive--color, #eaedef);}.psp-header-leaf.psp-header-border{box-shadow:5px -4px 0px -4px var(--inactive--color, #eaedef);}tr:only-child th{box-shadow:none !important;}regular-table tbody tr:hover th.psp-tree-leaf:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover th.psp-tree-label:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover td:not(.psp-row-selected):not(.psp-row-subselected){border-color:var(--rt-hover--border-color, #c5c9d080) !important;background-color:transparent;box-shadow:0px 1px 0px var(--rt-hover--border-color, #c5c9d080), 0px 3px 0px rgba(0, 0, 0, 0.05), 0px 5px 0px rgba(0, 0, 0, 0.01);}regular-table tbody tr:hover + tr th.psp-tree-leaf:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover + tr th.psp-tree-label:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover + tr td:not(.psp-row-selected):not(.psp-row-subselected){border-top-color:transparent;}regular-table tbody tr th:first-child:not(:empty),regular-table tbody tr th:first-child:empty + th:not(:empty),regular-table tbody tr th:first-child:empty ~ th:empty + th:not(:empty),regular-table tbody tr td:first-child{border-left-width:1px;border-left-color:transparent;}regular-table tbody tr th:last-child,regular-table tbody tr td:last-child{border-right-width:1px;border-right-color:transparent;}regular-table tbody tr:hover{color:#161616;}regular-table tbody tr:hover th:first-child:not(:empty),regular-table tbody tr:hover th:first-child:empty + th:not(:empty),regular-table tbody tr:hover th:first-child:empty ~ th:empty + th:not(:empty),regular-table tbody tr:hover td:first-child{border-left-color:var(--rt-hover--border-color, #c5c9d080) !important;}regular-table tbody tr:hover th:last-child,regular-table tbody tr:hover td:last-child{border-right-color:var(--rt-hover--border-color, #c5c9d080) !important;}perspective-viewer[settings] regular-table .psp-header-leaf{height:36px;vertical-align:top;padding-top:2px;}perspective-viewer[settings] regular-table .psp-header-leaf:not(.psp-header-corner):before{font-family:var(--button--font-family, inherit);content:var(--column-style-open-button--content, var(--config-button-icon--content, '\u1f527'));position:absolute;width:calc(100% - 8px);left:5px;bottom:0px;color:var(--inactive--color, #b4b7be);}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-enabled:not(.psp-header-corner):before{color:inherit;cursor:pointer;}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-open:not(.psp-header-corner){pointer-events:none;}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-open:not(.psp-header-corner):before{content:var(--column-style-close-button--content, 'X');}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-enabled:hover:before{color:#338dcd;}perspective-viewer[settings] regular-table .psp-header-leaf .rt-column-resize{height:18px;}.psp-row-selected,:hover .psp-row-selected,:hover th.psp-tree-leaf.psp-row-selected,:hover th.psp-tree-label.psp-row-selected{color:white !important;background-color:#ea7319 !important;border-color:#ea7319 !important;}.psp-row-selected.psp-tree-label:not(:hover):before{color:white;}.psp-row-subselected,:hover .psp-row-subselected,:hover th.psp-tree-leaf.psp-row-subselected,:hover th.psp-tree-label.psp-row-subselected{background:rgba(234, 115, 25, 0.2) !important;}.psp-error{color:red;}td:focus{outline:#666;outline-style:dotted;outline-width:1px;}perspective-viewer.dragging regular-table{pointer-events:none;}.psp-header-border:last-child{border-right-width:0px;}.psp-header-sort-desc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-desc--content, '\u2193');}.psp-header-sort-asc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-asc--content, '\u2191');}.psp-header-sort-col-desc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-col-desc--content, '\u2190');}.psp-header-sort-col-asc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-col-asc--content, '\u2192');}tbody th:last-of-type{border-right:1px solid #eaedef;overflow:hidden;text-overflow:ellipsis;}tbody th:empty{background-image:linear-gradient(to right, transparent 9px, #eee 10px, transparent 11px);background-repeat:no-repeat;min-width:20px;max-width:20px;pointer-events:none;}.psp-tree-label{max-width:0px;min-width:0px;}.psp-tree-label:before{color:#ccc;font-family:var(--button--font-family, inherit);padding-right:11px;vertical-align:-1px;}.psp-tree-label-expand:before{content:var(--tree-label-expand--content, '+');}.psp-tree-label-collapse:before{content:var(--tree-label-collapse--content, '-');}.psp-tree-label:hover:before{color:#338dcd;text-shadow:0px 0px 5px #338dcd;}regular-table thead tr:last-child th{border-bottom-width:1px;border-bottom-color:var(--inactive--color, #eaedef);}.psp-tree-leaf{padding-left:24px;}.psp-align-right{text-align:right;}.psp-align-left{text-align:left;}.psp-positive:not(:focus){color:var(--rt-pos-cell--color, #338dcd);}.psp-negative:not(:focus){color:var(--rt-neg-cell--color, #ff5942);}regular-table table tbody td{min-width:52px !important;}.psp-is-width-override .rt-column-resize,.rt-column-resize:hover{border:1px dashed #999;border-bottom-width:0px;border-left-width:0px;}.psp-bool-type{font-family:var(--button--font-family, 'Material Icons');}.boolean-editable{cursor:pointer;}regular-table table{user-select:none;color:#161616;border-collapse:separate;}regular-table table th{font-weight:400;}regular-table table td,regular-table table th{border-color:#eaedef;height:23px;}regular-table table .psp-header-group{text-overflow:ellipsis;}regular-table table .psp-header-leaf{border-bottom-width:0px;}regular-table table td,regular-table table th.psp-tree-label,regular-table table th.psp-tree-label,regular-table table th.psp-tree-leaf,regular-table table tbody tr:first-child th{border-style:solid;border-width:0px;border-top-width:1px;}regular-table table tbody th:empty{background-position:0px -10px;}@keyframes pulse_pos{0%{background-color:var(--pulse--background-color-start, rgba(0, 128, 255, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(0, 128, 255, 0));}}@keyframes pulse_pos2{0%{background-color:var(--pulse--background-color-start, rgba(0, 128, 255, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(0, 128, 255, 0));}}@keyframes pulse_neg{0%{background-color:var(--pulse--background-color-start, rgba(255, 25, 0, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(255, 25, 0, 0));}}@keyframes pulse_neg2{0%{background-color:var(--pulse--background-color-start, rgba(255, 25, 0, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(255, 25, 0, 0));}}`;
 },
-"ffbe075545": /* models/plotly.js */ function _(require, module, exports, __esModule, __esExport) {
+"7d9124b744": /* models/plotly.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const tslib_1 = require("tslib");
@@ -28251,7 +28260,7 @@ ${namesToRegister
             });
         }
         async plot(new_plot = false) {
-            if (!window.Plotly) {
+            if (!window.Plotly || !this.container) {
                 return;
             }
             const data = this._trace_data();
@@ -28747,12 +28756,12 @@ ${namesToRegister
         }));
     })();
 },
-"e97fdbf701": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"382eba5872": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("140084c190") /* ./reactive_esm */;
+    const reactive_esm_1 = require("5caa935b13") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -29134,10 +29143,14 @@ async function render(id) {
         if (resolvedProp && targetModel) {
           const [value, setValue] = React.useState(targetModel.attributes[resolvedProp])
 
-          react_proxy.on(prop, () => setValue(targetModel.attributes[resolvedProp]))
+          React.useEffect(() => {
+            const cb = () => setValue(targetModel.attributes[resolvedProp])
+            react_proxy.on(prop, cb)
+            return () => react_proxy.off(prop, cb)
+          }, [])
 
           React.useEffect(() => {
-              targetModel.setv({ [resolvedProp]: value })
+            targetModel.setv({ [resolvedProp]: value })
           }, [value])
 
           return [value, setValue]
@@ -40481,5 +40494,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"140084c190","models/event-to-object":"2cc1a33000","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"db82e464de","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"7934c11cba","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"f3ddc6fd49","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"b5cfca1687","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"d34360f699","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"90f76e3d2e","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"ffbe075545","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"e97fdbf701","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"5caa935b13","models/event-to-object":"2cc1a33000","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"7934c11cba","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"b5cfca1687","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"d34360f699","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"90f76e3d2e","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"382eba5872","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

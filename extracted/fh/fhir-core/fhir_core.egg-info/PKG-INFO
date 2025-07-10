@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhir_core
-Version: 1.1.1
+Version: 1.1.2
 Summary: FHIR Core library
 Home-page: https://github.com/nazrulworld/fhir-core
 Author: Md Nazrul Islam
@@ -43,7 +43,7 @@ Requires-Dist: flake8-isort>=6.0.0; extra == "test"
 Requires-Dist: flake8-bugbear>=22.12.6; extra == "test"
 Requires-Dist: requests==2.23.0; python_version < "3.10" and extra == "test"
 Requires-Dist: isort>=5.11.4; extra == "test"
-Requires-Dist: black; extra == "test"
+Requires-Dist: black<24.0,>=23.0; python_version >= "3.7" and extra == "test"
 Requires-Dist: mypy; extra == "test"
 Requires-Dist: PyYAML>=6.0.1; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
@@ -62,7 +62,7 @@ Requires-Dist: flake8-isort>=6.0.0; extra == "dev"
 Requires-Dist: flake8-bugbear>=22.12.6; extra == "dev"
 Requires-Dist: requests==2.23.0; python_version < "3.10" and extra == "dev"
 Requires-Dist: isort>=5.11.4; extra == "dev"
-Requires-Dist: black; extra == "dev"
+Requires-Dist: black<24.0,>=23.0; python_version >= "3.7" and extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: PyYAML>=6.0.1; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
@@ -186,6 +186,14 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 
 History
 =======
+
+1.1.2 (2025-07-09)
+------------------
+
+- Fixes nested ignoring (non primitive field serialization), if summary mode is enabled.
+
+- Issue #12 missing xmlparser argument for FHIRAbstractModel.model_validate_xml.
+
 
 1.1.1 (2025-07-04)
 ------------------

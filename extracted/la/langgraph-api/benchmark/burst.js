@@ -15,7 +15,9 @@ const burstSuccessRate = new Rate('burst_success_rate');
 
 // URL of your LangGraph server
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:9123';
-const BURST_SIZE = parseInt(__ENV.BURST_SIZE || '50');
+const BURST_SIZE = parseInt(__ENV.BURST_SIZE || '100');
+const MODE = __ENV.MODE || 'single';
+const EXPAND = parseInt(__ENV.EXPAND || '50');
 
 // Burst testing configuration
 export let options = {
@@ -28,8 +30,8 @@ export let options = {
     },
   },
   thresholds: {
-    'run_duration': ['p(95)<3500'],
-    'burst_success_rate': ['rate>0.99'],
+    'run_duration': ['p(95)<2000'],
+    'burst_success_rate': ['rate>=0.99'],
   },
 };
 
@@ -50,8 +52,10 @@ export default function() {
     // Create a payload with the LangGraph agent configuration
     const payload = JSON.stringify({
       assistant_id: "benchmark",
-      config: { delay: 0.1 },
-      input: {delay: 0.1, random_value: 'hello'},
+      input: {mode: MODE, expand: EXPAND},
+      config: {
+        recursion_limit: EXPAND + 2,
+      }
     });
 
     // Make a single request to the wait endpoint
@@ -60,15 +64,18 @@ export default function() {
       timeout: '35s'
     });
 
+    // Don't include verification in the duration of the request
+    const duration = new Date().getTime() - startTime;
+
     // Check the response
+    const expected_length = MODE === 'single' ? 1 : EXPAND + 1;
     const success = check(response, {
       'Run completed successfully': (r) => r.status === 200,
-      'Response contains data': (r) => r.body.length > 0,
+      'Response contains expected number of messages': (r) => JSON.parse(r.body).messages.length === expected_length,
     });
 
     if (success) {
       // Record success metrics
-      const duration = new Date().getTime() - startTime;
       runDuration.add(duration);
       successfulRuns.add(1);
       burstSuccessRate.add(1);  // 1 = success

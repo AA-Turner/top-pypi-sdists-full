@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amplpy
-Version: 0.15.1
+Version: 0.15.2
 Summary: Python API for AMPL
 Home-page: http://ampl.com/
 Download-URL: https://github.com/ampl/amplpy

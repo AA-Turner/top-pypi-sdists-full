@@ -411,6 +411,16 @@ class Identifier(_message.Message):
     name: str
     def __init__(self, name: _Optional[str] = ...) -> None: ...
 
+class TypedIdentifier(_message.Message):
+    __slots__ = ("name", "type")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    type: _arrow_pb2.ArrowType
+    def __init__(
+        self, name: _Optional[str] = ..., type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...
+    ) -> None: ...
+
 class ExprGetAttribute(_message.Message):
     __slots__ = ("parent", "attribute")
     PARENT_FIELD_NUMBER: _ClassVar[int]
@@ -477,6 +487,7 @@ class LogicalExprNode(_message.Message):
         "get_subscript",
         "call",
         "literal_value",
+        "typed_identifier",
         "expr_id",
         "column",
         "alias",
@@ -518,6 +529,7 @@ class LogicalExprNode(_message.Message):
     GET_SUBSCRIPT_FIELD_NUMBER: _ClassVar[int]
     CALL_FIELD_NUMBER: _ClassVar[int]
     LITERAL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TYPED_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     EXPR_ID_FIELD_NUMBER: _ClassVar[int]
     COLUMN_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
@@ -558,6 +570,7 @@ class LogicalExprNode(_message.Message):
     get_subscript: ExprGetSubscript
     call: ExprCall
     literal_value: ExprLiteral
+    typed_identifier: TypedIdentifier
     expr_id: str
     column: Column
     alias: AliasNode
@@ -600,6 +613,7 @@ class LogicalExprNode(_message.Message):
         get_subscript: _Optional[_Union[ExprGetSubscript, _Mapping]] = ...,
         call: _Optional[_Union[ExprCall, _Mapping]] = ...,
         literal_value: _Optional[_Union[ExprLiteral, _Mapping]] = ...,
+        typed_identifier: _Optional[_Union[TypedIdentifier, _Mapping]] = ...,
         expr_id: _Optional[str] = ...,
         column: _Optional[_Union[Column, _Mapping]] = ...,
         alias: _Optional[_Union[AliasNode, _Mapping]] = ...,

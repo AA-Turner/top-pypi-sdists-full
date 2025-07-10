@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zaber_motion
-Version: 7.9.1
+Version: 7.10.0
 Summary: An official library for communicating with Zaber devices.
 Author-email: "Zaber Technologies Inc." <contact@zaber.com>
 License: The MIT License (MIT)

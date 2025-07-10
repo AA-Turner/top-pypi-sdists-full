@@ -163,7 +163,17 @@ class RAG:
     pass
 
 
-LLMDefinition = Union[Completion, RAG]
+@dataclasses.dataclass
+class LLMClassification:
+    input: str
+    target: str
+    predictions: Optional[str] = None
+    reasoning: Optional[str] = None
+    prediction_reasoning: Optional[str] = None
+    name: str = "llm_default"
+
+
+LLMDefinition = Union[Completion, RAG, LLMClassification]
 
 
 DEFAULT_TRACE_LINK_COLUMN = "_evidently_trace_link"
@@ -308,6 +318,37 @@ class ColumnCondition(AutoAliasMixin, EvidentlyBaseModel, abc.ABC):
         raise NotImplementedError
 
 
+class DescriptorTest(BaseModel):
+    condition: ColumnCondition
+    column: Optional[str] = None
+    alias: Optional[str] = None
+
+    def __init__(
+        self,
+        condition: Union[ColumnCondition, GenericTest],
+        column: Optional[str] = None,
+        alias: Optional[str] = None,
+        **data: Any,
+    ) -> None:
+        c: ColumnCondition = condition.for_descriptor().condition if isinstance(condition, GenericTest) else condition
+        super().__init__(alias=alias, column=column, condition=c, **data)
+
+    def to_descriptor(self, descriptor: Optional["Descriptor"] = None) -> "Descriptor":
+        if self.column is None:
+            if descriptor is None:
+                raise ValueError("Parent descriptor is required for test without column")
+            descriptor_columns = descriptor.list_output_columns()
+            if len(descriptor_columns) == 1:
+                column = descriptor_columns[0]
+            else:
+                raise ValueError(
+                    f"Column is required for test with multiple columns in parent descriptor: [{', '.join(descriptor_columns)}]"
+                )
+        else:
+            column = self.column
+        return ColumnTest(column, self.condition, self.alias or self.condition.get_default_alias(column))
+
+
 AnyDescriptorTest = Union["DescriptorTest", "GenericTest"]
 
 
@@ -318,11 +359,11 @@ class Descriptor(AutoAliasMixin, EvidentlyBaseModel, abc.ABC):
     __alias_type__: ClassVar = "descriptor_v2"
 
     alias: str
-    tests: List["DescriptorTest"] = []
+    tests: List[DescriptorTest] = []
 
     def __init__(self, alias: str, tests: Optional[List[AnyDescriptorTest]] = None, **data: Any) -> None:
         self.alias = alias
-        self.tests = [t if isinstance(t, DescriptorTest) else t.for_descriptor() for t in (tests or [])]
+        self.tests = [t.for_descriptor() if isinstance(t, GenericTest) else t for t in (tests or [])]
         super().__init__(**data)
 
     @abc.abstractmethod
@@ -356,42 +397,6 @@ class SingleInputDescriptor(Descriptor, abc.ABC):
 
     def list_input_columns(self) -> List[str]:
         return [self.column]
-
-
-class DescriptorTest(BaseModel):
-    condition: ColumnCondition
-    column: Optional[str] = None
-    alias: Optional[str] = None
-
-    def __init__(
-        self,
-        condition: Union[ColumnCondition, GenericTest],
-        column: Optional[str] = None,
-        alias: Optional[str] = None,
-        **data: Any,
-    ) -> None:
-        c: ColumnCondition = (
-            condition if isinstance(condition, ColumnCondition) else condition.for_descriptor().condition
-        )
-        super().__init__(alias=alias, column=column, condition=c, **data)
-
-    def to_descriptor(self, descriptor: Optional[Descriptor] = None) -> "Descriptor":
-        if self.column is None:
-            if descriptor is None:
-                raise ValueError("Parent descriptor is required for test without column")
-            descriptor_columns = descriptor.list_output_columns()
-            if len(descriptor_columns) == 1:
-                column = descriptor_columns[0]
-            else:
-                raise ValueError(
-                    f"Column is required for test with multiple columns in parent descriptor: [{', '.join(descriptor_columns)}]"
-                )
-        else:
-            column = self.column
-        return ColumnTest(column, self.condition, self.alias or self.condition.get_default_alias(column))
-
-
-Descriptor.update_forward_refs()
 
 
 class ColumnTest(SingleInputDescriptor):

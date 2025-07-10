@@ -128,19 +128,81 @@ class PPEComplianceUseCase(BaseProcessor):
     def __init__(self):
         super().__init__("ppe_compliance_detection")
         self.category = "ppe"
-        
         # List of violation categories to track
         self.violation_categories = ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]
-        
         # Initialize smoothing tracker
         self.smoothing_tracker = None
-        
         # Initialize advanced tracker (will be created on first use)
         self.tracker = None
-        
         # Initialize tracking state variables
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        # Set of current frame track_ids (updated per frame)
+        self._current_frame_track_ids = set()
+        # Track start time for "TOTAL SINCE" calculation
+        self._tracking_start_time = None
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        if is_video_chunk:
+            video_timestamp = stream_info.get("video_timestamp", 0.0)
+            return self._format_timestamp_for_video(video_timestamp)
+        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str
+        else:
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                try:
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        if is_video_chunk:
+            return "00:00:00"
+        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            if self._tracking_start_time is None:
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
@@ -162,8 +224,8 @@ class PPEComplianceUseCase(BaseProcessor):
 
 
 
-        # Map detection indices to category names if needed
-        processed_data = apply_category_mapping(data, config.index_to_category)
+        # Map detection indices to category names robustly (PPE only)
+        processed_data = self._robust_apply_category_mapping(data, config.index_to_category)
         # Only keep violation categories (remove 'Person', etc.)
         processed_data = [d for d in processed_data if d.get('category') in self.violation_categories]
 
@@ -232,8 +294,8 @@ class PPEComplianceUseCase(BaseProcessor):
         summary = self._generate_summary(counting_summary, alerts)
 
         # Step: Generate structured events and tracking stats with frame-based keys
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number)
+        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
 
         # Extract frame-based dictionaries from the lists
         events = events_list[0] if events_list else {}
@@ -285,6 +347,7 @@ class PPEComplianceUseCase(BaseProcessor):
         self._violation_total_track_ids = {cat: set() for cat in self.violation_categories}
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        self._tracking_start_time = None
         self.logger.info("PPE violation tracking state reset")
     
     def reset_all_tracking(self) -> None:
@@ -295,15 +358,21 @@ class PPEComplianceUseCase(BaseProcessor):
         self.reset_violation_tracking()
         self.logger.info("All PPE tracking state reset")
         
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: PPEComplianceConfig, frame_number: Optional[int] = None) -> List[Dict]:
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: PPEComplianceConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured events for the output format with frame-based keys."""
-        from datetime import datetime, timezone
-
         # Use frame number as key, fallback to 'current_frame' if not available
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         events = [{frame_key: []}]
         frame_events = events[0][frame_key]
         total_violations = counting_summary.get("total_count", 0)
+
+        # Generate human text in new format
+        human_text_lines = ["EVENTS DETECTED:"]
+        if total_violations > 0:
+            human_text_lines.append(f"    - {total_violations} PPE violation(s) detected [INFO]")
+        else:
+            human_text_lines.append("    - No PPE violations detected")
+        human_text = "\n".join(human_text_lines)
 
         if total_violations > 0:
             event = {
@@ -313,10 +382,9 @@ class PPEComplianceUseCase(BaseProcessor):
                 "count": total_violations,
                 "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
                 "location_info": None,
-                "human_text": f"{total_violations} PPE violations detected"
+                "human_text": human_text
             }
             frame_events.append(event)
-
         # Add alert events
         for alert in alerts:
             alert_event = {
@@ -329,34 +397,59 @@ class PPEComplianceUseCase(BaseProcessor):
                 "human_text": alert.get("human_text", "PPE alert triggered")
             }
             frame_events.append(alert_event)
-
         return events
 
 
-    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: PPEComplianceConfig, frame_number: Optional[int] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: PPEComplianceConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
         total_violations = counting_summary.get("total_count", 0)
-
+        per_cat = counting_summary.get("per_category_count", {})
+        cumulative = counting_summary.get("total_violation_counts", {})
+        cumulative_total = sum(cumulative.values()) if cumulative else 0
+        # Always get track ID info even if 0 detections — to ensure consistency
+        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+        # Get formatted timestamps
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
+        # Build human-readable summary string in requested format
+        human_text_lines = []
+        # CURRENT FRAME section
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if total_violations > 0:
-            # Add detailed track_ids_info (like people_counting)
-            track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-            tracking_stat = {
-                "type": "ppe_tracking",
-                "category": "ppe",
-                "count": total_violations,
-                "insights": insights,
-                "summary": summary,
-                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-                "human_text": summary,
-                "track_ids_info": track_ids_info,
-                "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-                "local_frame_id": frame_key
-            }
-            frame_tracking_stats.append(tracking_stat)
-
+            human_text_lines.append(f"    - PPE Violations Detected: {total_violations}")
+            for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]:
+                count = per_cat.get(cat, 0)
+                if count > 0:
+                    label = self.CATEGORY_DISPLAY.get(cat, cat).replace(" Violations", "")
+                    human_text_lines.append(f"        - {label}: {count}")
+        else:
+            human_text_lines.append("    - No PPE violations detected")
+        human_text_lines.append("")  # Empty line for spacing
+        # TOTAL SINCE section
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
+        human_text_lines.append(f"    - Total PPE Violations Detected: {cumulative_total}")
+        for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]:
+            count = cumulative.get(cat, 0)
+            if count > 0:
+                label = self.CATEGORY_DISPLAY.get(cat, cat).replace(" Violations", "")
+                human_text_lines.append(f"        - {label}: {count}")
+        human_text = "\n".join(human_text_lines)
+        tracking_stat = {
+            "type": "ppe_tracking",
+            "category": "ppe",
+            "count": total_violations,
+            "insights": insights,
+            "summary": summary,
+            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
+            "human_text": human_text,
+            "track_ids_info": track_ids_info,
+            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
+            "local_frame_id": frame_key
+        }
+        frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
 
@@ -370,21 +463,23 @@ class PPEComplianceUseCase(BaseProcessor):
         counts = {}
         for det in detections:
             cat = det.get('category', 'unknown')
-            counts[cat] = counts.get(cat, 0) + 1
+            if cat in self.violation_categories:
+                counts[cat] = counts.get(cat, 0) + 1
         # Each detection dict will now include 'track_id' (and possibly 'frame_id')
+        filtered_detections = [
+            {
+                "bounding_box": det.get("bounding_box"),
+                "category": det.get("category"),
+                "confidence": det.get("confidence"),
+                "track_id": det.get("track_id"),
+                "frame_id": det.get("frame_id")
+            }
+            for det in detections if det.get('category') in self.violation_categories
+        ]
         return {
             "total_count": sum(counts.values()),
             "per_category_count": counts,
-            "detections": [
-                {
-                    "bounding_box": det.get("bounding_box"),
-                    "category": det.get("category"),
-                    "confidence": det.get("confidence"),
-                    "track_id": det.get("track_id"),
-                    "frame_id": det.get("frame_id")
-                }
-                for det in detections
-            ]
+            "detections": filtered_detections
         }
 
     # Human-friendly display names for violation categories
@@ -471,4 +566,27 @@ class PPEComplianceUseCase(BaseProcessor):
             lines.append(f"{len(alerts)} alert(s)")
         return "\n".join(lines)
 
-
+    def _robust_apply_category_mapping(self, data, index_to_category):
+        """
+        Map detection indices to category names, robustly handling int or numeric string indices.
+        Only for PPE use case to avoid affecting other use cases.
+        Handles both int and str keys in index_to_category.
+        """
+        mapped = []
+        for det in data:
+            mapped_det = det.copy()
+            cat = det.get("category")
+            # Convert string numbers to int if possible
+            if isinstance(cat, str) and cat.isdigit():
+                cat_int = int(cat)
+            else:
+                cat_int = cat
+            mapped_label = None
+            if cat_int in index_to_category:
+                mapped_label = index_to_category[cat_int]
+            elif isinstance(cat_int, int) and str(cat_int) in index_to_category:
+                mapped_label = index_to_category[str(cat_int)]
+            if mapped_label is not None:
+                mapped_det["category"] = mapped_label
+            mapped.append(mapped_det)
+        return mapped

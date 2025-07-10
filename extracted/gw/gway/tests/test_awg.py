@@ -1,9 +1,6 @@
 import unittest
 from gway import gw
 
-def awg_val(s):
-    return -int(s.split('/')[0]) if '/' in s else int(s)
-
 class TestMaxAwg(unittest.TestCase):
     def test_warning_when_voltage_drop_exceeds_limit(self):
         res = gw.awg.find_awg(meters=250, amps=60, volts=240, material="cu", max_awg=4)
@@ -34,6 +31,24 @@ class TestMaxAwg(unittest.TestCase):
     def test_blank_max_lines_defaults_to_one(self):
         res = gw.awg.find_awg(meters=30, amps=40, max_lines="")
         self.assertEqual(res["lines"], 1)
+
+    def test_ground_parameter_controls_cable_count(self):
+        res0 = gw.awg.find_awg(meters=30, amps=40, ground=0)
+        self.assertTrue(res0["cables"].endswith("+0"))
+        res1 = gw.awg.find_awg(meters=30, amps=40, ground=1)
+        self.assertTrue(res1["cables"].endswith("+1"))
+
+    def test_forced_awg_returns_warning(self):
+        res = gw.awg.find_awg(meters=30, amps=150, max_awg="14")
+        self.assertEqual(res["awg"], "14")
+        self.assertIn("warning", res)
+        self.assertGreater(res["vdperc"], 3)
+
+
+class TestConduitSizing(unittest.TestCase):
+    def test_edge_capacity_selects_next_size(self):
+        res = gw.awg.find_conduit(awg=8, cables=3, conduit="emt")
+        self.assertEqual(res["size_inch"], "3/4")
 
 if __name__ == "__main__":
     unittest.main()

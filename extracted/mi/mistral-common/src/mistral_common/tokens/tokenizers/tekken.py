@@ -15,7 +15,7 @@ from mistral_common.tokens.tokenizers.base import (
     Tokenizer,
     TokenizerVersion,
 )
-from mistral_common.tokens.tokenizers.multimodal import MultimodalConfig
+from mistral_common.tokens.tokenizers.image import ImageConfig
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class ModelData(TypedDict):
         config: The configuration of the tokenizer.
         version: The version of the tokenizer.
         type: The type of the tokenizer.
-        multimodal: The multimodal configuration of the tokenizer.
+        image: The image configuration of the tokenizer.
     """
 
     vocab: List[TokenInfo]
@@ -90,7 +90,7 @@ class ModelData(TypedDict):
     config: TekkenConfig
     version: int
     type: str
-    multimodal: MultimodalConfig
+    image: ImageConfig
 
 
 class Tekkenizer(Tokenizer):
@@ -138,7 +138,7 @@ class Tekkenizer(Tokenizer):
         *,
         name: str = "tekkenizer",
         _path: Optional[Union[str, Path]] = None,
-        mm_config: Optional[MultimodalConfig] = None,
+        image_config: Optional[ImageConfig] = None,
     ):
         r"""Initialize the tekken tokenizer.
 
@@ -150,7 +150,7 @@ class Tekkenizer(Tokenizer):
             num_special_tokens: The number of special tokens of the tokenizer.
             version: The version of the tokenizer.
             name: The name of the tokenizer.
-            mm_config: The multimodal configuration of the tokenizer.
+            image_config: The image configuration of the tokenizer.
         """
         assert vocab_size <= len(vocab) + num_special_tokens, (
             vocab_size,
@@ -194,7 +194,7 @@ class Tekkenizer(Tokenizer):
         )
 
         self._version = version
-        self._mm_config = mm_config
+        self._image_config = image_config
         self._all_special_tokens = special_tokens
         self._special_tokens_reverse_vocab = {t["token_str"]: t["rank"] for t in special_tokens}
         self._vocab = [self.id_to_piece(i) for i in range(vocab_size)]
@@ -250,7 +250,15 @@ class Tekkenizer(Tokenizer):
         untyped["special_tokens"] = special_tokens
 
         if mm := untyped.get("multimodal", None):
-            untyped["multimodal"] = MultimodalConfig(**mm)
+            # deprecated - only allowed for tokenizers <= v11
+            if version > TokenizerVersion("v11"):
+                raise ValueError(
+                    f"The image config has to be called 'image' in {path} for tokenizers of version {version.value}."
+                )
+
+            untyped["image"] = ImageConfig(**mm)
+        elif image := untyped.get("image", None):
+            untyped["image"] = ImageConfig(**image)
 
         model_data: ModelData = untyped
 
@@ -262,18 +270,18 @@ class Tekkenizer(Tokenizer):
             num_special_tokens=model_data["config"]["default_num_special_tokens"],
             version=version,
             name=path.name.replace(".json", ""),
-            mm_config=model_data.get("multimodal"),
+            image_config=model_data.get("image"),
             _path=path,
         )
 
     @property
-    def multimodal(self) -> Optional[MultimodalConfig]:
-        r"""The multimodal configuration of the tokenizer."""
-        return self._mm_config
+    def image(self) -> Optional[ImageConfig]:
+        r"""The image configuration of the tokenizer."""
+        return self._image_config
 
-    @multimodal.setter
-    def multimodal(self, value: MultimodalConfig) -> None:
-        raise ValueError("Can only set Multimodal config at init")
+    @image.setter
+    def image(self, value: ImageConfig) -> None:
+        raise ValueError("Can only set Image config at init")
 
     @property
     def num_special_tokens(self) -> int:
@@ -303,7 +311,7 @@ class Tekkenizer(Tokenizer):
 
         warnings.warn(
             (
-                "The attributed `special_token_policy` is deprecated and will be removed in 1.7.0. "
+                "The attributed `special_token_policy` is deprecated and will be removed in 1.10.0. "
                 "Please pass a special token policy explicitly to the relevant methods."
             ),
             FutureWarning,
@@ -414,7 +422,7 @@ class Tekkenizer(Tokenizer):
             special_token_policy: The policy for handling special tokens.
                 Use the tokenizer's [attribute][mistral_common.tokens.tokenizers.tekken.Tekkenizer.special_token_policy]
                 if `None`. Passing `None` is deprecated and will be changed
-                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.7.0`.
+                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The decoded string.
@@ -428,7 +436,7 @@ class Tekkenizer(Tokenizer):
             warnings.warn(
                 (
                     f"Using the tokenizer's special token policy ({self._special_token_policy}) is deprecated. "
-                    "It will be removed in 1.7.0. "
+                    "It will be removed in 1.10.0. "
                     "Please pass a special token policy explicitly. "
                     "Future default will be SpecialTokenPolicy.IGNORE."
                 ),
@@ -447,7 +455,7 @@ class Tekkenizer(Tokenizer):
         """
         warnings.warn(
             (
-                "`to_string` is deprecated and will be removed in 1.7.0. "
+                "`to_string` is deprecated and will be removed in 1.10.0. "
                 "Use `decode` with `special_token_policy=SpecialTokenPolicy.KEEP` instead."
             ),
             FutureWarning,
@@ -469,7 +477,7 @@ class Tekkenizer(Tokenizer):
             special_token_policy: The policy for handling special tokens.
                 Use the tokenizer's [attribute][mistral_common.tokens.tokenizers.tekken.Tekkenizer.special_token_policy]
                 if `None`. Passing `None` is deprecated and will be changed
-                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.7.0`.
+                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The byte representation of the token.
@@ -478,7 +486,7 @@ class Tekkenizer(Tokenizer):
             warnings.warn(
                 (
                     f"Using the tokenizer's special token policy ({self._special_token_policy}) is deprecated. "
-                    "It will be removed in 1.7.0. "
+                    "It will be removed in 1.10.0. "
                     "Please pass a special token policy explicitly. "
                     "Future default will be SpecialTokenPolicy.IGNORE."
                 ),

@@ -79,7 +79,7 @@ from collections.abc import AsyncGenerator, Callable, Sequence
 from io import TextIOWrapper
 from types import FrameType, ModuleType, TracebackType
 from typing import Any, Final, Literal, NoReturn, Protocol, TextIO, TypeVar, final, type_check_only
-from typing_extensions import LiteralString, TypeAlias
+from typing_extensions import LiteralString, TypeAlias, deprecated
 
 _T = TypeVar("_T")
 
@@ -416,9 +416,16 @@ def call_tracing(func: Callable[..., _T], args: Any, /) -> _T:
     some other code.
     """
     ...
-def _clear_type_cache() -> None:
-    """Clear the internal type lookup cache."""
-    ...
+
+if sys.version_info >= (3, 13):
+    @deprecated("Deprecated in Python 3.13; use _clear_internal_caches() instead.")
+    def _clear_type_cache() -> None:
+        """Clear the internal type lookup cache."""
+        ...
+
+else:
+    def _clear_type_cache() -> None: ...
+
 def _current_frames() -> dict[int, FrameType]:
     """
     Return a dict mapping each thread's thread id to its current stack frame.
@@ -439,6 +446,20 @@ def _getframe(depth: int = 0, /) -> FrameType:
     only.
     """
     ...
+
+if sys.version_info >= (3, 12):
+    def _getframemodulename(depth: int = 0) -> str | None:
+        """
+        Return the name of the module for a calling frame.
+
+        The default depth returns the module containing the call to this API.
+        A more typical use in a library will pass a depth of 1 to get the user's
+        module rather than the library module.
+
+        If no frame, module, or name can be found, returns None.
+        """
+        ...
+
 def _debugmallocstats() -> None:
     """
     Print summary info to stderr about the state of pymalloc's structures.

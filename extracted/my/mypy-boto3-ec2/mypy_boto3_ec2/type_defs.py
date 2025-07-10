@@ -64,6 +64,8 @@ from .literals import (
     CancelBatchErrorCodeType,
     CancelSpotInstanceRequestStateType,
     CapacityBlockExtensionStatusType,
+    CapacityBlockInterconnectStatusType,
+    CapacityBlockResourceStateType,
     CapacityReservationBillingRequestStatusType,
     CapacityReservationDeliveryPreferenceType,
     CapacityReservationFleetStateType,
@@ -579,6 +581,8 @@ __all__ = (
     "CapacityBlockExtensionOfferingTypeDef",
     "CapacityBlockExtensionTypeDef",
     "CapacityBlockOfferingTypeDef",
+    "CapacityBlockStatusTypeDef",
+    "CapacityBlockTypeDef",
     "CapacityReservationBillingRequestTypeDef",
     "CapacityReservationCommitmentInfoTypeDef",
     "CapacityReservationFleetCancellationStateTypeDef",
@@ -589,6 +593,7 @@ __all__ = (
     "CapacityReservationOptionsTypeDef",
     "CapacityReservationSpecificationResponseTypeDef",
     "CapacityReservationSpecificationTypeDef",
+    "CapacityReservationStatusTypeDef",
     "CapacityReservationTargetResponseTypeDef",
     "CapacityReservationTargetTypeDef",
     "CapacityReservationTypeDef",
@@ -1090,6 +1095,12 @@ __all__ = (
     "DescribeCapacityBlockOfferingsRequestPaginateTypeDef",
     "DescribeCapacityBlockOfferingsRequestTypeDef",
     "DescribeCapacityBlockOfferingsResultTypeDef",
+    "DescribeCapacityBlockStatusRequestPaginateTypeDef",
+    "DescribeCapacityBlockStatusRequestTypeDef",
+    "DescribeCapacityBlockStatusResultTypeDef",
+    "DescribeCapacityBlocksRequestPaginateTypeDef",
+    "DescribeCapacityBlocksRequestTypeDef",
+    "DescribeCapacityBlocksResultTypeDef",
     "DescribeCapacityReservationBillingRequestsRequestPaginateTypeDef",
     "DescribeCapacityReservationBillingRequestsRequestTypeDef",
     "DescribeCapacityReservationBillingRequestsResultTypeDef",
@@ -3673,7 +3684,16 @@ class CapacityBlockOfferingTypeDef(TypedDict):
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
     Tenancy: NotRequired[CapacityReservationTenancyType]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
     CapacityBlockDurationMinutes: NotRequired[int]
+
+
+class CapacityReservationStatusTypeDef(TypedDict):
+    CapacityReservationId: NotRequired[str]
+    TotalCapacity: NotRequired[int]
+    TotalAvailableCapacity: NotRequired[int]
+    TotalUnavailableCapacity: NotRequired[int]
 
 
 class CapacityReservationInfoTypeDef(TypedDict):
@@ -5102,6 +5122,7 @@ class InstanceTopologyTypeDef(TypedDict):
     NetworkNodes: NotRequired[List[str]]
     AvailabilityZone: NotRequired[str]
     ZoneId: NotRequired[str]
+    CapacityBlockId: NotRequired[str]
 
 
 class InstanceTypeOfferingTypeDef(TypedDict):
@@ -9405,6 +9426,19 @@ class AllowedPrincipalTypeDef(TypedDict):
     ServiceId: NotRequired[str]
 
 
+class CapacityBlockTypeDef(TypedDict):
+    CapacityBlockId: NotRequired[str]
+    UltraserverType: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    CapacityReservationIds: NotRequired[List[str]]
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    CreateDate: NotRequired[datetime]
+    State: NotRequired[CapacityBlockResourceStateType]
+    Tags: NotRequired[List[TagTypeDef]]
+
+
 class CarrierGatewayTypeDef(TypedDict):
     CarrierGatewayId: NotRequired[str]
     VpcId: NotRequired[str]
@@ -10299,6 +10333,8 @@ class DescribeCapacityBlockOfferingsRequestTypeDef(TypedDict):
     EndDateRange: NotRequired[TimestampTypeDef]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
 
 
 class DescribeFleetHistoryRequestTypeDef(TypedDict):
@@ -10622,6 +10658,15 @@ class DescribeCapacityBlockOfferingsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class CapacityBlockStatusTypeDef(TypedDict):
+    CapacityBlockId: NotRequired[str]
+    InterconnectStatus: NotRequired[CapacityBlockInterconnectStatusType]
+    TotalCapacity: NotRequired[int]
+    TotalAvailableCapacity: NotRequired[int]
+    TotalUnavailableCapacity: NotRequired[int]
+    CapacityReservationStatuses: NotRequired[List[CapacityReservationStatusTypeDef]]
+
+
 class CapacityReservationBillingRequestTypeDef(TypedDict):
     CapacityReservationId: NotRequired[str]
     RequestedBy: NotRequired[str]
@@ -10660,6 +10705,7 @@ class CapacityReservationTypeDef(TypedDict):
     UnusedReservationBillingOwnerId: NotRequired[str]
     CommitmentInfo: NotRequired[CapacityReservationCommitmentInfoTypeDef]
     DeliveryPreference: NotRequired[CapacityReservationDeliveryPreferenceType]
+    CapacityBlockId: NotRequired[str]
 
 
 class CapacityReservationFleetTypeDef(TypedDict):
@@ -11223,6 +11269,8 @@ class DescribeCapacityBlockOfferingsRequestPaginateTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
     StartDateRange: NotRequired[TimestampTypeDef]
     EndDateRange: NotRequired[TimestampTypeDef]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -11364,6 +11412,36 @@ class DescribeCapacityBlockExtensionHistoryRequestPaginateTypeDef(TypedDict):
 
 class DescribeCapacityBlockExtensionHistoryRequestTypeDef(TypedDict):
     CapacityReservationIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+
+
+class DescribeCapacityBlockStatusRequestPaginateTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeCapacityBlockStatusRequestTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+
+
+class DescribeCapacityBlocksRequestPaginateTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeCapacityBlocksRequestTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -15813,6 +15891,12 @@ class DescribeVpcEndpointServicePermissionsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeCapacityBlocksResultTypeDef(TypedDict):
+    CapacityBlocks: List[CapacityBlockTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CreateCarrierGatewayResultTypeDef(TypedDict):
     CarrierGateway: CarrierGatewayTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -16617,6 +16701,12 @@ class CancelSpotFleetRequestsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeCapacityBlockStatusResultTypeDef(TypedDict):
+    CapacityBlockStatuses: List[CapacityBlockStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class DescribeCapacityReservationBillingRequestsResultTypeDef(TypedDict):
     CapacityReservationBillingRequests: List[CapacityReservationBillingRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -16650,6 +16740,7 @@ class MoveCapacityReservationInstancesResultTypeDef(TypedDict):
 
 class PurchaseCapacityBlockResultTypeDef(TypedDict):
     CapacityReservation: CapacityReservationTypeDef
+    CapacityBlocks: List[CapacityBlockTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -20811,6 +20902,7 @@ class InstanceTypeDef(TypedDict):
     Tags: NotRequired[List[TagTypeDef]]
     VirtualizationType: NotRequired[VirtualizationTypeType]
     CpuOptions: NotRequired[CpuOptionsTypeDef]
+    CapacityBlockId: NotRequired[str]
     CapacityReservationId: NotRequired[str]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationResponseTypeDef]
     HibernationOptions: NotRequired[HibernationOptionsTypeDef]

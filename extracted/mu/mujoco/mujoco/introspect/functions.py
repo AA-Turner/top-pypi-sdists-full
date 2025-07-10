@@ -8987,46 +8987,6 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc='Attach child to a parent, return the attached element if success or NULL otherwise.',  # pylint: disable=line-too-long
      )),
-    ('mjs_detachBody',
-     FunctionDecl(
-         name='mjs_detachBody',
-         return_type=ValueType(name='int'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='s',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjSpec'),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='b',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjsBody'),
-                 ),
-             ),
-         ),
-         doc='Delete body and descendants from mjSpec, remove all references, return 0 on success.',  # pylint: disable=line-too-long
-     )),
-    ('mjs_detachDefault',
-     FunctionDecl(
-         name='mjs_detachDefault',
-         return_type=ValueType(name='int'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='s',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjSpec'),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='d',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjsDefault'),
-                 ),
-             ),
-         ),
-         doc='Delete default class and descendants from mjSpec, remove all references, return 0 on success.',  # pylint: disable=line-too-long
-     )),
     ('mjs_addBody',
      FunctionDecl(
          name='mjs_addBody',
@@ -9203,13 +9163,19 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          return_type=ValueType(name='int'),
          parameters=(
              FunctionParameterDecl(
+                 name='spec',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjSpec'),
+                 ),
+             ),
+             FunctionParameterDecl(
                  name='element',
                  type=PointerType(
                      inner_type=ValueType(name='mjsElement'),
                  ),
              ),
          ),
-         doc='Delete object corresponding to the given element, return 0 on success.',  # pylint: disable=line-too-long
+         doc='Remove object corresponding to the given element, return 0 on success.',  # pylint: disable=line-too-long
      )),
     ('mjs_addActuator',
      FunctionDecl(
@@ -10225,6 +10191,26 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc="Return spec's next element; return NULL if element is last.",
      )),
+    ('mjs_setName',
+     FunctionDecl(
+         name='mjs_setName',
+         return_type=ValueType(name='int'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='element',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjsElement'),
+                 ),
+             ),
+             FunctionParameterDecl(
+                 name='name',
+                 type=PointerType(
+                     inner_type=ValueType(name='char', is_const=True),
+                 ),
+             ),
+         ),
+         doc="Set element's name, return 0 on success.",
+     )),
     ('mjs_setBuffer',
      FunctionDecl(
          name='mjs_setBuffer',
@@ -10472,6 +10458,22 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
          ),
          doc='Set plugin attributes.',
+     )),
+    ('mjs_getName',
+     FunctionDecl(
+         name='mjs_getName',
+         return_type=PointerType(
+             inner_type=ValueType(name='mjString'),
+         ),
+         parameters=(
+             FunctionParameterDecl(
+                 name='element',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjsElement'),
+                 ),
+             ),
+         ),
+         doc="Get element's name.",
      )),
     ('mjs_getString',
      FunctionDecl(

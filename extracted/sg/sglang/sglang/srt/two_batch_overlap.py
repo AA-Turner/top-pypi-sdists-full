@@ -490,6 +490,7 @@ class TboForwardBatchPreparer:
         output_dict["spec_info"] = output_spec_info
         for key in [
             "forward_mode",
+            "is_extend_in_batch",
             "return_logprob",
             "req_to_token_pool",
             "token_to_kv_pool",
@@ -550,6 +551,8 @@ class TboForwardBatchPreparer:
                 top_p_normalized_logprobs=False,
                 top_p=None,
                 mm_inputs=None,
+                top_logprobs_nums=None,
+                token_ids_logprobs=None,
             )
         )
 

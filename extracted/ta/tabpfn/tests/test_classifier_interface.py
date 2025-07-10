@@ -22,9 +22,15 @@ from torch import nn
 from tabpfn import TabPFNClassifier
 from tabpfn.preprocessing import PreprocessorConfig
 
+from .utils import check_cpu_float16_support
+
 devices = ["cpu"]
 if torch.cuda.is_available():
     devices.append("cuda")
+
+is_cpu_float16_supported = check_cpu_float16_support()
+
+# TODO: test "batched" mode
 
 feature_shift_decoders = ["shuffle", "rotate"]
 multiclass_decoders = ["shuffle", "rotate"]
@@ -33,8 +39,8 @@ fit_modes = [
     "fit_preprocessors",
     "fit_with_cache",
 ]
-inference_precision_methods = ["auto", "autocast", torch.float64]
-remove_remove_outliers_stds = [None, 12]
+inference_precision_methods = ["auto", "autocast", torch.float64, torch.float16]
+remove_outliers_stds = [None, 12]
 estimators = [1, 2]
 
 all_combinations = list(
@@ -45,7 +51,7 @@ all_combinations = list(
         multiclass_decoders,
         fit_modes,
         inference_precision_methods,
-        remove_remove_outliers_stds,
+        remove_outliers_stds,
     ),
 )
 
@@ -80,8 +86,16 @@ def test_fit(
     remove_outliers_std: int | None,
     X_y: tuple[np.ndarray, np.ndarray],
 ) -> None:
-    if device == "cpu" and inference_precision == "autocast":
-        pytest.skip("Only GPU supports inference_precision")
+    if device == "cpu" and inference_precision in ["autocast"]:
+        pytest.skip("CPU device does not support 'autocast' inference.")
+
+    # Use the environment-aware check to skip only if necessary
+    if (
+        device == "cpu"
+        and inference_precision == torch.float16
+        and not is_cpu_float16_supported
+    ):
+        pytest.skip("CPU float16 matmul not supported in this PyTorch version.")
 
     model = TabPFNClassifier(
         n_estimators=n_estimators,
@@ -261,6 +275,50 @@ class ModelWrapper(nn.Module):
         )
 
 
+def patch_layernorm_no_affine(model: nn.Module) -> None:
+    """Workaround for ONNX export issue with LayerNorm(affine=False) in
+    PyTorch <= 2.1.3.
+
+    This patch function was necessary to enable successful ONNX export
+    of the TabPFN model when using PyTorch version 2.1.3. The issue arose
+    because the ONNX exporter in that version (and potentially earlier ones)
+    failed to correctly handle `nn.LayerNorm` layers initialized with
+    `affine=False`, which means they lack the learnable 'weight' (gamma) and
+    'bias' (beta) parameters.
+
+    The `test_onnx_exportable_cpu` test attempts to export the internal
+    transformer model used by `TabPFNClassifier`. This model contains such
+    `LayerNorm(affine=False)` layers. When exporting with torch 2.1.3, this
+    led to an ONNX checker error or export failure.
+
+    However, testing indicated that this issue is resolved in later PyTorch
+    versions; specifically, the ONNX export runs without errors on
+    PyTorch 2.6.0 even without this patch.
+
+    This function circumvents the problem by iterating through the model's
+    modules and, for any `nn.LayerNorm` layer where `layer.weight` is None
+    (indicating `affine=False`), it manually adds non-learnable
+    (`requires_grad=False`) parameters for 'weight' (initialized to ones) and
+    'bias' (initialized to zeros). This addition satisfies the requirements
+    of the older ONNX exporter without changing the model's functional behavior,
+    as these added parameters represent an identity affine transformation.
+    """
+    for layer in model.modules():
+        if isinstance(layer, nn.LayerNorm) and layer.weight is None:
+            # Build tensors on the same device/dtype as the layer's buffer
+            device = next(layer.parameters(), torch.tensor([], device="cpu")).device
+            dtype = getattr(layer, "weight_dtype", torch.float32)
+
+            gamma = torch.ones(layer.normalized_shape, dtype=dtype, device=device)
+            beta = torch.zeros_like(gamma)
+
+            layer.weight = nn.Parameter(gamma, requires_grad=False)
+            layer.bias = nn.Parameter(beta, requires_grad=False)
+
+            # Optional: mark that we changed it (useful for logging)
+            layer._patched_for_onnx = True
+
+
 @pytest.mark.filterwarnings("ignore::torch.jit.TracerWarning")
 def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     if os.name == "nt":
@@ -288,9 +346,10 @@ def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
             "X": {0: "num_datapoints", 1: "batch_size", 2: "num_features"},
             "y": {0: "num_labels"},
         }
+        patch_layernorm_no_affine(classifier.model_)
         torch.onnx.export(
             ModelWrapper(classifier.model_).eval(),
-            (X, y, y.shape[0], True, []),
+            (X, y, y.shape[0], True, [[]]),
             io.BytesIO(),
             input_names=[
                 "X",

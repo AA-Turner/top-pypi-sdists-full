@@ -3255,6 +3255,19 @@ class OrderError(Enum):
     """The order is OK (0)"""
 
 
+class InteractiveBrokersFixOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Fix Interactive Brokers"""
+
+    @property
+    def account(self) -> str:
+        """The linked account for which to submit the order (only used by Financial Advisors)"""
+        ...
+
+    @account.setter
+    def account(self, value: str) -> None:
+        ...
+
+
 class TimeInForceJsonConverter(JsonConverter):
     """Provides an implementation of JsonConverter that can deserialize TimeInForce objects"""
 

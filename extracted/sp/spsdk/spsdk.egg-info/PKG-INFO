@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: spsdk
-Version: 3.0.0
+Version: 3.0.1
 Summary: Open Source Secure Provisioning SDK for NXP MCU/MPU
 Author-email: NXP <michal.starecek@nxp.com>
 License: BSD-3-Clause
@@ -30,7 +30,7 @@ Requires-Dist: bincopy<21,>=17.14.5
 Requires-Dist: bitstring<5,>=3.1
 Requires-Dist: click-command-tree<2
 Requires-Dist: click-option-group<1,>=0.3.0
-Requires-Dist: click!=8.1.4,<8.2,>=7.1
+Requires-Dist: click!=8.1.4,<9,>=7.1
 Requires-Dist: colorama<1,>=0.4.6
 Requires-Dist: crcmod<2
 Requires-Dist: cryptography<45,>=42.0.0
@@ -78,8 +78,6 @@ Provides-Extra: pemicro
 Requires-Dist: spsdk-pemicro<1,>=0.3.1; extra == "pemicro"
 Provides-Extra: pqc
 Requires-Dist: spsdk-pqc<1.0,>=0.6.1; extra == "pqc"
-Provides-Extra: pyocd
-Requires-Dist: spsdk-pyocd<1,>=0.3.1; extra == "pyocd"
 Provides-Extra: all
 Requires-Dist: spsdk[examples]; extra == "all"
 Requires-Dist: spsdk[dk6]; extra == "all"
@@ -89,7 +87,6 @@ Requires-Dist: spsdk[jlink]; extra == "all"
 Requires-Dist: spsdk[lauterbach]; extra == "all"
 Requires-Dist: spsdk[pemicro]; extra == "all"
 Requires-Dist: spsdk[pqc]; extra == "all"
-Requires-Dist: spsdk[pyocd]; extra == "all"
 
 # NXP Secure Provisioning SDK
 
@@ -188,7 +185,9 @@ Requires-Dist: spsdk[pyocd]; extra == "all"
 |mcxc244   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-c-series-microcontrollers/mcx-c14x-24x-44x-mcus-with-arm-cortex-m0-plus-entry-level-mcus-with-usb-segment-lcd-and-classical-peripherals:MCX-C14x-24x-44x)|a0             |
 |mcxc443   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-c-series-microcontrollers/mcx-c14x-24x-44x-mcus-with-arm-cortex-m0-plus-entry-level-mcus-with-usb-segment-lcd-and-classical-peripherals:MCX-C14x-24x-44x)|a0             |
 |mcxc444   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-c-series-microcontrollers/mcx-c14x-24x-44x-mcus-with-arm-cortex-m0-plus-entry-level-mcus-with-usb-segment-lcd-and-classical-peripherals:MCX-C14x-24x-44x)|a0             |
-|mcxe247   |MCX Series                 |mcxe247                                                                                                                                                                                                                                                                                                |a0             |
+|mcxe245   |MCX Series                 |[Link to nxp.com](https://nxp.com)                                                                                                                                                                                                                                                                     |a0             |
+|mcxe246   |MCX Series                 |[Link to nxp.com](https://nxp.com)                                                                                                                                                                                                                                                                     |a0             |
+|mcxe247   |MCX Series                 |[Link to nxp.com](https://nxp.com)                                                                                                                                                                                                                                                                     |a0             |
 |mcxn235   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series-microcontrollers/mcx-n23x-highly-integrated-mcus-with-on-chip-accelerators-intelligent-peripherals-and-advanced-security:MCX-N23X)              |a0             |
 |mcxn236   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series-microcontrollers/mcx-n23x-highly-integrated-mcus-with-on-chip-accelerators-intelligent-peripherals-and-advanced-security:MCX-N23X)              |a0             |
 |mcxn546   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series/mcx-n94x-and-n54x-mcus-with-dual-core-arm-cortex-m33-edgelock-secure-subsystem-and-neural-processing-unit:MCX-N94X-N54X)                        |a1             |

@@ -71,6 +71,8 @@ __all__ = [
     "DirectoryHasNoFilename",
     "CannotGetFilename",
     "TokenRemovedDuringClientCopy",
+    "FolderDownloadNotSupported",
+    "NoDocumentsLoaded",
 ]
 
 
@@ -613,4 +615,22 @@ class TokenRemovedDuringClientCopy(WMLClientError):
             self,
             f"APIClient had authentication data removed during `APIClient.get_copy()` operation."
             f"Use `APIClient.set_token(token)` to setup authentication in client copy.",
+        )
+
+
+class FolderDownloadNotSupported(WMLClientError):
+    def __init__(self):
+        WMLClientError.__init__(
+            self,
+            "Folder download is not supported. Only connections for separate files are allowed.",
+        )
+
+
+class NoDocumentsLoaded(WMLClientError):
+    def __init__(self, class_name):
+        WMLClientError.__init__(
+            self,
+            f"During documents loading no documents where loaded. "
+            f"Use `error_callback` parameter of `{class_name}` class to check the exceptions "
+            f"which were raised during documents loading.",
         )

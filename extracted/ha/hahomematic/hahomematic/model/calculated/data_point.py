@@ -75,11 +75,30 @@ class CalculatedDataPoint[ParameterT: GenericParameterType](BaseDataPoint):
             self.full_name,
         )
 
-    def _add_data_point[_DataPointT: hmge.GenericDataPoint](
-        self, parameter: str, paramset_key: ParamsetKey | None, data_point_type: type[_DataPointT]
-    ) -> _DataPointT:
+    def _add_data_point[DataPointT: hmge.GenericDataPoint](
+        self, parameter: str, paramset_key: ParamsetKey | None, data_point_type: type[DataPointT]
+    ) -> DataPointT:
         """Add a new data point."""
         if generic_data_point := self._channel.get_generic_data_point(parameter=parameter, paramset_key=paramset_key):
+            self._data_points.append(generic_data_point)
+            self._unregister_callbacks.append(
+                generic_data_point.register_internal_data_point_updated_callback(
+                    cb=self.fire_data_point_updated_callback
+                )
+            )
+            return cast(data_point_type, generic_data_point)  # type: ignore[valid-type]
+        return cast(
+            data_point_type,  # type:ignore[valid-type]
+            NoneTypeDataPoint(),
+        )
+
+    def _add_device_data_point[DataPointT: hmge.GenericDataPoint](
+        self, channel_address: str, parameter: str, paramset_key: ParamsetKey | None, data_point_type: type[DataPointT]
+    ) -> DataPointT:
+        """Add a new data point."""
+        if generic_data_point := self._channel.device.get_generic_data_point(
+            channel_address=channel_address, parameter=parameter, paramset_key=paramset_key
+        ):
             self._data_points.append(generic_data_point)
             self._unregister_callbacks.append(
                 generic_data_point.register_internal_data_point_updated_callback(

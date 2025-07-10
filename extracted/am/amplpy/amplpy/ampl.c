@@ -3449,9 +3449,6 @@ static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 #define __Pyx_PyUnicode_ConcatInPlaceSafe(left, right) ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
     PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_ConcatInPlace(left, right))
 
-/* PyLongCompare.proto */
-static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
-
 /* pynumber_float.proto */
 static CYTHON_INLINE PyObject* __Pyx__PyNumber_Float(PyObject* obj);
 #define __Pyx_PyNumber_Float(x) (PyFloat_CheckExact(x) ? __Pyx_NewRef(x) : __Pyx__PyNumber_Float(x))
@@ -32364,7 +32361,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_8get_message(struct __py
  *         return self.message
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
- *         if self.offset != -1:
+ *         if self.offset == -1:
  *             return self.message
 */
 
@@ -32398,19 +32395,19 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_10__str__(struct __pyx_o
   /* "amplpy/exceptions.pxi":41
  * 
  *     def __str__(self):
- *         if self.offset != -1:             # <<<<<<<<<<<<<<
+ *         if self.offset == -1:             # <<<<<<<<<<<<<<
  *             return self.message
  *         elif self.source_name == "-":
 */
   __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 41, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 41, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
     /* "amplpy/exceptions.pxi":42
  *     def __str__(self):
- *         if self.offset != -1:
+ *         if self.offset == -1:
  *             return self.message             # <<<<<<<<<<<<<<
  *         elif self.source_name == "-":
  *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
@@ -32425,14 +32422,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_10__str__(struct __pyx_o
     /* "amplpy/exceptions.pxi":41
  * 
  *     def __str__(self):
- *         if self.offset != -1:             # <<<<<<<<<<<<<<
+ *         if self.offset == -1:             # <<<<<<<<<<<<<<
  *             return self.message
  *         elif self.source_name == "-":
 */
   }
 
   /* "amplpy/exceptions.pxi":43
- *         if self.offset != -1:
+ *         if self.offset == -1:
  *             return self.message
  *         elif self.source_name == "-":             # <<<<<<<<<<<<<<
  *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
@@ -32486,7 +32483,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_10__str__(struct __pyx_o
     goto __pyx_L0;
 
     /* "amplpy/exceptions.pxi":43
- *         if self.offset != -1:
+ *         if self.offset == -1:
  *             return self.message
  *         elif self.source_name == "-":             # <<<<<<<<<<<<<<
  *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
@@ -32547,7 +32544,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_10__str__(struct __pyx_o
  *         return self.message
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
- *         if self.offset != -1:
+ *         if self.offset == -1:
  *             return self.message
 */
 
@@ -90251,67 +90248,6 @@ static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_le
     }
   }
 #endif
-
-/* PyLongCompare */
-static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, long intval, long inplace) {
-    CYTHON_MAYBE_UNUSED_VAR(intval);
-    CYTHON_UNUSED_VAR(inplace);
-    if (op1 == op2) {
-        return 0;
-    }
-    #if CYTHON_USE_PYLONG_INTERNALS
-    if (likely(PyLong_CheckExact(op1))) {
-        int unequal;
-        unsigned long uintval;
-        Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
-        const digit* digits = __Pyx_PyLong_Digits(op1);
-        if (intval == 0) {
-            return (__Pyx_PyLong_IsZero(op1) != 1);
-        } else if (intval < 0) {
-            if (__Pyx_PyLong_IsNonNeg(op1))
-                return 1;
-            intval = -intval;
-        } else {
-            if (__Pyx_PyLong_IsNeg(op1))
-                return 1;
-        }
-        uintval = (unsigned long) intval;
-#if PyLong_SHIFT * 4 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 4)) {
-            unequal = (size != 5) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[4] != ((uintval >> (4 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-#if PyLong_SHIFT * 3 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 3)) {
-            unequal = (size != 4) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-#if PyLong_SHIFT * 2 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 2)) {
-            unequal = (size != 3) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-#if PyLong_SHIFT * 1 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 1)) {
-            unequal = (size != 2) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-            unequal = (size != 1) || (((unsigned long) digits[0]) != (uintval & (unsigned long) PyLong_MASK));
-        return (unequal != 0);
-    }
-    #endif
-    if (PyFloat_CheckExact(op1)) {
-        const long b = intval;
-        double a = __Pyx_PyFloat_AS_DOUBLE(op1);
-        return ((double)a != (double)b);
-    }
-    return __Pyx_PyObject_IsTrueAndDecref(
-        PyObject_RichCompare(op1, op2, Py_NE));
-}
 
 /* pynumber_float */
 static CYTHON_INLINE PyObject* __Pyx__PyNumber_Float(PyObject* obj) {

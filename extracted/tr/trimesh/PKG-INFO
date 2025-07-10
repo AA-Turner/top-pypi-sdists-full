@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trimesh
-Version: 4.6.13
+Version: 4.7.0
 Summary: Import, export, process, analyze and view triangular meshes.
 Author-email: Michael Dawson-Haggerty <mikedh@kerfed.com>
 License: The MIT License (MIT)
@@ -52,7 +52,8 @@ Requires-Dist: lxml; extra == "easy"
 Requires-Dist: jsonschema; extra == "easy"
 Requires-Dist: networkx; extra == "easy"
 Requires-Dist: svg.path; extra == "easy"
-Requires-Dist: pycollada; extra == "easy"
+Requires-Dist: pycollada<=0.9.0; python_version < "3.9" and extra == "easy"
+Requires-Dist: pycollada; python_version >= "3.9" and extra == "easy"
 Requires-Dist: shapely; extra == "easy"
 Requires-Dist: xxhash; extra == "easy"
 Requires-Dist: rtree; extra == "easy"
@@ -88,7 +89,6 @@ Requires-Dist: triangle; extra == "test-more"
 Requires-Dist: ipython; extra == "test-more"
 Requires-Dist: marimo; extra == "test-more"
 Provides-Extra: deprecated
-Requires-Dist: gmsh==4.12.2; extra == "deprecated"
 Requires-Dist: openctm; extra == "deprecated"
 Provides-Extra: all
 Requires-Dist: trimesh[deprecated,easy,recommend,test,test_more]; extra == "all"

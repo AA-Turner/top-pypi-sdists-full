@@ -161,8 +161,8 @@ class ProphecyRequestsLib:
         try:
             payload = DataSampleLoaderLib.get_payload(key, job, df_offset)
             with HttpClientLib(base_url, token) as client:
-                response = client.post_compressed(endpoint, payload)
+                response = client.post_compressed(endpoint, payload or '')
         except HTTPClientError as e:
-            print(f"Interims Request Failed HTTPClientError: {str(e)}")
+            print(f"Interims Request Failed HTTPClientError: {str(e)}. Payload: {payload} Endpoint: {endpoint}")
         except Exception as e:
             print(f"Interims Request Failed: {str(e)}")

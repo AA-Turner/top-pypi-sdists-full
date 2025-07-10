@@ -186,6 +186,15 @@ class Variant {
   }
 
   /**
+  Returns the type of this variant object
+  */
+  bool is_empty() const {
+    AMPL_TYPE type; 
+    AMPL_VariantGetType(impl_, &type);
+    return type == AMPL_EMPTY; 
+  }
+
+  /**
   Get the inner POD struct
   */
   AMPL_VARIANT *impl() const { return impl_; }

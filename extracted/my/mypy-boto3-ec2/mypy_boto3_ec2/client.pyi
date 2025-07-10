@@ -33,6 +33,8 @@ from .paginator import (
     DescribeCapacityBlockExtensionHistoryPaginator,
     DescribeCapacityBlockExtensionOfferingsPaginator,
     DescribeCapacityBlockOfferingsPaginator,
+    DescribeCapacityBlocksPaginator,
+    DescribeCapacityBlockStatusPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
@@ -656,6 +658,10 @@ from .type_defs import (
     DescribeCapacityBlockExtensionOfferingsResultTypeDef,
     DescribeCapacityBlockOfferingsRequestTypeDef,
     DescribeCapacityBlockOfferingsResultTypeDef,
+    DescribeCapacityBlocksRequestTypeDef,
+    DescribeCapacityBlocksResultTypeDef,
+    DescribeCapacityBlockStatusRequestTypeDef,
+    DescribeCapacityBlockStatusResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
     DescribeCapacityReservationFleetsRequestTypeDef,
@@ -4173,6 +4179,28 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_block_offerings.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_block_offerings)
+        """
+
+    def describe_capacity_block_status(
+        self, **kwargs: Unpack[DescribeCapacityBlockStatusRequestTypeDef]
+    ) -> DescribeCapacityBlockStatusResultTypeDef:
+        """
+        Describes the availability of capacity for the specified Capacity blocks, or
+        all of your Capacity Blocks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_block_status.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_block_status)
+        """
+
+    def describe_capacity_blocks(
+        self, **kwargs: Unpack[DescribeCapacityBlocksRequestTypeDef]
+    ) -> DescribeCapacityBlocksResultTypeDef:
+        """
+        Describes details about Capacity Blocks in the Amazon Web Services Region that
+        you're currently using.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_blocks.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_blocks)
         """
 
     def describe_capacity_reservation_billing_requests(
@@ -8712,6 +8740,28 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_capacity_block_offerings"]
     ) -> DescribeCapacityBlockOfferingsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_capacity_block_status"]
+    ) -> DescribeCapacityBlockStatusPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_capacity_blocks"]
+    ) -> DescribeCapacityBlocksPaginator:
         """
         Create a paginator for an operation.
 

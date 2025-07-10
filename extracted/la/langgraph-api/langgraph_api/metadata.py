@@ -55,13 +55,15 @@ RUN_COUNTER = 0
 NODE_COUNTER = 0
 FROM_TIMESTAMP = datetime.now(UTC).isoformat()
 
-if (
-    "api.smith.langchain.com" in LANGSMITH_AUTH_ENDPOINT
-    and not LANGGRAPH_CLOUD_LICENSE_KEY
-):
-    METADATA_ENDPOINT = LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
-else:
-    METADATA_ENDPOINT = "https://api.smith.langchain.com/v1/metadata/submit"
+# Beacon endpoint for license key submissions
+BEACON_ENDPOINT = "https://api.smith.langchain.com/v1/metadata/submit"
+
+# LangChain auth endpoint for API key submissions
+LANGCHAIN_METADATA_ENDPOINT = None
+if LANGSMITH_AUTH_ENDPOINT:
+    LANGCHAIN_METADATA_ENDPOINT = (
+        LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
+    )
 
 
 def incr_runs(*, incr: int = 1) -> None:
@@ -82,8 +84,10 @@ async def metadata_loop() -> None:
     if not LANGGRAPH_CLOUD_LICENSE_KEY and not LANGSMITH_API_KEY:
         return
 
-    if LANGGRAPH_CLOUD_LICENSE_KEY and not LANGGRAPH_CLOUD_LICENSE_KEY.startswith(
-        "lcl_"
+    if (
+        LANGGRAPH_CLOUD_LICENSE_KEY
+        and not LANGGRAPH_CLOUD_LICENSE_KEY.startswith("lcl_")
+        and not LANGSMITH_API_KEY
     ):
         logger.info("Running in air-gapped mode, skipping metadata loop")
         return
@@ -102,9 +106,7 @@ async def metadata_loop() -> None:
         NODE_COUNTER = 0
         FROM_TIMESTAMP = to_timestamp
 
-        payload = {
-            "license_key": LANGGRAPH_CLOUD_LICENSE_KEY,
-            "api_key": LANGSMITH_API_KEY,
+        base_payload = {
             "from_timestamp": from_timestamp,
             "to_timestamp": to_timestamp,
             "tags": {
@@ -130,17 +132,66 @@ async def metadata_loop() -> None:
             },
             "logs": [],
         }
-        try:
-            await http_request(
-                "POST",
-                METADATA_ENDPOINT,
-                body=orjson.dumps(payload),
-                headers={"Content-Type": "application/json"},
-            )
-        except Exception as e:
+
+        # Track successful submissions
+        submissions_attempted = []
+        submissions_failed = []
+
+        # 1. Send to beacon endpoint if license key starts with lcl_
+        if LANGGRAPH_CLOUD_LICENSE_KEY and LANGGRAPH_CLOUD_LICENSE_KEY.startswith(
+            "lcl_"
+        ):
+            beacon_payload = {
+                **base_payload,
+                "license_key": LANGGRAPH_CLOUD_LICENSE_KEY,
+            }
+            submissions_attempted.append("beacon")
+            try:
+                await http_request(
+                    "POST",
+                    BEACON_ENDPOINT,
+                    body=orjson.dumps(beacon_payload),
+                    headers={"Content-Type": "application/json"},
+                )
+                await logger.ainfo("Successfully submitted metadata to beacon endpoint")
+            except Exception as e:
+                submissions_failed.append("beacon")
+                await logger.awarning(
+                    "Beacon metadata submission failed.", error=str(e)
+                )
+
+        # 2. Send to langchain auth endpoint if API key is set
+        if LANGSMITH_API_KEY and LANGCHAIN_METADATA_ENDPOINT:
+            langchain_payload = {
+                **base_payload,
+                "api_key": LANGSMITH_API_KEY,
+            }
+            submissions_attempted.append("langchain")
+            try:
+                await http_request(
+                    "POST",
+                    LANGCHAIN_METADATA_ENDPOINT,
+                    body=orjson.dumps(langchain_payload),
+                    headers={"Content-Type": "application/json"},
+                )
+                logger.info("Successfully submitted metadata to LangSmith instance")
+            except Exception as e:
+                submissions_failed.append("langchain")
+                await logger.awarning(
+                    "LangChain metadata submission failed.", error=str(e)
+                )
+
+        if submissions_attempted and len(submissions_failed) == len(
+            submissions_attempted
+        ):
             # retry on next iteration
             incr_runs(incr=runs)
             incr_nodes("", incr=nodes)
             FROM_TIMESTAMP = from_timestamp
-            await logger.ainfo("Metadata submission skipped.", error=str(e))
+            await logger.awarning(
+                "All metadata submissions failed, will retry",
+                attempted=submissions_attempted,
+                failed=submissions_failed,
+            )
+
         await asyncio.sleep(INTERVAL)

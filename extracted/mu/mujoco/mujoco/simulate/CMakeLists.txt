@@ -29,7 +29,7 @@ set(MUJOCO_DEP_VERSION_lodepng
 
 project(
   mujoco_simulate
-  VERSION 3.3.3
+  VERSION 3.3.4
   DESCRIPTION "MuJoCo simulate binaries"
   HOMEPAGE_URL "https://mujoco.org"
 )
@@ -174,6 +174,13 @@ if(SIMULATE_BUILD_EXECUTABLE)
     lodepng
   )
 
+  if (MUJOCO_WITH_USD)
+    target_link_libraries(
+      simulate
+      mujoco::usd::mjcf
+    )
+  endif()
+
   target_link_options(simulate PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
 
   if(APPLE AND MUJOCO_BUILD_MACOS_FRAMEWORKS)
@@ -239,6 +246,22 @@ if(SIMULATE_BUILD_EXECUTABLE)
       DEPENDS
       MUJOCO_ENABLE_RPATH
     )
+
+    if (MUJOCO_WITH_USD)
+      target_compile_definitions(simulate PUBLIC mjUSEUSD)
+
+      # Add support to RPATH for the samples.
+      target_add_rpath(
+        TARGETS
+        simulate
+        INSTALL_DIRECTORY
+        "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}"
+        LIB_DIRS
+        ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/mujocoUsd ${USD_DIR}/lib
+        DEPENDS
+        MUJOCO_ENABLE_RPATH
+      )
+    endif()
 
     install(
       TARGETS simulate

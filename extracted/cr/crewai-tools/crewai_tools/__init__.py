@@ -1,5 +1,6 @@
 from .adapters.enterprise_adapter import EnterpriseActionTool
 from .adapters.mcp_adapter import MCPServerAdapter
+from .adapters.zapier_adapter import ZapierActionTool
 from .aws import (
     BedrockInvokeAgentTool,
     BedrockKBRetrieverTool,
@@ -14,6 +15,7 @@ from .tools import (
     CodeDocsSearchTool,
     CodeInterpreterTool,
     ComposioTool,
+    CouchbaseFTSVectorSearchTool,
     CrewaiEnterpriseTools,
     CSVSearchTool,
     DallETool,
@@ -22,9 +24,9 @@ from .tools import (
     DirectorySearchTool,
     DOCXSearchTool,
     EXASearchTool,
+    FileCompressorTool,
     FileReadTool,
     FileWriterTool,
-    FileCompressorTool,
     FirecrawlCrawlWebsiteTool,
     FirecrawlScrapeWebsiteTool,
     FirecrawlSearchTool,
@@ -34,6 +36,8 @@ from .tools import (
     LinkupSearchTool,
     LlamaIndexTool,
     MDXSearchTool,
+    MongoDBVectorSearchConfig,
+    MongoDBVectorSearchTool,
     MultiOnTool,
     MySQLSearchTool,
     NL2SQLTool,
@@ -75,4 +79,3 @@ from .tools import (
     YoutubeVideoSearchTool,
     ZapierActionTools,
 )
-from .adapters.zapier_adapter import ZapierActionTool

@@ -575,7 +575,6 @@ class ConfigLoader:
     calculate_pareto_front_of_job: Optional[List[str]]
     revert_to_random_when_seemingly_exhausted: bool
     minkowski_p: float
-    decimalrounding: int
     partition: str
     signed_weighted_euclidean_weights: str
     external_generator: Optional[str]
@@ -650,7 +649,6 @@ class ConfigLoader:
         optional.add_argument('--experiment_constraints', action='append', nargs='+', help='Constraints for parameters. Example: x + y <= 2.0. Convert them to base64', type=str)
         optional.add_argument('--run_dir', help='Directory, in which runs should be saved. Default: runs', default='runs', type=str)
         optional.add_argument('--seed', help='Seed for random number generator', type=int)
-        optional.add_argument('--decimalrounding', help='Number of decimal places for rounding', type=int, default=4)
         optional.add_argument('--verbose_tqdm', help='Show verbose TQDM messages', action='store_true', default=False)
         optional.add_argument('--model', help=f'Use special models for nonrandom steps. Valid models are: {joined_supported_models}', type=str, default=None)
         optional.add_argument('--gridsearch', help='Enable gridsearch', action='store_true', default=False)
@@ -2736,7 +2734,7 @@ def get_ret_value_from_pd_csv(pd_csv: str, _type: str, _column: str, _default: U
     return _get_column_value(pd_csv, _column, _default, mode)
 
 @beartype
-def get_bound_if_prev_data(_type: str, _column: str, _default: Union[None, float, int]) -> Union[Tuple[Union[float, int], bool], Any]:
+def get_bound_if_prev_data(_type: str, name: str, _default: Union[None, float, int]) -> Union[Tuple[Union[float, int], bool], Any]:
     ret_val = _default
 
     found_in_file = False
@@ -2744,10 +2742,10 @@ def get_bound_if_prev_data(_type: str, _column: str, _default: Union[None, float
     if args.continue_previous_job:
         pd_csv = f"{args.continue_previous_job}/{PD_CSV_FILENAME}"
 
-        ret_val, found_in_file = get_ret_value_from_pd_csv(pd_csv, _type, _column, _default)
+        ret_val, found_in_file = get_ret_value_from_pd_csv(pd_csv, _type, name, _default)
 
     if isinstance(ret_val, (int, float)):
-        return round(ret_val, args.decimalrounding), found_in_file
+        return ret_val, found_in_file
 
     return ret_val, False
 
@@ -3031,8 +3029,7 @@ def _parse_experiment_parameters_parse_this_args(
             valid_types_string = ', '.join(valid_types)
             _fatal_error(f"\n⚠ Invalid type {param_type}, valid types are: {valid_types_string}", 181)
 
-        j, params, classic_params, search_space_reduction_warning = param_parsers[param_type](
-            classic_params, params, j, this_args, name, search_space_reduction_warning)
+        j, params, classic_params, search_space_reduction_warning = param_parsers[param_type](classic_params, params, j, this_args, name, search_space_reduction_warning)
 
     return j, params, classic_params, search_space_reduction_warning
 
@@ -3044,7 +3041,7 @@ def parse_experiment_parameters() -> Tuple[List[Dict[str, Any]], List[Dict[str, 
 
     search_space_reduction_warning = False
 
-    invalid_names = ["start_time", "end_time", "run_time", "program_string", *arg_result_names, "exit_code", "signal"]
+    invalid_names = ["start_time", "end_time", "run_time", "program_string", *arg_result_names, "exit_code", "signal", *special_col_names]
 
     i = 0
     while args.parameter and i < len(args.parameter):
@@ -3052,8 +3049,7 @@ def parse_experiment_parameters() -> Tuple[List[Dict[str, Any]], List[Dict[str, 
         if this_args is not None and isinstance(this_args, dict) and "param" in this_args:
             this_args = this_args["param"]
 
-        _, params, classic_params, search_space_reduction_warning = _parse_experiment_parameters_parse_this_args(
-            this_args, invalid_names, param_names, classic_params, params, search_space_reduction_warning)
+        _, params, classic_params, search_space_reduction_warning = _parse_experiment_parameters_parse_this_args(this_args, invalid_names, param_names, classic_params, params, search_space_reduction_warning)
 
         i += 1
 
@@ -3094,18 +3090,39 @@ def die_181_or_91_if_lower_and_upper_bound_equal_zero(lower_bound: Union[int, fl
             lower_bound = -upper_bound
 
 @beartype
-def replace_parameters_in_string(parameters: dict, input_string: str) -> str:
+def format_value(value: Any, float_format: str = '.80f') -> str:
     try:
-        for param_item in parameters:
-            input_string = input_string.replace(f"${param_item}", str(parameters[param_item]))
-            input_string = input_string.replace(f"$({param_item})", str(parameters[param_item]))
+        if isinstance(value, float):
+            s = format(value, float_format)
+            s = s.rstrip('0').rstrip('.') if '.' in s else s
+            return s
+        return str(value)
+    except Exception as e:
+        print_red(f"⚠ Error formatting the number {value}: {e}")
+        return str(value)
 
-            input_string = input_string.replace(f"%{param_item}", str(parameters[param_item]))
-            input_string = input_string.replace(f"%({param_item})", str(parameters[param_item]))
+@beartype
+def replace_parameters_in_string(
+    parameters: dict,
+    input_string: str,
+    float_format: str = '.20f',
+    additional_prefixes: list[str] = [],
+    additional_patterns: list[str] = [],
+) -> str:
+    try:
+        prefixes = ['$', '%'] + additional_prefixes
+        patterns = ['{key}', '({key})'] + additional_patterns
+
+        for key, value in parameters.items():
+            replacement = format_value(value, float_format=float_format)
+            for prefix in prefixes:
+                for pattern in patterns:
+                    token = prefix + pattern.format(key=key)
+                    input_string = input_string.replace(token, replacement)
 
         input_string = input_string.replace('\r', ' ').replace('\n', ' ')
-
         return input_string
+
     except Exception as e:
         print_red(f"\n⚠ Error: {e}")
         return ""
@@ -5552,13 +5569,16 @@ def parse_single_experiment_parameter_table(classic_params: Optional[Union[list,
 
     for param in classic_params:
         _type = ""
+        _name = str(param["name"])
 
         if "__type" in param:
-            _type = param["__type"]
+            _type = param["__type"].lower()
         else:
-            _type = param["type"]
+            _type = param["type"].lower()
 
-        if "range" in _type.lower():
+        _short_type = get_type_short(_type)
+
+        if "range" in _type:
             _lower = ""
             _upper = ""
             _type = ""
@@ -5585,14 +5605,18 @@ def parse_single_experiment_parameter_table(classic_params: Optional[Union[list,
             else:
                 _upper = param["bounds"][1]
 
-            rows.append([str(param["name"]), get_type_short(_type), str(helpers.to_int_when_possible(_lower)), str(helpers.to_int_when_possible(_upper)), "", value_type, log_scale])
-        elif "fixed" in _type.lower():
-            rows.append([str(param["name"]), get_type_short(_type), "", "", str(helpers.to_int_when_possible(param["value"])), "", ""])
-        elif "choice" in _type.lower():
+            _possible_int_lower = str(helpers.to_int_when_possible(_lower))
+            #print(f"name: {_name}, _possible_int_lower: {_possible_int_lower}, lower: {_lower}")
+            _possible_int_upper = str(helpers.to_int_when_possible(_upper))
+
+            rows.append([_name, _short_type, _possible_int_lower, _possible_int_upper, "", value_type, log_scale])
+        elif "fixed" in _type:
+            rows.append([_name, _short_type, "", "", str(helpers.to_int_when_possible(param["value"])), "", ""])
+        elif "choice" in _type:
             values = param["values"]
             values = [str(helpers.to_int_when_possible(item)) for item in values]
 
-            rows.append([str(param["name"]), get_type_short(_type), "", "", ", ".join(values), "", ""])
+            rows.append([_name, _short_type, "", "", ", ".join(values), "", ""])
         else:
             _fatal_error(f"Type {_type} is not yet implemented in the overview table.", 15)
 
@@ -6828,6 +6852,9 @@ def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: Un
     update_progress_bar(progress_bar, 1)
 
     log_what_needs_to_be_logged()
+
+    save_results_csv()
+
     live_share()
 
 @beartype

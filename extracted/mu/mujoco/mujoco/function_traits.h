@@ -3861,28 +3861,6 @@ struct mjs_attach {
   }
 };
 
-struct mjs_detachBody {
-  static constexpr char name[] = "mjs_detachBody";
-  static constexpr char doc[] = "Delete body and descendants from mjSpec, remove all references, return 0 on success.";
-  using type = int (mjSpec *, mjsBody *);
-  static constexpr auto param_names = std::make_tuple("s", "b");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjs_detachBody;
-  }
-};
-
-struct mjs_detachDefault {
-  static constexpr char name[] = "mjs_detachDefault";
-  static constexpr char doc[] = "Delete default class and descendants from mjSpec, remove all references, return 0 on success.";
-  using type = int (mjSpec *, mjsDefault *);
-  static constexpr auto param_names = std::make_tuple("s", "d");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjs_detachDefault;
-  }
-};
-
 struct mjs_addBody {
   static constexpr char name[] = "mjs_addBody";
   static constexpr char doc[] = "Add child body to body, return child.";
@@ -3973,9 +3951,9 @@ struct mjs_addFrame {
 
 struct mjs_delete {
   static constexpr char name[] = "mjs_delete";
-  static constexpr char doc[] = "Delete object corresponding to the given element, return 0 on success.";
-  using type = int (mjsElement *);
-  static constexpr auto param_names = std::make_tuple("element");
+  static constexpr char doc[] = "Remove object corresponding to the given element, return 0 on success.";
+  using type = int (mjSpec *, mjsElement *);
+  static constexpr auto param_names = std::make_tuple("spec", "element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_delete;
@@ -4488,6 +4466,17 @@ struct mjs_nextElement {
   }
 };
 
+struct mjs_setName {
+  static constexpr char name[] = "mjs_setName";
+  static constexpr char doc[] = "Set element's name, return 0 on success.";
+  using type = int (mjsElement *, const char *);
+  static constexpr auto param_names = std::make_tuple("element", "name");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_setName;
+  }
+};
+
 struct mjs_setBuffer {
   static constexpr char name[] = "mjs_setBuffer";
   static constexpr char doc[] = "Copy buffer.";
@@ -4606,6 +4595,17 @@ struct mjs_setPluginAttributes {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_setPluginAttributes;
+  }
+};
+
+struct mjs_getName {
+  static constexpr char name[] = "mjs_getName";
+  static constexpr char doc[] = "Get element's name.";
+  using type = mjString * (mjsElement *);
+  static constexpr auto param_names = std::make_tuple("element");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getName;
   }
 };
 

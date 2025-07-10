@@ -16,7 +16,6 @@ async def test_multi_server_mcp_client(
     websocket_server_port: int,
 ):
     """Test that the MultiServerMCPClient can connect to multiple servers and load tools."""
-
     # Get the absolute path to the server scripts
     current_dir = Path(__file__).parent
     math_server_path = os.path.join(current_dir, "servers/math_server.py")
@@ -24,21 +23,10 @@ async def test_multi_server_mcp_client(
 
     client = MultiServerMCPClient(
         {
-            "math": {
-                "command": "python",
-                "args": [math_server_path],
-                "transport": "stdio",
-            },
-            "weather": {
-                "command": "python",
-                "args": [weather_server_path],
-                "transport": "stdio",
-            },
-            "time": {
-                "url": f"ws://127.0.0.1:{websocket_server_port}/ws",
-                "transport": "websocket",
-            },
-        }
+            "math": {"command": "python", "args": [math_server_path], "transport": "stdio"},
+            "weather": {"command": "python", "args": [weather_server_path], "transport": "stdio"},
+            "time": {"url": f"ws://127.0.0.1:{websocket_server_port}/ws", "transport": "websocket"},
+        },
     )
     # Check that we have tools from both servers
     all_tools = await client.get_tools()
@@ -98,7 +86,6 @@ async def test_multi_server_connect_methods(
     websocket_server_port: int,
 ):
     """Test the different connect methods for MultiServerMCPClient."""
-
     # Get the absolute path to the server scripts
     current_dir = Path(__file__).parent
     math_server_path = os.path.join(current_dir, "servers/math_server.py")
@@ -106,16 +93,9 @@ async def test_multi_server_connect_methods(
     # Initialize client without initial connections
     client = MultiServerMCPClient(
         {
-            "math": {
-                "command": "python",
-                "args": [math_server_path],
-                "transport": "stdio",
-            },
-            "time": {
-                "url": f"ws://127.0.0.1:{websocket_server_port}/ws",
-                "transport": "websocket",
-            },
-        }
+            "math": {"command": "python", "args": [math_server_path], "transport": "stdio"},
+            "time": {"url": f"ws://127.0.0.1:{websocket_server_port}/ws", "transport": "websocket"},
+        },
     )
     tool_names = set()
     async with client.session("math") as session:
@@ -142,23 +122,18 @@ async def test_multi_server_connect_methods(
 @pytest.mark.asyncio
 async def test_get_prompt():
     """Test retrieving prompts from MCP servers."""
-
     # Get the absolute path to the server scripts
     current_dir = Path(__file__).parent
     math_server_path = os.path.join(current_dir, "servers/math_server.py")
 
     client = MultiServerMCPClient(
-        {
-            "math": {
-                "command": "python",
-                "args": [math_server_path],
-                "transport": "stdio",
-            }
-        }
+        {"math": {"command": "python", "args": [math_server_path], "transport": "stdio"}},
     )
     # Test getting a prompt from the math server
     messages = await client.get_prompt(
-        "math", "configure_assistant", arguments={"skills": "math, addition, multiplication"}
+        "math",
+        "configure_assistant",
+        arguments={"skills": "math, addition, multiplication"},
     )
 
     # Check that we got an AIMessage back

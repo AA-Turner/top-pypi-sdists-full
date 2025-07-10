@@ -74,6 +74,8 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         # Seta config entrada na var nota para melhor entendimento
         nota = task.configEntrada
+        cnpj = nota["cnpjFornecedor"]
+
         multiplicador_timeout = int(float(task.sistemas[0].timeout))
         set_variable("timeout_multiplicador", multiplicador_timeout)
 
@@ -565,7 +567,7 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await emsys.verify_warning_and_error("Information", "&No")
 
         await worker_sleep(10)
-        await emsys.percorrer_grid()
+        await emsys.percorrer_grid(cnpj)
         await emsys.select_tipo_cobranca()
         await emsys.inserir_vencimento_e_valor(
             nota.get("nomeFornecedor"),

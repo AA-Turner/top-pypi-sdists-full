@@ -379,13 +379,14 @@ class GlobusApp(metaclass=abc.ABCMeta):
 
         if not auth_params:
             auth_params = GlobusAuthorizationParameters()
+        parsed_required_scopes = []
+        for s in auth_params.required_scopes or []:
+            parsed_required_scopes.extend(Scope.parse(s))
 
         # merge scopes for deduplication to minimize url request length
         # this is useful even if there weren't any auth_param scope requirements
         # as the app's scope_requirements can have duplicates
-        combined_scopes = Scope.merge_scopes(
-            required_scopes, [Scope(s) for s in auth_params.required_scopes or []]
-        )
+        combined_scopes = Scope.merge_scopes(required_scopes, parsed_required_scopes)
         auth_params.required_scopes = [str(s) for s in combined_scopes]
 
         return auth_params

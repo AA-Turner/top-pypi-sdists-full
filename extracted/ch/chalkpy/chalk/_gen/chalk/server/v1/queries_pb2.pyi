@@ -42,21 +42,24 @@ class ListQueryErrorsPageToken(_message.Message):
     ) -> None: ...
 
 class QueryErrorFilters(_message.Message):
-    __slots__ = ("operation_id", "feature_fqn", "resolver_fqn", "query_name")
+    __slots__ = ("operation_id", "feature_fqn", "resolver_fqn", "query_name", "message")
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     FEATURE_FQN_FIELD_NUMBER: _ClassVar[int]
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     feature_fqn: str
     resolver_fqn: str
     query_name: str
+    message: str
     def __init__(
         self,
         operation_id: _Optional[str] = ...,
         feature_fqn: _Optional[str] = ...,
         resolver_fqn: _Optional[str] = ...,
         query_name: _Optional[str] = ...,
+        message: _Optional[str] = ...,
     ) -> None: ...
 
 class QueryErrorMeta(_message.Message):

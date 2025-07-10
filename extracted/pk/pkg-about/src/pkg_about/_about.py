@@ -7,7 +7,7 @@ __all__ = ('about', 'about_from_setup')
 def about(package=None):
     import sys
     from packaging.version import parse as parse_version
-    from importlib_metadata import metadata as get_metadata
+    from importlib.metadata import metadata as get_metadata
     pkg_globals = sys._getframe(1).f_globals
     pkg_globals.pop("__builtins__", None)
     pkg_globals.pop("__cached__",   None)

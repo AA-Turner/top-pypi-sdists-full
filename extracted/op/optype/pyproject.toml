@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 [project]
 name = "optype"
 description = "Building blocks for precise & flexible type hints"
-version = "0.10.0"
+version = "0.11.0"
 authors = [{name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com"}]
 license = "BSD-3-Clause"
 readme = "README.md"
@@ -37,23 +37,23 @@ dependencies = ["typing-extensions>=4.10; python_version<'3.13'"]
 [dependency-groups]
 extra = ["optype[numpy]"]
 lint = [
-    "ruff>=0.11.11",
+    "ruff>=0.12.2",
     "sp-repo-review[cli]>=2025.5.2",
 ]
 type = [
-    "basedmypy[faster-cache]>=2.10.0",
-    "basedpyright>=1.29.2",
+    "mypy[faster-cache]>=1.16.1",
+    "basedpyright>=1.30.0",
 ]
 test = [
     "beartype>=0.21.0",
-    "pytest>=8.3.5",
+    "pytest>=8.4.1",
 ]
 dev = [
     {include-group = "extra"},
     {include-group = "lint"},
     {include-group = "type"},
     {include-group = "test"},
-    "tox>=4.26.0",
+    "tox>=4.27.0",
 ]
 
 
@@ -88,14 +88,10 @@ strict = true
 allow_redefinition = true
 disallow_any_expr = false
 disallow_any_decorated = false
-disallow_any_explicit = false # https://github.com/KotlinIsland/basedmypy/issues/861
+disallow_any_explicit = false
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
-enable_error_code = [
-    "ignore-without-code",
-    "redundant-expr",
-    "truthy-bool",
-]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 local_partial_types = true
 strict_bytes = true
 warn_return_any = false
@@ -103,10 +99,6 @@ warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_ignores = true
 warn_incomplete_stub = true
-
-# incompatible basedmypy features
-default_return = false
-bare_literals = false
 
     [[tool.mypy.overrides]]
     module = ["tests.*", "tests.numpy.*"]
@@ -137,7 +129,7 @@ reportUnusedVariable = false              # dupe of F841
     NP20 = true
     NP21 = true
     NP22 = true
-    NP23 = false
+    NP23 = true
 
 
 [tool.pytest.ini_options]
@@ -154,7 +146,6 @@ xfail_strict = true
 ignore = [
     "PY004", # no `docs/` (maybe later)
     "PY006", # no pre-commit
-    "PC140", # basedmypy > mypy
     "PC170", # no sphinx
     "PC180", # no css or js
     "RTD",   # no readthedocs

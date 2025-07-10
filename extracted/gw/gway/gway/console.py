@@ -57,7 +57,8 @@ def cli_main():
         name=args.username or "gw",
         project_path=args.projects,
         debug=args.debug,
-        wizard=args.wizard
+        wizard=args.wizard,
+        timed=args.timed
     )
 
     gw_local.verbose(
@@ -81,6 +82,8 @@ def cli_main():
         run_kwargs['client'] = args.client
     if args.server:
         run_kwargs['server'] = args.server
+    if args.timed:
+        run_kwargs['timed'] = True
     all_results, last_result = process(command_sources, **run_kwargs)
 
     # Resolve expression if requested
@@ -187,6 +190,8 @@ def process(command_sources, callback=None, **context):
         if not chunk:
             continue
 
+        chunk = join_unquoted_kwargs(list(chunk))
+
         # Resolve nested project/function path
         resolved_obj, func_args, path = resolve_nested_object(gw, list(chunk))
 
@@ -245,22 +250,54 @@ def prepare(parsed_args, func_obj):
     var_kw_name = getattr(func_obj, "__var_keyword_name__", None)
     if var_kw_name:
         raw_items = getattr(parsed_args, var_kw_name, []) or []
-        it = iter(raw_items)
-        for token in it:
-            # support both “--key=value” and “--key value”
+        i = 0
+        while i < len(raw_items):
+            token = raw_items[i]
             if token.startswith("--") and "=" in token:
                 key, val = token[2:].split("=", 1)
+                i += 1
             elif token.startswith("--"):
                 key = token[2:]
-                try:
-                    val = next(it)
-                except StopIteration:
+                i += 1
+                if i >= len(raw_items):
                     abort(f"Expected a value after `{token}`")
+                val_tokens = []
+                while i < len(raw_items) and not raw_items[i].startswith("-"):
+                    val_tokens.append(raw_items[i])
+                    i += 1
+                if not val_tokens:
+                    abort(f"Expected a value after `{token}`")
+                val = " ".join(val_tokens)
             else:
-                abort(f"Invalid kwarg format `{token}`; expected `--key[=value]` or `--key value`.")
+                abort(
+                    f"Invalid kwarg format `{token}`; expected `--key[=value]` or `--key value`."
+                )
             extra_kwargs[key.replace("-", "_")] = val
 
     return func_args, {**func_kwargs, **extra_kwargs}
+
+def join_unquoted_kwargs(tokens: list[str]) -> list[str]:
+    """Combine values after ``--key`` up to the next dash token.
+
+    This allows passing multi-word strings without quoting as documented
+    in the "Unquoted Kwargs" section of :mod:`README`.
+    """
+    combined: list[str] = []
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        combined.append(token)
+        if token.startswith("--") and "=" not in token:
+            i += 1
+            value_parts = []
+            while i < len(tokens) and not tokens[i].startswith("-"):
+                value_parts.append(tokens[i])
+                i += 1
+            if value_parts:
+                combined.append(" ".join(value_parts))
+            continue
+        i += 1
+    return combined
 
 def chunk(args_commands):
     """Split args.commands into logical chunks without breaking quoted arguments."""
@@ -451,6 +488,7 @@ def load_recipe(recipe_filename):
     deindented_lines = []
     last_prefix = ""
     colon_prefix = None
+    colon_suffix = ""
     with open(recipe_path) as f:
         for raw_line in f:
             line = raw_line.rstrip("\n")
@@ -465,15 +503,34 @@ def load_recipe(recipe_filename):
             if colon_prefix:
                 if stripped_line.startswith("- "):
                     addition = stripped_line[1:].lstrip()
-                    deindented_lines.append(colon_prefix + " " + addition)
+                    line_to_add = colon_prefix + " " + addition
+                    if colon_suffix:
+                        line_to_add += " " + colon_suffix
+                    deindented_lines.append(line_to_add)
                     continue
                 if stripped_line.startswith("--"):
-                    deindented_lines.append(colon_prefix + " " + stripped_line)
+                    line_to_add = colon_prefix + " " + stripped_line
+                    if colon_suffix:
+                        line_to_add += " " + colon_suffix
+                    deindented_lines.append(line_to_add)
                     continue
                 colon_prefix = None
+                colon_suffix = ""
             if stripped_line.endswith(":"):
                 colon_prefix = stripped_line[:-1].rstrip()
+                colon_suffix = ""
                 last_prefix = colon_prefix
+                continue
+            # Detect colon inside line after a flag
+            no_comment = stripped_line.split("#", 1)[0].rstrip()
+            tokens = no_comment.split()
+            for idx, token in enumerate(tokens):
+                if token.endswith(":"):
+                    colon_prefix = " ".join(tokens[:idx + 1])[:-1].rstrip()
+                    colon_suffix = " ".join(tokens[idx + 1:])
+                    last_prefix = colon_prefix + (" " + colon_suffix if colon_suffix else "")
+                    break
+            if colon_prefix:
                 continue
             # Detect if line is indented and starts with '--'
             if line[:1].isspace() and stripped_line.startswith("--"):

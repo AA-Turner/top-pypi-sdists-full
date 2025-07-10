@@ -1,10 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: phimaker
-Version: 0.2.2
+Version: 0.3.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 <div align="center">

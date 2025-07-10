@@ -1,5 +1,6 @@
 from copy import deepcopy
 from json.decoder import JSONDecodeError
+import json
 from typing import Dict, List, Tuple
 
 from instagrapi.exceptions import (
@@ -14,6 +15,14 @@ from instagrapi.types import Relationship, RelationshipShort, User, UserShort
 from instagrapi.utils import json_value
 
 MAX_USER_COUNT = 200
+INFO_FROM_MODULES = ("self_profile", "feed_timeline", "reel_feed_timeline")
+
+try:
+    from typing import Literal
+
+    INFO_FROM_MODULE = Literal[INFO_FROM_MODULES]
+except:
+    INFO_FROM_MODULE = str
 
 
 class UserMixin:
@@ -141,7 +150,10 @@ class UserMixin:
             An object of User type
         """
         username = str(username).lower()
-        return extract_user_gql(self.public_a1_request(f"/{username!s}/")["user"])
+        temporary_public_headers = {'Host': 'www.instagram.com','X-Requested-With': 'XMLHttpRequest','Sec-Ch-Prefers-Color-Scheme': 'dark','Sec-Ch-Ua-Platform': '"Linux"','X-Ig-App-Id': '936619743392459','Sec-Ch-Ua-Model': '""','Sec-Ch-Ua-Mobile': '?0','User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.112 Safari/537.36','Accept': '*/*','X-Asbd-Id': '129477','Sec-Fetch-Site': 'same-origin','Sec-Fetch-Mode': 'cors','Sec-Fetch-Dest': 'empty','Referer': 'https://www.instagram.com/','Accept-Language': 'en-US,en;q=0.9','Priority': 'u=1, i'}
+        update_headers = False
+        data = extract_user_gql(json.loads(self.public_request(f'https://www.instagram.com/api/v1/users/web_profile_info/?username={username}', headers=temporary_public_headers))['data']['user'], update_headers=update_headers)
+        return data
 
     def user_info_by_username_v1(self, username: str) -> User:
         """
@@ -224,7 +236,12 @@ class UserMixin:
         except JSONDecodeError as e:
             raise ClientJSONDecodeError(e, user_id=user_id)
 
-    def user_info_v1(self, user_id: str) -> User:
+    def user_info_v1(
+        self,
+        user_id: str,
+        from_module: INFO_FROM_MODULE = "self_profile",
+        is_app_start: bool = False,
+    ) -> User:
         """
         Get user object from user id
 
@@ -232,6 +249,10 @@ class UserMixin:
         ----------
         user_id: str
             User id of an instagram account
+        from_module: str
+            Which module triggered request: self_profile, feed_timeline, reel_feed_timeline. Default: self_profile
+        is_app_start: bool
+            Boolean value specifying if profile is being retrieved on app launch
 
         Returns
         -------
@@ -240,7 +261,19 @@ class UserMixin:
         """
         user_id = str(user_id)
         try:
-            result = self.private_request(f"users/{user_id}/info/")
+            params = {
+                "is_prefetch": "false",
+                "entry_point": "self_profile",
+                "from_module": from_module,
+                "is_app_start": is_app_start,
+            }
+            assert (
+                from_module in INFO_FROM_MODULES
+            ), f'Unsupported send_attribute="{from_module}" {INFO_FROM_MODULES}'
+            if from_module != "self_profile":
+                params["entry_point"] = "profile"
+
+            result = self.private_request(f"users/{user_id}/info/", params=params)
         except ClientNotFoundError as e:
             raise UserNotFound(e, user_id=user_id, **self.last_json)
         except ClientError as e:
@@ -340,7 +373,10 @@ class UserMixin:
         """
 
         try:
-            result = self.private_request(f"friendships/show/{user_id}/")
+            params = {
+                "is_external_deeplink_profile_view": "false",
+            }
+            result = self.private_request(f"friendships/show/{user_id}/", params=params)
             assert result.get("status", "") == "ok"
 
             return Relationship(user_id=user_id, **result)

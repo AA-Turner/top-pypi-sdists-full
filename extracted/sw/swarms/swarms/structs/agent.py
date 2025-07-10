@@ -433,7 +433,7 @@ class Agent:
         output_raw_json_from_tool_call: bool = False,
         summarize_multiple_images: bool = False,
         tool_retry_attempts: int = 3,
-        speed_mode: str = "fast",
+        speed_mode: str = None,
         *args,
         **kwargs,
     ):
@@ -1359,8 +1359,6 @@ class Agent:
                                     f"Structured Output - Attempting Function Call Execution [{time.strftime('%H:%M:%S')}] \n\n {format_data_structure(response)} ",
                                     loop_count,
                                 )
-                            elif self.streaming_on is True:
-                                pass
                             else:
                                 self.pretty_print(
                                     response, loop_count
@@ -2864,13 +2862,6 @@ class Agent:
                     *args,
                     **kwargs,
                 )
-            elif self.speed_mode == "fast":
-                output = self._run_fast(
-                    task=task,
-                    img=img,
-                    *args,
-                    **kwargs,
-                )
             else:
                 output = self._run(
                     task=task,
@@ -3017,23 +3008,16 @@ class Agent:
         return self.role
 
     def pretty_print(self, response: str, loop_count: int):
-        # if self.print_on is False:
-        #     if self.streaming_on is True:
-        #         # Skip printing here since real streaming is handled in call_llm
-        #         # This avoids double printing when streaming_on=True
-        #         pass
-        #     elif self.print_on is False:
-        #         pass
-        #     else:
-        #         # logger.info(f"Response: {response}")
-        #         formatter.print_panel(
-        #             response,
-        #             f"Agent Name {self.agent_name} [Max Loops: {loop_count} ]",
-        #         )
-        formatter.print_panel(
-            response,
-            f"Agent Name {self.agent_name} [Max Loops: {loop_count} ]",
-        )
+        """Print the response in a formatted panel"""
+        # Handle None response
+        if response is None:
+            response = "No response generated"
+
+        if self.print_on:
+            formatter.print_panel(
+                response,
+                f"Agent Name {self.agent_name} [Max Loops: {loop_count} ]",
+            )
 
     def parse_llm_output(self, response: Any):
         """Parse and standardize the output from the LLM.
@@ -3435,10 +3419,4 @@ class Agent:
                 f"Agent '{self.agent_name}' encountered error during tool execution in loop {loop_count}: {str(e)}. "
                 f"Full traceback: {traceback.format_exc()}. "
                 f"Attempting to retry tool execution with 3 attempts"
-            )
-            retry_function(
-                self.execute_tools,
-                response=response,
-                loop_count=loop_count,
-                max_retries=self.tool_retry_attempts,
             )

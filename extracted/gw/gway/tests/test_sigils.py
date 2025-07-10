@@ -53,6 +53,35 @@ class SigilTests(unittest.TestCase):
         s = Sigil("Value [FOO-BAR]")
         self.assertEqual(s.resolve(finder), "Value bar")
 
+    def test_dotted_and_spaced_paths(self):
+        class Obj:
+            pass
+        obj = Obj()
+        obj.name = "Widget"
+        data = {"app": {"name": "dict"}, "obj": obj}
+        self.assertEqual(Sigil("[app.name]") % data, "dict")
+        self.assertEqual(Sigil("[app name]") % data, "dict")
+        self.assertEqual(Sigil("[obj.name]") % data, "Widget")
+
+    def test_standalone_and_embedded_non_string(self):
+        data = {"num": 7, "info": {"a": 1}}
+        # Standalone should return raw value
+        self.assertEqual(Sigil("[num]") % data, 7)
+        self.assertEqual(Sigil("[info]") % data, {"a": 1})
+        # Embedded should stringify/serialize
+        from json import dumps
+        self.assertEqual(Sigil("Value [num]") % data, "Value 7")
+        self.assertEqual(Sigil("Info=[info]") % data, "Info=" + dumps({"a": 1}))
+
+    def test_underscore_path_denied(self):
+        data = {"obj": {"_secret": 42}, "_root": {"val": 1}}
+        with self.assertRaises(KeyError):
+            Sigil("[obj._secret]") % data
+        with self.assertRaises(KeyError):
+            Sigil("[obj _secret]") % data
+        # Accessing leading underscore as first segment is allowed
+        self.assertEqual(Sigil("[_root.val]") % data, 1)
+
     def test_unquote_helper(self):
         from gway.sigils import _unquote
         self.assertEqual(_unquote('"hello"'), "hello")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: firebolt_sdk
-Version: 1.12.0
+Version: 1.13.0
 Summary: Python SDK for Firebolt
 Home-page: https://github.com/firebolt-db/firebolt-sdk
 Author: Firebolt
@@ -33,6 +33,7 @@ Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: readerwriterlock>=1.0.9
 Requires-Dist: sqlparse>=0.4.2
 Requires-Dist: trio>=0.22.0
+Requires-Dist: truststore>=0.10; python_version >= "3.10"
 Provides-Extra: ciso8601
 Requires-Dist: ciso8601==2.2.0; extra == "ciso8601"
 Provides-Extra: dev

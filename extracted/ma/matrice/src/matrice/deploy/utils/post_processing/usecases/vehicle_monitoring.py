@@ -29,7 +29,7 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
 @dataclass
 class VehicleMonitoringConfig(BaseConfig):
-    """Configuration for license plate detection use case in vehicle monitoring."""
+    """Configuration for Vehicle detection use case in vehicle monitoring."""
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
@@ -171,6 +171,85 @@ class VehicleMonitoringUseCase(BaseProcessor):
         Return total unique track_id count for each vehicle category.
         """
         return {cat: len(ids) for cat, ids in getattr(self, '_vehicle_total_track_ids', {}).items()}
+    
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, use video_timestamp from stream_info
+            video_timestamp = stream_info.get("video_timestamp", 0.0)
+            return self._format_timestamp_for_video(video_timestamp)
+        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, start from 00:00:00
+            return "00:00:00"
+        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     """Vehicle Monitoring use case with vehicle smoothing and alerting."""
 
@@ -190,6 +269,9 @@ class VehicleMonitoringUseCase(BaseProcessor):
         # Initialize tracking state variables
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+
+        # Track start time for "TOTAL SINCE" calculation
+        self._tracking_start_time = None
 
         # ------------------------------------------------------------------ #
         # Canonical tracking aliasing to avoid duplicate counts              #
@@ -304,8 +386,8 @@ class VehicleMonitoringUseCase(BaseProcessor):
         summary = self._generate_summary(counting_summary, alerts)
 
         # Step: Generate structured events and tracking stats with frame-based keys
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number)
+        events_list = self._generate_events(counting_summary, alerts, config, frame_number,stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,stream_info)
 
         # Extract frame-based dictionaries from the lists
         events = events_list[0] if events_list else {}
@@ -352,6 +434,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         self._vehicle_total_track_ids = {cat: set() for cat in self.vehicle_categories}
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        self._tracking_start_time = None
         # Also clear canonical tracking structures
         self._track_aliases.clear()
         self._canonical_tracks.clear()
@@ -365,7 +448,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         self.reset_vehicle_tracking()
         self.logger.info("All Vehicles tracking state reset")
         
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: VehicleMonitoringConfig, frame_number: Optional[int] = None) -> List[Dict]:
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: VehicleMonitoringConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured events for the output format with frame-based keys."""
         from datetime import datetime, timezone
 
@@ -400,6 +483,11 @@ class VehicleMonitoringUseCase(BaseProcessor):
                     level = "info"
                     intensity = min(10.0, total_vehicles / 3.0)
 
+            # Generate human text in new format
+            human_text_lines = ["EVENTS DETECTED:"]
+            human_text_lines.append(f"    - {total_vehicles} Vehicle(s) detected [INFO]")
+            human_text = "\n".join(human_text_lines)
+
             event = {
                 "type": "vehicle_monitoring",
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
@@ -413,7 +501,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
                 "application_name": "Vehicle Monitoring System",
                 "application_version": "1.2",
                 "location_info": None,
-                "human_text": f"{total_vehicles} vehicles detected"
+                "human_text": human_text
             }
             frame_events.append(event)
 
@@ -460,14 +548,38 @@ class VehicleMonitoringUseCase(BaseProcessor):
         return events
 
 
-    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: VehicleMonitoringConfig, frame_number: Optional[int] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: VehicleMonitoringConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
         total_vehicles = counting_summary.get("total_count", 0)
+        total_vehicle_counts = counting_summary.get("total_vehicle_counts", 0)
+        cumulative_total = sum(total_vehicle_counts.values()) if total_vehicle_counts else 0
         # Add detailed track_ids_info (like people_counting)
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+                # Get formatted timestamps
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
+
+        # Build human-readable summary string in new format
+        human_text_lines = []
+        
+        # CURRENT FRAME section
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+        if total_vehicles > 0:
+            human_text_lines.append(f"    - Vehicles Detected: {total_vehicles}")
+        else:
+            human_text_lines.append("    - No Vehicles detected")
+        
+        human_text_lines.append("")  # Empty line for spacing
+        
+        # TOTAL SINCE section
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
+        human_text_lines.append(f"    - Total Vehicles Detected: {cumulative_total}")
+
+        human_text = "\n".join(human_text_lines)
+
         tracking_stat = {
             "type": "vehicle_tracking",
             "category": "vehicle",
@@ -475,7 +587,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
             "insights": insights,
             "summary": summary,
             "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": summary,
+            "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
             "local_frame_id": frame_key
@@ -742,4 +854,18 @@ class VehicleMonitoringUseCase(BaseProcessor):
             "raw_ids": {raw_id},
         }
         return canonical_id
+    
+    def _format_timestamp(self, timestamp: float) -> str:
+        """Format a timestamp for human-readable output."""
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+
+    def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
+        self._tracking_start_time = time.time()
 

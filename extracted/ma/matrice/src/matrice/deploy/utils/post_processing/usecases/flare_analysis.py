@@ -171,7 +171,14 @@ class FlareAnalysisUseCase(BaseProcessor):
                 "fps": {"type": ["number", "null"], "minimum": 1.0, "default": None},
                 "bbox_format": {"type": "string", "enum": ["auto", "xmin_ymin_xmax_ymax", "x_y_width_height"], "default": "auto"},
                 "index_to_category": {"type": ["object", "null"], "default": {0: 'BadFlare', 1: 'GoodFlare'}},
-                "alert_config": {"type": ["object", "null"], "default": None}
+                "alert_config": {"type": ["object", "null"], "default": None},
+                "time_window_minutes": {"type": "integer", "minimum": 1, "default": 60},
+                "enable_unique_counting": {"type": "boolean", "default": True},
+                "enable_smoothing": {"type": "boolean", "default": True},
+                "smoothing_algorithm": {"type": "string", "default": "observability"},
+                "smoothing_window_size": {"type": "integer", "minimum": 1, "default": 20},
+                "smoothing_cooldown_frames": {"type": "integer", "minimum": 0, "default": 5},
+                "smoothing_confidence_range_factor": {"type": "number", "minimum": 0, "default": 0.5}
             },
             "required": ["confidence_threshold", "top_k_colors"],
             "additionalProperties": False
@@ -188,7 +195,14 @@ class FlareAnalysisUseCase(BaseProcessor):
             "fps": None,
             "bbox_format": "auto",
             "index_to_category": {0: 'BadFlare', 1: 'GoodFlare'},
-            "alert_config": None
+            "alert_config": None,
+            "time_window_minutes": 60,
+            "enable_unique_counting": True,
+            "enable_smoothing": True,
+            "smoothing_algorithm": "observability",
+            "smoothing_window_size": 20,
+            "smoothing_cooldown_frames": 5,
+            "smoothing_confidence_range_factor": 0.5
         }
         defaults.update(overrides)
         return FlareAnalysisConfig(**defaults)
@@ -261,6 +275,7 @@ class FlareAnalysisUseCase(BaseProcessor):
             except Exception as e:
                 self.logger.warning(f"AdvancedTracker failed: {e}")
 
+            # flare_processed_data = self._deduplicate_detections(flare_processed_data, iou_thresh=0.7)
             self._update_flare_tracking_state(flare_processed_data)
             self._total_frame_counter += 1
 
@@ -471,8 +486,7 @@ class FlareAnalysisUseCase(BaseProcessor):
             "categories": dict(category_colors),
             "color_distribution": {},
             "dominant_colors": {},
-            "detections": detections,
-            "total_flare_counts": self.get_total_flare_counts()
+            "detections": detections
         }
         all_colors = defaultdict(int)
         for category_data in category_colors.values():
@@ -516,7 +530,7 @@ class FlareAnalysisUseCase(BaseProcessor):
         insights = []
         total_detections = flare_summary.get("total_detections", 0)
         if total_detections == 0:
-            insights.append("No flares detected for analysis.")
+            insights.append("No flares detected for color analysis.")
             return insights
         categories = flare_summary.get("categories", {})
         dominant_colors = flare_summary.get("dominant_colors", {})
@@ -524,19 +538,19 @@ class FlareAnalysisUseCase(BaseProcessor):
         for category, colors in categories.items():
             total = sum(colors.values())
             color_details = ", ".join([f"{color}: {count}" for color, count in colors.items()])
-            insights.append(f"{category.capitalize()} flare colors: {color_details} (Total: {total})")
+            insights.append(f"{category.capitalize()} colors: {color_details} (Total: {total})")
         for category, info in dominant_colors.items():
             insights.append(
-                f"{category.capitalize()} flares are mostly {info['color']} "
+                f"{category.capitalize()} is mostly {info['color']} "
                 f"({info['count']} detections, {info['percentage']}%)"
             )
         unique_colors = len(color_distribution)
         if unique_colors > 1:
-            insights.append(f"Detected {unique_colors} unique flare colors.")
+            insights.append(f"Detected {unique_colors} unique colors across all flare categories.")
         if color_distribution:
             most_common_color = max(color_distribution.items(), key=lambda x: x[1])
             insights.append(
-                f"Most common flare color: {most_common_color[0]} ({most_common_color[1]} detections)"
+                f"Most common color overall: {most_common_color[0]} ({most_common_color[1]} detections)"
             )
         return insights
 
@@ -551,11 +565,11 @@ class FlareAnalysisUseCase(BaseProcessor):
                     alerts.append({
                         "type": "count_threshold",
                         "severity": "warning",
-                        "message": f"Total flare detections ({total_detections}) exceeds threshold ({threshold})",
+                        "message": f"Total detections ({total_detections}) exceeds threshold ({threshold})",
                         "category": category,
                         "current_count": total_detections,
                         "threshold": threshold,
-                        "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
+                        "timestamp": datetime.now().isoformat()
                     })
                 elif category in flare_summary.get("categories", {}):
                     category_total = sum(flare_summary["categories"][category].values())
@@ -563,11 +577,11 @@ class FlareAnalysisUseCase(BaseProcessor):
                         alerts.append({
                             "type": "count_threshold",
                             "severity": "warning",
-                            "message": f"{category} flare detections ({category_total}) exceeds threshold ({threshold})",
+                            "message": f"{category} detections ({category_total}) exceeds threshold ({threshold})",
                             "category": category,
                             "current_count": category_total,
                             "threshold": threshold,
-                            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
+                            "timestamp": datetime.now().isoformat()
                         })
         return alerts
 
@@ -581,18 +595,14 @@ class FlareAnalysisUseCase(BaseProcessor):
             "processing_time": context.processing_time or 0.0,
             "input_format": context.input_format.value,
             "confidence_threshold": config.confidence_threshold,
-            "color_diversity": (unique_colors / total_detections) * 100 if total_detections > 0 else 0.0,
-            "detection_rate": (total_detections / config.time_window_minutes) * 60 if config.time_window_minutes > 0 else 0.0,
-            "average_colors_per_detection": config.top_k_colors,
-            "category_metrics": {},
-            "processing_settings": {
-                "confidence_threshold": config.confidence_threshold,
-                "top_k_colors": config.top_k_colors,
-                "frame_skip": config.frame_skip,
-                "target_categories": config.target_categories,
-                "enable_unique_counting": config.enable_unique_counting
-            }
+            "color_diversity": 0.0,
+            "detection_rate": 0.0,
+            "average_colors_per_detection": config.top_k_colors
         }
+        if total_detections > 0:
+            metrics["color_diversity"] = (unique_colors / total_detections) * 100
+        if config.time_window_minutes and config.time_window_minutes > 0:
+            metrics["detection_rate"] = (total_detections / config.time_window_minutes) * 60
         category_metrics = {}
         for category, colors in flare_summary.get("categories", {}).items():
             category_total = sum(colors.values())
@@ -602,6 +612,13 @@ class FlareAnalysisUseCase(BaseProcessor):
                 "color_diversity": (len(colors) / category_total) * 100 if category_total > 0 else 0
             }
         metrics["category_metrics"] = category_metrics
+        metrics["processing_settings"] = {
+            "confidence_threshold": config.confidence_threshold,
+            "top_k_colors": config.top_k_colors,
+            "frame_skip": config.frame_skip,
+            "target_categories": config.target_categories,
+            "enable_unique_counting": config.enable_unique_counting
+        }
         return metrics
 
     def _extract_predictions(self, flare_analysis: List[Dict], config: FlareAnalysisConfig) -> List[Dict]:
@@ -625,10 +642,10 @@ class FlareAnalysisUseCase(BaseProcessor):
         total_detections = flare_summary.get("total_detections", 0)
         unique_colors = len(flare_summary.get("color_distribution", {}))
         if total_detections == 0:
-            return "No flares detected for analysis"
-        summary_parts = [f"{total_detections} flares analyzed"]
+            return "No flares detected for color analysis"
+        summary_parts = [f"{total_detections} flares analyzed for colors"]
         if unique_colors > 0:
-            summary_parts.append(f"{unique_colors} unique flare colors detected")
+            summary_parts.append(f"{unique_colors} unique colors detected")
         categories = flare_summary.get("categories", {})
         if len(categories) > 1:
             summary_parts.append(f"across {len(categories)} categories")
@@ -641,18 +658,22 @@ class FlareAnalysisUseCase(BaseProcessor):
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         events = [{frame_key: []}]
         frame_events = events[0][frame_key]
-        total_detections = flare_summary.get("total_detections", 0)
-        if total_detections > 0:
+        
+        # Check if BadFlare is detected
+        bad_flare_detected = flare_summary.get("categories", {}).get("BadFlare", {})
+        total_bad_flare_detections = sum(bad_flare_detected.values()) if bad_flare_detected else 0
+
+        if total_bad_flare_detections > 0:
             level = "info"
-            intensity = min(10.0, total_detections / 5.0)
+            intensity = min(10.0, total_bad_flare_detections / 5.0)
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 20)
-                intensity = min(10.0, (total_detections / threshold) * 10)
+                intensity = min(10.0, (total_bad_flare_detections / threshold) * 10)
                 level = "critical" if intensity >= 7 else "warning" if intensity >= 5 else "info"
-            elif total_detections > 50:
+            elif total_bad_flare_detections > 50:
                 level = "critical"
                 intensity = 9.0
-            elif total_detections > 25:
+            elif total_bad_flare_detections > 25:
                 level = "warning"
                 intensity = 7.0
             event = {
@@ -665,16 +686,20 @@ class FlareAnalysisUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Flare Analysis System",
-                "application_version": "1.0",
+                "application_name": "Flare Detection System",
+                "application_version": "1.2",
                 "location_info": None,
                 "human_text": (
-                    f"Detections: {total_detections} flares analyzed\n"
-                    f"Unique Colors: {len(flare_summary.get('color_distribution', {}))}\n"
-                    
+                    f"Event: BadFlare Detection\nLevel: {level.title()}\n"
+                    f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')}\n"
+                    f"Detections: {total_bad_flare_detections} BadFlares analyzed\n"
+                    f"Unique Colors: {len(bad_flare_detected) if bad_flare_detected else 0}\n"
+                    f"Intensity: {intensity:.1f}/10"
                 )
             }
             frame_events.append(event)
+
+        # Generate alert events as in the original logic
         for alert in alerts:
             alert_event = {
                 "type": alert.get("type", "flare_alert"),
@@ -686,12 +711,13 @@ class FlareAnalysisUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Flare Analysis Alert System",
-                "application_version": "1.0",
+                "application_name": "Flare Detection Alert System",
+                "application_version": "1.2",
                 "location_info": alert.get("category"),
-                "human_text": f"{alert.get('type', 'Flare Alert').title()}\n{alert.get('message', 'Flare detection alert triggered')}"
+                "human_text": f"Event: {alert.get('type', 'Flare Alert').title()}\nMessage: {alert.get('message', 'Flare detection alert triggered')}"
             }
             frame_events.append(alert_event)
+        
         return events
 
     def _generate_tracking_stats(self, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig, frame_number: Optional[int] = None) -> List[Dict]:
@@ -717,11 +743,28 @@ class FlareAnalysisUseCase(BaseProcessor):
 
     def _generate_human_text_for_tracking(self, total_detections: int, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig) -> str:
         text_parts = []
+        if config.time_window_minutes:
+            detection_rate_per_hour = (total_detections / config.time_window_minutes) * 60
+            # text_parts.append(f"Detection Rate: {detection_rate_per_hour:.1f} flares per hour")
+        unique_colors = len(flare_summary.get("color_distribution", {}))
+        # text_parts.append(f"Unique Colors Detected: {unique_colors}")
+        if total_detections > 0:
+            color_diversity = (unique_colors / total_detections) * 100
+            # text_parts.append(f"Color Diversity: {color_diversity:.1f}%")
         categories = flare_summary.get("categories", {})
-        total_flare_counts = flare_summary.get("total_flare_counts", {})
-        for category, colors in categories.items():
-            for color in colors:
-                unique_count = total_flare_counts.get(f"{category}:{color}", 0)
-                if unique_count > 0:
-                    text_parts.append(f"{unique_count} {category.title()} detected, Color: {color}")
+        if categories:
+            # text_parts.append(f"Categories Analyzed: {len(categories)}")
+            for category, colors in categories.items():
+                category_total = sum(colors.values())
+                if category_total > 0:
+                    dominant_color = max(colors.items(), key=lambda x: x[1])[0] if colors else "unknown"
+                    text_parts.append(f"  {category_total} {category.title()} detected, Color: {dominant_color}")
+        color_distribution = flare_summary.get("color_distribution", {})
+        if color_distribution:
+            top_colors = sorted(color_distribution.items(), key=lambda x: x[1], reverse=True)[:3]
+            # text_parts.append("Top Colors:")
+            for color, count in top_colors:
+                percentage = (count / total_detections) * 100
+                # text_parts.append(f"  {color.title()}: {count} flares ({percentage:.1f}%)")
+
         return "\n".join(text_parts)

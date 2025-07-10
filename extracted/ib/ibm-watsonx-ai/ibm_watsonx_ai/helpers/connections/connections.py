@@ -376,7 +376,7 @@ class DataConnection(BaseDataConnection):
         :return: list of paths to objects at NFS or bucket location
         :rtype: list[str]
         """
-        include_types = {"file"}
+        include_types = {"file", "excel"}
         if include_folders:
             include_types.add("folder")
 
@@ -458,17 +458,25 @@ class DataConnection(BaseDataConnection):
 
         return get_keys_with_prefix(bucket_objects, prefix)
 
+    def _has_folder_location(self) -> bool:
+        if not isinstance(self.location, (S3Location, ContainerLocation, NFSLocation)):
+            return False
+
+        file_extension = os.path.splitext(self.location.get_location())[1]
+        return file_extension == ""
+
     def _get_connections_from_folder(
-        self, include_folders: bool = False
+        self,
+        recursive: bool = False,
     ) -> list["DataConnection"]:
         """Return connections for every file and folder (optional) in a bucket / NFS location.
 
         :raises WMLClientError: If location is not one of ``S3Location``, ``ContainerLocation``, ``NFSLocation``
 
-        :param include_folders: if `True` - connection for folders are included, defaults to `False`
-        :type include_folders: bool, optional
+        :param recursive: if `True` - connection for files from all subfolders are included, defaults to `False`
+        :type recursive: bool, optional
 
-        :return: list of connections to objects in a bucket location
+        :return: list of connections to objects in a bucket / NFS location
         :rtype: list[DataConnection]
         """
         if not isinstance(self.location, (S3Location, ContainerLocation, NFSLocation)):
@@ -477,8 +485,7 @@ class DataConnection(BaseDataConnection):
                 reason="This DataConnection's location is not pointing to a S3 bucket.",
             )
 
-        file_extension = os.path.splitext(self.location.get_location())[1]
-        if file_extension:
+        if not self._has_folder_location():
             return [self]
 
         new_data_connections = []
@@ -486,7 +493,7 @@ class DataConnection(BaseDataConnection):
         if isinstance(self.location, ContainerLocation):
             self._check_if_connection_asset_is_s3()
 
-        paths = self._get_paths_from_location(include_folders)
+        paths = self._get_paths_from_location(recursive)
 
         for path in paths:
             if isinstance(self.location, NFSLocation):
@@ -507,7 +514,18 @@ class DataConnection(BaseDataConnection):
                 new_data_conn.set_client(self._api_client)
             new_data_connections.append(new_data_conn)
 
-        return new_data_connections
+        if not recursive:
+            return new_data_connections
+
+        file_connections = []
+        for data_connection in new_data_connections:
+            if not data_connection._has_folder_location():
+                file_connections.append(data_connection)
+            else:
+                file_connections.extend(
+                    data_connection._get_connections_from_folder(recursive=True)
+                )
+        return file_connections
 
     def _subdivide_connection(self):
         if type(self.id) is str or not self.id:
@@ -1259,8 +1277,11 @@ class DataConnection(BaseDataConnection):
 
                         try:
                             data = self._download_training_data_from_data_asset_storage(
-                                binary=binary, is_flight_fallback=True
+                                binary=binary,
+                                is_flight_fallback=True,
+                                read_to_file=read_to_file,
                             )
+
                         except:
                             raise download_data_error
                     else:
@@ -2015,15 +2036,16 @@ class DataConnection(BaseDataConnection):
             or isinstance(self.location, ContainerLocation)
             and self._api_client.CLOUD_PLATFORM_SPACES
         ):  # S3Location, NFSLocation and ContainerLocation on Cloud
-            data_connections = self._get_connections_from_folder(include_folders=True)
+            data_connections = self._get_connections_from_folder(recursive=True)
             for data_connection in data_connections:
-                extension = os.path.splitext(data_connection.location.get_location())[1]
-                item_name = os.path.basename(data_connection.location.get_location())
-                path = os.path.join(local_dir, item_name)
-                if extension:
-                    data_connection.download(path)
-                else:
-                    data_connection.download_folder(path)
+                relative_item_path = (
+                    data_connection.location.get_location()
+                    .removeprefix(self.location.get_location())
+                    .strip("/")
+                )
+                file_path = os.path.join(local_dir, relative_item_path)
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                data_connection.download(file_path)
         else:  # FSLocation and ContainerLocation on CPD
             file_paths = self._get_file_paths_from_location()
             data_connections = self._get_connections_from_paths(file_paths)

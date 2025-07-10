@@ -132,7 +132,8 @@ class CreateCloudResourceGCP(object):
         self.gcp_subnet_ids = gcp_subnet_ids
         self.gcp_cluster_node_service_account_email = gcp_cluster_node_service_account_email
         self.gcp_anyscale_iam_service_account_email = gcp_anyscale_iam_service_account_email
-        self.gcp_filestore_config = gcp_filestore_config
+        if gcp_filestore_config is not None:
+            self.gcp_filestore_config = gcp_filestore_config
         self.gcp_firewall_policy_ids = gcp_firewall_policy_ids
         self.gcp_cloud_storage_bucket_id = gcp_cloud_storage_bucket_id
         if gcp_deployment_manager_id is not None:
@@ -513,8 +514,6 @@ class CreateCloudResourceGCP(object):
         :param gcp_filestore_config: The gcp_filestore_config of this CreateCloudResourceGCP.  # noqa: E501
         :type: GCPFileStoreConfig
         """
-        if self.local_vars_configuration.client_side_validation and gcp_filestore_config is None:  # noqa: E501
-            raise ValueError("Invalid value for `gcp_filestore_config`, must not be `None`")  # noqa: E501
 
         self._gcp_filestore_config = gcp_filestore_config
 

@@ -8,6 +8,7 @@ with zone-based analysis, tracking, and alerting capabilities.
 from typing import Any, Dict, List, Optional, Set
 from dataclasses import asdict
 import time
+from datetime import datetime, timezone
 
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
 from ..core.config import PeopleCountingConfig, ZoneConfig, AlertConfig
@@ -56,6 +57,9 @@ class PeopleCountingUseCase(BaseProcessor):
         
         # Initialize smoothing tracker
         self.smoothing_tracker = None
+
+        # Track start time for "TOTAL SINCE" calculation
+        self._tracking_start_time = None
 
         # --------------------------------------------------------------------- #
         # Tracking aliasing structures to merge fragmented IDs                   #
@@ -238,13 +242,13 @@ class PeopleCountingUseCase(BaseProcessor):
                     # if isinstance(smoothed_tracking_data, list):
                     #     smoothed_tracking_data = {"0": smoothed_tracking_data}
                     
-                    return self._process_frame_wise_tracking(smoothed_tracking_data, config, context)
+                    return self._process_frame_wise_tracking(smoothed_tracking_data, config, context, stream_info)
                 else:
                     # Process frame-wise tracking data without smoothing
-                    return self._process_frame_wise_tracking(data, config, context)
+                    return self._process_frame_wise_tracking(data, config, context, stream_info)
             else:
                 # Process single frame or detection data (existing logic)
-                return self._process_single_frame_data(data, config, context)
+                return self._process_single_frame_data(data, config, context, stream_info)
                 
         except Exception as e:
             self.logger.error(f"People counting failed: {str(e)}", exc_info=True)
@@ -260,7 +264,7 @@ class PeopleCountingUseCase(BaseProcessor):
                 context=context
             )
     
-    def _process_frame_wise_tracking(self, data: Dict, config: PeopleCountingConfig, context: ProcessingContext) -> ProcessingResult:
+    def _process_frame_wise_tracking(self, data: Dict, config: PeopleCountingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """Process frame-wise tracking data to generate frame-specific events and tracking stats."""
         
         frame_events = {}
@@ -281,7 +285,7 @@ class PeopleCountingUseCase(BaseProcessor):
             global_frame_id = self.get_global_frame_id(local_frame_id)
             
             # Process this single frame's detections
-            frame_result = self._process_single_frame_detections(frame_detections, config, context, global_frame_id)
+            frame_result = self._process_single_frame_detections(frame_detections, config, context, global_frame_id, stream_info)
             
             if frame_result.is_success():
                 # Get events and tracking stats for this frame
@@ -338,7 +342,7 @@ class PeopleCountingUseCase(BaseProcessor):
         # Priority 2: Use frame_key from input data
         return str(frame_key)
     
-    def _process_single_frame_detections(self, frame_detections: List[Dict], config: PeopleCountingConfig, context: ProcessingContext, frame_id: Optional[str] = None) -> ProcessingResult:
+    def _process_single_frame_detections(self, frame_detections: List[Dict], config: PeopleCountingConfig, context: ProcessingContext, frame_id: Optional[str] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """Process detections from a single frame using existing logic."""
         
         # Step 1: Apply confidence filtering to this frame
@@ -383,15 +387,15 @@ class PeopleCountingUseCase(BaseProcessor):
         self._update_tracking_state(counting_summary)
         
         # Step 5: Generate insights and alerts for this frame
-        insights = self._generate_insights(counting_summary, zone_analysis, config)
+        insights = self._generate_insights(counting_summary, zone_analysis, config, stream_info)
         alerts = self._check_alerts(counting_summary, zone_analysis, config)
         
         # Step 6: Generate events for this frame
-        events = self._generate_events(counting_summary, zone_analysis, alerts, config)
+        events = self._generate_events(counting_summary, zone_analysis, alerts, config, stream_info)
         
         # Step 7: Generate tracking stats for this frame
-        summary = self._generate_summary(counting_summary, zone_analysis, alerts)
-        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, insights, summary, config, frame_id=frame_id)
+        summary = self._generate_summary(counting_summary, zone_analysis, alerts, stream_info)
+        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, insights, summary, config, frame_id=frame_id, stream_info=stream_info)
         
         return self.create_result(
             data={
@@ -405,7 +409,7 @@ class PeopleCountingUseCase(BaseProcessor):
             context=context
         )
     
-    def _process_single_frame_data(self, data: Any, config: PeopleCountingConfig, context: ProcessingContext) -> ProcessingResult:
+    def _process_single_frame_data(self, data: Any, config: PeopleCountingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """Process single frame data (existing logic unchanged)."""
         start_time = time.time()
         
@@ -482,7 +486,7 @@ class PeopleCountingUseCase(BaseProcessor):
             self._update_tracking_state(person_counting_summary)
             
             # Step 5: Generate insights and alerts
-            insights = self._generate_insights(person_counting_summary, zone_analysis, config)
+            insights = self._generate_insights(person_counting_summary, zone_analysis, config, stream_info)
             alerts = self._check_alerts(person_counting_summary, zone_analysis, config)
             
             # Step 6: Calculate detailed metrics
@@ -492,11 +496,11 @@ class PeopleCountingUseCase(BaseProcessor):
             predictions = self._extract_predictions(processed_data)
             
             # Step 8: Generate human-readable summary
-            summary = self._generate_summary(person_counting_summary, zone_analysis, alerts)
+            summary = self._generate_summary(person_counting_summary, zone_analysis, alerts, stream_info)
             
             # Step 9: Generate structured events and tracking stats
-            events = self._generate_events(person_counting_summary, zone_analysis, alerts, config)
-            tracking_stats = self._generate_tracking_stats(person_counting_summary, zone_analysis, insights, summary, config)
+            events = self._generate_events(person_counting_summary, zone_analysis, alerts, config, stream_info)
+            tracking_stats = self._generate_tracking_stats(person_counting_summary, zone_analysis, insights, summary, config, stream_info=stream_info)
             
             # Mark processing as completed
             context.mark_completed()
@@ -547,7 +551,7 @@ class PeopleCountingUseCase(BaseProcessor):
             )
     
     def _generate_insights(self, counting_summary: Dict, zone_analysis: Dict, 
-                          config: PeopleCountingConfig) -> List[str]:
+                          config: PeopleCountingConfig,stream_info: Optional[Dict[str, Any]] = None) -> List[str]:
         """Generate human-readable insights from counting results."""
         insights = []
         
@@ -952,6 +956,7 @@ class PeopleCountingUseCase(BaseProcessor):
         # Clear aliasing information
         self._canonical_tracks.clear()
         self._track_aliases.clear()
+        self._tracking_start_time = None
         
         self.logger.warning("⚠️  FULL tracking state reset - all track IDs, zone data, frame counter, and global frame offset cleared. Cumulative totals lost!")
     
@@ -1126,8 +1131,87 @@ class PeopleCountingUseCase(BaseProcessor):
             }
             for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
         }
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, use video_timestamp from stream_info
+            video_timestamp = stream_info.get("video_timestamp", 0.0)
+            return self._format_timestamp_for_video(video_timestamp)
+        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, start from 00:00:00
+            return "00:00:00"
+        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
     
-    def _generate_summary(self, counting_summary: Dict, zone_analysis: Dict, alerts: List) -> str:
+    def _generate_summary(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, stream_info: Optional[Dict[str, Any]] = None) -> str:
         """Generate human-readable summary."""
         total_people = counting_summary.get("total_objects", 0)
         
@@ -1161,15 +1245,17 @@ class PeopleCountingUseCase(BaseProcessor):
         
         return ", ".join(summary_parts)
     
-    def _generate_events(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, config: PeopleCountingConfig) -> List[Dict]:
+    def _generate_events(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, config: PeopleCountingConfig, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured events for the output format."""
         from datetime import datetime, timezone
         
         events = []
         total_people = counting_summary.get("total_objects", 0)
-        
+        human_text_lines = [f"EVENTS DETECTED:"]
+
         if total_people > 0:
             # Determine event level based on thresholds
+            
             level = "info"
             intensity = 5.0
             
@@ -1194,6 +1280,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     level = "info"
                     intensity = min(10.0, total_people / 2.0)
             
+            human_text_lines.append(f"\t- People Detected: {total_people}")
             # Main people counting event
             event = {
                 "type": "people_counting",
@@ -1208,12 +1295,13 @@ class PeopleCountingUseCase(BaseProcessor):
                 "application_name": "People Counting System",
                 "application_version": "1.2",
                 "location_info": None,
-                "human_text": f"Event: People Counting\nCount: {total_people} people detected"
+                "human_text": "\n".join(human_text_lines)
             }
             events.append(event)
         
         # Add zone-specific events if applicable
         if zone_analysis:
+            human_text_lines.append(f"\t- ZONE EVENTS:")
             def robust_zone_total(zone_count):
                 if isinstance(zone_count, dict):
                     total = 0
@@ -1238,6 +1326,9 @@ class PeopleCountingUseCase(BaseProcessor):
                         zone_level = "warning"
                     elif zone_intensity >= 5:
                         zone_level = "info"
+
+                    human_text_lines.append(f"\t\t- Zone name: {zone_name}")
+                    human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
                     zone_event = {
                         "type": "zone_occupancy",
                         "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
@@ -1251,12 +1342,14 @@ class PeopleCountingUseCase(BaseProcessor):
                         "application_name": "Zone Monitoring System",
                         "application_version": "1.2",
                         "location_info": zone_name,
-                        "human_text": f"Event: Zone Occupancy\nZone: {zone_name}\nCount: {zone_total} people"
+                        "human_text": "\n".join(human_text_lines)
                     }
                     events.append(zone_event)
         
         # Add alert events
         for alert in alerts:
+            human_text_lines.append(f"\t- Alerts:")
+            human_text_lines.append(f"\t\t- Alert Triggered")
             alert_event = {
                 "type": alert.get("type", "alert"),
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
@@ -1270,22 +1363,27 @@ class PeopleCountingUseCase(BaseProcessor):
                 "application_name": "Alert System",
                 "application_version": "1.2",
                 "location_info": alert.get("zone"),
-                "human_text": 'Alert triggered'
+                "human_text": "\n".join(human_text_lines)
             }
             events.append(alert_event)
         
         return events
     
-    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, insights: List[str], summary: str, config: PeopleCountingConfig, frame_id: Optional[str] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, insights: List[str], summary: str, config: PeopleCountingConfig, frame_id: Optional[str] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate tracking stats in the old format structure with simplified keywords."""
         from datetime import datetime, timezone
         
         tracking_stats = []
         human_text_list= []
+        human_text_lines=[]
+        # Get formatted timestamps
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
 
         total_people = counting_summary.get("total_objects", 0)
         
-        
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+
         if total_people > 0 or zone_analysis:
             # Get total count from cached tracking state
             total_unique_count = self.get_total_count()
@@ -1328,15 +1426,21 @@ class PeopleCountingUseCase(BaseProcessor):
                         return zone_count
                     else:
                         return 0
-                human_text_list.append( f"People Detected: {total_people}") 
+                human_text_lines.append(f"\t- People Detected: {total_people}")
+                human_text_lines.append("")
+                human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+                
                 for zone_name, zone_count in zone_analysis.items():
                         zone_total = robust_zone_total(zone_count)
-                        human_text_list.append( f"Zone Occupancy\nZone: {zone_name}\n Total Count in zone: {zone_total}")
-                       
-                human_message = "\n".join(human_text_list)  
+                        human_text_lines.append(f"\t- Zone name: {zone_name}")
+                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total}")
+
+                
+                human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
+                human_message = "\n".join(human_text_lines)  
                 tracking_stat["human_text"]= human_message
             else:
-                tracking_stat["human_text"]= self._generate_human_text_for_tracking(total_people, total_unique_count, config)    
+                tracking_stat["human_text"]= self._generate_human_text_for_tracking(total_people, total_unique_count, config, stream_info)    
             tracking_stat["frame_id"]= frame_identifier
             tracking_stat["frames_in_this_call"]= 1  # Single frame processing
             tracking_stat["total_frames_processed"]= self._total_frame_counter
@@ -1344,75 +1448,65 @@ class PeopleCountingUseCase(BaseProcessor):
             tracking_stat["global_frame_offset"]= self._global_frame_offset
             
             tracking_stats.append(tracking_stat)
-        
+        else:
+            total_unique_count = self.get_total_count()
+            current_frame_count = self.get_current_frame_count()
+            
+            # Use provided frame_id or generate timestamp
+            frame_identifier = frame_id if frame_id else datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+                        # Create tracking stats in old format structure
+            tracking_stat = {
+                "tracking_start_time": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "all_results_for_tracking": {
+                    "total_people": total_people,
+                    "zone_analysis": zone_analysis,
+                    "counting_summary": counting_summary,
+                    "detection_rate": (total_people / config.time_window_minutes * 60) if config.time_window_minutes else 0.0,
+                    "zones_count": len(zone_analysis),
+                    "people_in_frame": total_people,  # Clear keyword for people in this frame
+                    "cumulative_total": total_unique_count,  # Clear keyword for total unique people
+                    "current_frame_count": current_frame_count,
+                    "track_ids_info": self.get_track_ids_info(),
+                    "zone_tracking_info": self.get_zone_tracking_info(),
+                    "global_frame_offset": self._global_frame_offset,
+                    "local_frame_id": frame_identifier if frame_id else None
+                }}
+
+            total_unique_count = self.get_total_count()
+            human_text_lines.append(f"\t- People Detected: {total_people}")
+            human_text_lines.append("")
+            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+            human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
+            human_message = "\n".join(human_text_lines)  
+            tracking_stat["human_text"]= human_message
+            tracking_stat["frame_id"]= frame_identifier
+            tracking_stat["frames_in_this_call"]= 1  # Single frame processing
+            tracking_stat["total_frames_processed"]= self._total_frame_counter
+            tracking_stat["current_frame_number"]= frame_identifier
+            tracking_stat["global_frame_offset"]= self._global_frame_offset
         return tracking_stats
     
-    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleCountingConfig) -> str:
+    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleCountingConfig, stream_info: Optional[Dict[str, Any]] = None) -> str:
         """Generate human-readable text for tracking stats in old format."""
         from datetime import datetime, timezone
         
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-        
-        text_parts = [
-            f"Tracking Start Time: {timestamp}",
-            f"People Detected: {total_people}",
-            f"Total Unique People: {total_unique_count}"
-        ]
-        
-        return "\n".join(text_parts)
-    
-    def test_tracking_persistence(self) -> Dict[str, Any]:
-        """Test method to verify tracking state persists across calls."""
-        test_data = [
-            # First call - 2 people
-            [
-                {"category": "person", "confidence": 0.8, "track_id": "track_1", "bounding_box": [100, 100, 200, 200]},
-                {"category": "person", "confidence": 0.9, "track_id": "track_2", "bounding_box": [300, 300, 400, 400]}
-            ],
-            # Second call - 3 people (1 new, 2 existing)
-            [
-                {"category": "person", "confidence": 0.8, "track_id": "track_1", "bounding_box": [110, 110, 210, 210]},
-                {"category": "person", "confidence": 0.9, "track_id": "track_2", "bounding_box": [310, 310, 410, 410]},
-                {"category": "person", "confidence": 0.7, "track_id": "track_3", "bounding_box": [500, 500, 600, 600]}
-            ],
-            # Third call - 1 new person
-            [
-                {"category": "person", "confidence": 0.8, "track_id": "track_4", "bounding_box": [700, 700, 800, 800]}
-            ]
-        ]
-        
-        config = self.create_default_config(enable_unique_counting=True)
-        results = []
-        
-        for i, frame_data in enumerate(test_data):
-            # Create a simple counting summary
-            counting_summary = {
-                "total_objects": len(frame_data),
-                "detections": frame_data,
-                "categories": {"person": len(frame_data)}
-            }
-            
-            # Update tracking state
-            self._update_tracking_state(counting_summary)
-            
-            result = {
-                "call_number": i + 1,
-                "frame_people": len(frame_data),
-                "total_unique_tracks": self._total_count,
-                "track_ids": list(self._total_track_ids),
-                "current_frame_tracks": list(self._current_frame_track_ids)
-            }
-            results.append(result)
-        
-        return {
-            "test_results": results,
-            "final_total_count": self._total_count,
-            "final_track_ids": list(self._total_track_ids),
-            "debug_info": self.get_tracking_debug_info()
-        }
+        human_text_lines=[]
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
 
+        human_text_lines.append(f"\t- People Detected: {total_people}")
+
+        human_text_lines.append("")
+        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+        human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
+        
+        return "\n".join(human_text_lines)
+    
+    
     # --------------------------------------------------------------------- #
-    # Private helpers for canonical track aliasing                           #
+    # Private helpers for canonical track aliasing                          #
     # --------------------------------------------------------------------- #
 
     def _compute_iou(self, box1: Any, box2: Any) -> float:
@@ -1518,3 +1612,17 @@ class PeopleCountingUseCase(BaseProcessor):
         }
         self.logger.debug(f"Registered new canonical track {canonical_id}")
         return canonical_id 
+
+    def _format_timestamp(self, timestamp: float) -> str:
+        """Format a timestamp for human-readable output."""
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+
+    def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
+        self._tracking_start_time = time.time()

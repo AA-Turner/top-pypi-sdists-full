@@ -14,7 +14,7 @@ from vizro.models._components.form._form_utils import (
     validate_range_value,
     validate_step,
 )
-from vizro.models._models_utils import _log_call
+from vizro.models._models_utils import _log_call, warn_description_without_title
 from vizro.models._tooltip import coerce_str_to_tooltip
 from vizro.models.types import ActionType, _IdProperty
 
@@ -69,6 +69,7 @@ class Slider(VizroBaseModel):
     description: Annotated[
         Optional[Tooltip],
         BeforeValidator(coerce_str_to_tooltip),
+        AfterValidator(warn_description_without_title),
         Field(
             default=None,
             description="""Optional markdown string that adds an icon next to the title.
@@ -112,7 +113,7 @@ class Slider(VizroBaseModel):
     def __call__(self, min, max, current_value):
         output = [
             Output(f"{self.id}_end_value", "value"),
-            Output(self.id, "value"),
+            Output(self.id, "value", allow_duplicate=True),
             Output(f"{self.id}_input_store", "data"),
         ]
         inputs = [
@@ -126,6 +127,7 @@ class Slider(VizroBaseModel):
             ClientsideFunction(namespace="slider", function_name="update_slider_values"),
             output=output,
             inputs=inputs,
+            prevent_initial_call=True,
         )
         description = self.description.build().children if self.description else [None]
         defaults = {

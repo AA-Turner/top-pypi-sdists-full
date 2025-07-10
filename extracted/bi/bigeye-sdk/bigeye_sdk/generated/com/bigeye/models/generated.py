@@ -561,6 +561,7 @@ class AggregateField(betterproto.Enum):
     AGGREGATE_FIELD_IS_ROOT_CAUSE = 19
     AGGREGATE_FIELD_LINKED_METRICS = 20
     AGGREGATE_FIELD_LINKED_CUSTOM_RULES = 21
+    AGGREGATE_FIELD_DIMENSION = 22
 
 
 class GroupByEntityType(betterproto.Enum):
@@ -581,6 +582,7 @@ class GroupByEntityType(betterproto.Enum):
     GROUP_BY_ENTITY_TYPE_OWNER = 14
     GROUP_BY_ENTITY_TYPE_ISSUE_TYPE = 15
     GROUP_BY_ENTITY_TYPE_IS_ROOT_CAUSE = 16
+    GROUP_BY_ENTITY_TYPE_DIMENSION = 17
 
 
 class IssueStatus(betterproto.Enum):
@@ -1033,6 +1035,12 @@ class QueryErrorType(betterproto.Enum):
     QUERY_ERROR_TYPE_QUERY_FAILURE = 2
     QUERY_ERROR_TYPE_METADATA_QUERY_FAILURE = 3
     QUERY_ERROR_TYPE_RESULTSET_CONVERSION_FAILURE = 4
+
+
+class AgentType(betterproto.Enum):
+    AGENT_TYPE_UNSPECIFIED = 0
+    AGENT_TYPE_DATA_SOURCE = 1
+    AGENT_TYPE_CROSS_SOURCE = 2
 
 
 @dataclass
@@ -2740,6 +2748,7 @@ class GetMetricInfoListRequest(betterproto.Message):
     workspace_id: int = betterproto.int32_field(18)
     tag_ids: List[int] = betterproto.int32_field(19)
     dimension_ids: List[int] = betterproto.int32_field(20)
+    template_ids: List[int] = betterproto.int32_field(21)
 
 
 @dataclass
@@ -3048,6 +3057,8 @@ class GetComparisonTableInfosRequest(betterproto.Message):
     search: str = betterproto.string_field(7)
     workspace_id: int = betterproto.int32_field(8)
     tag_ids: List[int] = betterproto.int32_field(9)
+    dimension_ids: List[int] = betterproto.int32_field(10)
+    delta_types: List["DeltaType"] = betterproto.enum_field(11)
 
 
 @dataclass
@@ -3086,6 +3097,7 @@ class TableComparisonBatchEditRequest(betterproto.Message):
     table_comparison_ids: List[int] = betterproto.int32_field(1)
     named_schedule_id: int = betterproto.int32_field(2, group="schedule_change")
     remove_named_schedule: bool = betterproto.bool_field(3, group="schedule_change")
+    dimension_id: int = betterproto.int32_field(4)
 
 
 @dataclass
@@ -3127,6 +3139,7 @@ class SearchFilter(betterproto.Message):
     issue_type: "IssueType" = betterproto.enum_field(19, group="filter")
     parent_issue_id: int = betterproto.int32_field(20, group="filter")
     is_root_cause: bool = betterproto.bool_field(21, group="filter")
+    dimension_id: int = betterproto.int32_field(22, group="filter")
 
 
 @dataclass
@@ -3165,6 +3178,7 @@ class CountsQueryResult(betterproto.Message):
     owner_id: int = betterproto.int32_field(15, group="entity_id")
     issue_type: "IssueType" = betterproto.enum_field(16, group="entity_id")
     is_root_cause: bool = betterproto.bool_field(17, group="entity_id")
+    dimension_id: int = betterproto.int32_field(18, group="entity_id")
     counts_for_fields: List["CountForField"] = betterproto.message_field(2)
     entity: "IdAndDisplayName" = betterproto.message_field(14)
 
@@ -3187,6 +3201,10 @@ class WhereClause(betterproto.Message):
     metric_types: List["PredefinedMetricName"] = betterproto.enum_field(9)
     workspace_id: int = betterproto.int32_field(10)
     custom_rule_ids: List[int] = betterproto.int32_field(11)
+    dimension_ids: List[int] = betterproto.int32_field(12)
+    custom_rule_types: List["CustomRuleType"] = betterproto.enum_field(13)
+    delta_types: List["DeltaType"] = betterproto.enum_field(14)
+    template_ids: List[int] = betterproto.int32_field(15)
 
 
 @dataclass
@@ -3212,6 +3230,7 @@ class BulkIssueUpdateWhereClause(betterproto.Message):
     issue_type: List["IssueType"] = betterproto.enum_field(19)
     parent_issue_ids: List[int] = betterproto.int32_field(20)
     is_root_cause: "ThreeLeggedBoolean" = betterproto.enum_field(21)
+    dimension_ids: List[int] = betterproto.int32_field(22)
 
 
 @dataclass
@@ -3588,6 +3607,7 @@ class GetIssuesRequest(betterproto.Message):
     parent_issue_ids: List[int] = betterproto.int32_field(31)
     issue_type: List["IssueType"] = betterproto.enum_field(32)
     is_root_cause: "ThreeLeggedBoolean" = betterproto.enum_field(33)
+    dimension_ids: List[int] = betterproto.int32_field(34)
 
 
 @dataclass
@@ -4072,6 +4092,7 @@ class Source(betterproto.Message):
     metric_batch_size_query: int = betterproto.int32_field(26)
     metric_batch_size_metadata: int = betterproto.int32_field(27)
     auth_type: "AuthType" = betterproto.enum_field(28)
+    cross_source_agent_health_status: "AgentHealthStatus" = betterproto.enum_field(29)
 
 
 @dataclass
@@ -5377,6 +5398,7 @@ class AgentHealthInfo(betterproto.Message):
     last_heartbeat_latency_millis: int = betterproto.int64_field(3)
     last_heartbeat_sent_at: int = betterproto.int64_field(4)
     last_heartbeat_received_at: int = betterproto.int64_field(5)
+    cross_source_agent_health_status: "AgentHealthStatus" = betterproto.enum_field(6)
 
 
 @dataclass
@@ -5484,6 +5506,7 @@ class CustomRuleBulkRequest(betterproto.Message):
     is_delete: bool = betterproto.bool_field(3)
     is_run: bool = betterproto.bool_field(4)
     add_to_collection: int = betterproto.int32_field(5)
+    dimension_id: int = betterproto.int32_field(6)
 
 
 @dataclass
@@ -5504,6 +5527,9 @@ class GetCustomRuleListRequest(betterproto.Message):
     column_id: int = betterproto.int32_field(8)
     collection_id: int = betterproto.int32_field(9)
     join_id: int = betterproto.int32_field(10)
+    rule_types: List["CustomRuleType"] = betterproto.enum_field(11)
+    dimension_ids: List[int] = betterproto.int32_field(12)
+    workspace_id: int = betterproto.int32_field(13)
 
 
 @dataclass
@@ -5888,6 +5914,17 @@ class InstanceTypeWithCounts(betterproto.Message):
 
 
 @dataclass
+class SinglePathParamDimensionIdRequest(betterproto.Message):
+    dimension_id: int = betterproto.int32_field(1)
+
+
+@dataclass
+class UpsertDimensionRequestWrapper(betterproto.Message):
+    dimension_id: int = betterproto.int32_field(1)
+    request: "UpsertDimensionRequest" = betterproto.message_field(2)
+
+
+@dataclass
 class Dimension(betterproto.Message):
     id: int = betterproto.int32_field(1)
     name: str = betterproto.string_field(2)
@@ -5930,6 +5967,20 @@ class StatDimension(betterproto.Message):
 class UpsertStatDimensionRequest(betterproto.Message):
     dimension_id: int = betterproto.int32_field(1)
     stat_name: str = betterproto.string_field(2)
+
+
+@dataclass
+class BulkMoveDimensionRequest(betterproto.Message):
+    requests: List["MoveDimensionRequest"] = betterproto.message_field(1)
+
+
+@dataclass
+class MoveDimensionRequest(betterproto.Message):
+    source_dimension_id: int = betterproto.int32_field(1)
+    instance_type: "DimensionInstanceType" = betterproto.enum_field(2)
+    name: str = betterproto.string_field(3)
+    is_override: bool = betterproto.bool_field(4)
+    target_dimension_id: int = betterproto.int32_field(5)
 
 
 @dataclass
@@ -6174,6 +6225,23 @@ class AgentHeartbeatResponse(betterproto.Message):
     request_sent_at_epoch_millis: int = betterproto.int64_field(2)
     response_sent_at_epoch_millis: int = betterproto.int64_field(3)
     version: str = betterproto.string_field(4)
+
+
+@dataclass
+class AgentHeartbeatV2Source(betterproto.Message):
+    name: str = betterproto.string_field(1)
+    allowed_workspaces: List[int] = betterproto.int32_field(2)
+
+
+@dataclass
+class AgentHeartbeatV2Payload(betterproto.Message):
+    company_uuid: str = betterproto.string_field(1)
+    sources: List["AgentHeartbeatV2Source"] = betterproto.message_field(2)
+    sent_at_epoch_millis: int = betterproto.int64_field(3)
+    version: str = betterproto.string_field(4)
+    agent_type: "AgentType" = betterproto.enum_field(5)
+    encryption_enabled: bool = betterproto.bool_field(6)
+    signature: str = betterproto.string_field(7)
 
 
 @dataclass
@@ -6597,6 +6665,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         workspace_id: int = 0,
         tag_ids: List[int] = [],
         dimension_ids: List[int] = [],
+        template_ids: List[int] = [],
     ) -> MetricInfoList:
         """Get metric information"""
 
@@ -6621,6 +6690,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
         request.dimension_ids = dimension_ids
+        request.template_ids = template_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/GetMetricInfoBatch",
@@ -6651,6 +6721,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         workspace_id: int = 0,
         tag_ids: List[int] = [],
         dimension_ids: List[int] = [],
+        template_ids: List[int] = [],
     ) -> MetricInfoList:
         """Get batch metric information"""
 
@@ -6675,6 +6746,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
         request.dimension_ids = dimension_ids
+        request.template_ids = template_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/GetMetricInfoBatchPost",
@@ -6705,6 +6777,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         workspace_id: int = 0,
         tag_ids: List[int] = [],
         dimension_ids: List[int] = [],
+        template_ids: List[int] = [],
     ) -> GetMetricsCountResponse:
         """Get count of metrics"""
 
@@ -6729,6 +6802,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
         request.dimension_ids = dimension_ids
+        request.template_ids = template_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/GetMetricsCount",
@@ -8119,6 +8193,8 @@ class DeltasServiceStub(betterproto.ServiceStub):
         search: str = "",
         workspace_id: int = 0,
         tag_ids: List[int] = [],
+        dimension_ids: List[int] = [],
+        delta_types: List["DeltaType"] = [],
     ) -> GetComparisonTableInfosResponse:
         """Get information about deltas"""
 
@@ -8132,6 +8208,8 @@ class DeltasServiceStub(betterproto.ServiceStub):
         request.search = search
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
+        request.dimension_ids = dimension_ids
+        request.delta_types = delta_types
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.DeltasService/GetComparisonTableInfos",
@@ -8201,6 +8279,7 @@ class IssueServiceStub(betterproto.ServiceStub):
         parent_issue_ids: List[int] = [],
         issue_type: List["IssueType"] = [],
         is_root_cause: "ThreeLeggedBoolean" = 0,
+        dimension_ids: List[int] = [],
     ) -> GetIssuesResponse:
         """Get issues"""
 
@@ -8234,6 +8313,7 @@ class IssueServiceStub(betterproto.ServiceStub):
         request.parent_issue_ids = parent_issue_ids
         request.issue_type = issue_type
         request.is_root_cause = is_root_cause
+        request.dimension_ids = dimension_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.IssueService/GetIssues",
@@ -9578,6 +9658,8 @@ class DeltaServiceStub(betterproto.ServiceStub):
         search: str = "",
         workspace_id: int = 0,
         tag_ids: List[int] = [],
+        dimension_ids: List[int] = [],
+        delta_types: List["DeltaType"] = [],
     ) -> GetDeltaInfosResponse:
         request = GetComparisonTableInfosRequest()
         request.comparison_table_ids = comparison_table_ids
@@ -9589,6 +9671,8 @@ class DeltaServiceStub(betterproto.ServiceStub):
         request.search = search
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
+        request.dimension_ids = dimension_ids
+        request.delta_types = delta_types
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.DeltaService/FetchDeltas",
@@ -10076,6 +10160,9 @@ class CustomRuleServiceStub(betterproto.ServiceStub):
         column_id: int = 0,
         collection_id: int = 0,
         join_id: int = 0,
+        rule_types: List["CustomRuleType"] = [],
+        dimension_ids: List[int] = [],
+        workspace_id: int = 0,
     ) -> GetCustomRuleListResponse:
         """Get custom rules"""
 
@@ -10091,6 +10178,9 @@ class CustomRuleServiceStub(betterproto.ServiceStub):
         request.column_id = column_id
         request.collection_id = collection_id
         request.join_id = join_id
+        request.rule_types = rule_types
+        request.dimension_ids = dimension_ids
+        request.workspace_id = workspace_id
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.CustomRuleService/GetCustomRules",
@@ -10571,4 +10661,112 @@ class JoinServiceStub(betterproto.ServiceStub):
             "/com.bigeye.models.generated.JoinService/DeleteJoin",
             request,
             Empty,
+        )
+
+
+class DimensionServiceStub(betterproto.ServiceStub):
+    async def create_dimension(
+        self,
+        *,
+        id: int = 0,
+        name: str = "",
+        top_level_category: "TopLevelCategory" = 0,
+        description: str = "",
+    ) -> Dimension:
+        """Create dimension"""
+
+        request = UpsertDimensionRequest()
+        request.id = id
+        request.name = name
+        request.top_level_category = top_level_category
+        request.description = description
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/CreateDimension",
+            request,
+            Dimension,
+        )
+
+    async def delete_dimension(self, *, dimension_id: int = 0) -> Empty:
+        """Delete dimension"""
+
+        request = SinglePathParamDimensionIdRequest()
+        request.dimension_id = dimension_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/DeleteDimension",
+            request,
+            Empty,
+        )
+
+    async def update_dimension(
+        self,
+        *,
+        dimension_id: int = 0,
+        request: Optional["UpsertDimensionRequest"] = None,
+    ) -> Dimension:
+        """Update dimension"""
+
+        request = UpsertDimensionRequestWrapper()
+        request.dimension_id = dimension_id
+        if request is not None:
+            request.request = request
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/UpdateDimension",
+            request,
+            Dimension,
+        )
+
+    async def get_dimension(self, *, dimension_id: int = 0) -> Dimension:
+        """Get dimension"""
+
+        request = SinglePathParamDimensionIdRequest()
+        request.dimension_id = dimension_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/GetDimension",
+            request,
+            Dimension,
+        )
+
+    async def get_dimensions(self) -> GetDimensionsListResponse:
+        """Get all dimensions"""
+
+        request = Empty()
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/GetDimensions",
+            request,
+            GetDimensionsListResponse,
+        )
+
+    async def set_stat_dimension(
+        self, *, dimension_id: int = 0, stat_name: str = ""
+    ) -> StatDimension:
+        """Assign statistic (e.g., "AVERAGE") to dimension"""
+
+        request = UpsertStatDimensionRequest()
+        request.dimension_id = dimension_id
+        request.stat_name = stat_name
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/SetStatDimension",
+            request,
+            StatDimension,
+        )
+
+    async def bulk_update_dimensions(
+        self, *, requests: List["MoveDimensionRequest"] = []
+    ) -> GetDimensionsListResponse:
+        """Bulk update dimensions"""
+
+        request = BulkMoveDimensionRequest()
+        if requests is not None:
+            request.requests = requests
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.DimensionService/BulkUpdateDimensions",
+            request,
+            GetDimensionsListResponse,
         )

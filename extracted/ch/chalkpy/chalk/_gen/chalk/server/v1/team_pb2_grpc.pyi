@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.team_pb2 import (
+    ArchiveEnvironmentRequest,
+    ArchiveEnvironmentResponse,
     CreateEnvironmentRequest,
     CreateEnvironmentResponse,
     CreateProjectRequest,
@@ -143,6 +145,10 @@ class TeamServiceStub:
        option (chalk.auth.v1.permission) = PERMISSION_DEPLOY_CREATE;
      }
     """
+    ArchiveEnvironment: UnaryUnaryMultiCallable[
+        ArchiveEnvironmentRequest,
+        ArchiveEnvironmentResponse,
+    ]
 
 class TeamServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -270,5 +276,11 @@ class TeamServiceServicer(metaclass=ABCMeta):
           option (chalk.auth.v1.permission) = PERMISSION_DEPLOY_CREATE;
         }
         """
+    @abstractmethod
+    def ArchiveEnvironment(
+        self,
+        request: ArchiveEnvironmentRequest,
+        context: ServicerContext,
+    ) -> ArchiveEnvironmentResponse: ...
 
 def add_TeamServiceServicer_to_server(servicer: TeamServiceServicer, server: Server) -> None: ...

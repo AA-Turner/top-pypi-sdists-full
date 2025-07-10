@@ -486,95 +486,78 @@ class SetInstance : public Instance {
   */
   class MemberRange {
    private:
-    AMPL_TUPLE **members_;
-    std::size_t size_;
+     std::vector<Tuple> members_;
 
    public:
     /**
     Constructor
     */
-    explicit MemberRange(SetInstance* impl_) : size_(0) {
-      AMPL_CALL_CPP(AMPL_SetInstanceGetValues(impl_->ampl_, impl_->entityname_.c_str(), impl_->key_, &members_, &size_));
+    explicit MemberRange(SetInstance* impl_) {
+      AMPL_TUPLE** raw_members = nullptr;
+      std::size_t size = 0;
+      AMPL_CALL_CPP(AMPL_SetInstanceGetValues(
+        impl_->ampl_, impl_->entityname_.c_str(), impl_->key_, &raw_members, &size));
+    
+      members_.reserve(size);
+      for (std::size_t i = 0; i < size; ++i) {
+        if (raw_members[i]) {
+          members_.emplace_back(Tuple(raw_members[i]));
+        }
+      }
+
+      for (std::size_t i = 0; i < size; ++i)
+        AMPL_TupleFree(&raw_members[i]);
+      free(raw_members);
     }
 
     /**
      * Destructor
      */
-    ~MemberRange() {
-      for (std::size_t i = 0; i < size_; i++)
-        AMPL_TupleFree(&members_[i]);
-      free(members_);
-    }
+    ~MemberRange() = default;
 
     /**
     Iterator
     */
-    class iterator {
-     public:
-      using iterator_category = std::forward_iterator_tag;
-      using value_type = Tuple;
-      using difference_type = std::ptrdiff_t;
-      using pointer = value_type*;
-      using reference = value_type&;
-
-     private:
-      friend class SetInstance::MemberRange;
-      AMPL_TUPLE **ptr_;
-      explicit iterator(AMPL_TUPLE **ptr) : ptr_(ptr) {}
-
-     public:
-      /**
-      Dereference operator. Gains access to the ampl::Tuple which iterators
-      points to.
-      */
-      Tuple operator*() const { return Tuple(*ptr_); }
-
-      /**
-      Postfix increment
-      */
+   class iterator {
+    public:
+      using internal_iterator = std::vector<Tuple>::const_iterator;
+  
+    private:
+      internal_iterator it_;
+  
+    public:
+      explicit iterator(internal_iterator it) : it_(it) {}
+  
+      const Tuple& operator*() const { return *it_; }
       iterator& operator++() {
-        ptr_++;
+        ++it_;
         return *this;
       }
-
-      /**
-      Increment
-      */
       iterator operator++(int) {
-        iterator clone(*this);
-        ptr_++;
-        return clone;
+        iterator temp = *this;
+        ++it_;
+        return temp;
       }
-
-      /**
-      Equality operator
-      */
-      bool operator==(const iterator& other) const {
-        return (ptr_ == other.ptr_);
-      }
-
-      /**
-      Inequality operator
-      */
-      bool operator!=(const iterator& other) const { return !(*this == other); }
+      bool operator==(const iterator& other) const { return it_ == other.it_; }
+      bool operator!=(const iterator& other) const { return it_ != other.it_; }
     };
 
     /**
     Returns an iterator to the beginning of the members
     collection
     */
-    iterator begin() const { return iterator(members_); }
+    iterator begin() const { return iterator(members_.begin()); }
 
     /**
     Returns an iterator to the first item after the end of
     the collection
     */
-    iterator end() const { return iterator(members_ + size_); }
+    iterator end() const { return iterator(members_.end()); }
 
     /**
     Returns the size of the collection
     */
-    std::size_t size() const { return size_; }
+    std::size_t size() const { return members_.size(); }
   };
 
   /**
@@ -873,37 +856,6 @@ class VariableInstance : public Instance {
   friend class BasicEntity<VariableInstance>;
   explicit VariableInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
       : Instance(ampl, key, name) {}
-};
-
-/**
- * A table instance of an indexed table.
- * Instances of the table can be read from or written to using
- * TableInstance::read() and TableInstance::write(). <p> All the accessors in
- * this class throw an std::runtime_error if the instance has been deleted in
- * the underlying %AMPL interpreter.
- */
-class TableInstance : public Instance {
- private:
-  friend class BasicEntity<TableInstance>;
-  explicit TableInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
-      : Instance(ampl, key, name) {}
-
- public:
-  /**
-  Read the current table instance, corresponding to the %AMPL code:
-  `read table tablename[tableindex];`.
- */
-  void read() {
-    AMPL_CALL_CPP(AMPL_TableInstanceRead(ampl_, entityname_.c_str(), key_));
-  }
-
-  /**
-  Write the current table instance, corresponding to the %AMPL code:
-  `write table tablename[tableindex];`.
- */
-  void write() {
-    AMPL_CALL_CPP(AMPL_TableInstanceWrite(ampl_, entityname_.c_str(), key_));
-  }
 };
 
 template <class InnerInstance>

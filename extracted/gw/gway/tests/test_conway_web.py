@@ -10,6 +10,7 @@ import socket
 import requests
 from bs4 import BeautifulSoup
 from gway import gw
+from gway.builtins import is_test_flag
 import importlib.util
 from pathlib import Path
 
@@ -64,7 +65,7 @@ class ConwayWebTests(unittest.TestCase):
 
     def test_game_of_life_page_includes_css_and_js(self):
         """Game of Life page includes its css/js and download link."""
-        soup, resp = self._get_soup(self.base_url + "/conway/game-of-life")
+        soup, resp = self._get_soup(self.base_url + "/games/game-of-life")
         # CSS
         css_links = [link['href'] for link in soup.find_all('link', rel="stylesheet")]
         gw.info(f"CSS links found: {css_links}")
@@ -142,7 +143,7 @@ class ConwayWebTests(unittest.TestCase):
         """
         CSS should appear in <head>, JS should appear before </body>.
         """
-        soup, resp = self._get_soup(self.base_url + "/conway/game-of-life")
+        soup, resp = self._get_soup(self.base_url + "/games/game-of-life")
         head = soup.head
         body = soup.body
         # CSS in head
@@ -152,7 +153,7 @@ class ConwayWebTests(unittest.TestCase):
         js_links = [script['src'] for script in body.find_all('script', src=True)]
         self.assertIn("/shared/global.js", js_links, f"/shared/global.js not linked before </body>: {js_links}")
 
-    @unittest.skip("Screenshot tests disabled")
+    @unittest.skipUnless(is_test_flag("screenshot"), "Screenshot tests disabled")
     def test_conway_game_page_screenshot(self):
         """Capture a screenshot of the Game of Life page for manual review."""
         screenshot_dir = Path("work/screenshots")
@@ -160,7 +161,7 @@ class ConwayWebTests(unittest.TestCase):
         screenshot_file = screenshot_dir / "conway_game.png"
         try:
             webauto.capture_page_source(
-                self.base_url + "/conway/game-of-life",
+                self.base_url + "/games/game-of-life",
                 screenshot=str(screenshot_file),
             )
         except Exception as e:

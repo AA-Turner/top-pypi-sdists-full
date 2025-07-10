@@ -736,9 +736,10 @@ export class CompletionProvider {
             ? this.evaluator.resolveAliasDeclaration(primaryDecl, /* resolveLocalNames */ true) ?? primaryDecl
             : undefined;
 
-        const autoImportText = detail.autoImportSource
-            ? this.getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
-            : undefined;
+        const autoImportText =
+            detail.autoImportSource && (this.program.configOptions.autoImportCompletions || this._codeActions)
+                ? this.getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
+                : undefined;
 
         let isDeprecated: boolean;
 

@@ -79,188 +79,275 @@ def find_awg(
     if temperature is not None:
         assert temperature in (60, 75, 90), "Temperature must be 60, 75 or 90"
 
-    with gw.sql.open_connection(autoload=True) as cursor:
+    def _calc(*, force_awg=None, limit_awg=None):
+        local_conduit = conduit
+        with gw.sql.open_connection(autoload=True) as cursor:
+            sql = (
+                "SELECT awg_size, line_num, k_ohm_km, amps_60c, amps_75c, amps_90c "
+                "FROM awg_cable_size "
+                "WHERE (material = :material OR :material = '?') "
+            )
+            if force_awg is not None:
+                sql += "AND awg_size = :awg_size "
+            elif limit_awg is not None:
+                sql += "AND awg_size >= :max_awg "
+            sql += "AND line_num <= :max_lines ORDER BY awg_size DESC, line_num"
 
-        sql = (
-            "SELECT awg_size, line_num, k_ohm_km, amps_60c, amps_75c, amps_90c "
-            "FROM awg_cable_size "
-            "WHERE (material = :material OR :material = '?') "
-        )
-        if max_awg is not None:
-            sql += "AND awg_size >= :max_awg "
-        sql += "AND line_num <= :max_lines ORDER BY awg_size DESC, line_num"
+            params = {"material": material, "max_lines": max_lines}
+            if force_awg is not None:
+                params["awg_size"] = int(force_awg)
+            elif limit_awg is not None:
+                params["max_awg"] = int(limit_awg)
+            gw.debug(f"AWG base data SQL: {sql.strip()}, params: {params}")
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            gw.debug(f"AWG base rows fetched: {rows}")
 
-        params = {"material": material, "max_lines": max_lines}
-        if max_awg is not None:
-            params["max_awg"] = int(max_awg)
-        gw.debug(f"AWG base data SQL: {sql.strip()}, params: {params}")
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
-        gw.debug(f"AWG base rows fetched: {rows}")
-
-        # Organize rows by awg and line number
-        awg_data = {}
-        for awg_size, line_num, k_ohm, a60, a75, a90 in rows:
-            awg_data.setdefault(awg_size, {})[line_num] = {
-                "k": k_ohm,
-                "a60": a60,
-                "a75": a75,
-                "a90": a90,
-            }
-
-        # voltage drop expression without line count
-        if phases in (2, 3):
-            base_vdrop = math.sqrt(3) * meters * amps / 1000
-        else:
-            base_vdrop = 2 * meters * amps / 1000
-
-        best = None
-        best_perc = 1e9
-
-        if max_awg is None:
-            sizes = sorted(awg_data.keys(), reverse=True)
-        else:
-            sizes = sorted([s for s in awg_data.keys() if s >= int(max_awg)])
-
-        for awg_size in sizes:
-            base = awg_data[awg_size][1]
-            for n in range(1, max_lines + 1):
-                info = awg_data[awg_size].get(n)
-                a60 = (info or base)["a60"] if info else base["a60"] * n
-                a75 = (info or base)["a75"] if info else base["a75"] * n
-                a90 = (info or base)["a90"] if info else base["a90"] * n
-                allowed = False
-                if temperature is None:
-                    allowed = ((a75 >= amps and amps > 100) or (a60 >= amps and amps <= 100))
-                else:
-                    tmap = {60: a60, 75: a75, 90: a90}
-                    allowed = tmap.get(temperature, 0) >= amps
-                if not allowed:
-                    continue
-
-                vdrop = base_vdrop * base["k"] / n
-                perc = vdrop / volts
-                gw.debug(
-                    f"Eval AWG={awg_size} lines={n} drop={vdrop:.4f} perc={perc*100:.4f}%"
-                )
-                result = {
-                    "awg": str(AWG(awg_size)),
-                    "meters": meters,
-                    "amps": amps,
-                    "volts": volts,
-                    "temperature": temperature if temperature is not None else (60 if amps <= 100 else 75),
-                    "lines": n,
-                    "vdrop": vdrop,
-                    "vend": volts - vdrop,
-                    "vdperc": perc * 100,
-                    "cables": f"{n * phases}+{n * ground}",
-                    "total_meters": f"{n * phases * meters}+{meters * n * ground}",
+            awg_data = {}
+            for awg_size, line_num, k_ohm, a60, a75, a90 in rows:
+                awg_data.setdefault(awg_size, {})[line_num] = {
+                    "k": k_ohm,
+                    "a60": a60,
+                    "a75": a75,
+                    "a90": a90,
                 }
-                if perc <= 0.03:
-                    if conduit:
-                        if conduit is True:
-                            conduit = "emt"
-                        fill = find_conduit(AWG(awg_size), n * (phases + ground), conduit=conduit)
-                        result["conduit"] = conduit
-                        result["pipe_inch"] = fill["size_inch"]
-                    gw.debug(f"Selected cable result: {result}")
-                    return result
-                if perc < best_perc:
-                    best = result
-                    best_perc = perc
 
-        if best and max_awg is not None:
-            best["warning"] = "Voltage drop exceeds 3% with given max_awg"
-            if conduit:
-                if conduit is True:
-                    conduit = "emt"
-                fill = find_conduit(AWG(best["awg"]), best["lines"] * (phases + ground), conduit=conduit)
-                best["conduit"] = conduit
-                best["pipe_inch"] = fill["size_inch"]
-            gw.debug(f"Returning best effort with warning: {best}")
-            return best
+            if phases in (2, 3):
+                base_vdrop = math.sqrt(3) * meters * amps / 1000
+            else:
+                base_vdrop = 2 * meters * amps / 1000
 
-        gw.debug("No candidate meets requirements")
-        return {"awg": "n/a"}
+            best = None
+            best_perc = 1e9
+
+            if force_awg is not None:
+                sizes = [int(force_awg)] if int(force_awg) in awg_data else []
+            elif limit_awg is None:
+                sizes = sorted(awg_data.keys(), reverse=True)
+            else:
+                sizes = sorted([s for s in awg_data.keys() if s >= int(limit_awg)])
+
+            for awg_size in sizes:
+                base = awg_data[awg_size][1]
+                for n in range(1, max_lines + 1):
+                    info = awg_data[awg_size].get(n)
+                    a60 = (info or base)["a60"] if info else base["a60"] * n
+                    a75 = (info or base)["a75"] if info else base["a75"] * n
+                    a90 = (info or base)["a90"] if info else base["a90"] * n
+                    if temperature is None:
+                        allowed = ((a75 >= amps and amps > 100) or (a60 >= amps and amps <= 100))
+                    else:
+                        tmap = {60: a60, 75: a75, 90: a90}
+                        allowed = tmap.get(temperature, 0) >= amps
+                    if not allowed and force_awg is None:
+                        continue
+
+                    vdrop = base_vdrop * base["k"] / n
+                    perc = vdrop / volts
+                    gw.debug(
+                        f"Eval AWG={awg_size} lines={n} drop={vdrop:.4f} perc={perc*100:.4f}%"
+                    )
+                    result = {
+                        "awg": str(AWG(awg_size)),
+                        "meters": meters,
+                        "amps": amps,
+                        "volts": volts,
+                        "temperature": temperature if temperature is not None else (60 if amps <= 100 else 75),
+                        "lines": n,
+                        "vdrop": vdrop,
+                        "vend": volts - vdrop,
+                        "vdperc": perc * 100,
+                        "cables": f"{n * phases}+{n * ground}",
+                        "total_meters": f"{n * phases * meters}+{meters * n * ground}",
+                    }
+                    if force_awg is None:
+                        if allowed and perc <= 0.03:
+                            if local_conduit:
+                                c = "emt" if local_conduit is True else local_conduit
+                                fill = find_conduit(AWG(awg_size), n * (phases + ground), conduit=c)
+                                result["conduit"] = c
+                                result["pipe_inch"] = fill["size_inch"]
+                            gw.debug(f"Selected cable result: {result}")
+                            return result
+                        if perc < best_perc:
+                            best = result
+                            best_perc = perc
+                    else:
+                        if allowed and perc <= 0.03:
+                            if local_conduit:
+                                c = "emt" if local_conduit is True else local_conduit
+                                fill = find_conduit(AWG(awg_size), n * (phases + ground), conduit=c)
+                                result["conduit"] = c
+                                result["pipe_inch"] = fill["size_inch"]
+                            gw.debug(f"Selected cable result: {result}")
+                            return result
+                        if perc < best_perc:
+                            best = result
+                            best_perc = perc
+
+            if best and (force_awg is not None or limit_awg is not None):
+                if force_awg is not None:
+                    best["warning"] = "Voltage drop may exceed 3% with chosen parameters"
+                else:
+                    best["warning"] = "Voltage drop exceeds 3% with given max_awg"
+                if local_conduit:
+                    c = "emt" if local_conduit is True else local_conduit
+                    fill = find_conduit(AWG(best["awg"]), best["lines"] * (phases + ground), conduit=c)
+                    best["conduit"] = c
+                    best["pipe_inch"] = fill["size_inch"]
+                gw.debug(f"Returning best effort with warning: {best}")
+                return best
+
+            gw.debug("No candidate meets requirements")
+            return {"awg": "n/a"}
+
+    baseline = _calc()
+    if max_awg is None:
+        return baseline
+
+    if baseline.get("awg") == "n/a":
+        return _calc(limit_awg=max_awg)
+
+    if int(AWG(baseline["awg"])) < int(max_awg):
+        return _calc(force_awg=max_awg)
+    return _calc(limit_awg=max_awg)
 
 
 def find_conduit(awg, cables, *, conduit="emt"):
     """Calculate the kind of conduit required for a set of cables."""
-    with gw.sql.open_connection() as cursor:
+    with gw.sql.open_connection(autoload=True) as cursor:
 
         assert conduit in ("emt", "imc", "rmc", "fmc"), "Allowed: emt, imc, rmc, fmc."
         assert 1 <= cables <= 30, "Valid for 1-30 cables per conduit."
-        
+
         awg = AWG(awg)
+        col = f"awg_{str(awg)}"
         sql = f"""
-            SELECT trade_size
+            SELECT trade_size, {col}
             FROM awg_conduit_fill
             WHERE lower(conduit) = lower(:conduit)
-            AND awg_{str(awg)} >= :cables
-            ORDER BY trade_size DESC LIMIT 1  
+            AND {col} >= :cables
         """
 
         cursor.execute(sql, {"conduit": conduit, "cables": cables})
-        row = cursor.fetchone()
-        if not row:
+        rows = cursor.fetchall()
+        if not rows:
             return {"trade_size": "n/a"}
 
-        return {"size_inch": row[0]}
+        def _to_float(value: str) -> float:
+            total = 0.0
+            for part in value.split():
+                if "/" in part:
+                    num, den = part.split("/")
+                    total += float(num) / float(den)
+                else:
+                    total += float(part)
+            return total
+
+        rows.sort(key=lambda r: _to_float(r[0]))
+        size, capacity = rows[0]
+        if capacity == cables and len(rows) > 1:
+            size = rows[1][0]
+
+        return {"size_inch": size}
 
 
 def view_cable_finder(
     *, meters=None, amps="40", volts="220", material="cu",
     max_lines="1", max_awg=None, phases="1", temperature=None,
-    conduit=None, neutral="0", **kwargs
+    conduit=None, ground="1", neutral="0", **kwargs
 ):
     """Page builder for AWG cable finder with HTML form and result."""
     if not meters:
         return '''<link rel="stylesheet" href="/static/awg/cable_finder.css">
-            <h1>AWG Cable Finder</h1>
+            <h1>AWG Cable & Conduit Finder</h1>
             <form method="post" class="cable-form">
-                <label>Meters:<input type="number" name="meters" required min="1" /></label>
-                <label>Amps:<input type="number" name="amps" value="40" /></label>
-                <label>Volts:<input type="number" name="volts" value="220" /></label>
-                <label>Material:
-                    <select name="material">
-                        <option value="cu">Copper (cu)</option>
-                        <option value="al">Aluminum (al)</option>
-                    </select>
-                </label>
-                <label>Phases:
-                    <select name="phases">
-                        <option value="2">AC Two Phases (2)</option>
-                        <option value="1">AC Single Phase (1)</option>
-                        <option value="3">AC Three Phases (3)</option>
-                    </select>
-                </label>
-                <label>Temperature:
-                    <select name="temperature">
-                        <option value="auto">Auto</option>
-                        <option value="60">60C</option>
-                        <option value="75">75C</option>
-                        <option value="90">90C</option>
-                    </select>
-                </label>
-                <label>Max AWG:<input type="text" name="max_awg" /></label>
-                <label>Max Lines:
-                    <select name="max_lines">
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                    </select>
-                </label>
+                <table class="form-table two-col">
+                    <tr>
+                        <td><label for="meters">Meters:</label></td>
+                        <td><input id="meters" type="number" name="meters" required min="1" /></td>
+                        <td><label for="amps">Amps:</label></td>
+                        <td><input id="amps" type="number" name="amps" value="40" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="volts">Volts:</label></td>
+                        <td><input id="volts" type="number" name="volts" value="220" /></td>
+                        <td><label for="material">Material:</label></td>
+                        <td>
+                            <select id="material" name="material">
+                                <option value="cu">Copper (cu)</option>
+                                <option value="al">Aluminum (al)</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="phases">Phases:</label></td>
+                        <td>
+                            <select id="phases" name="phases">
+                                <option value="2">AC Two Phases (2)</option>
+                                <option value="1">AC Single Phase (1)</option>
+                                <option value="3">AC Three Phases (3)</option>
+                            </select>
+                        </td>
+                        <td><label for="temperature">Temperature:</label></td>
+                        <td>
+                            <select id="temperature" name="temperature">
+                                <option value="auto">Auto</option>
+                                <option value="60">60C</option>
+                                <option value="75">75C</option>
+                                <option value="90">90C</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="conduit">Conduit:</label></td>
+                        <td>
+                            <select id="conduit" name="conduit">
+                                <option value="emt" selected>EMT</option>
+                                <option value="imc">IMC</option>
+                                <option value="rmc">RMC</option>
+                                <option value="fmc">FMC</option>
+                                <option value="none">None</option>
+                            </select>
+                        </td>
+                        <td><label for="max_awg">Max AWG:</label></td>
+                        <td><input id="max_awg" type="text" name="max_awg" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="max_lines">Max Lines:</label></td>
+                        <td>
+                            <select id="max_lines" name="max_lines">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </td>
+                        <td><label for="ground">Ground:</label></td>
+                        <td>
+                            <select id="ground" name="ground">
+                                <option value="1" selected>1</option>
+                                <option value="0">0</option>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
                 <button type="submit" class="submit">Find Cable</button>
             </form>
         '''
     if max_awg in (None, ""):
         max_awg = None
+    if conduit in (None, "", "none", "None"):
+        conduit_arg = None
+    else:
+        conduit_arg = conduit
     try:
         result = find_awg(
             meters=meters, amps=amps, volts=volts,
-            material=material, max_lines=max_lines, phases=phases,
+            material=material,
+            max_lines=max_lines, phases=phases,
             max_awg=max_awg, temperature=temperature,
+            conduit=conduit_arg, ground=ground,
         )
     except Exception as e:
         return f"<p class='error'>Error: {e}</p><p><a href='/awg/cable-finder'>&#8592; Try again</a></p>"
@@ -274,7 +361,7 @@ def view_cable_finder(
         """
 
     return f"""
-        <h1>Recommended Cable <img src='/static/awg/sponsor_logo.svg' alt='Sponsor Logo' class='sponsor-logo'></h1>
+        <h1>Cable Result <img src='/static/awg/sponsor_logo.svg' alt='Sponsor Logo' class='sponsor-logo'></h1>
         <ul>
             <li><strong>AWG Size:</strong> {result['awg']}</li>
             <li><strong>Lines:</strong> {result['lines']}</li>
@@ -283,6 +370,7 @@ def view_cable_finder(
             <li><strong>Voltage Drop:</strong> {result['vdrop']:.2f} V ({result['vdperc']:.2f}%)</li>
             <li><strong>Voltage at End:</strong> {result['vend']:.2f} V</li>
             <li><strong>Temperature Rating:</strong> {result['temperature']}C</li>
+            {f'<li><strong>Conduit:</strong> {result["conduit"].upper()} {result["pipe_inch"]}&quot;</li>' if result.get("pipe_inch") else ''}
         </ul>
         {f"<p class='warning'>{result['warning']}</p>" if result.get('warning') else ''}
         <p>

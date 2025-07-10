@@ -313,12 +313,19 @@ class GetIncidentIoIntegrationResponse(_message.Message):
     def __init__(self, integration: _Optional[_Union[IncidentIoIntegration, _Mapping]] = ...) -> None: ...
 
 class AddIncidentIoIntegrationRequest(_message.Message):
-    __slots__ = ("integration_name", "integration_token")
+    __slots__ = ("integration_name", "integration_token", "integration_source_id")
     INTEGRATION_NAME_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    INTEGRATION_SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     integration_name: str
     integration_token: str
-    def __init__(self, integration_name: _Optional[str] = ..., integration_token: _Optional[str] = ...) -> None: ...
+    integration_source_id: str
+    def __init__(
+        self,
+        integration_name: _Optional[str] = ...,
+        integration_token: _Optional[str] = ...,
+        integration_source_id: _Optional[str] = ...,
+    ) -> None: ...
 
 class AddIncidentIoIntegrationResponse(_message.Message):
     __slots__ = ("integration",)
@@ -337,14 +344,22 @@ class DeleteIncidentIoIntegrationResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class UpdateIncidentIoIntegrationRequest(_message.Message):
-    __slots__ = ("id", "name", "token")
+    __slots__ = ("id", "name", "token", "source_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TOKEN_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     token: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., token: _Optional[str] = ...) -> None: ...
+    source_id: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        token: _Optional[str] = ...,
+        source_id: _Optional[str] = ...,
+    ) -> None: ...
 
 class UpdateIncidentIoIntegrationResponse(_message.Message):
     __slots__ = ("integration",)

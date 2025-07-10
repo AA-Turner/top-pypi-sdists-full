@@ -12,6 +12,7 @@ from ._variants import (
     LegacyAuthRequirementsErrorVariant,
     LegacyConsentRequiredAPError,
     LegacyConsentRequiredTransferError,
+    LegacyDependentConsentRequiredAuthError,
 )
 
 if sys.version_info >= (3, 10):
@@ -128,6 +129,7 @@ def _lenient_dict2gare(error_dict: dict[str, t.Any] | None) -> GARE | None:
         LegacyAuthorizationParametersError,
         LegacyConsentRequiredTransferError,
         LegacyConsentRequiredAPError,
+        LegacyDependentConsentRequiredAuthError,
     ]
     for variant in supported_variants:
         try:

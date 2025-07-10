@@ -15,7 +15,7 @@ from torch.nn import functional as F
 from doctr.datasets import VOCABS, decode_sequence
 
 from ...classification import mobilenet_v3_large_r, mobilenet_v3_small_r, vgg16_bn_r
-from ...utils.pytorch import load_pretrained_params
+from ...utils import load_pretrained_params
 from ..core import RecognitionModel, RecognitionPostProcessor
 
 __all__ = ["CRNN", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
@@ -25,8 +25,8 @@ default_cfgs: dict[str, dict[str, Any]] = {
         "mean": (0.694, 0.695, 0.693),
         "std": (0.299, 0.296, 0.301),
         "input_shape": (3, 32, 128),
-        "vocab": VOCABS["legacy_french"],
-        "url": "https://doctr-static.mindee.com/models?id=v0.3.1/crnn_vgg16_bn-9762b0b0.pt&src=0",
+        "vocab": VOCABS["french"],
+        "url": "https://doctr-static.mindee.com/models?id=v0.12.0/crnn_vgg16_bn-0417f351.pt&src=0",
     },
     "crnn_mobilenet_v3_small": {
         "mean": (0.694, 0.695, 0.693),
@@ -82,7 +82,7 @@ class CTCPostProcessor(RecognitionPostProcessor):
 
     def __call__(self, logits: torch.Tensor) -> list[tuple[str, float]]:
         """Performs decoding of raw output with CTC and decoding of CTC predictions
-        with label_to_idx mapping dictionnary
+        with label_to_idx mapping dictionary
 
         Args:
             logits: raw output of the model, shape (N, C + 1, seq_len)
@@ -223,7 +223,7 @@ class CRNN(RecognitionModel, nn.Module):
 
         if target is None or return_preds:
             # Disable for torch.compile compatibility
-            @torch.compiler.disable  # type: ignore[attr-defined]
+            @torch.compiler.disable
             def _postprocess(logits: torch.Tensor) -> list[tuple[str, float]]:
                 return self.postprocessor(logits)
 
@@ -257,7 +257,7 @@ def _crnn(
     _cfg["input_shape"] = kwargs["input_shape"]
 
     # Build the model
-    model = CRNN(feat_extractor, cfg=_cfg, **kwargs)
+    model = CRNN(feat_extractor, cfg=_cfg, **kwargs)  # type: ignore[arg-type]
     # Load pretrained parameters
     if pretrained:
         # The number of classes is not the same as the number of classes in the pretrained model =>

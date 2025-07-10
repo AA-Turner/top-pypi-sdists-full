@@ -18,7 +18,7 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/protosql/v1/sql_service.proto\x12\x11\x63halk.protosql.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto".\n\x16\x45xecuteSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query"\x90\x01\n\x17\x45xecuteSqlQueryResponse\x12\x19\n\x08query_id\x18\x01 \x01(\tR\x07queryId\x12\x1a\n\x07parquet\x18\x02 \x01(\x0cH\x00R\x07parquet\x12\x33\n\x06\x65rrors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrorsB\t\n\x07payload"+\n\x13PlanSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query"9\n\x14PlanSqlQueryResponse\x12!\n\x0clogical_plan\x18\x01 \x01(\tR\x0blogicalPlan2\xe1\x01\n\nSqlService\x12m\n\x0f\x45xecuteSqlQuery\x12).chalk.protosql.v1.ExecuteSqlQueryRequest\x1a*.chalk.protosql.v1.ExecuteSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cPlanSqlQuery\x12&.chalk.protosql.v1.PlanSqlQueryRequest\x1a\'.chalk.protosql.v1.PlanSqlQueryResponse"\x03\x80}\x03\x42\x8e\x01\n\x15\x63om.chalk.protosql.v1B\x0fSqlServiceProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x11\x43halk.Protosql.V1\xca\x02\x11\x43halk\\Protosql\\V1\xe2\x02\x1d\x43halk\\Protosql\\V1\\GPBMetadata\xea\x02\x13\x43halk::Protosql::V1b\x06proto3'
+    b'\n#chalk/protosql/v1/sql_service.proto\x12\x11\x63halk.protosql.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto".\n\x16\x45xecuteSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query"\x90\x01\n\x17\x45xecuteSqlQueryResponse\x12\x19\n\x08query_id\x18\x01 \x01(\tR\x07queryId\x12\x1a\n\x07parquet\x18\x02 \x01(\x0cH\x00R\x07parquet\x12\x33\n\x06\x65rrors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrorsB\t\n\x07payload"+\n\x13PlanSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query"n\n\x14PlanSqlQueryResponse\x12!\n\x0clogical_plan\x18\x01 \x01(\tR\x0blogicalPlan\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xd0\x01\n\x13GetDbSchemasRequest\x12\x1d\n\x07\x63\x61talog\x18\x01 \x01(\tH\x00R\x07\x63\x61talog\x88\x01\x01\x12<\n\x18\x64\x62_schema_filter_pattern\x18\x02 \x01(\tH\x01R\x15\x64\x62SchemaFilterPattern\x88\x01\x01\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrorsB\n\n\x08_catalogB\x1b\n\x19_db_schema_filter_pattern"W\n\x0c\x44\x62SchemaInfo\x12!\n\x0c\x63\x61talog_name\x18\x01 \x01(\tR\x0b\x63\x61talogName\x12$\n\x0e\x64\x62_schema_name\x18\x02 \x01(\tR\x0c\x64\x62SchemaName"\x86\x01\n\x14GetDbSchemasResponse\x12\x39\n\x07schemas\x18\x01 \x03(\x0b\x32\x1f.chalk.protosql.v1.DbSchemaInfoR\x07schemas\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xf6\x01\n\x10GetTablesRequest\x12\x1d\n\x07\x63\x61talog\x18\x01 \x01(\tH\x00R\x07\x63\x61talog\x88\x01\x01\x12<\n\x18\x64\x62_schema_filter_pattern\x18\x02 \x01(\tH\x01R\x15\x64\x62SchemaFilterPattern\x88\x01\x01\x12>\n\x19table_name_filter_pattern\x18\x03 \x01(\tH\x02R\x16tableNameFilterPattern\x88\x01\x01\x42\n\n\x08_catalogB\x1b\n\x19_db_schema_filter_patternB\x1c\n\x1a_table_name_filter_pattern"s\n\tTableInfo\x12!\n\x0c\x63\x61talog_name\x18\x01 \x01(\tR\x0b\x63\x61talogName\x12$\n\x0e\x64\x62_schema_name\x18\x02 \x01(\tR\x0c\x64\x62SchemaName\x12\x1d\n\ntable_name\x18\x03 \x01(\tR\ttableName"~\n\x11GetTablesResponse\x12\x34\n\x06tables\x18\x01 \x03(\x0b\x32\x1c.chalk.protosql.v1.TableInfoR\x06tables\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors2\xa4\x03\n\nSqlService\x12m\n\x0f\x45xecuteSqlQuery\x12).chalk.protosql.v1.ExecuteSqlQueryRequest\x1a*.chalk.protosql.v1.ExecuteSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cPlanSqlQuery\x12&.chalk.protosql.v1.PlanSqlQueryRequest\x1a\'.chalk.protosql.v1.PlanSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cGetDbSchemas\x12&.chalk.protosql.v1.GetDbSchemasRequest\x1a\'.chalk.protosql.v1.GetDbSchemasResponse"\x03\x80}\x0b\x12[\n\tGetTables\x12#.chalk.protosql.v1.GetTablesRequest\x1a$.chalk.protosql.v1.GetTablesResponse"\x03\x80}\x0b\x42\x8e\x01\n\x15\x63om.chalk.protosql.v1B\x0fSqlServiceProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x11\x43halk.Protosql.V1\xca\x02\x11\x43halk\\Protosql\\V1\xe2\x02\x1d\x43halk\\Protosql\\V1\\GPBMetadata\xea\x02\x13\x43halk::Protosql::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,6 +33,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_SQLSERVICE"].methods_by_name["ExecuteSqlQuery"]._serialized_options = b"\200}\003"
     _globals["_SQLSERVICE"].methods_by_name["PlanSqlQuery"]._options = None
     _globals["_SQLSERVICE"].methods_by_name["PlanSqlQuery"]._serialized_options = b"\200}\003"
+    _globals["_SQLSERVICE"].methods_by_name["GetDbSchemas"]._options = None
+    _globals["_SQLSERVICE"].methods_by_name["GetDbSchemas"]._serialized_options = b"\200}\013"
+    _globals["_SQLSERVICE"].methods_by_name["GetTables"]._options = None
+    _globals["_SQLSERVICE"].methods_by_name["GetTables"]._serialized_options = b"\200}\013"
     _globals["_EXECUTESQLQUERYREQUEST"]._serialized_start = 126
     _globals["_EXECUTESQLQUERYREQUEST"]._serialized_end = 172
     _globals["_EXECUTESQLQUERYRESPONSE"]._serialized_start = 175
@@ -40,7 +44,19 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_PLANSQLQUERYREQUEST"]._serialized_start = 321
     _globals["_PLANSQLQUERYREQUEST"]._serialized_end = 364
     _globals["_PLANSQLQUERYRESPONSE"]._serialized_start = 366
-    _globals["_PLANSQLQUERYRESPONSE"]._serialized_end = 423
-    _globals["_SQLSERVICE"]._serialized_start = 426
-    _globals["_SQLSERVICE"]._serialized_end = 651
+    _globals["_PLANSQLQUERYRESPONSE"]._serialized_end = 476
+    _globals["_GETDBSCHEMASREQUEST"]._serialized_start = 479
+    _globals["_GETDBSCHEMASREQUEST"]._serialized_end = 687
+    _globals["_DBSCHEMAINFO"]._serialized_start = 689
+    _globals["_DBSCHEMAINFO"]._serialized_end = 776
+    _globals["_GETDBSCHEMASRESPONSE"]._serialized_start = 779
+    _globals["_GETDBSCHEMASRESPONSE"]._serialized_end = 913
+    _globals["_GETTABLESREQUEST"]._serialized_start = 916
+    _globals["_GETTABLESREQUEST"]._serialized_end = 1162
+    _globals["_TABLEINFO"]._serialized_start = 1164
+    _globals["_TABLEINFO"]._serialized_end = 1279
+    _globals["_GETTABLESRESPONSE"]._serialized_start = 1281
+    _globals["_GETTABLESRESPONSE"]._serialized_end = 1407
+    _globals["_SQLSERVICE"]._serialized_start = 1410
+    _globals["_SQLSERVICE"]._serialized_end = 1830
 # @@protoc_insertion_point(module_scope)

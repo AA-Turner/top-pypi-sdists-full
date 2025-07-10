@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ast-grep-cli
-Version: 0.38.5
+Version: 0.38.7
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -11,7 +11,6 @@ Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development
 Classifier: Topic :: Text Processing
-License-File: LICENSE
 License-File: LICENSE
 Summary: Structural Search and Rewrite code at large scale using precise AST pattern.
 Keywords: ast,pattern,codemod,structural search,rewrite

@@ -4,9 +4,11 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 import os
+import re
 from typing import TYPE_CHECKING, Callable, Any, cast, Literal, Generator
 from warnings import warn
 import types
+import inspect
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import AIServiceMetaNames
@@ -772,16 +774,14 @@ class AIServices(WMLResource):
     def _populate_default_params(
         ai_service_function: Callable, _validate_values: bool = True
     ) -> str:
-        import inspect
-        import re
 
         # remove indention
         code_lines = inspect.getsource(ai_service_function).split("\n")
-        r = re.compile(r"^ *")
-        m = r.search(code_lines[0])
-        intend = m.group(0)  # type: ignore[union-attr]
-
-        code = "\n".join([line.replace(intend, "", 1) for line in code_lines])
+        indent = re.match(r"^ *", code_lines[0]).group(0)
+        code = "\n".join(
+            line[len(indent) :] if line.startswith(indent) else line
+            for line in code_lines
+        )
 
         signature = inspect.signature(ai_service_function)
 
@@ -797,35 +797,44 @@ class AIServices(WMLResource):
                     )
 
         args_list = list(signature.parameters.keys())
+        patterns = []
+        type_hint_pattern = r"(?:[:]\s*[\S\[\]\s]+\s*?)?"
+        # all but last -> expect a trailing comma in the signature
+        for arg in args_list[:-1]:
+            p = signature.parameters[arg]
+            if p.default is inspect.Parameter.empty:
+                patterns.append(rf"\s*{arg}{type_hint_pattern}\s*")
+            else:
+                patterns.append(rf"\s*{arg}\s*{type_hint_pattern}\s*=\s*([\s\S]+?)\s*")
 
-        patterns_list = [
-            (
-                rf"\s*{arg}\s*=\s*(.+)\s*"
-                if signature.parameters[arg].default is not inspect.Parameter.empty
-                else rf"\s*{arg}\s*"
-            )
-            for arg in args_list[:-1]
-        ]
-
-        # to match `**kwargs`
-        if signature.parameters[args_list[-1]].default is inspect.Parameter.empty:
-            patterns_list.append(rf"\s*(?:\*\*)?\s*{args_list[-1]}\s*")
+        # last arg -> allow optional comma before the ')'
+        last = args_list[-1]
+        p_last = signature.parameters[last]
+        if p_last.default is inspect.Parameter.empty:
+            patterns.append(rf"\s*(?:\*\*)?{last}\s*")
         else:
-            patterns_list.append(rf"\s*{args_list[-1]}\s*=\s*(.+)\s*")
+            patterns.append(rf"\s*{last}\s*{type_hint_pattern}\s*=\s*([\s\S]+?)\s*")
 
-        args_pattern = ",".join(patterns_list)
+        args_pattern = ",".join(patterns)
+        regex = re.compile(
+            rf"^def {ai_service_function.__name__}\s*\(\s*{args_pattern}\s*\)\s*:",
+            re.DOTALL | re.MULTILINE,
+        )
+        m = regex.search(code)
 
-        pattern = rf"^def {ai_service_function.__name__}\s*\({args_pattern}\)\s*:"
-        res = re.match(pattern, code)  # type: ignore[call-overload]
+        if m is None:
+            raise ValueError(
+                "Unable to process AI service function content. "
+                "Please make sure the function object has simply Python signature."
+            )
 
         defaults = [
-            v
-            for value in signature.parameters.values()
-            if (v := value.default) is not inspect.Parameter.empty
+            param.default
+            for param in signature.parameters.values()
+            if param.default is not inspect.Parameter.empty
         ]
         for i in range(len(defaults) - 1, -1, -1):
-            default = defaults[i]
-            code = (
-                code[: res.start(i + 1)] + default.__repr__() + code[res.end(i + 1) :]
-            )
+            start, end = m.start(i + 1), m.end(i + 1)
+            code = code[:start] + defaults[i].__repr__() + code[end:]
+
         return code

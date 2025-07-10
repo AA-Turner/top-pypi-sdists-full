@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyngrok
-Version: 7.2.11
+Version: 7.2.12
 Summary: A Python wrapper for ngrok
 Maintainer-email: Alex Laird <contact@alexlaird.com>
 License: MIT License

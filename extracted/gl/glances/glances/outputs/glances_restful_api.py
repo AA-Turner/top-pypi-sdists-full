@@ -18,7 +18,7 @@ from urllib.parse import urljoin
 
 from glances import __apiversion__, __version__
 from glances.events_list import glances_events
-from glances.globals import json_dumps, weak_lru_cache
+from glances.globals import json_dumps
 from glances.logger import logger
 from glances.password import GlancesPassword
 from glances.processes import glances_processes
@@ -456,7 +456,7 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(self.servers_list.get_servers_list() if self.servers_list else [])
 
-    @weak_lru_cache(maxsize=1, ttl=1)
+    # Comment this solve an issue on Home Assistant See #3238
     def _api_all(self):
         """Glances API RESTful implementation.
 
@@ -485,7 +485,6 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(statval)
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_all_limits(self):
         """Glances API RESTful implementation.
 
@@ -502,7 +501,6 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(limits)
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_all_views(self):
         """Glances API RESTful implementation.
 
@@ -519,7 +517,6 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(limits)
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api(self, plugin: str):
         """Glances API RESTful implementation.
 
@@ -549,7 +546,6 @@ class GlancesRestfulApi:
             status.HTTP_400_BAD_REQUEST, f"Unknown plugin {plugin} (available plugins: {self.plugins_list})"
         )
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_top(self, plugin: str, nb: int = 0):
         """Glances API RESTful implementation.
 
@@ -577,7 +573,6 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(statval)
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_history(self, plugin: str, nb: int = 0):
         """Glances API RESTful implementation.
 
@@ -600,7 +595,6 @@ class GlancesRestfulApi:
 
         return statval
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_limits(self, plugin: str):
         """Glances API RESTful implementation.
 
@@ -619,7 +613,6 @@ class GlancesRestfulApi:
 
         return GlancesJSONResponse(ret)
 
-    @weak_lru_cache(maxsize=1, ttl=1)
     def _api_views(self, plugin: str):
         """Glances API RESTful implementation.
 

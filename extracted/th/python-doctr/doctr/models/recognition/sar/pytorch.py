@@ -15,7 +15,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 from doctr.datasets import VOCABS
 
 from ...classification import resnet31
-from ...utils.pytorch import _bf16_to_float32, load_pretrained_params
+from ...utils import _bf16_to_float32, load_pretrained_params
 from ..core import RecognitionModel, RecognitionPostProcessor
 
 __all__ = ["SAR", "sar_resnet31"]
@@ -272,7 +272,7 @@ class SAR(nn.Module, RecognitionModel):
 
         if target is None or return_preds:
             # Disable for torch.compile compatibility
-            @torch.compiler.disable  # type: ignore[attr-defined]
+            @torch.compiler.disable
             def _postprocess(decoded_features: torch.Tensor) -> list[tuple[str, float]]:
                 return self.postprocessor(decoded_features)
 
@@ -304,7 +304,7 @@ class SAR(nn.Module, RecognitionModel):
         # Input length : number of timesteps
         input_len = model_output.shape[1]
         # Add one for additional <eos> token
-        seq_len = seq_len + 1  # type: ignore[assignment]
+        seq_len = seq_len + 1
         # Compute loss
         # (N, L, vocab_size + 1)
         cce = F.cross_entropy(model_output.permute(0, 2, 1), gt, reduction="none")

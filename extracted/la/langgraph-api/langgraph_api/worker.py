@@ -307,23 +307,9 @@ async def worker(
                     conn, run["thread_id"], run_id, status, checkpoint, exception
                 )
 
-            # delete or set status of thread
-            if not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
-                if temporary:
-                    await Threads.delete(conn, run["thread_id"])
-                else:
-                    try:
-                        await Threads.set_status(
-                            conn, run["thread_id"], checkpoint, exception
-                        )
-                    except HTTPException as e:
-                        if e.status_code == 404:
-                            await logger.ainfo(
-                                "Ignoring set_status error for missing thread",
-                                exc=str(e),
-                            )
-                        else:
-                            raise
+            # delete thread if it's temporary and we don't want to retry
+            if temporary and not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
+                await Threads.delete(conn, run["thread_id"])
 
         if isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
             await logger.awarning("RETRYING", exc_info=exception)

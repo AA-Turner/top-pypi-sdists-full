@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: safety
-Version: 3.5.2
+Version: 3.6.0
 Summary: Scan dependencies for known vulnerabilities and licenses.
 Project-URL: homepage, https://safetycli.com
 Project-URL: source, https://github.com/pyupio/safety
@@ -32,7 +32,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Security
 Requires-Python: >=3.8
 Requires-Dist: authlib>=1.2.0
-Requires-Dist: click<8.2.0,>=8.0.2
+Requires-Dist: click>=8.0.2
 Requires-Dist: dparse>=0.6.4
 Requires-Dist: filelock~=3.16.1
 Requires-Dist: httpx
@@ -49,7 +49,7 @@ Requires-Dist: setuptools>=65.5.1
 Requires-Dist: tenacity
 Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: tomlkit
-Requires-Dist: typer>=0.12.1
+Requires-Dist: typer>=0.16.0
 Requires-Dist: typing-extensions>=4.7.1
 Provides-Extra: github
 Requires-Dist: pygithub>=1.43.3; extra == 'github'

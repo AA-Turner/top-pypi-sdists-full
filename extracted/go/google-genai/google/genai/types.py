@@ -480,10 +480,21 @@ class ImagePromptLanguage(_common.CaseInSensitiveEnum):
   """Enum that specifies the language of the text in the prompt."""
 
   auto = 'auto'
+  """Auto-detect the language."""
   en = 'en'
+  """English"""
   ja = 'ja'
+  """Japanese"""
   ko = 'ko'
+  """Korean"""
   hi = 'hi'
+  """Hindi"""
+  zh = 'zh'
+  """Chinese"""
+  pt = 'pt'
+  """Portuguese"""
+  es = 'es'
+  """Spanish"""
 
 
 class MaskReferenceMode(_common.CaseInSensitiveEnum):
@@ -5242,6 +5253,12 @@ class GenerateContentResponse(_common.BaseModel):
     response_schema = _common.get_value_by_path(
         kwargs, ['config', 'response_schema']
     )
+    # Handles response_json_schema. Backend will throw error if both
+    # response_schema and response_json_schema are set.
+    if response_schema is None:
+      response_schema = _common.get_value_by_path(
+          kwargs, ['config', 'response_json_schema']
+      )
     if (
         inspect.isclass(response_schema)
         and not (

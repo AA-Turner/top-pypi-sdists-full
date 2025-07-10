@@ -4,11 +4,12 @@ The 'interpreters' module provides a more convenient interface.
 """
 
 import types
-from collections.abc import Callable, Mapping
-from typing import Final, Literal, SupportsIndex
+from collections.abc import Callable
+from typing import Any, Final, Literal, SupportsIndex
 from typing_extensions import TypeAlias
 
 _Configs: TypeAlias = Literal["default", "isolated", "legacy", "empty", ""]
+_SharedDict: TypeAlias = dict[str, Any]  # many objects can be shared
 
 class InterpreterError(Exception):
     """A cross-interpreter operation failed"""
@@ -105,7 +106,11 @@ def whence(id: SupportsIndex) -> int:
     """
     ...
 def exec(
-    id: SupportsIndex, code: str | types.CodeType | Callable[[], object], shared: bool | None = None, *, restrict: bool = False
+    id: SupportsIndex,
+    code: str | types.CodeType | Callable[[], object],
+    shared: _SharedDict | None = None,
+    *,
+    restrict: bool = False,
 ) -> None | types.SimpleNamespace:
     """
     exec(id, code, shared=None, *, restrict=False)
@@ -147,7 +152,11 @@ def call(
     """
     ...
 def run_string(
-    id: SupportsIndex, script: str | types.CodeType | Callable[[], object], shared: bool | None = None, *, restrict: bool = False
+    id: SupportsIndex,
+    script: str | types.CodeType | Callable[[], object],
+    shared: _SharedDict | None = None,
+    *,
+    restrict: bool = False,
 ) -> None:
     """
     run_string(id, script, shared=None, *, restrict=False)
@@ -158,7 +167,7 @@ def run_string(
     """
     ...
 def run_func(
-    id: SupportsIndex, func: types.CodeType | Callable[[], object], shared: bool | None = None, *, restrict: bool = False
+    id: SupportsIndex, func: types.CodeType | Callable[[], object], shared: _SharedDict | None = None, *, restrict: bool = False
 ) -> None:
     """
     run_func(id, func, shared=None, *, restrict=False)
@@ -170,7 +179,7 @@ def run_func(
     (See _interpreters.exec().
     """
     ...
-def set___main___attrs(id: SupportsIndex, updates: Mapping[str, object], *, restrict: bool = False) -> None:
+def set___main___attrs(id: SupportsIndex, updates: _SharedDict, *, restrict: bool = False) -> None:
     """
     set___main___attrs(id, ns, *, restrict=False)
 

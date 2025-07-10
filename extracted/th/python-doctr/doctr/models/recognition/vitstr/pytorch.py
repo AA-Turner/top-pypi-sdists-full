@@ -15,7 +15,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 from doctr.datasets import VOCABS
 
 from ...classification import vit_b, vit_s
-from ...utils.pytorch import _bf16_to_float32, load_pretrained_params
+from ...utils import _bf16_to_float32, load_pretrained_params
 from .base import _ViTSTR, _ViTSTRPostProcessor
 
 __all__ = ["ViTSTR", "vitstr_small", "vitstr_base"]
@@ -117,7 +117,7 @@ class ViTSTR(_ViTSTR, nn.Module):
 
         if target is None or return_preds:
             # Disable for torch.compile compatibility
-            @torch.compiler.disable  # type: ignore[attr-defined]
+            @torch.compiler.disable
             def _postprocess(decoded_features: torch.Tensor) -> list[tuple[str, float]]:
                 return self.postprocessor(decoded_features)
 
@@ -149,7 +149,7 @@ class ViTSTR(_ViTSTR, nn.Module):
         # Input length : number of steps
         input_len = model_output.shape[1]
         # Add one for additional <eos> token (sos disappear in shift!)
-        seq_len = seq_len + 1  # type: ignore[assignment]
+        seq_len = seq_len + 1
         # Compute loss: don't forget to shift gt! Otherwise the model learns to output the gt[t-1]!
         # The "masked" first gt char is <sos>.
         cce = F.cross_entropy(model_output.permute(0, 2, 1), gt[:, 1:], reduction="none")

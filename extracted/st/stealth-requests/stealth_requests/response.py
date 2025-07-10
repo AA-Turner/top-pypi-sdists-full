@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 from typing import TYPE_CHECKING
+import re
 
 if TYPE_CHECKING:
     from lxml.html import HtmlElement
@@ -36,6 +37,9 @@ class StealthResponse:
     def __getattr__(self, name):
         return getattr(self._response, name)
 
+    def __repr__(self):
+        return f'<StealthResponse [Status: {self._response.status_code} Elapsed Time: {self._response.elapsed:.2f} seconds]>'
+
     def _get_tree(self) -> HtmlElement:
         try:
             from lxml import html
@@ -44,49 +48,6 @@ class StealthResponse:
 
         self._tree = html.fromstring(self.content)
         return self._tree
-
-    def tree(self) -> HtmlElement:
-        if self._tree is not None:
-            return self._tree
-        return self._get_tree()
-
-    def soup(self, parser: str = 'html.parser') -> BeautifulSoup:
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            raise ImportError(f'BeautifulSoup is required for markdown extraction. {PARSER_IMPORT_SOLUTION}')
-
-        return BeautifulSoup(self.content, parser)
-
-    def markdown(self, content_xpath: str | None = None, ignore_links: bool = True):
-        from lxml import etree
-
-        try:
-            import html2text
-        except ImportError:
-            raise ImportError(f'Html2text is required for markdown extraction. {PARSER_IMPORT_SOLUTION}')
-
-        text_maker = html2text.HTML2Text()
-        text_maker.ignore_links = ignore_links
-
-        tree = self.tree()
-        if content_xpath:
-            tree = tree.xpath(content_xpath)[0]
-        html = etree.tostring(tree, pretty_print=True, method='html').decode()
-
-        return text_maker.handle(html)
-
-    def xpath(self, xp: str):
-        return self.tree().xpath(xp)
-
-    def iterlinks(self, *args, **kwargs):
-        return self.tree().iterlinks(*args, **kwargs)
-
-    def itertext(self, *args, **kwargs):
-        return self.tree().itertext(*args, **kwargs)
-
-    def text_content(self, *args, **kwargs):
-        return self.tree().text_content(*args, **kwargs)
 
     @staticmethod
     def _format_meta_list(content: str) -> tuple[str]:
@@ -117,10 +78,6 @@ class StealthResponse:
         )
         return self._important_meta_tags
 
-    @property
-    def meta(self):
-        return self._important_meta_tags or self._set_important_meta_tags()
-
     def _parse_links(self, tag: str) -> tuple[str]:
         formatted_links = []
 
@@ -136,17 +93,90 @@ class StealthResponse:
 
         return tuple(formatted_links)
 
+    def tree(self) -> HtmlElement:
+        if self._tree is not None:
+            return self._tree
+        return self._get_tree()
+
+    def soup(self, parser: str = 'html.parser') -> BeautifulSoup:
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            raise ImportError(f'BeautifulSoup is required for markdown extraction. {PARSER_IMPORT_SOLUTION}')
+
+        return BeautifulSoup(self.content, parser)
+
+    def markdown(self, content_xpath: str | None = None, ignore_links: bool = True):
+        try:
+            from lxml import etree
+        except ImportError:
+            raise ImportError(f'Lxml is not installed. {PARSER_IMPORT_SOLUTION}')
+
+        try:
+            import html2text
+        except ImportError:
+            raise ImportError(f'Html2text is required for markdown extraction. {PARSER_IMPORT_SOLUTION}')
+
+        text_maker = html2text.HTML2Text()
+        text_maker.ignore_links = ignore_links
+
+        tree = self.tree()
+        if content_xpath:
+            tree = tree.xpath(content_xpath)[0]
+        html = etree.tostring(tree, pretty_print=True, method='html').decode()
+
+        return text_maker.handle(html)
+
+    def xpath(self, xp: str):
+        return self.tree().xpath(xp)
+
+    def iterlinks(self, *args, **kwargs):
+        return self.tree().iterlinks(*args, **kwargs)
+
+    def itertext(self, *args, **kwargs):
+        return self.tree().itertext(*args, **kwargs)
+
+    def text_content(self, *args, **kwargs):
+        return self.tree().text_content(*args, **kwargs)
+
     @property
-    def images(self):
+    def meta(self):
+        return self._important_meta_tags or self._set_important_meta_tags()
+
+    @property
+    def images(self) -> tuple[str]:
         if not self._images:
             self._images = self._parse_links('img')
         return self._images
 
     @property
-    def links(self):
+    def links(self) -> tuple[str]:
         if not self._links:
             self._links = self._parse_links('a')
         return self._links
 
-    def __repr__(self):
-        return f'<StealthResponse [Status: {self._response.status_code} Elapsed Time: {self._response.elapsed:.2f} seconds]>'
+    @property
+    def emails(self) -> tuple[str]:
+        content = self._response.text
+
+        pattern = r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}'
+
+        matches = re.findall(pattern, content)
+        return tuple(set(matches))
+
+    @property
+    def phone_numbers(self) -> tuple[str]:
+        content = self._response.text
+
+        pattern = r"""
+            (?<!\d)                     # Negative lookbehind to avoid matching inside longer digit sequences
+            (?:\+1[\s\-\.]?)?           # Optional country code +1
+            (?:\(?\d{3}\)?[\s\-\.]?)    # Area code with optional parentheses
+            \d{3}                       # First 3 digits
+            [\s\-\.]?                   # Separator
+            \d{4}                       # Last 4 digits
+            (?!\d)                      # Negative lookahead to ensure no trailing digits
+        """
+
+        matches = re.findall(pattern, content, re.VERBOSE)
+        return tuple(set(matches))

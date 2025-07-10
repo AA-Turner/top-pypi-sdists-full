@@ -371,7 +371,11 @@ class MappingProxyType(Mapping[_KT, _VT_co]):
         """Return the value for key if key is in the mapping, else default."""
         ...
     @overload
-    def get(self, key: _KT, default: _VT_co | _T2, /) -> _VT_co | _T2:
+    def get(self, key: _KT, default: _VT_co, /) -> _VT_co:
+        """Return the value for key if key is in the mapping, else default."""
+        ...
+    @overload
+    def get(self, key: _KT, default: _T2, /) -> _VT_co | _T2:
         """Return the value for key if key is in the mapping, else default."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
@@ -470,7 +474,7 @@ class GeneratorType(Generator[_YieldT_co, _SendT_contra, _ReturnT_co]):
     @property
     def gi_running(self) -> bool: ...
     @property
-    def gi_yieldfrom(self) -> GeneratorType[_YieldT_co, _SendT_contra, Any] | None:
+    def gi_yieldfrom(self) -> Iterator[_YieldT_co] | None:
         """object being iterated by yield from, or None"""
         ...
     if sys.version_info >= (3, 11):

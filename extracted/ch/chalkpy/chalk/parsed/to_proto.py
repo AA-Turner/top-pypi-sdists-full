@@ -79,7 +79,7 @@ from chalk.streams.types import (
     StreamResolverParamMessageWindow,
 )
 from chalk.utils import paths
-from chalk.utils.collections import get_unique_item
+from chalk.utils.collections import get_unique_item, unwrap_annotated_if_needed
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
 from chalk.utils.json import TJSON
 from chalk.utils.source_parsing import should_skip_source_code_parsing
@@ -832,6 +832,7 @@ class ToProtoConverter:
     @classmethod
     def convert_rich_type_info(cls, f: Feature) -> pb.FeatureRichTypeInfo:
         typ = f.typ.parsed_annotation
+
         proto_rich_type: pb.FeatureRichType | None = None
         try:
             serialized_rich_type = SerializedRichType.from_typ(typ)
@@ -845,7 +846,7 @@ class ToProtoConverter:
             encoder=None,  # TODO ENCODER,
             decoder=None,  # TODO DECODER,
             rich_type=proto_rich_type,
-            rich_type_name=str(typ),
+            rich_type_name=str(unwrap_annotated_if_needed(typ)),
         )
 
     @classmethod

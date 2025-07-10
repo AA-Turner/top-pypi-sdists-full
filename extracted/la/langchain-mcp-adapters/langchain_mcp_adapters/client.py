@@ -1,7 +1,14 @@
+"""Client for connecting to multiple MCP servers and loading LangChain-compatible resources.
+
+This module provides the MultiServerMCPClient class for managing connections to multiple
+MCP servers and loading tools, prompts, and resources from them.
+"""
+
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, AsyncIterator
+from typing import Any
 
 from langchain_core.documents.base import Blob
 from langchain_core.messages import AIMessage, HumanMessage
@@ -35,10 +42,7 @@ ASYNC_CONTEXT_MANAGER_ERROR = (
 class MultiServerMCPClient:
     """Client for connecting to multiple MCP servers and loading LangChain-compatible tools, prompts and resources from them."""
 
-    def __init__(
-        self,
-        connections: dict[str, Connection] | None = None,
-    ) -> None:
+    def __init__(self, connections: dict[str, Connection] | None = None) -> None:
         """Initialize a MultiServerMCPClient with MCP servers connections.
 
         Args:
@@ -78,6 +82,7 @@ class MultiServerMCPClient:
         async with client.session("math") as session:
             tools = await load_mcp_tools(session)
         ```
+
         """
         self.connections: dict[str, Connection] = connections if connections is not None else {}
 
@@ -99,11 +104,11 @@ class MultiServerMCPClient:
 
         Yields:
             An initialized ClientSession
+
         """
         if server_name not in self.connections:
-            raise ValueError(
-                f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
-            )
+            msg = f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
+            raise ValueError(msg)
 
         async with create_session(self.connections[server_name]) as session:
             if auto_initialize:
@@ -121,12 +126,12 @@ class MultiServerMCPClient:
 
         Returns:
             A list of LangChain tools
+
         """
         if server_name is not None:
             if server_name not in self.connections:
-                raise ValueError(
-                    f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
-                )
+                msg = f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
+                raise ValueError(msg)
             return await load_mcp_tools(None, connection=self.connections[server_name])
 
         all_tools: list[BaseTool] = []
@@ -140,15 +145,21 @@ class MultiServerMCPClient:
         return all_tools
 
     async def get_prompt(
-        self, server_name: str, prompt_name: str, *, arguments: dict[str, Any] | None = None
+        self,
+        server_name: str,
+        prompt_name: str,
+        *,
+        arguments: dict[str, Any] | None = None,
     ) -> list[HumanMessage | AIMessage]:
         """Get a prompt from a given MCP server."""
         async with self.session(server_name) as session:
-            prompt = await load_mcp_prompt(session, prompt_name, arguments=arguments)
-            return prompt
+            return await load_mcp_prompt(session, prompt_name, arguments=arguments)
 
     async def get_resources(
-        self, server_name: str, *, uris: str | list[str] | None = None
+        self,
+        server_name: str,
+        *,
+        uris: str | list[str] | None = None,
     ) -> list[Blob]:
         """Get resources from a given MCP server.
 
@@ -158,12 +169,17 @@ class MultiServerMCPClient:
 
         Returns:
             A list of LangChain Blobs
+
         """
         async with self.session(server_name) as session:
-            resources = await load_mcp_resources(session, uris=uris)
-            return resources
+            return await load_mcp_resources(session, uris=uris)
 
     async def __aenter__(self) -> "MultiServerMCPClient":
+        """Async context manager entry point.
+
+        Raises:
+            NotImplementedError: Context manager support has been removed.
+        """
         raise NotImplementedError(ASYNC_CONTEXT_MANAGER_ERROR)
 
     def __aexit__(
@@ -172,12 +188,22 @@ class MultiServerMCPClient:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        """Async context manager exit point.
+
+        Args:
+            exc_type: Exception type if an exception occurred.
+            exc_val: Exception value if an exception occurred.
+            exc_tb: Exception traceback if an exception occurred.
+
+        Raises:
+            NotImplementedError: Context manager support has been removed.
+        """
         raise NotImplementedError(ASYNC_CONTEXT_MANAGER_ERROR)
 
 
 __all__ = [
-    "MultiServerMCPClient",
     "McpHttpClientFactory",
+    "MultiServerMCPClient",
     "SSEConnection",
     "StdioConnection",
     "StreamableHttpConnection",

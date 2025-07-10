@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal
 
 from dateutil.parser import isoparse
@@ -228,6 +229,15 @@ class LoadBalancerServiceHttp(BaseDomain):
            Use sticky sessions. Only available if protocol is "http" or "https".
     """
 
+    __api_properties__ = (
+        "cookie_name",
+        "cookie_lifetime",
+        "certificates",
+        "redirect_http",
+        "sticky_sessions",
+    )
+    __slots__ = __api_properties__
+
     def __init__(
         self,
         cookie_name: str | None = None,
@@ -256,9 +266,19 @@ class LoadBalancerHealthCheck(BaseDomain):
             Timeout in sec after a try is assumed as timeout
     :param retries: int
             Retries we perform until we assume a target as unhealthy
-    :param http: LoadBalancerHealtCheckHttp
+    :param http: LoadBalancerHealthCheckHttp
             HTTP Config
     """
+
+    __api_properties__ = (
+        "protocol",
+        "port",
+        "interval",
+        "timeout",
+        "retries",
+        "http",
+    )
+    __slots__ = __api_properties__
 
     def __init__(
         self,
@@ -267,7 +287,7 @@ class LoadBalancerHealthCheck(BaseDomain):
         interval: int | None = None,
         timeout: int | None = None,
         retries: int | None = None,
-        http: LoadBalancerHealtCheckHttp | None = None,
+        http: LoadBalancerHealthCheckHttp | None = None,
     ):
         self.protocol = protocol
         self.port = port
@@ -277,8 +297,8 @@ class LoadBalancerHealthCheck(BaseDomain):
         self.http = http
 
 
-class LoadBalancerHealtCheckHttp(BaseDomain):
-    """LoadBalancerHealtCheckHttp Domain
+class LoadBalancerHealthCheckHttp(BaseDomain):
+    """LoadBalancerHealthCheckHttp Domain
 
     :param domain: str
             Domain name to send in HTTP request. Can be null: In that case we will not send a domain name
@@ -291,6 +311,15 @@ class LoadBalancerHealtCheckHttp(BaseDomain):
     :param tls: bool
             Type of health check
     """
+
+    __api_properties__ = (
+        "domain",
+        "path",
+        "response",
+        "status_codes",
+        "tls",
+    )
+    __slots__ = __api_properties__
 
     def __init__(
         self,
@@ -305,6 +334,31 @@ class LoadBalancerHealtCheckHttp(BaseDomain):
         self.response = response
         self.status_codes = status_codes
         self.tls = tls
+
+
+class LoadBalancerHealtCheckHttp(LoadBalancerHealthCheckHttp):
+    """
+    Kept for backward compatibility.
+
+    .. deprecated:: 2.5.4
+        Use :class:``hcloud.load_balancers.domain.LoadBalancerHealthCheckHttp`` instead.
+    """
+
+    def __init__(
+        self,
+        domain: str | None = None,
+        path: str | None = None,
+        response: str | None = None,
+        status_codes: list | None = None,
+        tls: bool | None = None,
+    ):
+        warnings.warn(
+            "The 'hcloud.load_balancers.domain.LoadBalancerHealtCheckHttp' class is deprecated, please use the "
+            "'hcloud.load_balancers.domain.LoadBalancerHealthCheckHttp' class instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(domain, path, response, status_codes, tls)
 
 
 class LoadBalancerTarget(BaseDomain):
@@ -323,6 +377,16 @@ class LoadBalancerTarget(BaseDomain):
     :param health_status: list
             List of health statuses of the services on this target. Only present for target types "server" and "ip".
     """
+
+    __api_properties__ = (
+        "type",
+        "server",
+        "label_selector",
+        "ip",
+        "use_private_ip",
+        "health_status",
+    )
+    __slots__ = __api_properties__
 
     def __init__(
         self,
@@ -375,6 +439,12 @@ class LoadBalancerTargetHealthStatus(BaseDomain):
     :param status: Load Balancer Target status. Choices: healthy, unhealthy, unknown
     """
 
+    __api_properties__ = (
+        "listen_port",
+        "status",
+    )
+    __slots__ = __api_properties__
+
     def __init__(
         self,
         listen_port: int | None = None,
@@ -390,6 +460,9 @@ class LoadBalancerTargetLabelSelector(BaseDomain):
     :param selector: str Target label selector
     """
 
+    __api_properties__ = ("selector",)
+    __slots__ = __api_properties__
+
     def __init__(self, selector: str | None = None):
         self.selector = selector
 
@@ -399,6 +472,9 @@ class LoadBalancerTargetIP(BaseDomain):
 
     :param ip: str Target IP
     """
+
+    __api_properties__ = ("ip",)
+    __slots__ = __api_properties__
 
     def __init__(self, ip: str | None = None):
         self.ip = ip
@@ -410,6 +486,9 @@ class LoadBalancerAlgorithm(BaseDomain):
     :param type: str
             Algorithm of the Load Balancer. Choices: round_robin, least_connections
     """
+
+    __api_properties__ = ("type",)
+    __slots__ = __api_properties__
 
     def __init__(self, type: str | None = None):
         self.type = type

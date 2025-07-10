@@ -283,6 +283,12 @@ class RAGPattern:
         # Milvus scenario
         self._ranker_config = kwargs.get("ranker_config")
 
+        if service_code := kwargs.get("_service_code"):
+            service_definition: dict = {}
+            exec(service_code, {}, service_definition)
+
+            inference_service = service_definition["inference_service"]
+
         if api_client is not None:
             self._credentials = api_client.credentials
             self._client = api_client
@@ -390,6 +396,7 @@ class RAGPattern:
         self._allow_store = self.vector_store is None or (
             (self.vector_store._datasource_type != "chroma")
             or self._input_data_references is not None
+            or service_code
         )
 
         indexing_function_tmp = indexing_function or (
@@ -525,6 +532,29 @@ class RAGPattern:
         else:
             store_params_ai_service = self.store_params
 
+            if (
+                store_params_ai_service
+                and self._client.repository.AIServiceMetaNames.DOCUMENTATION_REQUEST
+                not in store_params_ai_service
+                and store_params_ai_service.get("documentation", {}).get("request")
+            ):
+                store_params_ai_service[
+                    self._client.repository.AIServiceMetaNames.DOCUMENTATION_REQUEST
+                ] = store_params_ai_service["documentation"]["request"]
+            if (
+                store_params_ai_service
+                and self._client.repository.AIServiceMetaNames.DOCUMENTATION_RESPONSE
+                not in store_params_ai_service
+                and store_params_ai_service.get("documentation", {}).get("response")
+            ):
+                store_params_ai_service[
+                    self._client.repository.AIServiceMetaNames.DOCUMENTATION_RESPONSE
+                ] = store_params_ai_service["documentation"]["response"]
+
+            if store_params_ai_service:
+                # Clean up legacy 'documentation' key after renaming to 'documentation_response'
+                store_params_ai_service.pop("documentation", None)
+
         if inference_custom_asset is None or "service" in inference_custom_asset:
             inference_service = cast(Callable, inference_service)
             if any(
@@ -552,6 +582,8 @@ class RAGPattern:
                 store_params=store_params_ai_service,
                 _allow_store=self._allow_store,
             )
+            if service_code:
+                self.inference_service._code = service_code
             if auto_store:
                 self.inference_service._store_component()
         else:
@@ -786,6 +818,7 @@ class RAGPattern:
             "context_template_text",
             "default_max_sequence_length",
             "ranker_config",
+            "_service_code",
         ]
 
         for kwarg in self.kwargs.keys():

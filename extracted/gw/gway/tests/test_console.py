@@ -166,6 +166,62 @@ web:
         ]
         self.assertEqual(commands, expected)
 
+    def test_load_recipe_colon_after_flag_mid_line(self):
+        content = (
+            """web server start-app --port: --ws-port 9999
+    - 8888
+    - 7777
+"""
+        )
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
+            f.write(content)
+            temp_name = f.name
+        try:
+            commands, _ = console.load_recipe(temp_name)
+        finally:
+            os.remove(temp_name)
+
+        expected = [
+            ['web', 'server', 'start-app', '--port', '8888', '--ws-port', '9999'],
+            ['web', 'server', 'start-app', '--port', '7777', '--ws-port', '9999'],
+        ]
+        self.assertEqual(commands, expected)
+
+
+class TestPrepareKwargParsing(unittest.TestCase):
+    def test_multi_word_kwargs(self):
+        import argparse
+
+        def dummy(**kwargs):
+            return kwargs
+
+        dummy.__var_keyword_name__ = "kwargs"
+
+        parsed = argparse.Namespace(kwargs=[
+            "--title", "My", "Great", "App", "--flag", "on"
+        ])
+
+        args, kw = console.prepare(parsed, dummy)
+
+        self.assertEqual(args, [])
+        self.assertEqual(kw["title"], "My Great App")
+        self.assertEqual(kw["flag"], "on")
+
+    def test_unquoted_known_option(self):
+        import argparse
+
+        def dummy(*, title=""):
+            return title
+
+        parser = argparse.ArgumentParser()
+        console.add_func_args(parser, dummy)
+        tokens = console.join_unquoted_kwargs(["--title", "My", "Great", "App"])
+        parsed = parser.parse_args(tokens)
+        args, kw = console.prepare(parsed, dummy)
+
+        self.assertEqual(args, [])
+        self.assertEqual(kw["title"], "My Great App")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langchain-mcp-adapters"
-version = "0.1.8"
+version = "0.1.9"
 description = "Make Anthropic Model Context Protocol (MCP) tools compatible with LangChain and LangGraph agents."
 authors = [
     { name = "Vadym Barda", email = "19161700+vbarda@users.noreply.github.com" },
@@ -54,14 +54,51 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "W",
-    "F",
-    "I",
-    "B",
+    "ALL",
 ]
 ignore = [
     "E501",
+    "COM812",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "ARG",
+    "FBT",
+    "D104",
+    "PLR2004",
+    "S311",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D415",
+    "EM101",
+    "EM102",
+    "TRY003",
+    "TRY004",
+    "RET504",
+    "SIM117",
+    "TC002",
+    "TC003",
+    "ANN001",
+    "ANN201",
+    "ANN202",
+    "ANN401",
+    "PT006",
+    "PT011",
+    "PTH118",
+    "S110",
+    "BLE001",
+    "SLF001",
+    "PERF203",
+    "C901",
 ]
 
 [tool.mypy]

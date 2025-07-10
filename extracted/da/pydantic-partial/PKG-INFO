@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pydantic-partial
-Version: 0.8.0
+Version: 0.9.0
 Summary: Create partial models from your pydantic models. Partial models may allow None for certain or all fields.
 License: MIT
 Author: TEAM23 GmbH

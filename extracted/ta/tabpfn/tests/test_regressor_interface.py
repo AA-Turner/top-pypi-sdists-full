@@ -21,9 +21,14 @@ from torch import nn
 from tabpfn import TabPFNRegressor
 from tabpfn.preprocessing import PreprocessorConfig
 
+from .utils import check_cpu_float16_support
+
 devices = ["cpu"]
 if torch.cuda.is_available():
     devices.append("cuda")
+
+# --- Environment-Aware Check for CPU Float16 Support ---
+is_cpu_float16_supported = check_cpu_float16_support()
 
 feature_shift_decoders = ["shuffle", "rotate"]
 fit_modes = [
@@ -31,8 +36,8 @@ fit_modes = [
     "fit_preprocessors",
     "fit_with_cache",
 ]
-inference_precision_methods = ["auto", "autocast", torch.float64]
-remove_remove_outliers_stds = [None, 12]
+inference_precision_methods = ["auto", "autocast", torch.float64, torch.float16]
+remove_outliers_stds = [None, 12]
 estimators = [1, 2]
 
 all_combinations = list(
@@ -42,7 +47,7 @@ all_combinations = list(
         feature_shift_decoders,
         fit_modes,
         inference_precision_methods,
-        remove_remove_outliers_stds,
+        remove_outliers_stds,
     ),
 )
 
@@ -77,6 +82,14 @@ def test_regressor(
 ) -> None:
     if device == "cpu" and inference_precision == "autocast":
         pytest.skip("Only GPU supports inference_precision")
+
+    # Use the environment-aware check to skip only if necessary
+    if (
+        device == "cpu"
+        and inference_precision == torch.float16
+        and not is_cpu_float16_supported
+    ):
+        pytest.skip("CPU float16 matmul not supported in this PyTorch version.")
 
     model = TabPFNRegressor(
         n_estimators=n_estimators,
@@ -284,7 +297,7 @@ def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
         }
         torch.onnx.export(
             ModelWrapper(regressor.model_).eval(),
-            (X, y, y.shape[0], True, []),
+            (X, y, y.shape[0], True, [[]]),
             io.BytesIO(),
             input_names=[
                 "X",
@@ -467,3 +480,49 @@ def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
         decimal=5,  # Allow small numerical differences
         err_msg="Predictions changed after adding constant features",
     )
+
+
+def test_constant_target(X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    """Test that TabPFNRegressor predicts a constant
+    value when the target y is constant.
+    """
+    X, _ = X_y
+    y_constant = np.full(X.shape[0], 5.0)  # Create a constant target array
+
+    model = TabPFNRegressor(n_estimators=2, random_state=42)
+    model.fit(X, y_constant)
+
+    predictions = model.predict(X)
+    assert np.all(predictions == 5.0), "Predictions are not constant as expected"
+
+    # Test different output types
+    predictions_median = model.predict(X, output_type="median")
+    assert np.all(
+        predictions_median == 5.0
+    ), "Median predictions are not constant as expected"
+
+    predictions_mode = model.predict(X, output_type="mode")
+    assert np.all(
+        predictions_mode == 5.0
+    ), "Mode predictions are not constant as expected"
+
+    quantiles = model.predict(X, output_type="quantiles", quantiles=[0.1, 0.9])
+    for quantile_prediction in quantiles:
+        assert np.all(
+            quantile_prediction == 5.0
+        ), "Quantile predictions are not constant as expected"
+
+    full_output = model.predict(X, output_type="full")
+    assert np.all(
+        full_output["mean"] == 5.0
+    ), "Mean predictions are not constant as expected for full output"
+    assert np.all(
+        full_output["median"] == 5.0
+    ), "Median predictions are not constant as expected for full output"
+    assert np.all(
+        full_output["mode"] == 5.0
+    ), "Mode predictions are not constant as expected for full output"
+    for quantile_prediction in full_output["quantiles"]:
+        assert np.all(
+            quantile_prediction == 5.0
+        ), "Quantile predictions are not constant as expected for full output"

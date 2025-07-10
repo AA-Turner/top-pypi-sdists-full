@@ -201,6 +201,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, input_bytes, context, stream_info)
             elif isinstance(use_case, VehicleMonitoringUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, FlareAnalysisUseCase):
+                result = use_case.process(data, parsed_config,input_bytes, context, stream_info)
             elif isinstance(use_case,LicensePlateUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             else:

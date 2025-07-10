@@ -7880,7 +7880,7 @@ class BitConverter(System.Object):
     @overload
     def to_double(value: typing.List[int], start_index: int) -> float:
         """
-        Returns a double-precision floating point number converted from four bytes at a specified position in a byte array.
+        Returns a double-precision floating point number converted from eight bytes at a specified position in a byte array.
         
         :param value: An array of bytes.
         :param start_index: The starting position within .
@@ -8080,7 +8080,7 @@ class BitConverter(System.Object):
     @overload
     def to_u_int_128(value: typing.List[int], start_index: int) -> System.UInt128:
         """
-        Returns a 128-bit unsigned integer converted from four bytes at a specified position in a byte array.
+        Returns a 128-bit unsigned integer converted from sixteen bytes at a specified position in a byte array.
         
         :param value: An array of bytes.
         :param start_index: The starting position within .
@@ -8149,7 +8149,7 @@ class BitConverter(System.Object):
     @overload
     def to_u_int_64(value: typing.List[int], start_index: int) -> int:
         """
-        Returns a 64-bit unsigned integer converted from four bytes at a specified position in a byte array.
+        Returns a 64-bit unsigned integer converted from eight bytes at a specified position in a byte array.
         
         :param value: An array of bytes.
         :param start_index: The starting position within .

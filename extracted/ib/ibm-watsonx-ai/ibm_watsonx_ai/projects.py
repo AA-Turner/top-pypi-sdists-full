@@ -137,7 +137,7 @@ class Projects(WMLResource):
             _silent_response_logging=True,
         )["location"]
 
-        project_details = self._get_details(location.split("/")[-1])
+        project_details = self.get_details(location.split("/")[-1])
 
         if "compute" in project_details["entity"].keys():
             instance_id = project_details["entity"]["compute"][0]["guid"]
@@ -231,9 +231,6 @@ class Projects(WMLResource):
 
         return "SUCCESS"
 
-    @cached(
-        cache=TTLCache(maxsize=32, ttl=4.5 * 60)
-    )  # Projects API doesn't refresh credentials until 5 minutes before expiration
     def get_details(
         self,
         project_id: str | None = None,
@@ -243,7 +240,7 @@ class Projects(WMLResource):
         project_name: str | None = None,
         **kwargs: Any,
     ) -> dict:
-        """Get metadata of stored project(s). The method uses TTL cache.
+        """Get metadata of stored project(s).
 
         :param project_id: ID of the project
         :type project_id: str, optional
@@ -265,35 +262,15 @@ class Projects(WMLResource):
 
         .. code-block:: python
 
-            project_details = client.project.get_details(project_id)
-            project_details = client.project.get_details(project_name)
-            project_details = client.project.get_details(limit=100)
-            project_details = client.project.get_details(limit=100, get_all=True)
+            project_details = client.projects.get_details(project_id)
+            project_details = client.projects.get_details(project_name)
+            project_details = client.projects.get_details(limit=100)
+            project_details = client.projects.get_details(limit=100, get_all=True)
             project_details = []
-            for entry in client.project.get_details(limit=100, asynchronous=True, get_all=True):
+            for entry in client.projects.get_details(limit=100, asynchronous=True, get_all=True):
                 project_details.extend(entry)
 
         """
-
-        return self._get_details(
-            project_id=project_id,
-            limit=limit,
-            asynchronous=asynchronous,
-            get_all=get_all,
-            project_name=project_name,
-            **kwargs,
-        )
-
-    def _get_details(
-        self,
-        project_id: str | None = None,
-        limit: int | None = None,
-        asynchronous: bool | None = False,
-        get_all: bool | None = False,
-        project_name: str | None = None,
-        **kwargs: Any,
-    ) -> dict:
-        """Get metadata of stored project(s) without caching. It's dedicated for internal usage."""
         Projects._validate_type(project_id, "project_id", str, False)
 
         href = self._client._href_definitions.get_project_href(project_id)
@@ -311,22 +288,44 @@ class Projects(WMLResource):
                 200, "Get project", response_get, _silent_response_logging=True
             )
 
-        else:
-            if project_name:
-                query_params.update({"name": project_name})
+        if project_name:
+            query_params.update({"name": project_name})
 
-            return self._get_with_or_without_limit(
-                self._client._href_definitions.get_projects_href(),
-                100 if not limit or limit > 100 else limit,
-                "projects",
-                summary=False,
-                pre_defined=False,
-                skip_space_project_chk=True,
-                query_params=query_params,
-                _async=asynchronous,
-                _all=get_all,
-                _silent_response_logging=True,
-            )
+        return self._get_with_or_without_limit(
+            self._client._href_definitions.get_projects_href(),
+            100 if not limit or limit > 100 else limit,
+            "projects",
+            summary=False,
+            pre_defined=False,
+            skip_space_project_chk=True,
+            query_params=query_params,
+            _async=asynchronous,
+            _all=get_all,
+            _silent_response_logging=True,
+        )
+
+    @cached(
+        cache=TTLCache(maxsize=32, ttl=4.5 * 60)
+    )  # Projects API doesn't refresh credentials until 5 minutes before expiration
+    def _get_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool | None = False,
+        get_all: bool | None = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Get metadata of stored project(s) with caching. It's dedicated for internal usage."""
+
+        return self.get_details(
+            project_id=project_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            project_name=project_name,
+            **kwargs,
+        )
 
     def list(
         self,
@@ -441,7 +440,7 @@ class Projects(WMLResource):
         self._validate_type(project_id, "project_id", str, True)
         self._validate_type(changes, "changes", dict, True)
 
-        details = self._get_details(project_id)
+        details = self.get_details(project_id)
 
         if "compute" in changes:
             changes["compute"]["type"] = "machine_learning"

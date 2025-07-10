@@ -110,6 +110,7 @@ def static_resolver_to_operator(
         if (
             not isinstance(static_operator, (StaticOperator, DfPlaceholder))
             and not static_operator.__class__.__name__ == "ChalkDataFrame"
+            and not static_operator.__class__.__name__ == "LazyFrame"
         ):
             raise _GetStaticOperatorError(
                 resolver_fqn=fqn,

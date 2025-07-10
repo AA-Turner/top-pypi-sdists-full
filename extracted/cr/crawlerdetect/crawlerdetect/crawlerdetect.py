@@ -1,75 +1,83 @@
 import re
+from typing import Dict, List, Optional, Tuple
+from functools import lru_cache
 
 from crawlerdetect.providers.crawlers import data as crawlers_data
 from crawlerdetect.providers.exclusions import data as exclusions_data
 from crawlerdetect.providers.headers import data as headers_data
 
 
+@lru_cache(maxsize=1)
+def get_compiled_crawler_regex() -> re.Pattern:
+    pattern = f'({"|".join(crawlers_data)})'
+    return re.compile(pattern, re.IGNORECASE)
+
+
+@lru_cache(maxsize=1)
+def get_compiled_exclusions_regex() -> re.Pattern:
+    pattern = f'({"|".join(exclusions_data)})'
+    return re.compile(pattern, re.IGNORECASE)
+
+
 class CrawlerDetect:
-    def __init__(self, headers=None, user_agent=""):
-        self.crawlers = crawlers_data
-        self.exclusions = exclusions_data
-        self.uaHttpHeaders = headers_data
+    CACHE_SIZE = 1024
 
-        self.compiledRegex = self.compileRegex(self.crawlers)
-        self.compiledExclusions = self.compileRegex(self.exclusions)
-        self.matches = []
+    def __init__(
+        self,
+        headers: Optional[Dict[str, str]] = None,
+        user_agent: str = "",
+    ) -> None:
+        self.matches: List[str] = []
+        self.http_headers: Dict[str, str] = {}
+        self.user_agent: str = ""
 
-        self.setHttpHeaders(headers)
-        self.setUserAgent(user_agent)
+        self.set_http_headers(headers)
+        self.set_user_agent(user_agent)
 
-    def setHttpHeaders(self, http_headers):
-        self.httpHeaders = {}
+        self._cached_check = lru_cache(maxsize=self.CACHE_SIZE)(self._check_crawler)
 
-        if http_headers:
-            for k, v in http_headers.items():
-                if k.find("HTTP_") == 0:
-                    self.httpHeaders[k] = v
+    def set_http_headers(self, http_headers: Optional[Dict[str, str]]) -> None:
+        self.http_headers = {k: v for k, v in (http_headers or {}).items() if k.startswith("HTTP_")}
 
-    def setUserAgent(self, user_agent=None):
-        if not user_agent:
-            ua = ""
-
-            for altHeader in self.getUaHttpHeaders():
-                if altHeader in self.httpHeaders:
-                    ua += self.httpHeaders[altHeader] + " "
-
-            self.user_agent = ua
-        else:
+    def set_user_agent(self, user_agent: Optional[str] = None) -> None:
+        if user_agent:
             self.user_agent = user_agent
+        else:
+            ua_parts = [
+                self.http_headers[header] for header in self.get_ua_http_headers() if header in self.http_headers
+            ]
+            self.user_agent = " ".join(ua_parts) + (" " if ua_parts else "")
 
-    def getUaHttpHeaders(self):
-        """
-        All possible HTTP headers that represent user agents
-        """
-        return self.uaHttpHeaders
+    def get_ua_http_headers(self) -> List[str]:
+        return headers_data
 
-    def compileRegex(self, patterns):
-        """
-        Combine regexps
-        """
-        return "({})".format("|".join(patterns))
-
-    def isCrawler(self, user_agent=None):
-        if not user_agent:
-            if self.user_agent:
-                user_agent = self.user_agent
-            else:
-                return False
-
-        agent = re.sub(self.compiledExclusions, "", user_agent, flags=re.IGNORECASE)
-
+    def _check_crawler(self, user_agent: str) -> Tuple[bool, Optional[str]]:
+        agent = get_compiled_exclusions_regex().sub("", user_agent)
         if not agent:
+            return False, None
+
+        if result := get_compiled_crawler_regex().search(agent):
+            for group in result.groups():
+                if group:
+                    return True, group
+
+        return False, None
+
+    def is_crawler(self, user_agent: Optional[str] = None) -> bool:
+        user_agent = (user_agent or self.user_agent).strip()
+        if not user_agent:
             return False
 
-        result = re.search(self.compiledRegex, agent, flags=re.IGNORECASE)
+        is_bot, matched = self._cached_check(user_agent)
+        self.matches = [matched] if matched else []
+        return is_bot
 
-        self.matches = []
-
-        if result:
-            self.matches = [x for x in result.groups() if x]
-
-        return len(self.matches) > 0
-
-    def getMatches(self):
+    def get_matches(self) -> Optional[str]:
         return self.matches[0] if self.matches else None
+
+    # Backward compatibility aliases
+    setHttpHeaders = set_http_headers
+    setUserAgent = set_user_agent
+    getUaHttpHeaders = get_ua_http_headers
+    isCrawler = is_crawler
+    getMatches = get_matches

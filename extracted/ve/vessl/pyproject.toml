@@ -3,7 +3,7 @@ py-modules = ["vessl"]
 
 [tool.poetry]
 name = "vessl"
-version = "0.1.197" # to be overridden in CI
+version = "0.1.198" # to be overridden in CI
 description = "SDK and CLI for VESSL"
 license = "MIT"
 authors = [
@@ -24,7 +24,7 @@ vsl = "vessl.cli._main:cli"
 python = ">=3.9, <3.13"
 boto3 = ">=1.18.9"
 click = ">=8.0.1"
-cloudpickle = "^1.6.0"
+cloudpickle = ">=1.6.0,<4.0.0"
 docker = ">=6.0.1"
 humanfriendly = "^10.0"
 inquirer = ">=3.1.3"
@@ -42,8 +42,6 @@ toml = "^0.10.1"
 tqdm = "^4.61.2"
 uvicorn = ">=0.16.0"
 python-dotenv = "^1.0.0"
-pillow = { version = "^10.0.0", optional = true }
-soundfile = { version = "^0.12.1", optional = true }
 watchdog = "^3.0.0"
 brotli = "^1.1.0"
 google-cloud-storage = "^2.15.0"
@@ -69,18 +67,11 @@ pytest = "^6.2.4"
 pytest-order = "^1.0.0"
 mock = "^4.0.3"
 pycryptodome = "^3.10.1"
-tensorboard = "^2.9.1"
-tensorboardX = "^2.5"
-torch = "^2.0.1,<2.5.0"
-tensorflow-cpu = { version = "^2.12.0", markers = "sys_platform == 'linux'" }
-tensorflow-io-gcs-filesystem = [
-{ version = "^0.37.0", markers = "sys_platform == 'linux'" }
-]
-tensorflow = { version = "^2.10.0", markers = "sys_platform == 'darwin'" }
+torch = "^2.0.1"
 transformers = "^4.38.2"
 
 [tool.poetry.extras]
-media = ["pillow", "soundfile"]
+media = [] # deprecated
 
 
 [[tool.poetry.source]]

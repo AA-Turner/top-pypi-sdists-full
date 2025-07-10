@@ -1,9 +1,9 @@
 """Models for the base data types."""
 
 from enum import Enum
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, FieldSerializationInfo, field_serializer
 
 
 class ImageRefMode(str, Enum):
@@ -21,11 +21,34 @@ class CoordOrigin(str, Enum):
     BOTTOMLEFT = "BOTTOMLEFT"
 
 
+class PydanticSerCtxKey(str, Enum):
+    """Pydantic serialization context keys."""
+
+    COORD_PREC = "coord_prec"  # key for coordinates precision
+    CONFID_PREC = "confid_prec"  # key for confidence values precision
+
+
+def round_pydantic_float(
+    val: float, ctx: Any, precision_ctx_key: PydanticSerCtxKey
+) -> float:
+    """Round float, provided the precision is available in the context."""
+    precision = (
+        ctx.get(precision_ctx_key.value)
+        if isinstance(ctx, dict)
+        else getattr(ctx, precision_ctx_key.value, None)
+    )
+    return round(val, precision) if isinstance(precision, int) else val
+
+
 class Size(BaseModel):
     """Size."""
 
     width: float = 0.0
     height: float = 0.0
+
+    @field_serializer("width", "height")
+    def _serialize(self, value: float, info: FieldSerializationInfo) -> float:
+        return round_pydantic_float(value, info.context, PydanticSerCtxKey.COORD_PREC)
 
     def as_tuple(self):
         """as_tuple."""
@@ -51,6 +74,10 @@ class BoundingBox(BaseModel):
     def height(self):
         """height."""
         return abs(self.t - self.b)
+
+    @field_serializer("l", "t", "r", "b")
+    def _serialize(self, value: float, info: FieldSerializationInfo) -> float:
+        return round_pydantic_float(value, info.context, PydanticSerCtxKey.COORD_PREC)
 
     def resize_by_scale(self, x_scale: float, y_scale: float):
         """resize_by_scale."""

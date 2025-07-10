@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: datasets
-Version: 3.6.0
+Version: 4.0.0
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -38,8 +38,8 @@ Requires-Dist: packaging
 Requires-Dist: pyyaml>=5.1
 Provides-Extra: audio
 Requires-Dist: soundfile>=0.12.1; extra == "audio"
-Requires-Dist: librosa; extra == "audio"
-Requires-Dist: soxr>=0.4.0; extra == "audio"
+Requires-Dist: torchcodec>=0.4.0; extra == "audio"
+Requires-Dist: torch>=2.7.0; extra == "audio"
 Provides-Extra: vision
 Requires-Dist: Pillow>=9.4.0; extra == "vision"
 Provides-Extra: tensorflow
@@ -51,10 +51,9 @@ Requires-Dist: torch; extra == "torch"
 Provides-Extra: jax
 Requires-Dist: jax>=0.3.14; extra == "jax"
 Requires-Dist: jaxlib>=0.3.14; extra == "jax"
-Provides-Extra: s3
-Requires-Dist: s3fs; extra == "s3"
 Provides-Extra: streaming
 Provides-Extra: dev
+Requires-Dist: numba>=0.56.4; extra == "dev"
 Requires-Dist: absl-py; extra == "dev"
 Requires-Dist: decorator; extra == "dev"
 Requires-Dist: joblib<1.3.0; extra == "dev"
@@ -73,10 +72,9 @@ Requires-Dist: pyspark>=3.4; extra == "dev"
 Requires-Dist: py7zr; extra == "dev"
 Requires-Dist: rarfile>=4.0; extra == "dev"
 Requires-Dist: sqlalchemy; extra == "dev"
-Requires-Dist: s3fs>=2021.11.1; extra == "dev"
 Requires-Dist: protobuf<4.0.0; extra == "dev"
-Requires-Dist: tensorflow>=2.6.0; python_version < "3.10" and extra == "dev"
-Requires-Dist: tensorflow>=2.16.0; python_version >= "3.10" and extra == "dev"
+Requires-Dist: tensorflow>=2.6.0; (python_version < "3.10" and sys_platform != "win32") and extra == "dev"
+Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32") and extra == "dev"
 Requires-Dist: tiktoken; extra == "dev"
 Requires-Dist: torch>=2.0.0; extra == "dev"
 Requires-Dist: torchdata; extra == "dev"
@@ -84,18 +82,15 @@ Requires-Dist: soundfile>=0.12.1; extra == "dev"
 Requires-Dist: transformers>=4.42.0; extra == "dev"
 Requires-Dist: zstandard; extra == "dev"
 Requires-Dist: polars[timezone]>=0.20.0; extra == "dev"
-Requires-Dist: torchvision; extra == "dev"
-Requires-Dist: pyav; extra == "dev"
 Requires-Dist: Pillow>=9.4.0; extra == "dev"
 Requires-Dist: soundfile>=0.12.1; extra == "dev"
-Requires-Dist: librosa; extra == "dev"
-Requires-Dist: soxr>=0.4.0; extra == "dev"
+Requires-Dist: torchcodec>=0.4.0; sys_platform != "win32" and extra == "dev"
 Requires-Dist: ruff>=0.3.0; extra == "dev"
-Requires-Dist: s3fs; extra == "dev"
 Requires-Dist: transformers; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: tensorflow>=2.6.0; extra == "dev"
 Provides-Extra: tests
+Requires-Dist: numba>=0.56.4; extra == "tests"
 Requires-Dist: absl-py; extra == "tests"
 Requires-Dist: decorator; extra == "tests"
 Requires-Dist: joblib<1.3.0; extra == "tests"
@@ -114,10 +109,9 @@ Requires-Dist: pyspark>=3.4; extra == "tests"
 Requires-Dist: py7zr; extra == "tests"
 Requires-Dist: rarfile>=4.0; extra == "tests"
 Requires-Dist: sqlalchemy; extra == "tests"
-Requires-Dist: s3fs>=2021.11.1; extra == "tests"
 Requires-Dist: protobuf<4.0.0; extra == "tests"
-Requires-Dist: tensorflow>=2.6.0; python_version < "3.10" and extra == "tests"
-Requires-Dist: tensorflow>=2.16.0; python_version >= "3.10" and extra == "tests"
+Requires-Dist: tensorflow>=2.6.0; (python_version < "3.10" and sys_platform != "win32") and extra == "tests"
+Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32") and extra == "tests"
 Requires-Dist: tiktoken; extra == "tests"
 Requires-Dist: torch>=2.0.0; extra == "tests"
 Requires-Dist: torchdata; extra == "tests"
@@ -125,13 +119,11 @@ Requires-Dist: soundfile>=0.12.1; extra == "tests"
 Requires-Dist: transformers>=4.42.0; extra == "tests"
 Requires-Dist: zstandard; extra == "tests"
 Requires-Dist: polars[timezone]>=0.20.0; extra == "tests"
-Requires-Dist: torchvision; extra == "tests"
-Requires-Dist: pyav; extra == "tests"
 Requires-Dist: Pillow>=9.4.0; extra == "tests"
 Requires-Dist: soundfile>=0.12.1; extra == "tests"
-Requires-Dist: librosa; extra == "tests"
-Requires-Dist: soxr>=0.4.0; extra == "tests"
+Requires-Dist: torchcodec>=0.4.0; sys_platform != "win32" and extra == "tests"
 Provides-Extra: tests-numpy2
+Requires-Dist: numba>=0.56.4; extra == "tests-numpy2"
 Requires-Dist: absl-py; extra == "tests-numpy2"
 Requires-Dist: decorator; extra == "tests-numpy2"
 Requires-Dist: joblib<1.3.0; extra == "tests-numpy2"
@@ -149,7 +141,6 @@ Requires-Dist: pyspark>=3.4; extra == "tests-numpy2"
 Requires-Dist: py7zr; extra == "tests-numpy2"
 Requires-Dist: rarfile>=4.0; extra == "tests-numpy2"
 Requires-Dist: sqlalchemy; extra == "tests-numpy2"
-Requires-Dist: s3fs>=2021.11.1; extra == "tests-numpy2"
 Requires-Dist: protobuf<4.0.0; extra == "tests-numpy2"
 Requires-Dist: tiktoken; extra == "tests-numpy2"
 Requires-Dist: torch>=2.0.0; extra == "tests-numpy2"
@@ -158,11 +149,9 @@ Requires-Dist: soundfile>=0.12.1; extra == "tests-numpy2"
 Requires-Dist: transformers>=4.42.0; extra == "tests-numpy2"
 Requires-Dist: zstandard; extra == "tests-numpy2"
 Requires-Dist: polars[timezone]>=0.20.0; extra == "tests-numpy2"
-Requires-Dist: torchvision; extra == "tests-numpy2"
-Requires-Dist: pyav; extra == "tests-numpy2"
 Requires-Dist: Pillow>=9.4.0; extra == "tests-numpy2"
 Requires-Dist: soundfile>=0.12.1; extra == "tests-numpy2"
-Requires-Dist: soxr>=0.4.0; extra == "tests-numpy2"
+Requires-Dist: torchcodec>=0.4.0; sys_platform != "win32" and extra == "tests-numpy2"
 Provides-Extra: quality
 Requires-Dist: ruff>=0.3.0; extra == "quality"
 Provides-Extra: benchmarks
@@ -170,7 +159,6 @@ Requires-Dist: tensorflow==2.12.0; extra == "benchmarks"
 Requires-Dist: torch==2.0.1; extra == "benchmarks"
 Requires-Dist: transformers==4.30.1; extra == "benchmarks"
 Provides-Extra: docs
-Requires-Dist: s3fs; extra == "docs"
 Requires-Dist: transformers; extra == "docs"
 Requires-Dist: torch; extra == "docs"
 Requires-Dist: tensorflow>=2.6.0; extra == "docs"
@@ -322,9 +310,7 @@ You can find:
 
 # Disclaimers
 
-You can use 🤗 Datasets to load datasets based on Python code defined by the dataset authors to parse certain data formats or structures. For security reasons, this feature is disabled by default and requires passing `trust_remote_code=True`. In this case we also ask users that want to load such datasets to:
-- check the dataset scripts they're going to run beforehand and
-- pin the `revision` of the repositories they use.
+You can use 🤗 Datasets to load datasets based on versioned git repositories maintained by the dataset authors. For reproducibility reasons, we ask users to pin the `revision` of the repositories they use.
 
 If you're a dataset owner and wish to update any part of it (description, citation, license, etc.), or do not want your dataset to be included in the Hugging Face Hub, please get in touch by opening a discussion or a pull request in the Community tab of the dataset page. Thanks for your contribution to the ML community!
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: slack_sdk
-Version: 3.35.0
+Version: 3.36.0
 Summary: The Slack API Platform SDK for Python
 Home-page: https://github.com/slackapi/python-slack-sdk
 Author: Slack Technologies, LLC
@@ -36,6 +36,7 @@ Requires-Dist: boto3<=2; extra == "optional"
 Requires-Dist: SQLAlchemy<3,>=1.4; extra == "optional"
 Requires-Dist: websockets<16,>=9.1; extra == "optional"
 Requires-Dist: websocket-client<2,>=1; extra == "optional"
+Dynamic: license-file
 
 <h1 align="center">Python Slack SDK</h1>
 

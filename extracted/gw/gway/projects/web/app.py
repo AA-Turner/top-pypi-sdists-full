@@ -5,12 +5,14 @@ from urllib.parse import urlencode
 import bottle
 import json
 import datetime
+import time
 from bottle import Bottle, static_file, request, response, template, HTTPResponse
 from gway import gw
 
 
 _ver = None
 _homes = []   # (title, route)
+_links: dict[str, list[object]] = {}
 _enabled = set()
 _registered_routes: set[tuple[str, str]] = set()
 _fresh_mtime = None
@@ -69,14 +71,15 @@ def setup_app(*,
     project="web.site",
     path=None,
     home: str = None,
-    views: str = "view", 
+    links=None,
+    views: str = "view",
     apis: str = "api",
     renders: str = "render",
     static="static",
     shared="shared",
     css="global",           # Default CSS (without .css extension)
     js="global",            # Default JS  (without .js extension)
-    auth_required=False,    # Default: Don't enforce --optional security
+    auth="disabled",       # Accept "optional"/"disabled" words to disable
     engine="bottle",
 ):
     """
@@ -84,6 +87,10 @@ def setup_app(*,
     Only one project can be setup per call. CSS/JS params are used as the only static includes.
     """
     global _ver, _homes, _enabled
+
+    auth_required = str(auth).strip().lower() not in {
+        "none", "false", "disabled", "optional"
+    }
 
     if engine != "bottle":
         raise NotImplementedError("Only Bottle is supported at the moment.")
@@ -131,9 +138,11 @@ def setup_app(*,
         gw.info("No Bottle app found; creating a new Bottle app.")
         app = Bottle()
         _homes.clear()
+        _links.clear()
         _registered_routes.clear()
         if home:
             add_home(home, path)
+            add_links(f"{path}/{home}", links)
 
         def index():
             response.status = 302
@@ -147,6 +156,18 @@ def setup_app(*,
     
     elif home:
         add_home(home, path)
+        add_links(f"{path}/{home}", links)
+
+    if getattr(gw, "timed_enabled", False):
+        @app.hook('before_request')
+        def _gw_start_timer():
+            request.environ['gw.start'] = time.perf_counter()
+
+        @app.hook('after_request')
+        def _gw_stop_timer():
+            start = request.environ.pop('gw.start', None)
+            if start is not None:
+                gw.log(f"[web] {request.method} {request.path} took {time.perf_counter() - start:.3f}s")
 
     # Serve shared files (flat mount)
     if shared:
@@ -168,12 +189,16 @@ def setup_app(*,
         add_route(app, f"/{path}/{static}/<filepath:path>", "GET", send_static)
         add_route(app, f"/{static}/<filepath:path>", "GET", send_static)
         
+    def _maybe_auth(message: str):
+        if is_setup('web.auth') and not gw.web.auth.is_authorized(strict=auth_required):
+            return gw.web.error.unauthorized(message)
+        return None
+
     if views:
         def view_dispatch(view):
             nonlocal home, views
-            # --- AUTH CHECK ---
-            if is_setup('web.auth') and not gw.web.auth.is_authorized(strict=auth_required):
-                return gw.web.error.unauthorized("Unauthorized: You are not permitted to view this page.")
+            if (unauth := _maybe_auth("Unauthorized: You are not permitted to view this page.")):
+                return unauth
             # Set current endpoint in GWAY context (for helpers/build_url etc)
             gw.context['current_endpoint'] = path
             segments = [s for s in view.strip("/").split("/") if s]
@@ -226,11 +251,10 @@ def setup_app(*,
     if apis:
         def api_dispatch(view):
             nonlocal home, apis
-            # --- AUTH CHECK ---
-            if is_setup('web.auth') and not gw.web.auth.is_authorized(strict=auth_required):
-                return gw.web.error.unauthorized("Unauthorized: API access denied.")
+            if (unauth := _maybe_auth("Unauthorized: API access denied.")):
+                return unauth
             # Set current endpoint in GWAY context (for helpers/build_url etc)
-            gw.context['current_endpoint'] = path 
+            gw.context['current_endpoint'] = path
             segments = [s for s in view.strip("/").split("/") if s]
             view_name = segments[0].replace("-", "_") if segments else home
             args = segments[1:] if segments else []
@@ -266,9 +290,8 @@ def setup_app(*,
     if renders:
         def render_dispatch(view, hash):
             nonlocal renders
-            # --- AUTH CHECK ---
-            if is_setup('web.auth') and not gw.web.auth.is_authorized(strict=auth_required):
-                return gw.web.error.unauthorized("Unauthorized: Render access denied.")
+            if (unauth := _maybe_auth("Unauthorized: Render access denied.")):
+                return unauth
             kwargs = dict(request.query)
             gw.context['current_endpoint'] = path
 
@@ -321,6 +344,53 @@ def setup_app(*,
                 return gw.web.error.redirect("Broken render function", err=e)
 
         add_route(app, f"/render/{path}/<view>/<hash>", ["GET", "POST"], render_dispatch)
+
+        if views:
+            def render_view_dispatch(view):
+                nonlocal views, home
+                if (unauth := _maybe_auth("Unauthorized: Render view access denied.")):
+                    return unauth
+                gw.context['current_endpoint'] = path
+                segments = [s for s in view.strip("/").split("/") if s]
+                view_name = segments[0].replace("-", "_") if segments else home
+                args = segments[1:] if segments else []
+                kwargs = dict(request.query)
+                if request.method == "POST":
+                    try:
+                        kwargs.update(request.json or dict(request.forms))
+                    except Exception as e:
+                        return gw.web.error.redirect("Error loading JSON payload", err=e)
+                method = request.method.lower()
+                method_func_name = f"{views}_{method}_{view_name}"
+                generic_func_name = f"{views}_{view_name}"
+
+                view_func = getattr(source, method_func_name, None)
+                if not callable(view_func):
+                    view_func = getattr(source, generic_func_name, None)
+                if not callable(view_func):
+                    return gw.web.error.redirect(
+                        f"View not found: {method_func_name} or {generic_func_name} in {project}")
+
+                try:
+                    content = view_func(*args, **kwargs)
+                    if isinstance(content, HTTPResponse):
+                        return content
+                    elif isinstance(content, bytes):
+                        response.content_type = "application/octet-stream"
+                        response.body = content
+                        return response
+                    elif content is None:
+                        return ""
+                    elif not isinstance(content, str):
+                        content = gw.to_html(content)
+                    response.content_type = "text/html"
+                    return content
+                except HTTPResponse as res:
+                    return res
+                except Exception as e:
+                    return gw.web.error.redirect("Broken view", err=e)
+
+            add_route(app, f"/render/{path}/<view:path>", ["GET", "POST"], render_view_dispatch)
 
     def favicon():
         proj_parts = project.split('.')
@@ -390,7 +460,7 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
         Hosting by <a href="https://www.gelectriic.com/">Gelectriic Solutions</a>, 
         <a href="https://pypi.org">PyPI</a> and <a href="https://github.com/arthexis/gway">Github</a>.</p>
     '''
-    nav = gw.web.nav.render(homes=_homes) if is_setup('web.nav') else ""
+    nav = gw.web.nav.render(homes=_homes, links=_links) if is_setup('web.nav') else ""
 
     html = template("""<!DOCTYPE html>
         <html lang="en">
@@ -458,3 +528,32 @@ def add_home(home, path):
     if (title, route) not in _homes:
         _homes.append((title, route))
         gw.debug(f"Added home: ({title}, {route})")
+
+def add_links(route: str, links=None):
+    global _links
+    parsed = parse_links(links)
+    if parsed:
+        _links[route] = parsed
+        gw.debug(f"Added links for {route}: {parsed}")
+
+def parse_links(links) -> list[object]:
+    if not links:
+        return []
+    if isinstance(links, str):
+        tokens = links.replace(',', ' ').split()
+    else:
+        try:
+            tokens = list(links)
+        except Exception:
+            tokens = []
+    result: list[object] = []
+    for t in tokens:
+        token = str(t).strip()
+        if not token:
+            continue
+        if ':' in token:
+            proj, view = token.split(':', 1)
+            result.append((proj.strip(), view.strip()))
+        else:
+            result.append(token)
+    return result

@@ -624,3 +624,13 @@ class GetTeamPermissionsResponse(_message.Message):
         environment_permissions: _Optional[_Iterable[_Union[EnvironmentPermissions, _Mapping]]] = ...,
         team_members: _Optional[_Iterable[_Union[User, _Mapping]]] = ...,
     ) -> None: ...
+
+class ArchiveEnvironmentRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class ArchiveEnvironmentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

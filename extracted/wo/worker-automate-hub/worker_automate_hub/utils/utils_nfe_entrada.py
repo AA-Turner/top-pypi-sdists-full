@@ -124,9 +124,10 @@ class EMSys:
         except:
             console.print("Não possui nenhum warning após a importação da nota...\n")
 
-    async def percorrer_grid(self):
+    async def percorrer_grid(self, cnpj=None):
         self.apenas_isqueiros = True
         await self.click_itens_da_nota()
+    
 
         console.print("Acessando os itens indivualmente... \n")
         send_keys("{TAB 2}", pause=0.1)
@@ -179,7 +180,8 @@ class EMSys:
                 console.log(f"item name: {item_value}")
 
                 # Verifica se o item é 'isqueiro'
-                if "isqueiro" in item_value.lower() or "acendedor" in item_value.lower():
+                if ("isqueiro" in item_value.lower() or "acendedor" in item_value.lower()) and cnpj != "36359969000109":
+
                     try:
                         console.print(f"Trabalhando com os itens, alterando o código de tributação dos ISQUEIROS/ACENDEDORES para manual \n")
                         console.print("Item encontrado: ISQUEIRO/ACENDEDORES. Processando...\n")

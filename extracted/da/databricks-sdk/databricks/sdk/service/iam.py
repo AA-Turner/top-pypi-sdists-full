@@ -21,7 +21,6 @@ class AccessControlRequest:
     """name of the group"""
 
     permission_level: Optional[PermissionLevel] = None
-    """Permission level"""
 
     service_principal_name: Optional[str] = None
     """application ID of a service principal"""
@@ -1220,7 +1219,6 @@ class Permission:
     inherited_from_object: Optional[List[str]] = None
 
     permission_level: Optional[PermissionLevel] = None
-    """Permission level"""
 
     def as_dict(self) -> dict:
         """Serializes the Permission into a dictionary suitable for use as a JSON request body."""
@@ -1387,7 +1385,6 @@ class PermissionsDescription:
     description: Optional[str] = None
 
     permission_level: Optional[PermissionLevel] = None
-    """Permission level"""
 
     def as_dict(self) -> dict:
         """Serializes the PermissionsDescription into a dictionary suitable for use as a JSON request body."""
@@ -3264,6 +3261,7 @@ class CurrentUserAPI:
     def me(self) -> User:
         """Get details about the current method caller's identity.
 
+
         :returns: :class:`User`
         """
 
@@ -4147,6 +4145,7 @@ class UsersAPI:
     def get_permission_levels(self) -> GetPasswordPermissionLevelsResponse:
         """Gets the permission levels that a user can have on an object.
 
+
         :returns: :class:`GetPasswordPermissionLevelsResponse`
         """
 
@@ -4159,6 +4158,7 @@ class UsersAPI:
 
     def get_permissions(self) -> PasswordPermissions:
         """Gets the permissions of all passwords. Passwords can inherit permissions from their root object.
+
 
         :returns: :class:`PasswordPermissions`
         """

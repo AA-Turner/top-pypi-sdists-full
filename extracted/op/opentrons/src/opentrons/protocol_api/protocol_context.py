@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from typing import (
     Callable,
     Dict,
@@ -13,6 +14,11 @@ from typing import (
 )
 
 from opentrons_shared_data.labware.types import LabwareDefinition
+from opentrons_shared_data.liquid_classes.liquid_class_definition import (
+    TransferProperties as SharedTransferProperties,
+)
+from opentrons_shared_data.liquid_classes import DEFAULT_LC_VERSION, definition_exists
+from opentrons_shared_data.liquid_classes.types import TransferPropertiesDict
 from opentrons_shared_data.pipette.types import PipetteNameType
 
 from opentrons.types import Mount, Location, DeckLocation, DeckSlotName, StagingSlotName
@@ -48,6 +54,7 @@ from opentrons.protocols.api_support.util import (
 )
 from opentrons_shared_data.errors.exceptions import CommandPreconditionViolated
 from opentrons.protocol_engine.errors import LabwareMovementNotAllowedError
+from ._liquid_properties import build_transfer_properties
 
 from ._types import OffDeckType
 from .core.common import ModuleCore, LabwareCore, ProtocolCore
@@ -196,6 +203,7 @@ class ProtocolContext(CommandPublisher):
                 core=self._core.load_robot(),
                 protocol_core=self._core,
                 api_version=self._api_version,
+                broker=broker,
             )
         except APIVersionError:
             self._robot = None
@@ -491,7 +499,7 @@ class ProtocolContext(CommandPublisher):
         labware_core = self._core.load_labware(
             load_name=load_name,
             location=load_location,
-            label=label,
+            label=label if label is None else str(label),
             namespace=namespace,
             version=version,
         )
@@ -1189,9 +1197,16 @@ class ProtocolContext(CommandPublisher):
         self._core.home()
 
     @property
-    def location_cache(self) -> Optional[Location]:
-        """The cache used by the robot to determine where it last was."""
-        return self._core.get_last_location()
+    def location_cache(self) -> Optional[Union[Location, TrashBin, WasteChute]]:
+        """The cache used by the robot to determine where it last was.
+
+        .. versionchanged:: 2.24
+           Can return a ``TrashBin`` or ``WasteChute`` object.
+        """
+        last_loc = self._core.get_last_location()
+        if isinstance(last_loc, Location) or self._api_version >= APIVersion(2, 24):
+            return last_loc
+        return None
 
     @location_cache.setter
     def location_cache(self, loc: Optional[Location]) -> None:
@@ -1356,19 +1371,69 @@ class ProtocolContext(CommandPublisher):
             display_color=display_color,
         )
 
-    @requires_version(2, 23)
-    def define_liquid_class(
+    @requires_version(2, 24)
+    def get_liquid_class(
         self,
         name: str,
     ) -> LiquidClass:
         """
-        Define a liquid class for use in the protocol.
-        ..
-            This is intended for Opentrons internal use only and is not a guaranteed API.
+        Get an instance of an Opentrons-verified liquid class for use in a Flex protocol.
 
-        :meta private:
+        :param name: Name of an Opentrons-verified liquid class. Must be one of:
+
+            - ``"water"``: an Opentrons-verified liquid class based on deionized water.
+            - ``"glycerol_50"``: an Opentrons-verified liquid class for viscous liquid. Based on 50% glycerol.
+            - ``"ethanol_80"``: an Opentrons-verified liquid class for volatile liquid. Based on 80% ethanol.
+
+        :raises: ``LiquidClassDefinitionDoesNotExist``: if the specified liquid class does not exist.
         """
-        return self._core.define_liquid_class(name=name)
+        return self._core.get_liquid_class(name=name, version=DEFAULT_LC_VERSION)
+
+    @requires_version(2, 24)
+    def define_liquid_class(
+        self,
+        name: str,
+        properties: Dict[str, Dict[str, TransferPropertiesDict]],
+        base_liquid_class: Optional[LiquidClass] = None,
+        display_name: Optional[str] = None,
+    ) -> LiquidClass:
+        """Define a custom liquid class, either based on an existing, Opentrons-verified liquid class, or to create a completely new one.
+
+        :param name: The name to give to the new liquid class. Cannot use the name of an Opentrons-verified liquid class.
+        :param properties: A dict of transfer properties for the Flex pipette and tips to use for liquid class transfers. The nested dictionary must have top-level keys corresponding to pipette load names and second-level keys corresponding to compatible tip rack load names. Further nested key–value pairs should be in the format returned by :py:meth:`.LiquidClass.get_for`. See also the `liquid class JSON schema <https://github.com/Opentrons/opentrons/tree/edge/shared-data/liquid-class/schemas>`_.
+
+        :param base_liquid_class: An Opentrons-verified liquid class to base the newly defined liquid class on. The specified ``transfer_properties`` will override any existing properties for the Flex pipette and tips. All other properties will remain the same as those in the base class.
+
+        :param display_name: An optional name for the liquid class. Defaults to the title-case ``name`` if a display name isn't provided.
+
+        """
+        if definition_exists(name, DEFAULT_LC_VERSION):
+            raise ValueError(
+                f"Liquid class named {name} already exists. Please specify a different name."
+            )
+        new_liquid_class: LiquidClass
+        if base_liquid_class:
+            # If base liquid is provided, copy to new class
+            # and replace the entries mentioned in transfer props arg
+            new_liquid_class = deepcopy(base_liquid_class)
+        else:
+            new_liquid_class = LiquidClass.create_from(
+                name=name,
+                display_name=display_name or name.title(),
+                by_pipette_setting={},
+            )
+        for pipette, by_tiprack_props in properties.items():
+            for tiprack, transfer_props in by_tiprack_props.items():
+                new_liquid_class.update_for(
+                    pipette=pipette,
+                    tip_rack=tiprack,
+                    transfer_properties=build_transfer_properties(
+                        transfer_properties=SharedTransferProperties.model_validate(
+                            transfer_props
+                        )
+                    ),
+                )
+        return new_liquid_class
 
     @property
     @requires_version(2, 5)

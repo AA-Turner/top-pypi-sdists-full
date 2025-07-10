@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pulp-cli
-Version: 0.33.0
+Version: 0.34.0
 Summary: Command line interface to talk to pulpcore's REST API.
 Author-email: Pulp Team <pulp-list@redhat.com>
 License: GPLv2+
@@ -28,4 +28,5 @@ This is a command line interface for Pulp 3.
 
 This software is in beta and future releases may include backwards incompatible changes.
 
-Check out our [docs](https://docs.pulpproject.org/pulp_cli/) and the [quickstart guide](https://docs.pulpproject.org/pulp_cli/installation/#tldr-get-started-real-fast) to get started.
+Check out our [docs](https://docs.pulpproject.org/pulp_cli/) and the
+[quickstart guide](https://pulpproject.org/pulp-cli/docs/user/guides/installation/#tldr-get-started-real-fast) to get started.

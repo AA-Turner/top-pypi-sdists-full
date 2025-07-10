@@ -20,11 +20,7 @@ def make_server_app() -> Starlette:
         async with websocket_server(websocket.scope, websocket.receive, websocket.send) as streams:
             await server.run(streams[0], streams[1], server.create_initialization_options())
 
-    app = Starlette(
-        routes=[
-            WebSocketRoute("/ws", endpoint=handle_ws),
-        ]
-    )
+    app = Starlette(routes=[WebSocketRoute("/ws", endpoint=handle_ws)])
 
     return app
 
@@ -32,7 +28,7 @@ def make_server_app() -> Starlette:
 def run_server(server_port: int) -> None:
     app = make_server_app()
     server = uvicorn.Server(
-        config=uvicorn.Config(app=app, host="127.0.0.1", port=server_port, log_level="error")
+        config=uvicorn.Config(app=app, host="127.0.0.1", port=server_port, log_level="error"),
     )
     server.run()
 
@@ -45,7 +41,7 @@ def run_streamable_http_server(server: FastMCP, server_port: int) -> None:
     """Run a FastMCP server in a separate process exposing a streamable HTTP endpoint."""
     app = server.streamable_http_app()
     uvicorn_server = uvicorn.Server(
-        config=uvicorn.Config(app=app, host="127.0.0.1", port=server_port, log_level="error")
+        config=uvicorn.Config(app=app, host="127.0.0.1", port=server_port, log_level="error"),
     )
     uvicorn_server.run()
 

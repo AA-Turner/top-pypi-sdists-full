@@ -437,7 +437,12 @@ class DataSampleLoaderLib:
             except Exception as e:
                 from pyspark.sql.functions import struct, col, to_json
 
-                return result.select(to_json(struct(col("*")))).first()
+                row = result.select(to_json(struct(col("*")))).first()
+                if row is not None:
+                    # Extract the string from the Row (first value)
+                    return row[0]
+                else:
+                    return None
         except Exception as e:
             print(f"Error creating payload: {str(e)}")  # Log error before raising
             raise ValueError(f"Error creating payload: {str(e)}")

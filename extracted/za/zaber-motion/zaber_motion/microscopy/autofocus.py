@@ -175,6 +175,7 @@ class Autofocus:
         Moves the focus axis continuously maintaining focus.
         Starts the autofocus control loop.
         Note that the control loop may stop if the autofocus comes out of range or a movement error occurs.
+        Use WaitUntilIdle of the focus axis to wait for the loop to stop and handle potential errors.
         """
         request = dto.AutofocusFocusRequest(
             provider_id=self.provider_id,
@@ -192,6 +193,7 @@ class Autofocus:
         Moves the focus axis continuously maintaining focus.
         Starts the autofocus control loop.
         Note that the control loop may stop if the autofocus comes out of range or a movement error occurs.
+        Use WaitUntilIdle of the focus axis to wait for the loop to stop and handle potential errors.
         """
         request = dto.AutofocusFocusRequest(
             provider_id=self.provider_id,
@@ -233,6 +235,48 @@ class Autofocus:
             turret_address=self.objective_turret.device_address if self.objective_turret else 0,
         )
         await call_async("autofocus/stop_focus_loop", request)
+
+    def is_busy(
+            self
+    ) -> bool:
+        """
+        Returns bool indicating whether the focus axis is busy.
+        Can be used to determine if the focus loop is running.
+
+        Returns:
+            True if the axis is currently executing a motion command.
+        """
+        request = dto.AxisEmptyRequest(
+            interface_id=self.focus_axis.device.connection.interface_id,
+            device=self.focus_axis.device.device_address,
+            axis=self.focus_axis.axis_number,
+        )
+        response = call(
+            "device/is_busy",
+            request,
+            dto.BoolResponse.from_binary)
+        return response.value
+
+    async def is_busy_async(
+            self
+    ) -> bool:
+        """
+        Returns bool indicating whether the focus axis is busy.
+        Can be used to determine if the focus loop is running.
+
+        Returns:
+            True if the axis is currently executing a motion command.
+        """
+        request = dto.AxisEmptyRequest(
+            interface_id=self.focus_axis.device.connection.interface_id,
+            device=self.focus_axis.device.device_address,
+            axis=self.focus_axis.axis_number,
+        )
+        response = await call_async(
+            "device/is_busy",
+            request,
+            dto.BoolResponse.from_binary)
+        return response.value
 
     def get_limit_min(
             self,

@@ -13,7 +13,6 @@ import QuantConnect.Securities
 import QuantConnect.Statistics
 import System
 import System.Collections.Generic
-import System.IO
 
 
 class PacketType(Enum):
@@ -288,6 +287,45 @@ class LeakyBucketControlParameters(System.Object):
         ...
 
 
+class StoragePermissions(System.Object):
+    """Holds the permissions for the object store"""
+
+    @property
+    def read(self) -> bool:
+        """Whether the user has read permissions on the object store"""
+        ...
+
+    @read.setter
+    def read(self, value: bool) -> None:
+        ...
+
+    @property
+    def write(self) -> bool:
+        """Whether the user has write permissions on the object store"""
+        ...
+
+    @write.setter
+    def write(self, value: bool) -> None:
+        ...
+
+    @property
+    def delete(self) -> bool:
+        """Whether the user has delete permissions on the object store"""
+        ...
+
+    @delete.setter
+    def delete(self, value: bool) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the StoragePermissions struct with default permissions."""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string representation of the storage permissions."""
+        ...
+
+
 class Controls(System.Object):
     """Specifies values used to control algorithm limits"""
 
@@ -457,12 +495,12 @@ class Controls(System.Object):
         ...
 
     @property
-    def storage_permissions(self) -> System.IO.FileAccess:
+    def storage_access(self) -> QuantConnect.Packets.StoragePermissions:
         """Holds the permissions for the object store"""
         ...
 
-    @storage_permissions.setter
-    def storage_permissions(self, value: System.IO.FileAccess) -> None:
+    @storage_access.setter
+    def storage_access(self, value: QuantConnect.Packets.StoragePermissions) -> None:
         ...
 
     @property

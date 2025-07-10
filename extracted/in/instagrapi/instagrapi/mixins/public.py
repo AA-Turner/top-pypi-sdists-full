@@ -80,6 +80,7 @@ class PublicRequestMixin:
         data=None,
         params=None,
         headers=None,
+        update_headers=None,
         return_json=False,
         retries_count=3,
         retries_timeout=2,
@@ -96,7 +97,7 @@ class PublicRequestMixin:
             try:
                 if self.delay_range:
                     random_delay(delay_range=self.delay_range)
-                return self._send_public_request(url, **kwargs)
+                return self._send_public_request(url, update_headers=update_headers, **kwargs)
             except (
                 ClientLoginRequired,
                 ClientNotFoundError,
@@ -123,18 +124,14 @@ class PublicRequestMixin:
                 continue
 
     def _send_public_request(
-        self,
-        url,
-        data=None,
-        params=None,
-        headers=None,
-        return_json=False,
-        stream=None,
-        timeout=None,
+        self, url, data=None, params=None, headers=None, return_json=False, stream=None, timeout=None, update_headers=None
     ):
         self.public_requests_count += 1
         if headers:
-            self.public.headers.update(headers)
+            if update_headers in [None, True] :
+                self.public.headers.update(headers)
+            elif update_headers == False :
+                pass
         if self.last_response_ts and (time.time() - self.last_response_ts) < 1.0:
             time.sleep(1.0)
         if self.request_timeout:
@@ -232,6 +229,15 @@ class PublicRequestMixin:
             url, data=data, params=params, headers=headers, return_json=True
         )
         return response.get("graphql") or response
+
+    def public_a1_request_user_info_by_username(self, username, data=None, params=None):
+        params = params or {}
+        url = self.PUBLIC_API_URL + f"api/v1/users/web_profile_info/?username={username}"
+        headers = {'x-ig-app-id': '936619743392459'}
+        response = self.public_request(
+            url, data=data, params=params, headers=headers, return_json=True
+        )
+        return response.get("user") or response
 
     def public_graphql_request(
         self,

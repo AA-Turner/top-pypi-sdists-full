@@ -1,13 +1,20 @@
 # file: projects/web/site.py
 
 import os
+import html
+import shlex
 from docutils.core import publish_parts
+from pathlib import Path
+import re
 from gway import gw, __
+from gway.console import process, chunk
 import markdown as mdlib
 
+_DEFAULT_TOME = __('[README]', 'README')
+
 def view_reader(
-    *,
-    title=__('[README]', 'README'),
+    *parts,
+    tome=_DEFAULT_TOME,
     ext=None,
     origin="root",
     **kwargs,
@@ -17,8 +24,11 @@ def view_reader(
     If origin='root', only files in the resource root (no subfolders).
     Never serves files starting with dot or underscore.
     """
-    gw.verbose(f"[reader] Called with title={title!r}, ext={ext!r}, origin={origin!r}")
-    fname = _sanitize_filename(title)
+    if parts and (tome == _DEFAULT_TOME or tome == "README"):
+        tome = "/".join(str(p).strip("/") for p in parts)
+
+    gw.verbose(f"[reader] Called with tome={tome!r}, ext={ext!r}, origin={origin!r}")
+    fname = _sanitize_filename(tome)
     gw.verbose(f"[reader] Sanitized filename: {fname}")
 
     ext = (str(ext).strip().lower() if ext else None)
@@ -32,6 +42,8 @@ def view_reader(
         return "<b>Access denied.</b>"
 
     def file_variants(base):
+        if base.endswith('/'):
+            base = base.rstrip('/') + '/README'
         if ext in {'rst', 'md'}:
             variants = [f"{base}.{ext}"]
         else:
@@ -43,7 +55,8 @@ def view_reader(
         gw.verbose(f"[reader] Candidate variants for base {base}: {variants}")
         return variants
 
-    if origin == "root":
+    use_root = origin == "root" and "/" not in tome
+    if use_root:
         resource_dir = os.path.dirname(gw.resource('README.rst'))  # This IS the resource root
         gw.verbose(f"[reader] Resource root directory: {resource_dir}")
         for candidate in file_variants(fname):
@@ -84,8 +97,46 @@ def view_reader(
                 gw.verbose(f"[reader] Exception reading or rendering {resource_path}: {e}")
                 continue
         exts = ' or '.join(['.rst', '.md']) if not ext else f".{ext}"
-        gw.verbose(f"[reader] File not found or not allowed: {fname}{exts}")
-        return f"<b>File not found or not allowed: {fname}{exts}</b>"
+        gw.verbose(f"[reader] File not found or not allowed: {fname}{exts}; falling back to static")
+
+    if origin == "root":
+        origin = "static"
+
+    if origin == "static":
+        base_dir = Path(gw.resource('data', 'static'))
+        safe_path = _sanitize_relpath(tome)
+        gw.verbose(f"[reader] Static safe path: {safe_path!r}")
+        if not safe_path:
+            return "<b>Access denied.</b>"
+        candidate_dir = Path(base_dir, safe_path)
+        if candidate_dir.is_dir():
+            safe_path = f"{safe_path.rstrip('/')}/README"
+        for candidate in file_variants(safe_path):
+            gw.verbose(f"[reader] Checking static candidate: {candidate}")
+            parts = candidate.split('/')
+            resource_path = gw.resource('data', 'static', *parts)
+            resolved = Path(resource_path).resolve()
+            if not resolved.is_file() or base_dir not in resolved.parents:
+                gw.verbose(f"[reader] Invalid static path: {resolved}")
+                continue
+            if any(_is_hidden_or_private(p) for p in parts):
+                gw.verbose(f"[reader] Hidden/private segment in {candidate}")
+                continue
+            try:
+                with open(resolved, encoding='utf-8') as f:
+                    content = f.read()
+                if resolved.suffix == '.rst':
+                    html = publish_parts(source=content, writer_name='html')['html_body']
+                elif resolved.suffix == '.md':
+                    html = mdlib.markdown(content)
+                else:
+                    html = '<b>Unsupported file type.</b>'
+                return html
+            except Exception as e:
+                gw.verbose(f"[reader] Exception reading {resolved}: {e}")
+                continue
+        exts = ' or '.join(['.rst', '.md']) if not ext else f".{ext}"
+        return f"<b>File not found or not allowed: {safe_path}{exts}</b>"
 
     # Fallback for other origins (not fully implemented here)
     gw.verbose(f"[view_reader] Non-root origin {origin} not implemented in this snippet.")
@@ -99,6 +150,22 @@ def _sanitize_filename(fname):
     fname = fname.replace('/', '').replace('\\', '').replace('..', '')
     fname = ''.join(c for c in fname if c.isalnum() or c in '._-')
     return fname
+
+def _sanitize_relpath(path):
+    """Sanitize a relative path under data/static."""
+    parts = []
+    segments = str(path).split('/')
+    for i, segment in enumerate(segments):
+        segment = segment.strip()
+        if not segment:
+            if i == len(segments) - 1:
+                continue  # allow trailing slash
+            return None
+        if segment.startswith('.') or segment.startswith('_') or '..' in segment:
+            return None
+        clean = ''.join(c for c in segment if c.isalnum() or c in '._-')
+        parts.append(clean)
+    return '/'.join(parts)
 
 def _is_hidden_or_private(fname):
     """
@@ -116,15 +183,51 @@ def _is_hidden_or_private(fname):
         return True
     return False
 
+def _looks_like_html(text: str) -> bool:
+    """Heuristic check for HTML content."""
+    if not isinstance(text, str):
+        return False
+    stripped = text.strip()
+    if not stripped:
+        return False
+    return bool(re.search(r'<[a-zA-Z][^>]*>', stripped))
+
 def view_help(topic="", *args, **kwargs):
     """
     Render dynamic help based on GWAY introspection and search-style links.
     If there is an exact match in the search, show it at the top (highlighted).
     """
 
-    # gw.gelp at all times, compliment this result with other information. 
+    # gw.gelp at all times, compliment this result with other information.
 
     topic_in = topic or ""
+
+    # --- Local console commands via search box ---
+    if topic_in.strip().startswith(">"):
+        if gw.web.server.is_local():
+            cmd_str = topic_in.strip()[1:].strip()
+            if not cmd_str:
+                return "<i>No command provided.</i>"
+            import shlex, html
+            from gway.console import chunk, process
+            try:
+                tokens = shlex.split(cmd_str)
+                commands = chunk(tokens)
+                results, _ = process(commands)
+                html_parts = []
+                for r in results:
+                    if r is None:
+                        continue
+                    if isinstance(r, str) and _looks_like_html(r):
+                        html_parts.append(r)
+                    else:
+                        html_parts.append(gw.cast.to_html(r))
+                return "<div class='cli-result'>" + "<hr>".join(html_parts) + "</div>"
+            except Exception as ex:
+                return f"<pre>{html.escape(str(ex))}</pre>"
+        else:
+            return "<b>Console commands disabled (not local).</b>"
+          
     topic = topic.replace(" ", "/").replace(".", "/").replace("-", "_") if topic else ""
     parts = [p for p in topic.strip("/").split("/") if p]
 
@@ -324,4 +427,79 @@ def view_qr_code(*args, value=None, **kwargs):
         <img src="{qr_url}" alt="QR Code" class="qr" />
         <p><a href="{back_link}">Generate another</a></p>
     """
+
+
+def _create_github_issue(title: str, body: str) -> str:
+    """Create an issue in the GWAY repository and return the issue URL."""
+    import requests
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GitHub token not configured")
+
+    url = "https://api.github.com/repos/arthexis/gway/issues"
+    headers = {
+        "Authorization": f"token {token}",
+        "User-Agent": "gway-feedback",
+        "Accept": "application/vnd.github+json",
+    }
+    resp = requests.post(url, json={"title": title, "body": body}, headers=headers, timeout=10)
+    if resp.status_code != 201:
+        raise RuntimeError(f"GitHub API error: {resp.status_code} {resp.text}")
+    data = resp.json()
+    return data.get("html_url", "")
+
+
+def view_feedback(*, name=None, email=None, topic=None, message=None, create_issue=None):
+    """Display feedback form and submit feedback as a GitHub issue."""
+    import html
+    from bottle import request
+
+    if request.method == "POST":
+        name = (name or "").strip()
+        email = (email or "").strip()
+        topic = (topic or "").strip()
+        message = (message or "").strip()
+        create_issue = bool(create_issue)
+
+        missing = [field for field, val in [
+            ("Name", name),
+            ("Email", email),
+            ("Topic", topic),
+            ("Message", message),
+        ] if not val]
+        if missing:
+            miss = ", ".join(missing)
+            back = gw.web.app.build_url("feedback")
+            return f"<h1>Missing required fields: {html.escape(miss)}</h1><p><a href='{back}'>Back</a></p>"
+
+        issue_url = ""
+        if create_issue:
+            body = f"**From:** {name}\n\n{message}"
+            try:
+                issue_url = _create_github_issue(topic, body)
+            except Exception as e:
+                err = html.escape(str(e))
+                back = gw.web.app.build_url("feedback")
+                return f"<h1>Error submitting feedback</h1><pre>{err}</pre><p><a href='{back}'>Back</a></p>"
+        else:
+            gw.mail.send(f"[Feedback] {topic}", body=f"From: {name} <{email}>\n\n{message}")
+
+        msg = "<h1>Thank you for your feedback!</h1>"
+        if issue_url:
+            msg += f"<p>It was recorded as <a href='{issue_url}'>GitHub issue</a>.</p>"
+        return msg
+
+    return """
+        <h1>Send Feedback</h1>
+        <p>Your name and message may be publicly displayed and processed. Your email will be kept private.</p>
+        <form method="post">
+            <input type="text" name="name" placeholder="Your Name" required class="main" />
+            <input type="email" name="email" placeholder="Email" required class="main" />
+            <input type="text" name="topic" placeholder="Topic" required class="main" />
+            <textarea name="message" placeholder="Message" required rows="6" class="main"></textarea>
+            <label><input type="checkbox" name="create_issue" value="1" /> Optional: Create an Issue Report for GWAY or this website.</label>
+            <button type="submit" class="submit">Submit</button>
+        </form>
+    """
+
 

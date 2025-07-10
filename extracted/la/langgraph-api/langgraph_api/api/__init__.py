@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import importlib
 import importlib.util
 import os
@@ -27,7 +28,11 @@ from langgraph_runtime.database import connect, healthcheck
 logger = structlog.stdlib.get_logger(__name__)
 
 
-async def ok(request: Request):
+async def ok(request: Request, *, disabled: bool = False):
+    if disabled:
+        # We still expose an /ok endpoint even if disable_meta is set so that
+        # the operator knows the server started up.
+        return JSONResponse({"ok": True})
     check_db = int(request.query_params.get("check_db", "0"))  # must be "0" or "1"
     if check_db:
         await healthcheck()
@@ -126,6 +131,13 @@ if HTTP_CONFIG:
         user_router = load_custom_app(router_import)
     if not HTTP_CONFIG.get("disable_meta"):
         routes.extend(meta_routes)
+    else:
+        # Otherwise the deployment will never be considered healthy
+        routes.append(
+            Route(
+                "/ok", functools.partial(ok, disabled=True), methods=["GET"], name="ok"
+            )
+        )
     if protected_routes:
         routes.append(
             Mount(

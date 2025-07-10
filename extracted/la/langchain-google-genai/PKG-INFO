@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-google-genai
-Version: 2.1.6
+Version: 2.1.7
 Summary: An integration package connecting Google's genai package and LangChain
 Home-page: https://github.com/langchain-ai/langchain-google
 License: MIT
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: filetype (>=1.2.0,<2.0.0)
 Requires-Dist: google-ai-generativelanguage (>=0.6.18,<0.7.0)
-Requires-Dist: langchain-core (>=0.3.66,<0.4.0)
+Requires-Dist: langchain-core (>=0.3.68,<0.4.0)
 Requires-Dist: pydantic (>=2,<3)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-google
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-google/tree/main/libs/genai

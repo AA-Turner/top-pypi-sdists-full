@@ -346,7 +346,7 @@ def run_server(
 - 📚 API Docs: \033[36m{local_url}/docs\033[0m
 
 This in-memory server is designed for development and testing.
-For production use, please use LangGraph Cloud.
+For production use, please use LangGraph Platform.
 
 """
         logger.info(welcome)

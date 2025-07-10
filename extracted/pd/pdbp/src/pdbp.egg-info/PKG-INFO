@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdbp
-Version: 1.7.0
+Version: 1.7.1
 Summary: pdbp (Pdb+): A drop-in replacement for pdb and pdbpp.
 Home-page: https://github.com/mdmintz/pdbp
 Author: Michael Mintz
@@ -33,6 +33,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering
@@ -45,7 +46,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pygments>=2.19.1
+Requires-Dist: pygments>=2.19.2
 Requires-Dist: tabcompleter>=1.4.0
 Requires-Dist: colorama>=0.4.6; platform_system == "Windows"
 Dynamic: author

@@ -201,7 +201,7 @@ def list(  # noqa: A001
     help=(
         "Get the details of a compute config.\n\n"
         "The name can contain an optional version, e.g., 'name:version'. "
-        "If no version is provided, the latest one will be archived.\n\n"
+        "If no version is provided, the latest one will be returned.\n\n"
     ),
     cls=AnyscaleCommand,
     example=command_examples.COMPUTE_CONFIG_GET_EXAMPLE,

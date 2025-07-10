@@ -13,7 +13,7 @@ from torch.nn.functional import pad
 from torchvision.transforms import functional as F
 from torchvision.transforms import transforms as T
 
-from ..functional.pytorch import random_shadow
+from ..functional import random_shadow
 
 __all__ = [
     "Resize",
@@ -27,7 +27,21 @@ __all__ = [
 
 
 class Resize(T.Resize):
-    """Resize the input image to the given size"""
+    """Resize the input image to the given size
+
+    >>> import torch
+    >>> from doctr.transforms import Resize
+    >>> transfo = Resize((64, 64), preserve_aspect_ratio=True, symmetric_pad=True)
+    >>> out = transfo(torch.rand((3, 64, 64)))
+
+    Args:
+        size: output size in pixels, either a tuple (height, width) or a single integer for square images
+        interpolation: interpolation mode to use for resizing, default is bilinear
+        preserve_aspect_ratio: whether to preserve the aspect ratio of the image,
+            if True, the image will be resized to fit within the target size while maintaining its aspect ratio
+        symmetric_pad: whether to symmetrically pad the image to the target size,
+            if True, the image will be padded equally on both sides to fit the target size
+    """
 
     def __init__(
         self,
@@ -36,25 +50,19 @@ class Resize(T.Resize):
         preserve_aspect_ratio: bool = False,
         symmetric_pad: bool = False,
     ) -> None:
-        super().__init__(size, interpolation, antialias=True)
+        super().__init__(size if isinstance(size, (list, tuple)) else (size, size), interpolation, antialias=True)
         self.preserve_aspect_ratio = preserve_aspect_ratio
         self.symmetric_pad = symmetric_pad
-
-        if not isinstance(self.size, (int, tuple, list)):
-            raise AssertionError("size should be either a tuple, a list or an int")
 
     def forward(
         self,
         img: torch.Tensor,
         target: np.ndarray | None = None,
     ) -> torch.Tensor | tuple[torch.Tensor, np.ndarray]:
-        if isinstance(self.size, int):
-            target_ratio = img.shape[-2] / img.shape[-1]
-        else:
-            target_ratio = self.size[0] / self.size[1]
+        target_ratio = self.size[0] / self.size[1]
         actual_ratio = img.shape[-2] / img.shape[-1]
 
-        if not self.preserve_aspect_ratio or (target_ratio == actual_ratio and (isinstance(self.size, (tuple, list)))):
+        if not self.preserve_aspect_ratio or (target_ratio == actual_ratio):
             # If we don't preserve the aspect ratio or the wanted aspect ratio is the same than the original one
             # We can use with the regular resize
             if target is not None:
@@ -62,16 +70,10 @@ class Resize(T.Resize):
             return super().forward(img)
         else:
             # Resize
-            if isinstance(self.size, (tuple, list)):
-                if actual_ratio > target_ratio:
-                    tmp_size = (self.size[0], max(int(self.size[0] / actual_ratio), 1))
-                else:
-                    tmp_size = (max(int(self.size[1] * actual_ratio), 1), self.size[1])
-            elif isinstance(self.size, int):  # self.size is the longest side, infer the other
-                if img.shape[-2] <= img.shape[-1]:
-                    tmp_size = (max(int(self.size * actual_ratio), 1), self.size)
-                else:
-                    tmp_size = (self.size, max(int(self.size / actual_ratio), 1))
+            if actual_ratio > target_ratio:
+                tmp_size = (self.size[0], max(int(self.size[0] / actual_ratio), 1))
+            else:
+                tmp_size = (max(int(self.size[1] * actual_ratio), 1), self.size[1])
 
             # Scale image
             img = F.resize(img, tmp_size, self.interpolation, antialias=True)
@@ -93,14 +95,14 @@ class Resize(T.Resize):
                 if self.preserve_aspect_ratio:
                     # Get absolute coords
                     if target.shape[1:] == (4,):
-                        if isinstance(self.size, (tuple, list)) and self.symmetric_pad:
+                        if self.symmetric_pad:
                             target[:, [0, 2]] = offset[0] + target[:, [0, 2]] * raw_shape[-1] / img.shape[-1]
                             target[:, [1, 3]] = offset[1] + target[:, [1, 3]] * raw_shape[-2] / img.shape[-2]
                         else:
                             target[:, [0, 2]] *= raw_shape[-1] / img.shape[-1]
                             target[:, [1, 3]] *= raw_shape[-2] / img.shape[-2]
                     elif target.shape[1:] == (4, 2):
-                        if isinstance(self.size, (tuple, list)) and self.symmetric_pad:
+                        if self.symmetric_pad:
                             target[..., 0] = offset[0] + target[..., 0] * raw_shape[-1] / img.shape[-1]
                             target[..., 1] = offset[1] + target[..., 1] * raw_shape[-2] / img.shape[-2]
                         else:
@@ -143,9 +145,9 @@ class GaussianNoise(torch.nn.Module):
         # Reshape the distribution
         noise = self.mean + 2 * self.std * torch.rand(x.shape, device=x.device) - self.std
         if x.dtype == torch.uint8:
-            return (x + 255 * noise).round().clamp(0, 255).to(dtype=torch.uint8)  # type: ignore[attr-defined]
+            return (x + 255 * noise).round().clamp(0, 255).to(dtype=torch.uint8)
         else:
-            return (x + noise.to(dtype=x.dtype)).clamp(0, 1)  # type: ignore[attr-defined]
+            return (x + noise.to(dtype=x.dtype)).clamp(0, 1)
 
     def extra_repr(self) -> str:
         return f"mean={self.mean}, std={self.std}"
@@ -233,7 +235,7 @@ class RandomShadow(torch.nn.Module):
         try:
             if x.dtype == torch.uint8:
                 return (
-                    (  # type: ignore[attr-defined]
+                    (
                         255
                         * random_shadow(
                             x.to(dtype=torch.float32) / 255,

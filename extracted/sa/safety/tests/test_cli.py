@@ -13,6 +13,8 @@ from unittest.mock import Mock, patch
 import click
 import psutil
 import requests
+from importlib.metadata import version
+
 from click.testing import CliRunner
 from packaging.version import Version
 from safety_schemas.models.base import AuthenticationType
@@ -23,6 +25,7 @@ from safety.console import main_console as console
 from safety.meta import get_version
 from safety.models import CVE, SafetyCLI, SafetyRequirement, Severity, Vulnerability
 from safety.util import Package, SafetyContext
+from safety_schemas.models.events.types import ToolType
 
 
 def get_vulnerability(vuln_kwargs=None, cve_kwargs=None, pkg_kwargs=None):
@@ -86,7 +89,11 @@ def get_vulnerability(vuln_kwargs=None, cve_kwargs=None, pkg_kwargs=None):
 class TestSafetyCLI(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-        self.runner = CliRunner(mix_stderr=False)
+        # mix_stderr was removed in Click 8.2.0
+        if Version(version("click")) >= Version("8.2.0"):
+            self.runner = CliRunner()
+        else:
+            self.runner = CliRunner(mix_stderr=False)
         self.output_options = ["screen", "text", "json", "bare"]
         self.dirname = os.path.dirname(__file__)
         # Make sure the console is not quiet
@@ -108,9 +115,16 @@ class TestSafetyCLI(unittest.TestCase):
         result = runner.invoke(self.cli)
         expected = "Usage: cli [OPTIONS] COMMAND [ARGS]..."
 
-        for option in [[], ["--help"]]:
+        not_args_exit_code = 0
+        if Version(version("click")) >= Version("8.2.0"):
+            not_args_exit_code = 2
+
+        for option, expected_exit_code in [
+            ([], not_args_exit_code),
+            (["--help"], 0),
+        ]:
             result = runner.invoke(self.cli, option)
-            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.exit_code, expected_exit_code)
             self.assertIn(expected, click.unstyle(result.output))
 
     @patch("safety.safety.check")
@@ -773,7 +787,21 @@ class TestSafetyCLI(unittest.TestCase):
         "safety.auth.cli_utils.SafetyCLI",
         return_value=SafetyCLI(platform_enabled=True, firewall_enabled=True),
     )
-    def test_init_project(self, *args):
+    @patch("safety.init.main.configure_system")
+    @patch("safety.init.main.configure_alias")
+    def test_init_project(self, configure_alias_mock, configure_system_mock, *args):
+        configure_alias_mock.return_value = [
+            (ToolType.PIP, Path("~/.safety_profile")),
+            (ToolType.POETRY, Path("~/.safety_profile")),
+            (ToolType.UV, Path("~/.safety_profile")),
+        ]
+
+        configure_system_mock.return_value = [
+            (ToolType.PIP, Path("~/.pip.conf")),
+            (ToolType.POETRY, None),
+            (ToolType.UV, Path("~/.uv/config.toml")),
+        ]
+
         # Workarounds
         from safety.console import main_console as test_console
 
@@ -806,7 +834,8 @@ class TestSafetyCLI(unittest.TestCase):
                     )
                     for section in outputs:
                         assert section in cleaned_stdout, (
-                            f"Required section '{section}' not found in output"
+                            f"Required section '{section}' not found in output\n"
+                            f"Output: {cleaned_stdout}\n"
                         )
 
     @patch("safety.auth.cli.get_auth_info", return_value={"email": "test@test.com"})

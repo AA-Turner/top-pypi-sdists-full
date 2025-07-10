@@ -2106,16 +2106,29 @@ class ExecDashboardTables(sgqlc.types.Enum):
 class FacetType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `BI_TYPES`None
     * `DATASETS`None
     * `DATA_PRODUCTS`None
+    * `ETL_TYPES`None
     * `RESOURCE_TYPES`None
     * `TAGS`None
     * `TAG_NAMES`None
     * `TAG_VALUES`None
+    * `WAREHOUSE_TYPES`None
     """
 
     __schema__ = schema
-    __choices__ = ("DATASETS", "DATA_PRODUCTS", "RESOURCE_TYPES", "TAGS", "TAG_NAMES", "TAG_VALUES")
+    __choices__ = (
+        "BI_TYPES",
+        "DATASETS",
+        "DATA_PRODUCTS",
+        "ETL_TYPES",
+        "RESOURCE_TYPES",
+        "TAGS",
+        "TAG_NAMES",
+        "TAG_VALUES",
+        "WAREHOUSE_TYPES",
+    )
 
 
 class FieldHealthMetrics(sgqlc.types.Enum):
@@ -20130,7 +20143,7 @@ class Freshness(sgqlc.types.Type):
     """Explanation if expected and/or breach is missing"""
 
     last_update = sgqlc.types.Field(DateTime, graphql_name="lastUpdate")
-    """Last time the table was updated"""
+    """Deprecated, use getMetricsV4: Last time the table was updated"""
 
     detector_threshold = sgqlc.types.Field(Float, graphql_name="detectorThreshold")
     """Deprecated: The threshold calculated by the detector model"""
@@ -45189,7 +45202,9 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Arguments:
+    """(experimental) DEPRECATED. Retrieve aggregated metrics
+
+    Arguments:
 
     * `mcon` (`String!`): MCON for the table
     * `start_time` (`DateTime!`): Filter for queries on or after this
@@ -48954,7 +48969,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Retrieve custom metrics based on a custom rule
+    """(experimental) DEPRECATED. Retrieve custom metrics based on a
+    custom rule
 
     Arguments:
 
@@ -52295,6 +52311,24 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="resourceTypes", default=None
                     ),
                 ),
+                (
+                    "warehouse_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="warehouseTypes", default=None
+                    ),
+                ),
+                (
+                    "etl_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="etlTypes", default=None
+                    ),
+                ),
+                (
+                    "bi_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="biTypes", default=None
+                    ),
+                ),
             )
         ),
     )
@@ -52333,6 +52367,11 @@ class Query(sgqlc.types.Type):
     * `dataset_filter` (`DatasetFilterInput`): Dataset filter
     * `data_product_ids` (`[UUID!]`): Filter by data product IDs
     * `resource_types` (`[String]`): Filter by resource types
+      (DEPRECATED, use warehouse_types, etl_types, or bi_types
+      instead)
+    * `warehouse_types` (`[String]`): Filter by warehouse types
+    * `etl_types` (`[String]`): Filter by ETL types
+    * `bi_types` (`[String]`): Filter by BI types
     """
 
     search_tables_for_dynamic_schedule = sgqlc.types.Field(
@@ -52434,8 +52473,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Retrieves field-level metric values in a given time range AND in a
-    given measurement time range
+    """(experimental) DEPRECATED. Retrieves field-level metric values in
+    a given time range AND in a given measurement time range
 
     Arguments:
 
@@ -52601,8 +52640,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Retrieves metric values in a given time range AND in a given
-    measurement time range
+    """(experimental) DEPRECATED. Retrieves metric values in a given time
+    range AND in a given measurement time range
 
     Arguments:
 
@@ -52690,8 +52729,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Retrieves field-level metric values in a given time range AND in a
-    given measurement time range
+    """(experimental) DEPRECATED. Retrieves field-level metric values in
+    a given time range AND in a given measurement time range
 
     Arguments:
 
@@ -52725,8 +52764,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Get the top distribution labels. For use in
-    getFirstSeenDimensionsByLabels
+    """(experimental) DEPRECATED. Get the top distribution labels. For
+    use in getFirstSeenDimensionsByLabels
 
     Arguments:
 
@@ -52910,8 +52949,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Get the first measurements of the provided labels across a time
-    range
+    """(experimental) DEPRECATED. Get the first measurements of the
+    provided labels across a time range
 
     Arguments:
 
@@ -54536,7 +54575,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """List of data points for a custom volume rule
+    """(experimental) DEPRECATED. List of data points for a custom volume
+    rule
 
     Arguments:
 
@@ -54571,7 +54611,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """List of data points for a custom freshness rule
+    """(experimental) DEPRECATED. List of data points for a custom
+    freshness rule
 
     Arguments:
 
@@ -73383,7 +73424,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
             )
         ),
     )
-    """List of total row count values for the table
+    """(experimental) DEPRECATED. List of total row count values for the
+    table
 
     Arguments:
 
@@ -73406,7 +73448,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
             )
         ),
     )
-    """List of total byte count values for the table
+    """(experimental) DEPRECATED. List of total byte count values for the
+    table
 
     Arguments:
 
@@ -73431,8 +73474,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
             )
         ),
     )
-    """List of latest write throughput in bytes, at most 10000 data
-    points.
+    """(experimental) DEPRECATED. List of latest write throughput in
+    bytes, at most 10000 data points.
 
     Arguments:
 
@@ -73460,7 +73503,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
             )
         ),
     )
-    """List of latest objects deleted events, at most 10000 data points.
+    """(experimental) DEPRECATED. List of latest objects deleted events,
+    at most 10000 data points.
 
     Arguments:
 
@@ -73531,7 +73575,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
             )
         ),
     )
-    """List of metric name and whether they exist or not on a table
+    """(experimental) DEPRECATED. List of metric name and whether they
+    exist or not on a table
 
     Arguments:
 
@@ -73544,12 +73589,16 @@ class WarehouseTable(sgqlc.types.Type, Node):
     freshness_collection_status = sgqlc.types.Field(
         TableCollectionStatus, graphql_name="freshnessCollectionStatus"
     )
-    """Return the freshness collection status for the asset"""
+    """(experimental) DEPRECATED. Return the freshness collection status
+    for the asset
+    """
 
     volume_collection_status = sgqlc.types.Field(
         TableCollectionStatus, graphql_name="volumeCollectionStatus"
     )
-    """Return the volume collection status for the asset"""
+    """(experimental) DEPRECATED. Return the volume collection status for
+    the asset
+    """
 
     is_muted = sgqlc.types.Field(Boolean, graphql_name="isMuted")
     """No incidents will be created for this table if muted."""

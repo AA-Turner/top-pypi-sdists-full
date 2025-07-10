@@ -328,7 +328,7 @@ export class Program {
         return fileInfo;
     }
 
-    addTrackedFile(fileUri: Uri, isThirdPartyImport = false, isInPyTypedPackage = false, isTypeshedFile = false) {
+    addTrackedFile(fileUri: Uri, isThirdPartyImport = false, isInPyTypedPackage = false, isTypeshedFile?: boolean) {
         let cells;
         try {
             cells = getIPythonCells(this.fileSystem, fileUri, this.console);
@@ -359,7 +359,7 @@ export class Program {
                 );
                 const sourceFileInfo = new SourceFileInfo(
                     sourceFile,
-                    isTypeshedFile,
+                    isTypeshedFile ?? this._isNonUserTypeshedFile(sourceFile),
                     isThirdPartyImport,
                     isInPyTypedPackage,
                     this._editModeTracker,
@@ -390,7 +390,7 @@ export class Program {
             sourceFileInfos.push(
                 new SourceFileInfo(
                     sourceFile,
-                    isTypeshedFile,
+                    isTypeshedFile ?? this._isNonUserTypeshedFile(sourceFile),
                     isThirdPartyImport,
                     isInPyTypedPackage,
                     this._editModeTracker,
@@ -1081,6 +1081,9 @@ export class Program {
 
         this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
     }
+
+    private _isNonUserTypeshedFile = (sourceFile: SourceFile) =>
+        sourceFile.isTypingStubFile() || sourceFile.isTypeshedStubFile() || sourceFile.isBuiltInStubFile();
 
     /**
      * @returns `undefined` if the source file is already tracked

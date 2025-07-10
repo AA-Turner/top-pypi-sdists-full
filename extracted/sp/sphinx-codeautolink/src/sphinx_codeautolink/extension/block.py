@@ -21,6 +21,7 @@ from .directive import ConcatMarker, PrefaceMarker, SkipMarker
 BUILTIN_BLOCKS = {
     "default": None,
     "python": None,
+    "Python": None,
     "python3": None,
     "py": None,
     "py3": None,
@@ -88,7 +89,7 @@ def _exclude_ipython_output(source: str) -> str:
 
 def clean_ipython(source: str) -> tuple[str, str]:
     """Clean up IPython magics and console syntax to pure Python."""
-    from IPython.core.inputtransformer2 import TransformerManager
+    from IPython.core.inputtransformer2 import TransformerManager  # noqa: PLC0415
 
     clean = _exclude_ipython_output(source)
     return source, TransformerManager().transform_cell(clean)

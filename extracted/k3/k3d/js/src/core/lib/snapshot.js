@@ -3,9 +3,9 @@ const fflate = require('fflate');
 const requireJsSource = require('../../../../node_modules/requirejs/require?raw');
 const fflateJsSource = require('../../../../node_modules/fflate/umd/index?raw');
 const fileLoader = require('./helpers/fileLoader');
-const templateStandalone = require('./snapshot_standalone.txt');
-const templateOnline = require('./snapshot_online.txt');
-const templateInline = require('./snapshot_inline.txt');
+const templateStandalone = require('./snapshot_standalone').default;
+const templateOnline = require('./snapshot_online').default;
+const templateInline = require('./snapshot_inline').default;
 const semverRange = require('../../version').version;
 const buffer = require('./helpers/buffer');
 
@@ -26,16 +26,27 @@ if (typeof (sourceCode) === 'undefined') {
     }
 
     if (typeof (path) !== 'undefined') {
-        path = path.replace('k3d.js', 'standalone.js').replace('index.js', 'standalone.js');
+        path = path.replaceAll('\\\\', '/').replaceAll('\\', '/');
+        path = path.split('/').slice(0, -1).join('/') + '/standalone.js';
     } else {
         // use npm repository
         path = `https://unpkg.com/k3d@${semverRange}/dist/standalone.js`;
     }
 
-    fileLoader(path, (data) => {
-        data = fflate.strToU8(data);
-        sourceCode = buffer.arrayBufferToBase64(fflate.zlibSync(data));
-    });
+    try {
+        fileLoader(path, (data) => {
+            data = fflate.strToU8(data);
+            sourceCode = buffer.arrayBufferToBase64(fflate.zlibSync(data));
+        }, (error) => {
+            console.error('K3D: Failed to load source code:', error.message);
+            // Fallback to empty source code
+            sourceCode = '';
+        });
+    } catch (error) {
+        error('K3D Error', 'Failed to load source code: ' + error.message);
+        // Fallback to empty source code
+        sourceCode = '';
+    }
 }
 
 function getHTMLSnapshot(K3D, compressionLevel) {
@@ -62,13 +73,13 @@ function getHTMLSnapshot(K3D, compressionLevel) {
 
     filecontent = filecontent.split('[DATA]').join(data);
     filecontent = filecontent.split('[TIMESTAMP]').join(timestamp);
-    filecontent = filecontent.split('[ADDITIONAL]').join('//[ADDITIONAL]');
+    filecontent = filecontent.split('[ADDITIONAL]').join(K3D.parameters.additionalJsCode);
 
     return filecontent;
 }
 
 function handleFileSelect(K3D, evt) {
-    const {files} = evt.dataTransfer;
+    const { files } = evt.dataTransfer;
     const HTMLSnapshotReader = new FileReader();
     const BinarySnapshotReader = new FileReader();
     const STLReader = new FileReader();
@@ -141,7 +152,7 @@ function snapshotGUI(gui, K3D) {
                 filename = `${K3D.parameters.name}.html`;
             }
 
-            data = new Blob([data], {type: 'text/plain;charset=utf-8'});
+            data = new Blob([data], { type: 'text/plain;charset=utf-8' });
             FileSaver.saveAs(data, filename);
         },
     };

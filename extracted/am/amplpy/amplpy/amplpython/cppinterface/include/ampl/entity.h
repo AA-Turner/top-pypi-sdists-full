@@ -23,6 +23,13 @@ class DataFrame;
 template <class EntityClass>
 class EntityMap;
 
+
+template<typename T>
+struct is_parameter_instance : std::false_type {};
+
+template<>
+struct is_parameter_instance<Variant> : std::true_type {};
+
 /**
  * An %AMPL entity such as a parameter or a variable.
  *
@@ -38,8 +45,7 @@ class EntityMap;
  * The algebraic entities which currenty have an equivalent class in the API
  * are: <ul> <li> Variables (see ampl::Variable)</li> <li> Constraints (see
  * ampl::Constraint)</li> <li> Objectives (see ampl::Objective)</li> <li> Sets
- * (see ampl::Set)</li> <li> Parameters (see ampl::Parameter)</li> <li> Tables
- * (see ampl::Table)</li>
+ * (see ampl::Set)</li> <li> Parameters (see ampl::Parameter)</li>
  * </ul>
  */
 class Entity {
@@ -291,9 +297,9 @@ class BasicEntity : INHERITANCE Entity {
    * @throws ampl::UnsupportedOperationException if the entity is scalar
    */
   InstanceClass get(Tuple index) const {
-    if (isScalar())
-      throw ampl::UnsupportedOperationException("Not valid for scalar entities.");
-    return InstanceClass(ampl_, index.impl(), name_);
+    if (!isScalar() || (index.size() == 1 && index[0].is_empty()))
+      return InstanceClass(ampl_, index.impl(), name_);
+    throw ampl::UnsupportedOperationException("Not valid for scalar entities.");
   }
 
   InstanceClass operator[](Variant v1) const { return get(v1); }
@@ -340,11 +346,90 @@ class BasicEntity : INHERITANCE Entity {
     return get(t);
   }
 
-  std::map<Tuple, InstanceClass> getInstances() const {
+  class iterator {
+    public:
+
+      iterator() : _it() {}
+      explicit iterator(typename std::map<Tuple, InstanceClass>::iterator it) : _it(it) {}
+      iterator& operator++() { ++_it; return *this; }
+      iterator operator++(int) { iterator tmp = *this; ++_it; return tmp; }
+      bool operator!=(const iterator& other) const { return _it != other._it; }
+      Tuple getIndex() const { return _it->first; }
+      InstanceClass getInstance() const { return _it->second; }
+      std::pair<const Tuple, InstanceClass>& operator*() const { return *_it; }
+      std::pair<const Tuple, InstanceClass>* operator->() const { return &(*_it); }
+
+    private:
+      typename std::map<Tuple, InstanceClass>::iterator _it;
+    };
+
+    iterator begin() const {
+      if (instances_.empty()) setInstances();
+      return iterator(instances_.begin());
+    }
+
+    iterator end() const {
+      if (instances_.empty()) setInstances();
+      return iterator(instances_.end());
+    }
+  
+    iterator find(Tuple index) const {
+      if (instances_.empty()) setInstances();
+      return iterator(instances_.find(index));
+    }
+    
+
+  // For Variant (parameters)
+  template <typename T = InstanceClass>
+  typename std::enable_if<is_parameter_instance<T>::value, void>::type
+  setInstances() const {
+    std::map<Tuple, Variant> instances;
+    if (isScalar()) {
+      AMPL_VARIANT *v;
+      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
+      Variant vpp = Variant::getVar(v);
+      AMPL_VariantFree(&v);
+      instances.insert(std::pair<Tuple, Variant>(ampl::Tuple(), vpp));
+      instances_ = instances;
+      return;
+    }
+    AMPL_TUPLE **tuples;
+    size_t size;
+    AMPL_CALL_CPP(AMPL_EntityGetTuples(ampl_, name_.c_str(), &tuples, &size));
+    for (size_t i = 0; i < size; i++) {
+      char *name_c;
+      AMPL_VARIANT *v;
+      AMPL_CALL_CPP(AMPL_InstanceGetName(ampl_, name_.c_str(), tuples[i], &name_c));
+      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_c, &v));
+      Variant vpp = Variant::getVar(v);
+      AMPL_VariantFree(&v);
+      Tuple tuple(tuples[i]);
+      instances.insert(std::pair<Tuple, Variant>(tuple, vpp));
+      AMPL_StringFree(&name_c);
+      releaseTuple(tuples[i]);
+    }
+    if (tuples) free(tuples);
+
+    if (size == 0) {
+      AMPL_VARIANT *v;
+      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
+      Variant vpp = Variant::getVar(v);
+      AMPL_VariantFree(&v);
+      instances.insert(std::pair<Tuple, Variant>(ampl::Tuple(), vpp));
+    }
+
+    instances_ = instances;
+  }
+
+  // For Variables, Constraints, etc.
+  template <typename T = InstanceClass>
+  typename std::enable_if<!is_parameter_instance<T>::value, void>::type
+  setInstances() const {
     std::map<Tuple, InstanceClass> instances;
     if (isScalar()) {
       instances.insert(std::pair<Tuple, InstanceClass>(Tuple(), get()));
-      return instances;
+      instances_ = instances;
+      return;
     }
     AMPL_TUPLE **tuples;
     size_t size;
@@ -357,8 +442,9 @@ class BasicEntity : INHERITANCE Entity {
     }
     for (size_t i = 0; i < size; i++) AMPL_TupleFree(&tuples[i]);
     free(tuples);
-    return instances;
+    instances_ = instances;
   }
+
 
   double getDoubleSuffix(std::string suffix) {
     if (!isScalar())
@@ -392,6 +478,7 @@ class BasicEntity : INHERITANCE Entity {
   explicit BasicEntity(::AMPL *ampl, std::string name) : Entity(ampl, name) {}
 
  private:
+  mutable std::map<Tuple, InstanceClass> instances_;
   friend class Entity;
 };
 
@@ -861,44 +948,6 @@ class Parameter : public BasicEntity<Variant> {
     return get(t);
   }
 
-  std::map<Tuple, Variant> getInstances() const {
-    std::map<Tuple, Variant> instances;
-    if (isScalar()) {
-      AMPL_VARIANT *v;
-      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
-      Variant vpp = Variant::getVar(v);
-      AMPL_VariantFree(&v);
-      instances.insert(std::pair<Tuple, Variant>(ampl::Tuple(), vpp));
-      return instances;
-    }
-    AMPL_TUPLE **tuples;
-    size_t size;
-    AMPL_CALL_CPP(AMPL_EntityGetTuples(ampl_, name_.c_str(), &tuples, &size));
-    for (size_t i = 0; i < size; i++) {
-      char *name_c;
-      AMPL_VARIANT *v;
-      AMPL_CALL_CPP(AMPL_InstanceGetName(ampl_, name_.c_str(), tuples[i], &name_c));
-      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_c, &v));
-      Variant vpp = Variant::getVar(v);
-      AMPL_VariantFree(&v);
-      Tuple tuple(tuples[i]);
-      instances.insert(std::pair<Tuple, Variant>(tuple, vpp));
-      AMPL_StringFree(&name_c);
-      releaseTuple(tuples[i]);
-    }
-    if (tuples) free(tuples);
-
-    if (size == 0) {
-      AMPL_VARIANT *v;
-      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
-      Variant vpp = Variant::getVar(v);
-      AMPL_VariantFree(&v);
-      instances.insert(std::pair<Tuple, Variant>(ampl::Tuple(), vpp));
-    }
-
-    return instances;
-  }
-
   //@}
 
   /**
@@ -1131,44 +1180,41 @@ class Set : public BasicEntity<SetInstance> {
 
   \endrst
   */
-//  class InstanceRange {
-//    friend class Set;
-//    const Set *parent_;
-//    std::map<Tuple, SetInstance> instances_;
-//    explicit InstanceRange(const Set *parent) : parent_(parent) {
-//      instances_ = parent->instances();
-//    }
-//
-//   public:
-//    /**
-//    Iterator over instances of an indexed set
-//    */
-//    typedef std::map<Tuple, SetInstance>::iterator iterator;
-//
-//    /**
-//    Get an iterator pointing to the first instance in this set.
-//    */
-//    iterator begin() const { return parent_->getInstances().begin(); }
-//
-//    /**
-//    Get an iterator pointing after the last instance in this entity.
-//    */
-//    iterator end() const { return parent_->getInstances().end(); }
-//
-//    /**
-//    Searches the current entity for an instance with the
-//    specified index.
-//    \return an iterator to the SetInstance if found, otherwise
-//            InstanceRange::end.
-//    */
-//    iterator find(Tuple t) const { return parent_->getInstances().find(t); }
-//  };
+ class InstanceRange {
+  friend class Set;
+  const Set* parent_;
+  explicit InstanceRange(const Set* parent) : parent_(parent) {}
+
+ public:
+  /**
+  Iterator over instances of an indexed set
+  */
+  typedef Set::iterator iterator;
+
+  /**
+  Get an iterator pointing to the first instance in this set.
+  */
+  iterator begin() const { return parent_->begin(); }
+
+  /**
+  Get an iterator pointing after the last instance in this entity.
+  */
+  iterator end() const { return parent_->end(); }
+
+  /**
+  Searches the current entity for an instance with the
+  specified index.
+  \return an iterator to the SetInstance if found, otherwise
+          InstanceRange::end.
+  */
+  iterator find(Tuple t) const { return parent_->find(t); }
+};
 
   /**
    * Get the InstanceRange used to iterate over all the instances in
    * a %Set
    */
-  std::map<ampl::Tuple, SetInstance> instances() { return this->getInstances(); }
+  InstanceRange instances() const { return InstanceRange(this); }
 
   /**
   The arity of s, or number of components in each member of this set
@@ -1462,34 +1508,6 @@ class Variable : public BasicEntity<VariableInstance> {
   */
   friend class AMPL;
   friend class EntityMap<Variable>;
-};
-
-/**
- * Represents an %AMPL table for data input/output.
- * <p>
- * In case of indexed tables, instances of the class TableInstance can be
- * accessed via the operator Table::operator[](), via the methods Table::get()
- * or via the iterators provided. <p> The table can be read from or written to
- * using Table::read() and Table::write() respectively, if allowed by the table
- * declaration in %AMPL.
- */
-class Table : public BasicEntity<TableInstance> {
- private:
-  explicit Table(::AMPL *ampl, std::string name)
-      : BasicEntity<TableInstance>(ampl, name) {}
-
-  friend class AMPL;
-  friend class EntityMap<Table>;
-
- public:
-  /**
-  Read from the table (equivalent to the %AMPL code `read table tablename;`)
-  */
-  void read() { AMPL_CALL_CPP(AMPL_TableRead(ampl_, name_.c_str())); }
-  /**
-  Write to the table (equivalent to the %AMPL code `write table tablename;`)
-  */
-  void write() { AMPL_CALL_CPP(AMPL_TableWrite(ampl_, name_.c_str())); }
 };
 
 }  // namespace ampl

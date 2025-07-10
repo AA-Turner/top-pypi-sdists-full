@@ -177,7 +177,7 @@ inline int compare(ampl::Tuple t1, ampl::Tuple t2) {
 }  // namespace internal
 
 /** @name Tuple comparison operators
- *   Comparison operators for Tuple and TupleRef
+ *   Comparison operators for Tuple
  */
 ///@{
 

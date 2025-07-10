@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: crawlerdetect
-Version: 0.3.0
+Version: 0.3.2
 Summary: CrawlerDetect is a Python library designed to identify bots, crawlers, and spiders by analyzing their user agents.
-Home-page: https://github.com/moskrc/crawlerdetect
 License: MIT
 Keywords: crawler,crawler detect,crawler detector,crawlerdetect,python crawler detect
 Author: Vitalii Shishorin
@@ -14,9 +13,13 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Project-URL: Documentation, https://github.com/moskrc/crawlerdetect
+Project-URL: Homepage, https://github.com/moskrc/crawlerdetect
 Project-URL: Repository, https://github.com/moskrc/crawlerdetect
 Description-Content-Type: text/markdown
+
+[![test](https://github.com/moskrc/crawlerdetect/actions/workflows/python-package.yml/badge.svg)](https://github.com/moskrc/crawlerdetect/actions/workflows/python-package.yml)
 
 # About CrawlerDetect
 
@@ -30,6 +33,12 @@ $ pip install crawlerdetect
 ```
 
 # How to use
+
+## Method Reference
+| camelCase | snake_case | Description                       |
+|-----------|------------|-----------------------------------|
+| `isCrawler()` | `is_crawler()` | Check if user agent is a crawler  |
+| `getMatches()` | `get_matches()` | Get the name of detected crawlers |
 
 ## Variant 1
 ```Python

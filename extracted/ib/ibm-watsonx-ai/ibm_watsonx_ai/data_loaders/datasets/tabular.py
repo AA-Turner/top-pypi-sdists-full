@@ -9,7 +9,7 @@ __all__ = ["TabularIterableDataset"]
 
 import os
 import logging
-from typing import TYPE_CHECKING, Iterator, Any, cast, Sequence
+from typing import TYPE_CHECKING, Iterator, Any, cast
 from collections.abc import Callable
 from warnings import warn
 
@@ -477,4 +477,4 @@ class TabularIterableDataset(IterableDataset):
                         yield from connection.iterable_read()
         else:
             connection = cast(LocalBatchReader, self._get_conn())
-            return (batch for batch in connection)
+            yield from connection

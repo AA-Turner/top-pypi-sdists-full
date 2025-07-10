@@ -21,12 +21,21 @@ def hello_world(name: str = "World", *, greeting: str = "Hello", **kwargs):
     from gway import gw
     version = gw.version()
     message = f"{greeting.title()}, {name.title()}!"
-    if hasattr(gw, "hello_world"): 
-        if not gw.silent: print(message)
-        else: print(f"{gw.silent=}")
-    else: 
+    if hasattr(gw, "hello_world"):
+        if not gw.silent:
+            print(message)
+        else:
+            print(f"{gw.silent=}")
+    else:
         print("Greeting protocol not found ((serious smoke)).")
-    return locals()
+
+    # Only return simple fields to avoid huge recursive HTML when rendered
+    return {
+        "greeting": greeting,
+        "name": name,
+        "message": message,
+        "version": version,
+    }
 
 def abort(message: str, *, exit_code: int = 13) -> int:
     """Abort with error message."""
@@ -192,12 +201,41 @@ def resource_list(*parts, ext=None, prefix=None, suffix=None):
     matches.sort(key=lambda p: p.stat().st_ctime)
     return matches
 
-def test(*, root: str = 'tests', filter=None, on_success=None, on_failure=None, coverage: bool = False):
-    """Execute all automatically detected test suites, logging to logs/test.log."""
+def is_test_flag(name: str) -> bool:
+    """Return True if ``name`` is present in ``GW_TEST_FLAGS`` environment variable."""
+    import os
+    flags = os.environ.get("GW_TEST_FLAGS", "")
+    active = {f.strip() for f in flags.replace(",", " ").split() if f.strip()}
+    return name in active
+
+def test(*, root: str = 'tests', filter=None, on_success=None, on_failure=None, coverage: bool = False, flags=None):
+    """Execute all automatically detected test suites.
+
+    Args:
+        root: Directory containing test files.
+        filter: Optional filename substring to select tests.
+        on_success: Action when tests pass (e.g., "clear" removes log file).
+        on_failure: Action when tests fail ("abort" exits immediately).
+        coverage: Enable coverage reporting using ``coverage`` module.
+        flags: Optional iterable or comma/space separated string of feature
+            flags. These are stored in the ``GW_TEST_FLAGS`` environment
+            variable so individual tests can check ``is_test_flag("name")``.
+    """
     import unittest
     import os
+    import time
     from gway import gw
     from gway.logging import use_logging
+    if flags:
+        if isinstance(flags, str):
+            flag_list = [f.strip() for f in flags.replace(',', ' ').split() if f.strip()]
+        else:
+            flag_list = list(flags)
+        os.environ['GW_TEST_FLAGS'] = ','.join(flag_list)
+        gw.testing_flags = set(flag_list)
+    else:
+        env_flags = os.environ.get('GW_TEST_FLAGS', '')
+        gw.testing_flags = {f.strip() for f in env_flags.replace(',', ' ').split() if f.strip()}
     cov = None
     if coverage:
         try:
@@ -236,7 +274,19 @@ def test(*, root: str = 'tests', filter=None, on_success=None, on_failure=None, 
             test_suite.addTests(test_loader.discover(
                 os.path.dirname(test_file), pattern=os.path.basename(test_file)))
 
-        runner = unittest.TextTestRunner(verbosity=2)
+        class TimedResult(unittest.TextTestResult):
+            def startTest(self, test):
+                super().startTest(test)
+                if getattr(gw, "timed_enabled", False):
+                    self._start_time = time.perf_counter()
+
+            def stopTest(self, test):
+                if getattr(gw, "timed_enabled", False) and hasattr(self, "_start_time"):
+                    elapsed = time.perf_counter() - self._start_time
+                    gw.log(f"[test] {test} took {elapsed:.3f}s")
+                super().stopTest(test)
+
+        runner = unittest.TextTestRunner(verbosity=2, resultclass=TimedResult)
         result = runner.run(test_suite)
         gw.info(f"Test results: {str(result).strip()}")
 
@@ -541,6 +591,24 @@ _EZ_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXY3456789"
 def random_id(length: int = 8, alphabet: str = _EZ_ALPHABET) -> str:
     """Generate a readable random ID, avoiding confusing characters."""
     return ''.join(random.choices(alphabet, k=length))
+
+def notify(message: str, *, title: str = "GWAY Notice", timeout: int = 10):
+    """Send a notification via GUI, email or console fallback."""
+    from gway import gw
+    try:
+        gw.screen.notify(message, title=title, timeout=timeout)
+        return "gui"
+    except Exception as e:
+        gw.debug(f"GUI notify failed: {e}")
+    try:
+        if hasattr(gw, "mail") and os.environ.get("ADMIN_EMAIL"):
+            gw.mail.send(title, body=message, to=os.environ.get("ADMIN_EMAIL"))
+            return "email"
+    except Exception as e:  # pragma: no cover - mail may not be configured
+        gw.debug(f"Email notify failed: {e}")
+    print(message)
+    gw.info(f"Console notify: {message}")
+    return "console"
 
 def shell():
     """Launch an interactive Python shell with 'from gway import gw' preloaded."""

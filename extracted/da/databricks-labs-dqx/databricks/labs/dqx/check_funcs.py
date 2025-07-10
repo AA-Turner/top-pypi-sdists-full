@@ -8,7 +8,7 @@ from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql.window import Window
 
 from databricks.labs.dqx.rule import register_rule
-from databricks.labs.dqx.utils import get_column_as_string, is_sql_query_safe
+from databricks.labs.dqx.utils import get_column_as_string, is_sql_query_safe, normalize_col_str
 
 
 def make_condition(condition: Column, message: Column | str, alias: str) -> Column:
@@ -128,7 +128,13 @@ def is_in_list(column: str | Column, allowed: list) -> Column:
 
 
 @register_rule("row")
-def sql_expression(expression: str, msg: str | None = None, name: str | None = None, negate: bool = False) -> Column:
+def sql_expression(
+    expression: str,
+    msg: str | None = None,
+    name: str | None = None,
+    negate: bool = False,
+    columns: list[str | Column] | None = None,
+) -> Column:
     """Checks whether the condition provided as an SQL expression is met.
 
     :param expression: SQL expression. Fail if expression evaluates to True, pass if it evaluates to False.
@@ -136,6 +142,7 @@ def sql_expression(expression: str, msg: str | None = None, name: str | None = N
     :param name: optional name of the resulting column, automatically generated if None
     :param negate: if the condition should be negated (true) or not. For example, "col is not null" will mark null
     values as "bad". Although sometimes it's easier to specify it other way around "col is null" + negate set to False
+    :param columns: optional list of columns to be used for reporting. Unused in the actual logic.
     :return: new Column
     """
     expr_col = F.expr(expression)
@@ -148,7 +155,12 @@ def sql_expression(expression: str, msg: str | None = None, name: str | None = N
         expr_col = ~expr_col
         message = F.concat_ws("", F.lit(f"Value is not matching expression: {expr_msg}"))
 
-    name = name if name else get_column_as_string(expression, normalize=True)
+    if not name:
+        name = get_column_as_string(expr_col, normalize=True)
+        if columns:
+            name = normalize_col_str(
+                "_".join([get_column_as_string(col, normalize=True) for col in columns]) + "_" + name
+            )
 
     return make_condition(expr_col, msg or message, name)
 
@@ -614,12 +626,13 @@ def foreign_key(
     ref_columns: list[str | Column],
     ref_df_name: str | None = None,  # must provide reference DataFrame name
     ref_table: str | None = None,  # or reference table name
+    negate: bool = False,
     row_filter: str | None = None,  # auto-injected from the check filter
 ) -> tuple[Column, Callable]:
     """
     Build a foreign key check condition and closure for dataset-level validation.
 
-    This function verifies that values in the specified foreign key columns exist in
+    This function verifies that values in the specified foreign key columns exist (or don't exist, if `negate=True`) in
     the corresponding reference columns of another DataFrame or table. Rows where
     foreign key values do not match the reference are reported as violations.
 
@@ -630,11 +643,13 @@ def foreign_key(
     :param ref_df_name: Name of the reference DataFrame (used when passing DataFrames directly).
     :param ref_table: Name of the reference table (used when reading from catalog).
     :param row_filter: Optional SQL expression for filtering rows before checking the foreign key.
+    :param negate: If True, the condition is negated (i.e., the check fails when the foreign key values exist in the
+        reference DataFrame/Table). If False, the check fails when the foreign key values do not exist in the reference.
     :return: A tuple of:
         - A Spark Column representing the condition for foreign key violations.
         - A closure that applies the foreign key validation by joining against the reference.
     """
-    _validate_fk_params(columns, ref_columns, ref_df_name, ref_table)
+    _validate_with_ref_params(columns, ref_columns, ref_df_name, ref_table)
 
     not_null_condition = F.lit(True)
     if len(columns) == 1:
@@ -667,32 +682,36 @@ def foreign_key(
 
         filter_expr = F.expr(row_filter) if row_filter else F.lit(True)
 
-        # To retain the original records we need to join back to the input DataFrame.
-        # Therefore, applying many foreign key checks at once can potentially lead to long plans.
-        # When applying large number of foreign key checks, it may be beneficial to split it into separate runs.
         joined = df.join(
-            ref_df_distinct, (col_expr == F.col(ref_alias)) & col_expr.isNotNull() & filter_expr, how="left"
+            ref_df_distinct, on=(col_expr == F.col(ref_alias)) & col_expr.isNotNull() & filter_expr, how="left"
         )
 
-        # FK violation: no match found for non-null FK values
+        base_condition = not_null_condition & col_expr.isNotNull()
+        match_failed = F.col(ref_alias).isNull()
+        match_succeeded = F.col(ref_alias).isNotNull()
+        violation_condition = base_condition & (match_succeeded if negate else match_failed)
+
+        # FK violation: no match found for non-null FK values if negate=False, opposite if negate=True
         # Add condition column used in make_condition
-        result_df = joined.withColumn(
-            condition_col, (not_null_condition & col_expr.isNotNull()) & F.col(ref_alias).isNull()
-        )
+        result_df = joined.withColumn(condition_col, violation_condition)
 
         return result_df
+
+    op_name = "exists_in" if negate else "not_exists_in"
 
     condition = make_condition(
         condition=F.col(condition_col),
         message=F.concat_ws(
             "",
-            F.lit("FK violation: Value '"),
+            F.lit("Value '"),
             col_expr.cast("string"),
             F.lit("' in column '"),
             F.lit(col_expr_str),
-            F.lit(f"' not found in reference column '{ref_col_expr_str}'"),
+            F.lit(f"' {'' if negate else 'not '}found in reference column '"),
+            F.lit(ref_col_expr_str),
+            F.lit("'"),
         ),
-        alias=f"{col_str_norm}_{ref_col_str_norm}_fk_violation",
+        alias=f"{col_str_norm}_{op_name}_ref_{ref_col_str_norm}",
     )
 
     return condition, apply
@@ -767,16 +786,15 @@ def sql_query(
             *merge_columns, F.col(condition_column).alias(unique_condition_column)
         )
 
-        # Make sure the merge columns are unique in the output of the user query to avoid row explosion.
-        # If this happens the quality check can produce false positives!
-        # This is also bad from performance perspective, but it ensures the quality checking output
-        # retains the original records and does not multiply them.
+        # If merge columns aren't unique, multiple query rows can attach to a single input row,
+        # potentially causing false positives!
+        # Take distinct rows so that we don't multiply records in the output.
         user_query_df_unique = user_query_df.groupBy(*merge_columns).agg(
             F.max(F.col(unique_condition_column)).alias(unique_condition_column)
         )
 
         # To retain the original records we need to join back to the input DataFrame.
-        # Therefore, applying this check multiple times at once can potentially lead to long plans.
+        # Therefore, applying this check multiple times at once can potentially lead to long spark plans.
         # When applying large number of sql query checks, it may be beneficial to split it into separate runs.
         joined_df = df.join(user_query_df_unique, on=merge_columns, how="left")
 
@@ -866,6 +884,78 @@ def is_aggr_not_less_than(
         compare_op=py_operator.lt,
         compare_op_label="less than",
         compare_op_name="less_than",
+    )
+
+
+@register_rule("dataset")
+def is_aggr_equal(
+    column: str | Column,
+    limit: int | float | str | Column,
+    aggr_type: str = "count",
+    group_by: list[str | Column] | None = None,
+    row_filter: str | None = None,  # auto-injected from the check filter
+) -> tuple[Column, Callable]:
+    """
+    Build an aggregation check condition and closure for dataset-level validation.
+
+    This function verifies that an aggregation (count, sum, avg, min, max) on a column
+    or group of columns is equal to a specified limit. Rows where the aggregation
+    result is not equal to the limit are flagged.
+
+    :param column: Column name (str) or Column expression to aggregate.
+    :param limit: Numeric value, column name, or SQL expression for the limit.
+    :param aggr_type: Aggregation type: 'count', 'sum', 'avg', 'min', or 'max' (default: 'count').
+    :param group_by: Optional list of column names or Column expressions to group by.
+    :param row_filter: Optional SQL expression to filter rows before aggregation.
+    :return: A tuple of:
+        - A Spark Column representing the condition for aggregation limit violations.
+        - A closure that applies the aggregation check and adds the necessary condition/metric columns.
+    """
+    return _is_aggr_compare(
+        column,
+        limit,
+        aggr_type,
+        group_by,
+        row_filter,
+        compare_op=py_operator.ne,
+        compare_op_label="not equal to",
+        compare_op_name="not_equal_to",
+    )
+
+
+@register_rule("dataset")
+def is_aggr_not_equal(
+    column: str | Column,
+    limit: int | float | str | Column,
+    aggr_type: str = "count",
+    group_by: list[str | Column] | None = None,
+    row_filter: str | None = None,  # auto-injected from the check filter
+) -> tuple[Column, Callable]:
+    """
+    Build an aggregation check condition and closure for dataset-level validation.
+
+    This function verifies that an aggregation (count, sum, avg, min, max) on a column
+    or group of columns is not equal to a specified limit. Rows where the aggregation
+    result is equal to the limit are flagged.
+
+    :param column: Column name (str) or Column expression to aggregate.
+    :param limit: Numeric value, column name, or SQL expression for the limit.
+    :param aggr_type: Aggregation type: 'count', 'sum', 'avg', 'min', or 'max' (default: 'count').
+    :param group_by: Optional list of column names or Column expressions to group by.
+    :param row_filter: Optional SQL expression to filter rows before aggregation.
+    :return: A tuple of:
+        - A Spark Column representing the condition for aggregation limit violations.
+        - A closure that applies the aggregation check and adds the necessary condition/metric columns.
+    """
+    return _is_aggr_compare(
+        column,
+        limit,
+        aggr_type,
+        group_by,
+        row_filter,
+        compare_op=py_operator.eq,
+        compare_op_label="equal to",
+        compare_op_name="equal_to",
     )
 
 
@@ -1124,11 +1214,11 @@ def _build_fk_composite_key_struct(columns: list[str | Column], columns_names: l
     return F.struct(*struct_fields)
 
 
-def _validate_fk_params(
+def _validate_with_ref_params(
     columns: list[str | Column], ref_columns: list[str | Column], ref_df_name: str | None, ref_table: str | None
 ):
     """
-    Validate parameters for foreign key checks to ensure correctness and prevent ambiguity.
+    Validate reference parameters to ensure correctness and prevent ambiguity.
 
     This helper verifies that:
     - Exactly one of `ref_df_name` or `ref_table` is provided (not both, not neither).

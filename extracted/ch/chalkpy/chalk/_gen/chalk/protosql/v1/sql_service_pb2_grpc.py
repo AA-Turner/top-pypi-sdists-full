@@ -25,6 +25,16 @@ class SqlServiceStub(object):
             request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.FromString,
         )
+        self.GetDbSchemas = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/GetDbSchemas",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbSchemasRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbSchemasResponse.FromString,
+        )
+        self.GetTables = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/GetTables",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetTablesRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetTablesResponse.FromString,
+        )
 
 
 class SqlServiceServicer(object):
@@ -42,6 +52,18 @@ class SqlServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetDbSchemas(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetTables(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SqlServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +76,16 @@ def add_SqlServiceServicer_to_server(servicer, server):
             servicer.PlanSqlQuery,
             request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.FromString,
             response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.SerializeToString,
+        ),
+        "GetDbSchemas": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDbSchemas,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbSchemasRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbSchemasResponse.SerializeToString,
+        ),
+        "GetTables": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTables,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetTablesRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetTablesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.protosql.v1.SqlService", rpc_method_handlers)
@@ -112,6 +144,64 @@ class SqlService(object):
             "/chalk.protosql.v1.SqlService/PlanSqlQuery",
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.SerializeToString,
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDbSchemas(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/GetDbSchemas",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbSchemasRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbSchemasResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetTables(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/GetTables",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetTablesRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetTablesResponse.FromString,
             options,
             channel_credentials,
             insecure,

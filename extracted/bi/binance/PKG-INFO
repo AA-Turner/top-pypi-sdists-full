@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binance
-Version: 0.3.52
+Version: 0.3.53
 Summary: binance crypto exchange api client
 Project-URL: Homepage, https://github.com/ccxt/ccxt
 Project-URL: Issues, https://github.com/ccxt/ccxt
@@ -136,6 +136,7 @@ You can also construct custom requests to available "implicit" endpoints
 - `create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={})`
 - `create_orders(self, orders: List[OrderRequest], params={})`
 - `fetch_account_positions(self, symbols: Strings = None, params={})`
+- `fetch_all_greeks(self, symbols: Strings = None, params={})`
 - `fetch_balance(self, params={})`
 - `fetch_bids_asks(self, symbols: Strings = None, params={})`
 - `fetch_borrow_interest(self, code: Str = None, symbol: Str = None, since: Int = None, limit: Int = None, params={})`

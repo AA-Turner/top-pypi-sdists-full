@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.49.0
+Version: 0.51.1
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -10,7 +10,7 @@ License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: chromadb>=0.4.22
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.134.0
+Requires-Dist: crewai>=0.140.0
 Requires-Dist: docker>=7.1.0
 Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
@@ -28,6 +28,8 @@ Provides-Extra: browserbase
 Requires-Dist: browserbase>=1.0.5; extra == 'browserbase'
 Provides-Extra: composio-core
 Requires-Dist: composio-core>=0.6.11.post1; extra == 'composio-core'
+Provides-Extra: couchbase
+Requires-Dist: couchbase>=4.3.5; extra == 'couchbase'
 Provides-Extra: databricks-sdk
 Requires-Dist: databricks-sdk>=0.46.0; extra == 'databricks-sdk'
 Provides-Extra: exa-py
@@ -44,6 +46,8 @@ Requires-Dist: linkup-sdk>=0.2.2; extra == 'linkup-sdk'
 Provides-Extra: mcp
 Requires-Dist: mcp>=1.6.0; extra == 'mcp'
 Requires-Dist: mcpadapt>=0.1.9; extra == 'mcp'
+Provides-Extra: mongodb
+Requires-Dist: pymongo>=4.13; extra == 'mongodb'
 Provides-Extra: multion
 Requires-Dist: multion>=1.1.0; extra == 'multion'
 Provides-Extra: oxylabs
@@ -105,6 +109,7 @@ CrewAI provides an extensive collection of powerful tools ready to enhance your 
 - **File Management**: `FileReadTool`, `FileWriteTool`
 - **Web Scraping**: `ScrapeWebsiteTool`, `SeleniumScrapingTool`
 - **Database Integrations**: `PGSearchTool`, `MySQLSearchTool`
+- **Vector Database Integrations**: `MongoDBVectorSearchTool`, `QdrantVectorSearchTool`, `WeaviateVectorSearchTool`
 - **API Integrations**: `SerperApiTool`, `EXASearchTool`
 - **AI-powered Tools**: `DallETool`, `VisionTool`, `StagehandTool`
 
@@ -306,4 +311,3 @@ Join our rapidly growing community and receive real-time support:
 - [Open an Issue](https://github.com/crewAIInc/crewAI/issues)
 
 Build smarter, faster, and more powerful AI solutions—powered by CrewAI Tools.
-

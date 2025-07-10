@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 1.3.6
+Version: 1.3.7
 Summary: Shares Python package metadata at runtime.
 Author: Adam Karpierz
 Author-email: adam@karpierz.net
@@ -33,7 +33,6 @@ Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: setuptools>=80.9.0
-Requires-Dist: importlib-metadata>=8.7.0
 Requires-Dist: packaging>=25.0.0
 Requires-Dist: tomli>=2.2.1; python_version < "3.11"
 Provides-Extra: doc
@@ -144,6 +143,11 @@ Authors
 
 Changelog
 =========
+
+1.3.7 (2025-07-07)
+------------------
+- Use standard importlib.metadata instead of importlib-metadata.
+- Setup (dependencies) update.
 
 1.3.6 (2025-06-11)
 ------------------

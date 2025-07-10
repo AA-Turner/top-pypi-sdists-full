@@ -3,6 +3,7 @@
 
 import json
 import os
+import shutil
 import time
 import uuid
 import traceback
@@ -15,11 +16,20 @@ from typing import Dict, Optional
 from gway import gw
 
 _csms_loop: Optional[asyncio.AbstractEventLoop] = None
-_transactions: Dict[str, dict] = {}           # charger_id → latest transaction
-_active_cons: Dict[str, WebSocket] = {}      # charger_id → live WebSocket
-_latest_heartbeat: Dict[str, str] = {}  # charger_id → ISO8601 UTC time string
-_abnormal_status: Dict[str, dict] = {}  # charger_id → {"status": ..., "errorCode": ..., "info": ...}
-_msg_log: Dict[str, list] = {}          # charger_id → ["< msg", "> msg", ...]
+_transactions: Dict[str, dict] = {}
+_active_cons: Dict[str, WebSocket] = {}
+_latest_heartbeat: Dict[str, str] = {}
+_abnormal_status: Dict[str, dict] = {}
+_msg_log: Dict[str, list] = {}
+
+def bind_state(root):
+    """Bind shared dictionaries from ``ocpp`` root module."""
+    global _transactions, _active_cons, _latest_heartbeat, _abnormal_status, _msg_log
+    _transactions = root._transactions
+    _active_cons = root._active_cons
+    _latest_heartbeat = root._latest_heartbeat
+    _abnormal_status = root._abnormal_status
+    _msg_log = root._msg_log
 
 def authorize_balance(**record):
     """
@@ -38,10 +48,14 @@ def setup_app(*,
     location=None,
     authorize=authorize_balance,
     email=None,
-    auth_required=False,
+    auth="disabled",
 ):
     # no globals needed here; dictionaries are modified in-place
     email = email if isinstance(email, str) else (gw.resolve('[ADMIN_EMAIL]') if email else email)
+
+    auth_required = str(auth).strip().lower() not in {
+        "none", "false", "disabled", "optional"
+    }
 
     oapp = app
     from fastapi import FastAPI as _FastAPI
@@ -498,7 +512,7 @@ def view_charger_status(*, action=None, charger_id=None, **_):
 
     # --- The key block for autorefresh ---
     html.append(
-        '<div id="charger-list" data-gw-render="charger_list" data-gw-refresh="5">'
+        '<div id="charger-list" data-gw-render="charger_list" data-gw-refresh="5" data-gw-click="refresh">'
     )
     if not all_chargers:
         html.append('<p><em>No chargers connected or transactions seen yet.</em></p>')
@@ -551,12 +565,13 @@ def view_charger_detail(*, charger_id=None, **_):
     """Detail view for a single charger with live log."""
     if not charger_id:
         return redirect("/ocpp/csms/charger-status")
-    if (
-        charger_id not in _active_cons
-        and charger_id not in _transactions
-        and charger_id not in _latest_heartbeat
-    ):
-        return redirect("/ocpp/csms/charger-status")
+    known_ids = set(_active_cons) | set(_transactions) | set(_latest_heartbeat)
+    if charger_id not in known_ids:
+        try:
+            if charger_id not in gw.ocpp.data.list_chargers():
+                return redirect("/ocpp/csms/charger-status")
+        except Exception:
+            return redirect("/ocpp/csms/charger-status")
 
     msg = ""
     if request.method == "POST":
@@ -588,7 +603,7 @@ def view_charger_detail(*, charger_id=None, **_):
         html.append(f'<p class="error">{msg}</p>')
 
     html.append(
-        f'<div id="charger-info" data-gw-render="charger_info" data-gw-refresh="5" data-charger-id="{charger_id}">' +
+        f'<div id="charger-info" data-gw-render="charger_info" data-gw-refresh="5" data-gw-click="refresh" data-charger-id="{charger_id}">' +
         _render_charger_card(charger_id, tx, state, raw_hb) +
         '</div>'
     )
@@ -610,7 +625,7 @@ def view_charger_detail(*, charger_id=None, **_):
     )
 
     html.append(
-        f'<div id="charger-log" data-gw-render="charger_log" data-gw-refresh="2" data-charger-id="{charger_id}">' +
+        f'<div id="charger-log" data-gw-render="charger_log" data-gw-refresh="2" data-gw-click="refresh" data-charger-id="{charger_id}">' +
         render_charger_log(charger_id=charger_id) +
         '</div>'
     )
@@ -746,7 +761,14 @@ def extract_meter(tx):
         last_mv = mv[-1]
         for sv in last_mv.get("sampledValue", []):
             if sv.get("measurand") == "Energy.Active.Import.Register":
-                return sv.get("value")
+                val = sv.get("value")
+                try:
+                    val_f = float(val)
+                    if sv.get("unit") == "Wh":
+                        val_f = val_f / 1000.0
+                    return val_f
+                except Exception:
+                    return val
     return "-"
 
 
@@ -759,34 +781,47 @@ def power_consumed(tx):
     meter_values = tx.get("MeterValues", [])
     energy_vals = []
     for entry in meter_values:
-        # entry should be a dict with sampledValue: [...]
         for sv in entry.get("sampledValue", []):
             if sv.get("measurand") == "Energy.Active.Import.Register":
                 val = sv.get("value")
-                # Parse value as float (from string), handle missing
                 try:
                     val_f = float(val)
                     if sv.get("unit") == "Wh":
                         val_f = val_f / 1000.0
-                    # else assume kWh
                     energy_vals.append(val_f)
                 except Exception:
                     pass
 
+    meter_start = tx.get("meterStart")
+    start_val = None
     if energy_vals:
-        start = energy_vals[0]
-        end = energy_vals[-1]
-        return round(end - start, 3)
+        start_val = energy_vals[0]
+    elif meter_start is not None:
+        try:
+            start_val = float(meter_start) / 1000.0
+        except Exception:
+            start_val = None
+
+    end_val = None
+    if energy_vals:
+        end_val = energy_vals[-1]
+    elif tx.get("meterStop") is not None:
+        try:
+            end_val = float(tx["meterStop"]) / 1000.0
+        except Exception:
+            end_val = None
+
+    if start_val is not None and end_val is not None:
+        return round(end_val - start_val, 3)
 
     # Fallback to meterStart/meterStop if no sampled values
-    meter_start = tx.get("meterStart")
     meter_stop = tx.get("meterStop")
     # handle int or float or None
     try:
         if meter_start is not None and meter_stop is not None:
             return round(float(meter_stop) / 1000.0 - float(meter_start) / 1000.0, 3)
         if meter_start is not None:
-            return 0.0  # no consumption measured
+            return 0.0
     except Exception:
         pass
 
@@ -884,3 +919,29 @@ def view_energy_graph(*, charger_id=None, date=None, **_):
         html.append('</div>')
 
     return "".join(html)
+
+
+def purge(*, database: bool = False, logs: bool = False):
+    """Clear in-memory CSMS data and optionally purge persistent storage."""
+
+    _transactions.clear()
+    _active_cons.clear()
+    _latest_heartbeat.clear()
+    _abnormal_status.clear()
+    _msg_log.clear()
+    gw.info("[OCPP] In-memory state purged.")
+
+    if database:
+        conn = gw.ocpp.data.open_db()
+        gw.sql.execute("DELETE FROM transactions", connection=conn)
+        gw.sql.execute("DELETE FROM meter_values", connection=conn)
+        gw.sql.execute("DELETE FROM errors", connection=conn)
+        gw.info("[OCPP] Database records purged.")
+
+    if logs:
+        for path in [gw.resource("work", "ocpp", "records"),
+                     gw.resource("work", "etron", "graphs")]:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+                os.makedirs(path, exist_ok=True)
+        gw.info("[OCPP] Log files purged.")

@@ -247,8 +247,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "customer_categories": ["customer", "person"],
             "service_proximity_threshold": 100.0,
             "max_service_time": 1800.0,
-            "buffer_time": 2.0,
-            "stream_info": {},  
+            "buffer_time": 2.0
         }
         defaults.update(overrides)
         return CustomerServiceConfig(**defaults)
@@ -574,6 +573,22 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 journey['service_end_time'] = current_time
                 if journey['service_start_time']:
                     journey['total_service_time'] = current_time - journey['service_start_time']
+                    # --- Service time tracking: record in self.service_times ---
+                    # Try to associate with staff_id if possible
+                    customer_center = journey['positions'][-1]['center'] if journey['positions'] else None
+                    staff_id = None
+                    if customer_center:
+                        nearest_staff = self._find_nearest_staff(customer_center)
+                        if nearest_staff:
+                            staff_id, _ = nearest_staff
+                    # Store as per-customer service time (flat list)
+                    self.service_times[track_id].append({
+                        'customer_id': track_id,
+                        'service_time': journey['total_service_time'],
+                        'service_start_time': journey['service_start_time'],
+                        'service_end_time': journey['service_end_time'],
+                        'staff_id': staff_id
+                    })
     
     def _is_customer_being_served(self, customer_track_id: int, current_time: float) -> bool:
         """Check if customer is currently being served by staff."""
@@ -628,14 +643,6 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
     
     def _compile_analytics_results(self, current_time: float) -> Dict[str, Any]:
         """Compile comprehensive analytics results."""
-        # --- Previous approach (commented out): ---
-        # real_time_occupancy = {
-        #     "customer_areas": self.customer_occupancy,
-        #     "staff_areas": self.staff_occupancy,
-        #     "service_areas": self.service_occupancy
-        # }
-
-        # --- New approach: Only keep the last detection per track_id per area ---
         def get_latest_per_track(area_dict):
             latest = {}
             for area_name, occupants in area_dict.items():
@@ -655,14 +662,102 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "service_areas": get_latest_per_track(self.service_occupancy)
         }
 
+        # --- Service times output: flatten to a list for JSON output (per-customer) ---
+        service_times_output = []
+        for customer_id, records in self.service_times.items():
+            for rec in records:
+                entry = rec.copy()
+                service_times_output.append(entry)
+
+        # --- tracking_stats output for agg_summary compatibility ---
+        # Compose a summary and insights similar to people_counting.py, with stream_info and chunk/frame context
+        summary = self._generate_summary({
+            "customer_queue_analytics": self._get_customer_queue_results(),
+            "staff_management_analytics": self._get_staff_management_results()
+        }, [])
+        insights = self._generate_insights({
+            "customer_queue_analytics": self._get_customer_queue_results(),
+            "staff_management_analytics": self._get_staff_management_results(),
+            "business_metrics": self._calculate_analytics(current_time),
+            "customer_journey_analytics": self._get_customer_journey_results()
+        }, self.create_default_config())
+        metrics = self._calculate_analytics(current_time)
+        predictions = []
+        if hasattr(self, 'last_predictions'):
+            predictions = self.last_predictions
+
+        # --- Streaming context ---
+        stream_info = getattr(self, 'stream_info', None)
+        if not stream_info:
+            # Try to get from config if present
+            stream_info = getattr(self, 'config', None)
+            if stream_info and hasattr(stream_info, 'stream_info'):
+                stream_info = stream_info.stream_info
+            else:
+                stream_info = {}
+
+        # Per-chunk/frame context (example: chunk index, frame index, time range)
+        chunk_index = stream_info.get('chunk_index') if isinstance(stream_info, dict) else None
+        frame_index = stream_info.get('frame_index') if isinstance(stream_info, dict) else None
+        stream_key = stream_info.get('stream_key') if isinstance(stream_info, dict) else getattr(self, 'stream_key', None)
+        chunk_time_range = stream_info.get('chunk_time_range') if isinstance(stream_info, dict) else None
+
+        # Compose human_text with streaming context
+        human_text_lines = []
+        if stream_key:
+            human_text_lines.append(f"Stream: {stream_key}")
+        if chunk_index is not None:
+            human_text_lines.append(f"Chunk: {chunk_index}")
+        if frame_index is not None:
+            human_text_lines.append(f"Frame: {frame_index}")
+        if chunk_time_range:
+            human_text_lines.append(f"Chunk time: {chunk_time_range}")
+        human_text_lines.append(summary)
+        if insights:
+            human_text_lines.extend(insights)
+        human_text = "\n".join(human_text_lines)
+
+        tracking_stats = []
+        tracking_stats.append({
+            "tracking_start_time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(current_time)),
+            "all_results_for_tracking": {
+                "status": "success",
+                "processing_time": 0,  # Not tracked here
+                "usecase": self.name,
+                "category": self.category,
+                "summary": summary,
+                "insights": insights,
+                "metrics": metrics,
+                "predictions": predictions,
+                "processed_data": {
+                    "customer_queue_analytics": self._get_customer_queue_results(),
+                    "staff_management_analytics": self._get_staff_management_results(),
+                    "service_area_analytics": self._get_service_area_results(),
+                    "customer_journey_analytics": self._get_customer_journey_results(),
+                    "business_metrics": metrics,
+                    "real_time_occupancy": real_time_occupancy,
+                    "service_times": service_times_output,
+                    "processing_timestamp": current_time
+                },
+                "stream_info": stream_info,
+                "chunk_index": chunk_index,
+                "frame_index": frame_index,
+                "chunk_time_range": chunk_time_range,
+                "stream_key": stream_key
+            },
+            "human_text": human_text
+        })
+
         return {
             "customer_queue_analytics": self._get_customer_queue_results(),
             "staff_management_analytics": self._get_staff_management_results(),
             "service_area_analytics": self._get_service_area_results(),
             "customer_journey_analytics": self._get_customer_journey_results(),
-            "business_metrics": self._calculate_analytics(current_time),
+            "business_metrics": metrics,
             "real_time_occupancy": real_time_occupancy,
-            "processing_timestamp": current_time
+            "service_times": service_times_output,
+            "processing_timestamp": current_time,
+            "tracking_stats": tracking_stats
         }
     
     def _get_customer_queue_results(self) -> Dict[str, Any]:
@@ -677,28 +772,41 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         customers_queuing = 0
         customers_being_served = 0
         customers_completed = 0
-        wait_times = []
+        wait_times_completed = []  # completed customers' wait times
+        wait_times_ongoing = []    # current customers still in queue
         chunk_ids = getattr(self, '_chunk_customer_ids', set())
+        now = time.time()
         for track_id in chunk_ids:
             journey = self.customer_journey.get(track_id)
             if not journey:
                 continue
             if journey['state'] == self.JOURNEY_STATES['QUEUING']:
                 customers_queuing += 1
+                # Ongoing: time since queue_start_time
+                if journey['queue_start_time']:
+                    wait_times_ongoing.append(now - journey['queue_start_time'])
             elif journey['state'] == self.JOURNEY_STATES['BEING_SERVED']:
                 customers_being_served += 1
             elif journey['state'] == self.JOURNEY_STATES['COMPLETED']:
                 customers_completed += 1
                 if journey['total_wait_time'] > 0:
-                    wait_times.append(journey['total_wait_time'])
+                    wait_times_completed.append(journey['total_wait_time'])
 
+        # Calculate average_wait_time: (sum of completed + ongoing) / total
+        total_waits = wait_times_completed + wait_times_ongoing
+        n_total = customers_completed + customers_queuing
+        average_wait_time = sum(total_waits) / n_total if n_total > 0 else 0.0
+
+        # Optionally, output all wait times for debugging/analytics
         queue_analytics = {
             "active_customers": active_customers,
             "customers_queuing": customers_queuing,
             "customers_being_served": customers_being_served,
             "customers_completed": customers_completed,
-            "average_wait_time": sum(wait_times) / len(wait_times) if wait_times else 0.0,
-            "queue_lengths_by_area": queue_lengths_by_area
+            "average_wait_time": average_wait_time,
+            "queue_lengths_by_area": queue_lengths_by_area,
+            "wait_times_completed": wait_times_completed,
+            "wait_times_ongoing": wait_times_ongoing
         }
         return queue_analytics
     
@@ -735,43 +843,63 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         return staff_analytics
     
     def _get_service_area_results(self) -> Dict[str, Any]:
-        """Get service area analytics."""
+        """Get service area analytics (dynamic: polygon inclusion and proximity)."""
         service_analytics = {
             "service_areas_status": {},
             "total_active_services": 0,
             "service_efficiency": {}
         }
 
-        # Use service_proximity_threshold from config or fallback to default
         service_proximity_threshold = getattr(self, '_service_proximity_threshold', 100.0)
 
+        # Collect all customers and staff (flattened)
+        all_customers = []
+        for area_list in self.customer_occupancy.values():
+            all_customers.extend(area_list)
+        all_staff = []
+        for area_list in self.staff_occupancy.values():
+            all_staff.extend(area_list)
+
         for area_name, polygon in self.service_areas.items():
-            # Find customers and staff within proximity threshold of the service area polygon
-            customers_in_area = 0
-            staff_in_area = 0
-            # For each customer, check if within threshold of any point in polygon
-            for occ in self.customer_occupancy.get(area_name, []):
+            customers_in_area = set()
+            staff_in_area = set()
+
+            # Customers: count if inside service area polygon OR within proximity threshold
+            for occ in all_customers:
                 center = occ.get('center')
-                if center and any(
+                tid = occ.get('track_id')
+                if center is None or tid is None:
+                    continue
+                # Check polygon inclusion
+                in_polygon = point_in_polygon(center, polygon)
+                in_proximity = any(
                     math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
-                ):
-                    customers_in_area += 1
-            for occ in self.staff_occupancy.get(area_name, []):
+                )
+                if in_polygon or in_proximity:
+                    customers_in_area.add(tid)
+
+            # Staff: count if inside service area polygon OR within proximity threshold
+            for occ in all_staff:
                 center = occ.get('center')
-                if center and any(
+                tid = occ.get('track_id')
+                if center is None or tid is None:
+                    continue
+                in_polygon = point_in_polygon(center, polygon)
+                in_proximity = any(
                     math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
-                ):
-                    staff_in_area += 1
+                )
+                if in_polygon or in_proximity:
+                    staff_in_area.add(tid)
 
             service_analytics["service_areas_status"][area_name] = {
-                "customers": customers_in_area,
-                "staff": staff_in_area,
-                "service_ratio": customers_in_area / max(staff_in_area, 1),
-                "status": "active" if staff_in_area > 0 else "inactive",
+                "customers": len(customers_in_area),
+                "staff": len(staff_in_area),
+                "service_ratio": len(customers_in_area) / max(len(staff_in_area), 1),
+                "status": "active" if len(staff_in_area) > 0 else "inactive",
                 "service_proximity_threshold": service_proximity_threshold
             }
 
-            if staff_in_area > 0:
+            if len(staff_in_area) > 0:
                 service_analytics["total_active_services"] += 1
 
         return service_analytics
@@ -815,14 +943,23 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
     def _calculate_analytics(self, current_time: float) -> Dict[str, Any]:
         """Calculate comprehensive business metrics."""
         total_customers = len(self.customer_journey)
-        total_staff = sum(len(staff_list) for staff_list in self.staff_occupancy.values())
+        chunk_ids = getattr(self, '_chunk_customer_ids', set())
+        customers_queuing = 0
+        customers_being_served = 0
+        for track_id in chunk_ids:
+            journey = self.customer_journey.get(track_id)
+            if not journey:
+                continue
+            if journey['state'] == self.JOURNEY_STATES['QUEUING']:
+                customers_queuing += 1
+            elif journey['state'] == self.JOURNEY_STATES['BEING_SERVED']:
+                customers_being_served += 1
 
-        # Calculate customers_queuing and customers_being_served
-        customers_queuing = sum(1 for j in self.customer_journey.values() if j['state'] == self.JOURNEY_STATES['QUEUING'])
-        customers_being_served = sum(1 for j in self.customer_journey.values() if j['state'] == self.JOURNEY_STATES['BEING_SERVED'])
+        # Use global staff count (unique staff IDs)
+        total_staff = len(self.global_staff_ids)
 
         metrics = {
-            # Corrected customer_to_staff_ratio as per user request
+            # Now using per-chunk customer count for ratio
             "customer_to_staff_ratio": (customers_queuing + customers_being_served) / max(total_staff, 1),
             "service_efficiency": 0.0,
             "queue_performance": 0.0,

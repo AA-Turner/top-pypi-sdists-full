@@ -17,7 +17,6 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
-    LambdaNode,
     MemberAccessNode,
     NameNode,
     ParameterNode,
@@ -103,6 +102,9 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         const type = this._evaluator?.getType(node.d.alias ?? node.d.name);
         if (type) {
             this._visitNameWithType(node.d.name, type);
+            if (node.d.alias) {
+                this._visitNameWithType(node.d.alias, type);
+            }
         }
         return super.visitImportFromAs(node);
     }
@@ -115,8 +117,16 @@ export class SemanticTokensWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        // covered by visitDecorator
-        if (node.parent?.nodeType !== ParseNodeType.Decorator) {
+        const parentType = node.parent?.nodeType;
+        if (
+            parentType !== ParseNodeType.Class &&
+            parentType !== ParseNodeType.Decorator &&
+            parentType !== ParseNodeType.ImportAs &&
+            parentType !== ParseNodeType.ImportFromAs &&
+            // Ensure only `parent.d.name` is skipped, e.g. don't skip `returnAnnotation` in `FunctionNode`
+            (parentType !== ParseNodeType.Function || node.parent.d.name?.id !== node.id) &&
+            (parentType !== ParseNodeType.Parameter || node.parent.d.name?.id !== node.id)
+        ) {
             const type = this._evaluator?.getType(node);
             if (type) {
                 this._visitNameWithType(node, type);
@@ -184,11 +194,9 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                     // PEP 613 > Name: TypeAlias = Types
                     // PEP 695 > type Name = Types
                     const declarations = this._evaluator?.getDeclInfoForNameNode(node)?.decls;
-                    const isPEP613TypeAlias =
-                        declarations &&
-                        declarations.some((declaration) =>
-                            this._evaluator?.isExplicitTypeAliasDeclaration(declaration)
-                        );
+                    const isPEP613TypeAlias = declarations?.some((declaration) =>
+                        this._evaluator?.isExplicitTypeAliasDeclaration(declaration)
+                    );
                     const isTypeAlias = isPEP613TypeAlias || type.props?.typeAliasInfo?.shared.isTypeAliasType;
 
                     const isBuiltIn =
@@ -229,11 +237,7 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         const declarations = this._evaluator?.getDeclInfoForNameNode(node)?.decls;
         const paramNode = declarations?.find(isParamDeclaration)?.node;
         if (paramNode) {
-            const parent = paramNode.parent as FunctionNode | LambdaNode;
-            // Avoid duplicates for parameters visited by `visitParameter`
-            if (!parent.d.params.some((param) => param.d.name?.id === node.id)) {
-                this._addItemForNameNode(node, this._getParamSemanticToken(paramNode, type), []);
-            }
+            this._addItemForNameNode(node, this._getParamSemanticToken(paramNode, type), []);
         } else if (type.category === TypeCategory.TypeVar && !TypeBase.isInstance(type)) {
             // `cls` method parameter is treated as a TypeVar in some special methods (methods
             // with @classmethod decorator, `__new__`, `__init_subclass__`, etc.) so we need to

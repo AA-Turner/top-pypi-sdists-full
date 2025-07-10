@@ -172,6 +172,7 @@ async def wait_run(request: ApiRequest):
     """Create a run, wait for the output."""
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStateful)
+    on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
@@ -197,7 +198,10 @@ async def wait_run(request: ApiRequest):
         vchunk: bytes | None = None
         async with aclosing(
             Runs.Stream.join(
-                run["run_id"], thread_id=run["thread_id"], stream_mode=await sub
+                run["run_id"],
+                thread_id=run["thread_id"],
+                stream_mode=await sub,
+                cancel_on_disconnect=on_disconnect == "cancel",
             )
         ) as stream:
             async for mode, chunk, _ in stream:
@@ -248,6 +252,7 @@ async def wait_run(request: ApiRequest):
 async def wait_run_stateless(request: ApiRequest):
     """Create a stateless run, wait for the output."""
     payload = await request.json(RunCreateStateless)
+    on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
@@ -277,6 +282,7 @@ async def wait_run_stateless(request: ApiRequest):
                 thread_id=run["thread_id"],
                 stream_mode=await sub,
                 ignore_404=True,
+                cancel_on_disconnect=on_disconnect == "cancel",
             )
         ) as stream:
             async for mode, chunk, _ in stream:

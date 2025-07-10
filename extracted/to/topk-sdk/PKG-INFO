@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: topk_sdk
-Version: 0.4.4
+Version: 0.4.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

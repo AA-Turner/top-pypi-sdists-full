@@ -18,7 +18,7 @@ from chalk._gen.chalk.common.v2 import execute_plan_pb2 as chalk_dot_common_dot_
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\'chalk/engine/v2/dataframe_service.proto\x12\x0f\x63halk.engine.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a"chalk/common/v2/execute_plan.proto2q\n\x10\x44\x61taFrameService\x12]\n\x0b\x45xecutePlan\x12#.chalk.common.v2.ExecutePlanRequest\x1a$.chalk.common.v2.ExecutePlanResponse"\x03\x80}\x03\x42\x8a\x01\n\x13\x63om.chalk.engine.v2B\x15\x44\x61taframeServiceProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V2\xca\x02\x0f\x43halk\\Engine\\V2\xe2\x02\x1b\x43halk\\Engine\\V2\\GPBMetadata\xea\x02\x11\x43halk::Engine::V2b\x06proto3'
+    b'\n\'chalk/engine/v2/dataframe_service.proto\x12\x0f\x63halk.engine.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a"chalk/common/v2/execute_plan.proto"\x17\n\x15\x44\x61taFrameServiceDummy2q\n\x10\x44\x61taFrameService\x12]\n\x0b\x45xecutePlan\x12#.chalk.common.v2.ExecutePlanRequest\x1a$.chalk.common.v2.ExecutePlanResponse"\x03\x80}\x03\x42\x8a\x01\n\x13\x63om.chalk.engine.v2B\x15\x44\x61taframeServiceProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V2\xca\x02\x0f\x43halk\\Engine\\V2\xe2\x02\x1b\x43halk\\Engine\\V2\\GPBMetadata\xea\x02\x11\x43halk::Engine::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -31,6 +31,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.engine.v2B\025DataframeServiceProtoP\001\242\002\003CEX\252\002\017Chalk.Engine.V2\312\002\017Chalk\\Engine\\V2\342\002\033Chalk\\Engine\\V2\\GPBMetadata\352\002\021Chalk::Engine::V2"
     _globals["_DATAFRAMESERVICE"].methods_by_name["ExecutePlan"]._options = None
     _globals["_DATAFRAMESERVICE"].methods_by_name["ExecutePlan"]._serialized_options = b"\200}\003"
-    _globals["_DATAFRAMESERVICE"]._serialized_start = 129
-    _globals["_DATAFRAMESERVICE"]._serialized_end = 242
+    _globals["_DATAFRAMESERVICEDUMMY"]._serialized_start = 129
+    _globals["_DATAFRAMESERVICEDUMMY"]._serialized_end = 152
+    _globals["_DATAFRAMESERVICE"]._serialized_start = 154
+    _globals["_DATAFRAMESERVICE"]._serialized_end = 267
 # @@protoc_insertion_point(module_scope)

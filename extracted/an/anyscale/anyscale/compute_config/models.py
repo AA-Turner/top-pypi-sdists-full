@@ -569,6 +569,22 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         if not isinstance(flags, dict):
             raise TypeError("'flags' must be a dict")
 
+    auto_select_worker_config: bool = field(
+        default=False,
+        repr=False,
+        metadata={
+            "docstring": "Allow worker groups to be automatically configured based on workload. When false, worker groups must be explicitly configured.",
+        },
+    )
+
+    def _validate_auto_select_worker_config(self, auto_select_worker_config: bool):
+        if not isinstance(auto_select_worker_config, bool):
+            raise TypeError("'auto_select_worker_config' must be a boolean")
+        if auto_select_worker_config and self.worker_nodes is not None:
+            raise ValueError(
+                "'auto_select_worker_config' must be false when 'worker_nodes' are provided"
+            )
+
 
 @dataclass(frozen=True)
 class ComputeConfigVersion(ModelBase):

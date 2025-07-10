@@ -67,6 +67,8 @@ __all__ = (
     "CancelBatchErrorCodeType",
     "CancelSpotInstanceRequestStateType",
     "CapacityBlockExtensionStatusType",
+    "CapacityBlockInterconnectStatusType",
+    "CapacityBlockResourceStateType",
     "CapacityReservationBillingRequestStatusType",
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
@@ -110,6 +112,8 @@ __all__ = (
     "DescribeCapacityBlockExtensionHistoryPaginatorName",
     "DescribeCapacityBlockExtensionOfferingsPaginatorName",
     "DescribeCapacityBlockOfferingsPaginatorName",
+    "DescribeCapacityBlockStatusPaginatorName",
+    "DescribeCapacityBlocksPaginatorName",
     "DescribeCapacityReservationBillingRequestsPaginatorName",
     "DescribeCapacityReservationFleetsPaginatorName",
     "DescribeCapacityReservationsPaginatorName",
@@ -718,6 +722,17 @@ CancelBatchErrorCodeType = Literal[
 ]
 CancelSpotInstanceRequestStateType = Literal["active", "cancelled", "closed", "completed", "open"]
 CapacityBlockExtensionStatusType = Literal["payment-failed", "payment-pending", "payment-succeeded"]
+CapacityBlockInterconnectStatusType = Literal["impaired", "insufficient-data", "ok"]
+CapacityBlockResourceStateType = Literal[
+    "active",
+    "cancelled",
+    "expired",
+    "failed",
+    "payment-failed",
+    "payment-pending",
+    "scheduled",
+    "unavailable",
+]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
 ]
@@ -765,6 +780,7 @@ CapacityReservationStateType = Literal[
     "payment-pending",
     "pending",
     "scheduled",
+    "unavailable",
     "unsupported",
 ]
 CapacityReservationTenancyType = Literal["dedicated", "default"]
@@ -818,6 +834,8 @@ DescribeCapacityBlockExtensionOfferingsPaginatorName = Literal[
     "describe_capacity_block_extension_offerings"
 ]
 DescribeCapacityBlockOfferingsPaginatorName = Literal["describe_capacity_block_offerings"]
+DescribeCapacityBlockStatusPaginatorName = Literal["describe_capacity_block_status"]
+DescribeCapacityBlocksPaginatorName = Literal["describe_capacity_blocks"]
 DescribeCapacityReservationBillingRequestsPaginatorName = Literal[
     "describe_capacity_reservation_billing_requests"
 ]
@@ -2413,6 +2431,7 @@ ReservedInstanceStateType = Literal[
 ResetFpgaImageAttributeNameType = Literal["loadPermission"]
 ResetImageAttributeNameType = Literal["launchPermission"]
 ResourceTypeType = Literal[
+    "capacity-block",
     "capacity-reservation",
     "capacity-reservation-fleet",
     "carrier-gateway",
@@ -3213,6 +3232,8 @@ PaginatorName = Literal[
     "describe_capacity_block_extension_history",
     "describe_capacity_block_extension_offerings",
     "describe_capacity_block_offerings",
+    "describe_capacity_block_status",
+    "describe_capacity_blocks",
     "describe_capacity_reservation_billing_requests",
     "describe_capacity_reservation_fleets",
     "describe_capacity_reservations",

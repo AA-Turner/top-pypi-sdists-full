@@ -23,6 +23,8 @@ Usage::
         DescribeCapacityBlockExtensionHistoryPaginator,
         DescribeCapacityBlockExtensionOfferingsPaginator,
         DescribeCapacityBlockOfferingsPaginator,
+        DescribeCapacityBlockStatusPaginator,
+        DescribeCapacityBlocksPaginator,
         DescribeCapacityReservationBillingRequestsPaginator,
         DescribeCapacityReservationFleetsPaginator,
         DescribeCapacityReservationsPaginator,
@@ -256,6 +258,8 @@ Usage::
     describe_capacity_block_extension_history_paginator: DescribeCapacityBlockExtensionHistoryPaginator = client.get_paginator("describe_capacity_block_extension_history")
     describe_capacity_block_extension_offerings_paginator: DescribeCapacityBlockExtensionOfferingsPaginator = client.get_paginator("describe_capacity_block_extension_offerings")
     describe_capacity_block_offerings_paginator: DescribeCapacityBlockOfferingsPaginator = client.get_paginator("describe_capacity_block_offerings")
+    describe_capacity_block_status_paginator: DescribeCapacityBlockStatusPaginator = client.get_paginator("describe_capacity_block_status")
+    describe_capacity_blocks_paginator: DescribeCapacityBlocksPaginator = client.get_paginator("describe_capacity_blocks")
     describe_capacity_reservation_billing_requests_paginator: DescribeCapacityReservationBillingRequestsPaginator = client.get_paginator("describe_capacity_reservation_billing_requests")
     describe_capacity_reservation_fleets_paginator: DescribeCapacityReservationFleetsPaginator = client.get_paginator("describe_capacity_reservation_fleets")
     describe_capacity_reservations_paginator: DescribeCapacityReservationsPaginator = client.get_paginator("describe_capacity_reservations")
@@ -412,6 +416,8 @@ from .paginator import (
     DescribeCapacityBlockExtensionHistoryPaginator,
     DescribeCapacityBlockExtensionOfferingsPaginator,
     DescribeCapacityBlockOfferingsPaginator,
+    DescribeCapacityBlocksPaginator,
+    DescribeCapacityBlockStatusPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
@@ -624,6 +630,8 @@ __all__ = (
     "DescribeCapacityBlockExtensionHistoryPaginator",
     "DescribeCapacityBlockExtensionOfferingsPaginator",
     "DescribeCapacityBlockOfferingsPaginator",
+    "DescribeCapacityBlockStatusPaginator",
+    "DescribeCapacityBlocksPaginator",
     "DescribeCapacityReservationBillingRequestsPaginator",
     "DescribeCapacityReservationFleetsPaginator",
     "DescribeCapacityReservationsPaginator",

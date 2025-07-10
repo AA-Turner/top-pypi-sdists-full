@@ -13,6 +13,8 @@ from mistral_common.protocol.instruct.messages import (
     AssistantMessage,
     AssistantMessageType,
     ContentChunk,
+    ImageChunk,
+    ImageURLChunk,
     SystemMessage,
     TextChunk,
     ToolMessage,
@@ -29,8 +31,9 @@ from mistral_common.tokens.tokenizers.base import (
     Tokenized,
     TokenizedType,
     Tokenizer,
+    UserMessagePosition,
 )
-from mistral_common.tokens.tokenizers.multimodal import MultiModalEncoder
+from mistral_common.tokens.tokenizers.image import ImageEncoder
 
 
 class InstructTokenizerBase(
@@ -38,16 +41,23 @@ class InstructTokenizerBase(
 ):
     r"""Base instruct tokenizer."""
 
-    def __init__(self, tokenizer: Tokenizer, mm_encoder: Optional[MultiModalEncoder] = None):
+    def __init__(self, tokenizer: Tokenizer, image_encoder: Optional[ImageEncoder] = None):
         r"""Initialize the instruct tokenizer.
 
         Args:
             tokenizer: The tokenizer to use.
-            mm_encoder: The multi-modal encoder to use if any.
+            image_encoder: The image encoder to use if any.
         """
         self.tokenizer = tokenizer
-        self.mm_encoder = mm_encoder
-        super().__init__(tokenizer, mm_encoder)
+        self.image_encoder = image_encoder
+        super().__init__(tokenizer, image_encoder)
+
+    @property
+    def mm_encoder(self) -> Optional[ImageEncoder]:
+        # this funtion is deprecated, use image_encoder instead
+        # TODO(Patrick) - throw a deprecation warning once
+        # changes applied to vllm and transformers
+        return self.image_encoder
 
     def start(self) -> List[int]:
         r"""Return the start tokens."""
@@ -152,6 +162,8 @@ class InstructTokenizerBase(
                     prefix_ids = new_tokens
             elif isinstance(msg, SystemMessage):
                 new_tokens = self.encode_system_message(msg)
+            else:
+                raise TokenizerException(f"Unknown message type {type(msg)}")
 
             tokens_list.append(new_tokens)
 
@@ -185,7 +197,7 @@ class InstructTokenizerBase(
                 [Tekkenizer][mistral_common.tokens.tokenizers.tekken.Tekkenizer] and `SpecialTokenPolicy.IGNORE`
                 for [SentencePieceTokenizer][mistral_common.tokens.tokenizers.sentencepiece.SentencePieceTokenizer].
                 Note that passing `None` will be deprecated and `special_token_policy` will default to
-                `SpecialTokenPolicy.IGNORE` in `mistral_common=1.7.0`.
+                `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The decoded string.
@@ -201,7 +213,7 @@ class InstructTokenizerV1(
 ):
     r"""Instruct tokenizer V1.
 
-    This tokenizer has basic for messages. It does not support tools or multi-modal inputs.
+    This tokenizer has basic for messages. It does not support tools or image inputs.
     """
 
     def encode_user_message(
@@ -226,9 +238,8 @@ class InstructTokenizerV1(
         Returns:
             The encoded tokens and empty list.
         """
-        assert message.content is not None
         assert isinstance(message.content, str), "Message content must be normalized"
-        assert self.mm_encoder is None, "InstructTokenizerV1 cannot encode images"
+        assert self.image_encoder is None, "InstructTokenizerV1 cannot encode images"
 
         content = ""
         if is_first and system_prompt:
@@ -295,7 +306,6 @@ class InstructTokenizerV1(
             raise InvalidAssistantMessageException(
                 "`continue_message` is only supported for assistant messages that have `prefix=False`."
             )
-
         elif message.content:
             curr_tokens = self.tokenizer.encode(message.content, bos=False, eos=False)
         else:
@@ -321,14 +331,16 @@ class InstructTokenizerV2(
     This tokenizer adds supports to images, tools and FIM requests.
     """
 
-    def __init__(self, tokenizer: Tokenizer, mm_encoder: Optional[MultiModalEncoder] = None):
+    _user_message_position_to_encode_tools = UserMessagePosition.last
+
+    def __init__(self, tokenizer: Tokenizer, image_encoder: Optional[ImageEncoder] = None):
         r"""Initialize the tokenizer.
 
         Args:
             tokenizer: The tokenizer to use.
-            mm_encoder: The multi-modal encoder to use.
+            image_encoder: The image encoder to use.
         """
-        super().__init__(tokenizer, mm_encoder)
+        super().__init__(tokenizer, image_encoder)
         self.BEGIN_INST = self.tokenizer.get_control_token(SpecialTokens.begin_inst.value)
         self.END_INST = self.tokenizer.get_control_token(SpecialTokens.end_inst.value)
         self.BEGIN_AVAILABLE_TOOLS = self.tokenizer.get_control_token(SpecialTokens.begin_tools.value)
@@ -362,9 +374,12 @@ class InstructTokenizerV2(
         Returns:
             The encoded tokens and the list of images.
         """
-        assert message.content is not None
+        do_encode_tools = False
+        do_encode_tools |= is_first and (self._user_message_position_to_encode_tools == UserMessagePosition.first)
+        do_encode_tools |= is_last and (self._user_message_position_to_encode_tools == UserMessagePosition.last)
         tools_tokens: List[int] = []
-        if is_last and available_tools:
+
+        if do_encode_tools and available_tools:
             tools = [tool.model_dump() for tool in available_tools]
             tools_json_tokens = self.tokenizer.encode(json.dumps(tools, ensure_ascii=False), bos=False, eos=False)
             tools_tokens = [
@@ -395,7 +410,6 @@ class InstructTokenizerV2(
 
     def _prepare_tool_result(self, tool_message: ToolMessage) -> Dict[str, Any]:
         r"""Bit of a hack due to the way tool results are tokenized."""
-        assert tool_message.content is not None, "Tool message content cannot be None"
         return {
             "name": tool_message.name,
             "content": self._parse_json_content(tool_message.content),
@@ -434,6 +448,7 @@ class InstructTokenizerV2(
 
     def _encode_normal_content_assistant_message(self, message: AssistantMessageType) -> List[int]:
         assert message.content, f"Assistant message must have content. Got {message}"
+        assert isinstance(message.content, str), "Message content must be a string for tokenizer < V7"
         return self.tokenizer.encode(message.content.rstrip(" "), bos=False, eos=False)
 
     def _encode_tool_calls_in_assistant_message(self, message: AssistantMessageType) -> List[int]:
@@ -517,14 +532,14 @@ class InstructTokenizerV3(
     The only difference with V2 tokenizer is that it encodes the tool messages differently.
     """
 
-    def __init__(self, tokenizer: Tokenizer, mm_encoder: Optional[MultiModalEncoder] = None) -> None:
+    def __init__(self, tokenizer: Tokenizer, image_encoder: Optional[ImageEncoder] = None) -> None:
         r"""Initialize the tokenizer.
 
         Args:
             tokenizer: The tokenizer to use.
-            mm_encoder: The multi-modal encoder to use.
+            image_encoder: The image encoder to use.
         """
-        super().__init__(tokenizer, mm_encoder=mm_encoder)
+        super().__init__(tokenizer, image_encoder=image_encoder)
 
     def _prepare_function_call(self, tool_call: ToolCall) -> Dict[str, Any]:
         function_call = {
@@ -538,7 +553,6 @@ class InstructTokenizerV3(
         return function_call
 
     def _prepare_tool_result(self, tool_message: ToolMessage) -> Dict[str, Any]:
-        assert tool_message.content is not None, "Tool message content cannot be None"
         assert tool_message.tool_call_id is not None, "Tool message has to have the tool call id defined in v3"
 
         return {
@@ -614,7 +628,9 @@ class InstructTokenizerV3(
         images: List[np.ndarray] = []
 
         has_one_img_one_text_first = (
-            len(content) == 2 and isinstance(content[0], TextChunk) and not isinstance(content[1], TextChunk)
+            len(content) == 2
+            and isinstance(content[0], TextChunk)
+            and isinstance(content[1], (ImageURLChunk, ImageChunk))
         )
         if force_img_first and has_one_img_one_text_first:
             # make sure that if exactly one image and text chunk are passed we force the image chunk to be first
@@ -630,11 +646,11 @@ class InstructTokenizerV3(
                 content += chunk.text
                 tokens.extend(self.tokenizer.encode(content, bos=False, eos=False))
             else:
-                assert self.mm_encoder is not None, "Make sure to define a multi-modal encoder at init"
+                assert self.image_encoder is not None, "Make sure to define a image encoder at init"
                 if content:
                     tokens.extend(self.tokenizer.encode(content, bos=False, eos=False))
 
-                img_encoding = self.mm_encoder(chunk)
+                img_encoding = self.image_encoder(chunk)
 
                 tokens.extend(img_encoding.tokens)
                 images.append(img_encoding.image)
@@ -652,15 +668,15 @@ class InstructTokenizerV7(InstructTokenizerV3):
 
     """
 
-    def __init__(self, tokenizer: Tokenizer, mm_encoder: Optional[MultiModalEncoder] = None) -> None:
+    def __init__(self, tokenizer: Tokenizer, image_encoder: Optional[ImageEncoder] = None) -> None:
         r"""Initialize the tokenizer.
 
         Args:
             tokenizer: The tokenizer to use.
-            mm_encoder: The multi-modal encoder to use.
+            image_encoder: The image encoder to use.
         """
 
-        super().__init__(tokenizer, mm_encoder)
+        super().__init__(tokenizer, image_encoder)
         self.BEGIN_SYSTEM = self.tokenizer.get_control_token(SpecialTokens.begin_system.value)
         self.END_SYSTEM = self.tokenizer.get_control_token(SpecialTokens.end_system.value)
         self.BEGIN_TOOL_CONTENT = self.tokenizer.get_control_token(SpecialTokens.begin_tool_content.value)
@@ -715,8 +731,6 @@ class InstructTokenizerV7(InstructTokenizerV3):
         Returns:
             The encoded tokens.
         """
-        assert message.content is not None
-        assert isinstance(message.content, str), "Message content must be normalized"
         tokens = [
             self.BEGIN_SYSTEM,
             *self.tokenizer.encode(message.content, bos=False, eos=False),
@@ -771,6 +785,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
             The encoded tokens.
         """
         assert message.tool_call_id is not None
+        assert isinstance(message.content, str), "Message content must be normalized"
         tool_call_id_tokens = self.tokenizer.encode(message.tool_call_id, bos=False, eos=False)
         tokens = self.tokenizer.encode(message.content, bos=False, eos=False)
 
@@ -809,12 +824,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
 
         curr_tokens: list = []
         if message.content:
-            if isinstance(message.content, str):
-                curr_tokens += self._encode_normal_content_assistant_message(message)
-            elif isinstance(message.content, list):
-                curr_tokens += self.encode_content_chunks(
-                    message.content, is_last=False, system_prompt=None, force_img_first=True
-                ).tokens
+            curr_tokens += self._encode_normal_content_assistant_message(message)
         if message.tool_calls:
             curr_tokens += self._encode_tool_calls_in_assistant_message(message)
         if not message.prefix and not continue_message:
@@ -834,9 +844,9 @@ class InstructTokenizerV11(InstructTokenizerV7):
     def __init__(
         self,
         tokenizer: Tokenizer,
-        mm_encoder: Optional[MultiModalEncoder] = None,
+        image_encoder: Optional[ImageEncoder] = None,
     ) -> None:
-        super().__init__(tokenizer, mm_encoder)
+        super().__init__(tokenizer, image_encoder)
         self.ARGS = self.tokenizer.get_control_token(SpecialTokens.args.value)
         self.CALL_ID = self.tokenizer.get_control_token(SpecialTokens.call_id.value)
 
@@ -857,4 +867,49 @@ class InstructTokenizerV11(InstructTokenizerV7):
                 self.ARGS,
                 *self.tokenizer.encode(json.dumps(prepared["arguments"], ensure_ascii=False), bos=False, eos=False),
             ]
+        return curr_tokens
+
+
+class InstructTokenizerV13(InstructTokenizerV11):
+    r"""Instruct tokenizer V13.
+
+    The difference with V11 tokenizer is that it encodes tool calls differently:
+        - available tools are tokenized at the first user message.
+        - call id is no longer tokenized for tool calls or results.
+    """
+
+    _user_message_position_to_encode_tools = UserMessagePosition.first
+
+    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessageType) -> List[int]:
+        assert message.tool_calls, f"Assistant message must have tool calls. Got {message}"
+        curr_tokens = []
+        for tool_call in message.tool_calls:
+            assert tool_call.id and tool_call.id != "null"
+            prepared = self._prepare_function_call(tool_call)
+
+            curr_tokens += [
+                self.TOOL_CALLS,
+                *self.tokenizer.encode(prepared["name"], bos=False, eos=False),
+                self.ARGS,
+                *self.tokenizer.encode(json.dumps(prepared["arguments"], ensure_ascii=False), bos=False, eos=False),
+            ]
+        return curr_tokens
+
+    def encode_tool_message(self, message: ToolMessage, is_before_last_user_message: bool) -> List[int]:
+        r"""Encode a tool message.
+
+        Args:
+            message: The message to encode.
+            is_before_last_user_message: Not used.
+        Returns:
+            The encoded tokens.
+        """
+        assert message.tool_call_id is not None, "Tool call id must be provided for tokenizer >= v13"
+
+        tokens = self.tokenizer.encode(message.content, bos=False, eos=False)
+        curr_tokens = [
+            self.BEGIN_TOOL_RESULTS,
+            *tokens,
+            self.END_TOOL_RESULTS,
+        ]
         return curr_tokens

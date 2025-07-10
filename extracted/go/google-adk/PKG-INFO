@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.5.0
+Version: 1.6.1
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.9
@@ -41,9 +41,11 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: requests>=2.32.4
 Requires-Dist: sqlalchemy>=2.0
 Requires-Dist: starlette>=0.46.2
+Requires-Dist: tenacity>=8.0.0
 Requires-Dist: typing-extensions>=4.5, <5
 Requires-Dist: tzlocal>=5.3
 Requires-Dist: uvicorn>=0.34.0
+Requires-Dist: watchdog>=6.0.0
 Requires-Dist: websockets>=15.0.1
 Requires-Dist: a2a-sdk>=0.2.7 ; extra == "a2a" and (python_version>='3.10')
 Requires-Dist: flit>=3.10.0 ; extra == "dev"
@@ -57,7 +59,7 @@ Requires-Dist: myst-parser ; extra == "docs"
 Requires-Dist: sphinx ; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme ; extra == "docs"
-Requires-Dist: google-cloud-aiplatform[evaluation]>=1.87.0 ; extra == "eval"
+Requires-Dist: google-cloud-aiplatform[evaluation]>=1.100.0 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: tabulate>=0.9.0 ; extra == "eval"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
@@ -72,7 +74,7 @@ Requires-Dist: lxml>=5.3.0 ; extra == "extensions"
 Requires-Dist: toolbox-core>=0.1.0 ; extra == "extensions"
 Requires-Dist: anthropic>=0.43.0 ; extra == "test"
 Requires-Dist: langchain-community>=0.3.17 ; extra == "test"
-Requires-Dist: langgraph>=0.2.60 ; extra == "test"
+Requires-Dist: langgraph>=0.2.60, <= 0.4.10 ; extra == "test"
 Requires-Dist: litellm>=1.71.2 ; extra == "test"
 Requires-Dist: llama-index-readers-file>=0.4.0 ; extra == "test"
 Requires-Dist: pytest-asyncio>=0.25.0 ; extra == "test"
@@ -137,7 +139,7 @@ Agent Development Kit (ADK) is a flexible and modular framework for developing a
 
 For remote agent-to-agent communication, ADK integrates with the
 [A2A protocol](https://github.com/google-a2a/A2A/).
-See this [example](https://github.com/google-a2a/a2a-samples/tree/main/samples/python/agents/google_adk)
+See this [example](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/agents)
 for how they can work together.
 
 ## 🚀 Installation

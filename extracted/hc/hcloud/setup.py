@@ -7,7 +7,7 @@ with open("README.md", encoding="utf-8") as readme_file:
 
 setup(
     name="hcloud",
-    version="2.5.3",  # x-releaser-pleaser-version
+    version="2.5.4",  # x-releaser-pleaser-version
     keywords="hcloud hetzner cloud",
     description="Official Hetzner Cloud python library",
     long_description=readme,
@@ -21,11 +21,10 @@ setup(
         "Changelog": "https://github.com/hetznercloud/hcloud-python/blob/main/CHANGELOG.md",
         "Source Code": "https://github.com/hetznercloud/hcloud-python",
     },
-    license="MIT license",
+    license="MIT",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.9",
@@ -47,10 +46,10 @@ setup(
             "watchdog>=6,<6.1",
         ],
         "test": [
-            "coverage>=7.8,<7.9",
+            "coverage>=7.9,<7.10",
             "pylint>=3,<3.4",
             "pytest>=8,<8.5",
-            "pytest-cov>=6,<6.2",
+            "pytest-cov>=6,<6.3",
             "mypy>=1.16,<1.17",
             "types-python-dateutil",
             "types-requests",

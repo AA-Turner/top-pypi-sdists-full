@@ -1,19 +1,18 @@
 Metadata-Version: 2.3
 Name: forecasting-tools
-Version: 0.2.48
+Version: 0.2.49
 Summary: AI forecasting and research tools to help humans reason about and forecast the future
 License: MIT
 Keywords: ai,forecasting,research,metaculus,prediction,future,market
 Author: Benjamin Wilson
 Author-email: mokoresearch@gmail.com
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,7 +24,7 @@ Requires-Dist: asknews (>=0.9.1,<0.12.0)
 Requires-Dist: asyncio (>=3.4.3,<4.0.0)
 Requires-Dist: exceptiongroup (>=1.2.2,<2.0.0)
 Requires-Dist: faker (>=37.0.1,<38.0.0)
-Requires-Dist: hyperbrowser (>=0.45.1,<0.46.0)
+Requires-Dist: hyperbrowser (==0.48.0)
 Requires-Dist: litellm (>=1.59.1,<2.0.0)
 Requires-Dist: nest-asyncio (>=1.5.8,<2.0.0)
 Requires-Dist: numpy (>=1.26.0,<3.0.0)

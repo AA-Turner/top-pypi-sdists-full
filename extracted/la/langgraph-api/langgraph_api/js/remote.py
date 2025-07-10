@@ -1,6 +1,8 @@
 import asyncio
+import json
 import logging
 import os
+import re
 import shutil
 import ssl
 from collections import deque
@@ -452,6 +454,26 @@ async def run_js_http_process(paths_str: str, http_config: dict, watch: bool = F
                 attempt += 1
 
 
+_BAD_SURROGATE_RE = re.compile(r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}")
+_BAD_ESCAPE_RE = re.compile(r"\\(?![\"\\/bfnrtu])")
+
+
+def _safe_json_loads(data: bytes):
+    """Attempt *orjson.loads* first; if it fails, repair common escape issues.
+
+    For a time, we had a bug in our surrogate cleanup in serde.py, which
+    allowed sequences containing a stray backslash to be stored which would
+    then fail upon loading. This function attempts to repair those sequences.
+    """
+    try:
+        return orjson.loads(data)
+    except orjson.JSONDecodeError:
+        txt = data.decode("utf-8", "replace")
+        txt = _BAD_ESCAPE_RE.sub(r"\\\\", txt)
+        txt = _BAD_SURROGATE_RE.sub("", txt)
+        return json.loads(txt)
+
+
 class PassthroughSerialiser(SerializerProtocol):
     def dumps(self, obj: Any) -> bytes:
         return json_dumpb(obj)
@@ -460,13 +482,13 @@ class PassthroughSerialiser(SerializerProtocol):
         return "json", json_dumpb(obj)
 
     def loads(self, data: bytes) -> Any:
-        return orjson.loads(data)
+        return _safe_json_loads(data)
 
     def loads_typed(self, data: tuple[str, bytes]) -> Any:
         type, payload = data
         if type != "json":
             raise ValueError(f"Unsupported type {type}")
-        return orjson.loads(payload)
+        return _safe_json_loads(payload)
 
 
 def _get_passthrough_checkpointer():

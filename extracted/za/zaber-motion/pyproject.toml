@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zaber_motion"
-version = "7.9.1"
+version = "7.10.0"
 description = "An official library for communicating with Zaber devices."
 authors = [{ name = "Zaber Technologies Inc.", email = "contact@zaber.com" }]
 license = { file = "LICENSE.txt" }

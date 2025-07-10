@@ -3030,6 +3030,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
+    @overload
     def arima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ar_order: int, diff_order: int, ma_order: int, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AutoRegressiveIntegratedMovingAverage:
         """
         Creates a new ARIMA indicator.
@@ -3039,6 +3040,23 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param diff_order: Difference order (d) -- defines how many times to difference the model before fitting parameters.
         :param ma_order: MA order (q) -- defines the number of past values to consider in the MA component of the model.
         :param period: Size of the rolling series to fit onto
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: The ARIMA indicator for the requested symbol over the specified period.
+        """
+        ...
+
+    @overload
+    def arima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ar_order: int, diff_order: int, ma_order: int, period: int, intercept: bool, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AutoRegressiveIntegratedMovingAverage:
+        """
+        Creates a new ARIMA indicator.
+        
+        :param symbol: The symbol whose ARIMA indicator we want
+        :param ar_order: AR order (p) -- defines the number of past values to consider in the AR component of the model.
+        :param diff_order: Difference order (d) -- defines how many times to difference the model before fitting parameters.
+        :param ma_order: MA order (q) -- defines the number of past values to consider in the MA component of the model.
+        :param period: Size of the rolling series to fit onto
+        :param intercept: Whether or not to include the intercept term
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The ARIMA indicator for the requested symbol over the specified period.

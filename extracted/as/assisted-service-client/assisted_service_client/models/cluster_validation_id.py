@@ -58,6 +58,7 @@ class ClusterValidationId(object):
     SERVICEMESH_REQUIREMENTS_SATISFIED = "servicemesh-requirements-satisfied"
     SERVERLESS_REQUIREMENTS_SATISFIED = "serverless-requirements-satisfied"
     OPENSHIFT_AI_REQUIREMENTS_SATISFIED = "openshift-ai-requirements-satisfied"
+    OPENSHIFT_AI_GPU_REQUIREMENTS_SATISFIED = "openshift-ai-gpu-requirements-satisfied"
     AUTHORINO_REQUIREMENTS_SATISFIED = "authorino-requirements-satisfied"
     NMSTATE_REQUIREMENTS_SATISFIED = "nmstate-requirements-satisfied"
     AMD_GPU_REQUIREMENTS_SATISFIED = "amd-gpu-requirements-satisfied"

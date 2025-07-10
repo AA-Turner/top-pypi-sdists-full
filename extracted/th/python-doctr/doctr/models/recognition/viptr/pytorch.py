@@ -16,7 +16,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 from doctr.datasets import VOCABS, decode_sequence
 
 from ...classification import vip_tiny
-from ...utils.pytorch import _bf16_to_float32, load_pretrained_params
+from ...utils import _bf16_to_float32, load_pretrained_params
 from ..core import RecognitionModel, RecognitionPostProcessor
 
 __all__ = ["VIPTR", "viptr_tiny"]
@@ -70,7 +70,7 @@ class VIPTRPostProcessor(RecognitionPostProcessor):
 
     def __call__(self, logits: torch.Tensor) -> list[tuple[str, float]]:
         """Performs decoding of raw output with CTC and decoding of CTC predictions
-        with label_to_idx mapping dictionnary
+        with label_to_idx mapping dictionary
 
         Args:
             logits: raw output of the model, shape (N, C + 1, seq_len)
@@ -166,7 +166,7 @@ class VIPTR(RecognitionModel, nn.Module):
 
         if target is None or return_preds:
             # Disable for torch.compile compatibility
-            @torch.compiler.disable  # type: ignore[attr-defined]
+            @torch.compiler.disable
             def _postprocess(decoded_features: torch.Tensor) -> list[tuple[str, float]]:
                 return self.postprocessor(decoded_features)
 

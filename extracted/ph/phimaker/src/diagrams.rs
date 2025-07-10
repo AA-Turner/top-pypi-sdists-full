@@ -4,7 +4,9 @@ use std::{fs::File, io::BufReader};
 use log::debug;
 
 use lophat::{
-    algorithms::RVDecomposition, columns::Column, utils::PersistenceDiagram, utils::RVDFileFormat,
+    algorithms::{Decomposition, DecompositionAlgo},
+    columns::Column,
+    utils::{DecompositionFileFormat, PersistenceDiagram},
 };
 use pyo3::prelude::*;
 
@@ -34,10 +36,10 @@ fn compute_negative_list(metadata: &EnsembleMetadata, diagram: &PersistenceDiagr
     negative_list
 }
 
-fn is_kernel_birth<Decomp: RVDecomposition<C>, C: Column>(
+fn is_kernel_birth<Decomp: Decomposition<C>, C: Column>(
     idx: usize,
     metadata: &EnsembleMetadata,
-    f_negative_list: &Vec<bool>,
+    f_negative_list: &[bool],
     im: &Decomp,
 ) -> bool {
     let in_l = metadata.g_elements[idx];
@@ -52,14 +54,14 @@ fn is_kernel_birth<Decomp: RVDecomposition<C>, C: Column>(
     if !lowest_rim_in_l {
         return false;
     }
-    return true;
+    true
 }
 
-fn is_kernel_death<Decomp: RVDecomposition<C>, C: Column>(
+fn is_kernel_death<Decomp: Decomposition<C>, C: Column>(
     idx: usize,
     metadata: &EnsembleMetadata,
     g: &Decomp,
-    f_negative_list: &Vec<bool>,
+    f_negative_list: &[bool],
 ) -> bool {
     let in_l = metadata.g_elements[idx];
     if !in_l {
@@ -74,15 +76,15 @@ fn is_kernel_death<Decomp: RVDecomposition<C>, C: Column>(
     if negative_in_f {
         return false;
     }
-    return true;
+    true
 }
 
-fn kernel_diagram<Decomp: RVDecomposition<C>, C: Column>(
+fn kernel_diagram<Decomp: Decomposition<C>, C: Column>(
     metadata: &EnsembleMetadata,
     ker: &Decomp,
     g: &Decomp,
     im: &Decomp,
-    f_negative_list: &Vec<bool>,
+    f_negative_list: &[bool],
 ) -> PersistenceDiagram {
     let mut dgm = PersistenceDiagram::default();
     for idx in 0..metadata.size_of_k {
@@ -102,67 +104,75 @@ fn kernel_diagram<Decomp: RVDecomposition<C>, C: Column>(
     dgm
 }
 
-fn image_diagram<Decomp: RVDecomposition<C>, C: Column>(
+fn image_diagram<Decomp: Decomposition<C>, C: Column>(
     metadata: &EnsembleMetadata,
     g: &Decomp,
     im: &Decomp,
-    f_negative_list: &Vec<bool>,
+    f_negative_list: &[bool],
 ) -> PersistenceDiagram {
     let mut dgm = PersistenceDiagram::default();
-    for idx in 0..metadata.size_of_k {
-        if metadata.g_elements[idx] {
-            let g_idx = metadata.l_first_mapping.map(idx).unwrap();
-            let pos_in_g = g.get_r_col(g_idx).pivot().is_none();
-            if pos_in_g {
-                dgm.unpaired.insert(idx);
-                continue;
+    f_negative_list
+        .iter()
+        .enumerate()
+        .take(metadata.size_of_k)
+        .for_each(|(idx, &neg_in_f)| {
+            // for idx in 0..metadata.size_of_k {
+            if metadata.g_elements[idx] {
+                let g_idx = metadata.l_first_mapping.map(idx).unwrap();
+                let pos_in_g = g.get_r_col(g_idx).pivot().is_none();
+                if pos_in_g {
+                    dgm.unpaired.insert(idx);
+                    return;
+                }
             }
-        }
-        let neg_in_f = f_negative_list[idx];
-        if neg_in_f {
-            let lowest_in_rim = im.get_r_col(idx).pivot().unwrap();
-            let lowest_rim_in_l = lowest_in_rim < metadata.size_of_l;
-            if !lowest_rim_in_l {
-                continue;
+            if neg_in_f {
+                let lowest_in_rim = im.get_r_col(idx).pivot().unwrap();
+                let lowest_rim_in_l = lowest_in_rim < metadata.size_of_l;
+                if !lowest_rim_in_l {
+                    return;
+                }
+                let birth_idx = metadata.l_first_mapping.inverse_map(lowest_in_rim).unwrap();
+                dgm.unpaired.remove(&birth_idx);
+                dgm.paired.insert((birth_idx, idx));
             }
-            let birth_idx = metadata.l_first_mapping.inverse_map(lowest_in_rim).unwrap();
-            dgm.unpaired.remove(&birth_idx);
-            dgm.paired.insert((birth_idx, idx));
-        }
-    }
+        });
     dgm
 }
 
-fn cokernel_diagram<Decomp: RVDecomposition<C>, C: Column>(
+fn cokernel_diagram<Decomp: Decomposition<C>, C: Column>(
     metadata: &EnsembleMetadata,
     g: &Decomp,
     im: &Decomp,
     cok: &Decomp,
-    f_negative_list: &Vec<bool>,
+    f_negative_list: &[bool],
 ) -> PersistenceDiagram {
     let mut dgm = PersistenceDiagram::default();
-    for idx in 0..metadata.size_of_k {
-        let pos_in_f = !f_negative_list[idx];
-        let g_idx = metadata.l_first_mapping.map(idx).unwrap();
-        let not_in_l_or_neg_in_g =
-            (!metadata.g_elements[idx]) || g.get_r_col(g_idx).pivot().is_some();
-        if pos_in_f && not_in_l_or_neg_in_g {
-            dgm.unpaired.insert(idx);
-            continue;
-        }
-        if pos_in_f {
-            continue;
-        }
-        let lowest_rim_in_l = im.get_r_col(idx).pivot().unwrap() < metadata.size_of_l;
-        if !lowest_rim_in_l {
-            let lowest_in_rcok = cok.get_r_col(idx).pivot().unwrap();
-            dgm.unpaired.remove(&lowest_in_rcok);
-            dgm.paired.insert((lowest_in_rcok, idx));
-        }
-    }
+    f_negative_list
+        .iter()
+        .enumerate()
+        .take(metadata.size_of_k)
+        .for_each(|(idx, &neg_in_f)| {
+            let pos_in_f = !neg_in_f;
+            let g_idx = metadata.l_first_mapping.map(idx).unwrap();
+            let not_in_l_or_neg_in_g =
+                (!metadata.g_elements[idx]) || g.get_r_col(g_idx).pivot().is_some();
+            if pos_in_f && not_in_l_or_neg_in_g {
+                dgm.unpaired.insert(idx);
+                return;
+            }
+            if pos_in_f {
+                return;
+            }
+            let lowest_rim_in_l = im.get_r_col(idx).pivot().unwrap() < metadata.size_of_l;
+            if !lowest_rim_in_l {
+                let lowest_in_rcok = cok.get_r_col(idx).pivot().unwrap();
+                dgm.unpaired.remove(&lowest_in_rcok);
+                dgm.paired.insert((lowest_in_rcok, idx));
+            }
+        });
     dgm
 }
-impl<C: Column, Algo: RVDecomposition<C>> DecompositionEnsemble<C, Algo> {
+impl<C: Column, Algo: DecompositionAlgo<C>> DecompositionEnsemble<C, Algo> {
     pub fn all_diagrams(&self) -> DiagramEnsemble {
         let f_diagram = {
             let at_diagram = self.f.diagram();
@@ -203,9 +213,9 @@ impl<C: Column, Algo: RVDecomposition<C>> DecompositionEnsemble<C, Algo> {
     }
 }
 
-pub fn from_file(file: &File) -> RVDFileFormat {
+pub fn from_file(file: &File) -> DecompositionFileFormat {
     let buf = BufReader::new(file);
-    deserialize_from(buf).expect("Can desereialize from file")
+    deserialize_from(buf).expect("Can't deserialize from file")
     //from_reader(file).expect("JSON deserializes")
 }
 

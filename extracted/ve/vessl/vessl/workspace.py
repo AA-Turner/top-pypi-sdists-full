@@ -153,8 +153,8 @@ def create_workspace(
         ```python
         vessl.create_workspace(
             name="modern-kick",
-            cluster_name="aws-apne2",
-            kernel_resource_spec_name="v1.cpu-0.mem-1",
+            cluster_name="vessl-oci-sanjose",
+            kernel_resource_spec_name="cpu-medium",
             kernel_image_url="public.ecr.aws/vessl/kernels:py36.full-cpu.jupyter",
         )
         ```

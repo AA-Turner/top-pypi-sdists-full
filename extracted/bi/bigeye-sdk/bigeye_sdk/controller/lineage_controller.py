@@ -39,6 +39,7 @@ class LineageController:
         self.custom_nodes_ix_by_id: Dict[int, LineageNodeV2] = {}
         self.custom_node_search_cache: Dict[str, List[LineageNodeV2]] = {}
         self.lineage_node_ix_by_id: Dict[int, ContainmentNode] = {}
+        self.catalog_attributes_request_cache: Dict[int, dict] = {}
 
     def get_table_by_name(self, entity_name: str) -> Table:
         warehouse, schema, entity_name = fully_qualified_table_to_elements(entity_name)
@@ -378,11 +379,14 @@ class LineageController:
                 )
 
         if custom_node.metadata is not None:
-            self.client.set_attributes(
-                entity_type=SimpleCatalogEntityType.DATA_NODE_ENTITY,
-                entity_id=entity_id,
-                attributes=custom_node.metadata
-            )
+            posted_metadata = self.catalog_attributes_request_cache.get(entity_id, None)
+            if posted_metadata is None or custom_node.metadata != posted_metadata:
+                self.client.set_attributes(
+                    entity_type=SimpleCatalogEntityType.DATA_NODE_ENTITY,
+                    entity_id=entity_id,
+                    attributes=custom_node.metadata
+                )
+                self.catalog_attributes_request_cache[entity_id] = custom_node.metadata
 
         return custom_node
 
@@ -691,7 +695,9 @@ class LineageController:
                 tables=[(upstream_table, downstream_table, etl_task)]
             )
 
-    def infer_relations_from_database_tables(self, r: LineageConfiguration):
+    def infer_relations_from_database_tables(self,
+                                             r: LineageConfiguration,
+                                             process_requests: Optional[bool] = False):
         matching_tables: List[Tuple[Table, Table, SimpleCustomNode]] = []
 
         upstream_tables: List[Table] = self.get_tables_from_selector(f'{r.upstream_schema_name}.*')
@@ -761,7 +767,7 @@ class LineageController:
                                 )
                             )
 
-        self.infer_column_level_lineage_from_tables(tables=matching_tables)
+        self.infer_column_level_lineage_from_tables(tables=matching_tables, process_requests=process_requests)
 
     def infer_column_level_lineage_from_file(
             self, lineage_configuration_file: SimpleLineageConfigurationFile, purge_lineage: bool = False
@@ -957,7 +963,9 @@ class LineageController:
 
     def infer_column_level_lineage_from_tables(
             self,
-            tables: List[Tuple[Union[Table, SimpleCustomNode], Union[Table, SimpleCustomNode], SimpleCustomNode]]
+            tables: List[Tuple[Union[Table, SimpleCustomNode], Union[Table, SimpleCustomNode], Optional[SimpleCustomNode]]],
+            purge_lineage: Optional[bool] = False,
+            process_requests: Optional[bool] = True
     ):
         for upstream, downstream, etl_task in tables:
             matching_columns: List[
@@ -984,6 +992,9 @@ class LineageController:
                             etl_task=task
                         )
                     )
+
+        if process_requests:
+            self.process_all_edge_requests(purge_lineage=purge_lineage)
 
     def search_nodes_for_table(self, table_id: int):
         table = self.client.search_tables(ids=[table_id], ignore_fields=True, include_data_node_ids=True).tables[0]

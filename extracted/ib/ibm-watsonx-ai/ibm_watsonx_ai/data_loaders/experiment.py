@@ -25,7 +25,7 @@ except ImportError:
             self.collate_fn = collate_fn
 
         def __iter__(self) -> Iterator:
-            return (data for data in self.dataset)
+            yield from self.dataset
 
     DataLoader = SimpleDataLoader  # type: ignore[misc, assignment]
 # --- end note

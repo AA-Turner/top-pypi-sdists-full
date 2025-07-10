@@ -2,6 +2,7 @@
 
 import re
 import os
+import json
 
 class Sigil:
     """
@@ -51,28 +52,75 @@ def _unquote(val):
         return val[1:-1]
     return val
 
+def _resolve_single(raw, lookup_fn):
+    """Resolve a single sigil value and return it without string conversion."""
+    from gway import gw
+
+    raw = raw.strip()
+    quoted = (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'"))
+    key = _unquote(raw) if quoted else raw
+
+    val = lookup_fn(key)
+    if val is None:
+        parts = re.split(r"[. ]+", key)
+        if len(parts) > 1:
+            base = lookup_fn(parts[0])
+            if base is not None:
+                try:
+                    val = _follow_path(base, parts[1:])
+                except KeyError:
+                    val = None
+
+    if val is not None:
+        gw.verbose(f"Resolved sigil [{raw}] → {val}")
+        return val
+
+    if quoted:
+        gw.verbose(f"Sigil [{raw}] not resolved, using quoted literal '{key}'")
+        return key
+
+    raise KeyError(f"Unresolved sigil: [{raw}]")
+
+def _follow_path(value, parts):
+    for part in parts:
+        if part.startswith('_'):
+            raise KeyError(f"Path segment '{part}' not found")
+        if isinstance(value, dict) and part in value:
+            value = value[part]
+            continue
+        try:
+            idx = int(part)
+            if isinstance(value, (list, tuple)):
+                value = value[idx]
+                continue
+        except (ValueError, TypeError):
+            pass
+        if hasattr(value, part):
+            value = getattr(value, part)
+            continue
+        if hasattr(value, '__getitem__'):
+            try:
+                value = value[part]
+                continue
+            except Exception:
+                pass
+        raise KeyError(f"Path segment '{part}' not found")
+    return value
+
 def _replace_sigils(text, lookup_fn):
     """
     Replace all sigils in the text, raising if any sigil is unresolved.
     """
 
+    matches = list(Sigil._pattern.finditer(text))
+    if len(matches) == 1 and matches[0].span() == (0, len(text)):
+        return _resolve_single(matches[0].group(1), lookup_fn)
+
     def replacer(match):
-        from gway import gw
-
-        raw = match.group(1).strip()
-        # Support quoted literals: ["FOO"] or ['BAR']
-        quoted = (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'"))
-        key = _unquote(raw) if quoted else raw
-
-        val = lookup_fn(key)
-        if val is not None:
-            gw.verbose(f"Resolved sigil [{raw}] → {val}")
-            return str(val)
-        if quoted:
-            gw.verbose(f"Sigil [{raw}] not resolved, using quoted literal '{key}'")
-            return key
-        # If unresolved and not quoted, always raise
-        raise KeyError(f"Unresolved sigil: [{raw}]")
+        val = _resolve_single(match.group(1), lookup_fn)
+        if isinstance(val, str):
+            return val
+        return json.dumps(val, default=str)
 
     return re.sub(Sigil._pattern, replacer, text)
 
@@ -106,7 +154,7 @@ class Resolver:
             except KeyError as e:
                 gw.verbose(f"Could not resolve sigil(s) in '{arg}': {e}")
                 last_exc = e
-        # return provided fallback unless user passed the '_raise' sentinel
+        # return provided default unless user passed the '_raise' sentinel
         if default != '_raise':
             return default
         if last_exc is not None:
@@ -133,19 +181,30 @@ class Resolver:
         return fallback
 
     def _resolve_key(self, key: str, fallback: str = None) -> str:
-        val = self.find_value(key, fallback)
+        val = self.find_value(key, None)
         if val is not None:
             return val
-        # Allow dash/underscore interchange in fallback search
+
+        parts = re.split(r"[. ]+", key.replace('-', '_'))
+        if len(parts) > 1:
+            base = self.find_value(parts[0], None)
+            if base is not None:
+                try:
+                    return _follow_path(base, parts[1:])
+                except KeyError:
+                    return fallback
+
         parts = key.replace('-', '_').split('.')
         current = self
         for part in parts:
+            if part.startswith('_'):
+                return fallback
             if hasattr(current, part):
                 current = getattr(current, part)
             elif isinstance(current, dict) and part in current:
                 current = current[part]
             else:
-                return None
+                return fallback
         return current
 
     def __getitem__(self, key):

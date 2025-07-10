@@ -198,6 +198,14 @@ AMPLAPI AMPL_ERRORINFO *AMPL_ReadDataAsync(AMPL *ampl, const char *filename, Run
 AMPLAPI AMPL_ERRORINFO *AMPL_Reset(AMPL *ampl);
 
 /**
+ * Clears all data..
+ *
+ * \param ampl Pointer to the AMPL struct.
+ * \return Pointer to the AMPL error info struct.
+ */
+AMPLAPI AMPL_ERRORINFO *AMPL_ResetData(AMPL *ampl);
+
+/**
  * Stops the underlying engine, and release all any further attempt to execute
  * optimisation commands without restarting it will throw an exception.
  *
@@ -702,17 +710,6 @@ AMPLAPI AMPL_ERRORINFO *AMPL_GetObjectives(AMPL *ampl, size_t *size,
  * \return Pointer to the AMPL error info struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_GetSets(AMPL *ampl, size_t *size, char ***names);
-
-/**
- * Get all the tables declared.
- *
- * \param	ampl Pointer to the AMPL struct.
- * \param	size Pointer to the number of tables.
- * \param	names Pointer to the array of strings representing all declared
- *              tables.
- * \return Pointer to the AMPL error info struct.
- */
-AMPLAPI AMPL_ERRORINFO *AMPL_GetTables(AMPL *ampl, size_t *size, char ***names);
 
 /**
  * Get all the problems declared.

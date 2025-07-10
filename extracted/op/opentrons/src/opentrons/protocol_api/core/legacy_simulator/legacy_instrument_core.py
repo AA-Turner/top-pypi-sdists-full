@@ -519,13 +519,15 @@ class LegacyInstrumentCoreSimulator(
         liquid_class: LiquidClass,
         volume: float,
         source: List[Tuple[types.Location, LegacyWellCore]],
-        dest: List[Tuple[types.Location, LegacyWellCore]],
+        dest: Union[List[Tuple[types.Location, LegacyWellCore]], TrashBin, WasteChute],
         new_tip: TransferTipPolicyV2,
         tip_racks: List[Tuple[types.Location, LegacyLabwareCore]],
         starting_tip: Optional[LegacyWellCore],
         trash_location: Union[types.Location, TrashBin, WasteChute],
         return_tip: bool,
-    ) -> None:
+        keep_last_tip: bool,
+        last_tip_location: Optional[Tuple[types.Location, LegacyWellCore]],
+    ) -> Optional[Tuple[types.Location, LegacyWellCore]]:
         """This will never be called because it was added in API 2.23."""
         assert False, "transfer_liquid is not supported in legacy context"
 
@@ -540,7 +542,9 @@ class LegacyInstrumentCoreSimulator(
         starting_tip: Optional[LegacyWellCore],
         trash_location: Union[types.Location, TrashBin, WasteChute],
         return_tip: bool,
-    ) -> None:
+        keep_last_tip: bool,
+        last_tip_location: Optional[Tuple[types.Location, LegacyWellCore]],
+    ) -> Optional[Tuple[types.Location, LegacyWellCore]]:
         """This will never be called because it was added in API 2.23."""
         assert False, "distribute_liquid is not supported in legacy context"
 
@@ -549,13 +553,15 @@ class LegacyInstrumentCoreSimulator(
         liquid_class: LiquidClass,
         volume: float,
         source: List[Tuple[types.Location, LegacyWellCore]],
-        dest: Tuple[types.Location, LegacyWellCore],
+        dest: Union[Tuple[types.Location, LegacyWellCore], TrashBin, WasteChute],
         new_tip: Literal[TransferTipPolicyV2.NEVER, TransferTipPolicyV2.ONCE],
         tip_racks: List[Tuple[types.Location, LegacyLabwareCore]],
         starting_tip: Optional[LegacyWellCore],
         trash_location: Union[types.Location, TrashBin, WasteChute],
         return_tip: bool,
-    ) -> None:
+        keep_last_tip: bool,
+        last_tip_location: Optional[Tuple[types.Location, LegacyWellCore]],
+    ) -> Optional[Tuple[types.Location, LegacyWellCore]]:
         """This will never be called because it was added in API 2.23."""
         assert False, "consolidate_liquid is not supported in legacy context"
 

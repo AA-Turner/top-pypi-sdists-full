@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_freetier.literals import DimensionType
+    from mypy_boto3_freetier.literals import AccountPlanStatusType
 
-    data: DimensionType = "DESCRIPTION"
+    data: AccountPlanStatusType = "ACTIVE"
     ```
 """
 
@@ -23,9 +23,15 @@ else:
 
 
 __all__ = (
+    "AccountPlanStatusType",
+    "AccountPlanTypeType",
+    "ActivityStatusType",
+    "CurrencyCodeType",
     "DimensionType",
     "FreeTierServiceName",
     "GetFreeTierUsagePaginatorName",
+    "LanguageCodeType",
+    "ListAccountActivitiesPaginatorName",
     "MatchOptionType",
     "PaginatorName",
     "ResourceServiceName",
@@ -33,6 +39,10 @@ __all__ = (
 )
 
 
+AccountPlanStatusType = Literal["ACTIVE", "EXPIRED", "NOT_STARTED"]
+AccountPlanTypeType = Literal["FREE", "PAID"]
+ActivityStatusType = Literal["COMPLETED", "EXPIRING", "IN_PROGRESS", "NOT_STARTED"]
+CurrencyCodeType = Literal["USD"]
 DimensionType = Literal[
     "DESCRIPTION",
     "FREE_TIER_TYPE",
@@ -43,6 +53,22 @@ DimensionType = Literal[
     "USAGE_TYPE",
 ]
 GetFreeTierUsagePaginatorName = Literal["get_free_tier_usage"]
+LanguageCodeType = Literal[
+    "de-DE",
+    "en-GB",
+    "en-US",
+    "es-ES",
+    "fr-FR",
+    "id-ID",
+    "it-IT",
+    "ja-JP",
+    "ko-KR",
+    "pt-PT",
+    "tr-TR",
+    "zh-CN",
+    "zh-TW",
+]
+ListAccountActivitiesPaginatorName = Literal["list_account_activities"]
 MatchOptionType = Literal["CONTAINS", "ENDS_WITH", "EQUALS", "GREATER_THAN_OR_EQUAL", "STARTS_WITH"]
 FreeTierServiceName = Literal["freetier"]
 ServiceName = Literal[
@@ -320,6 +346,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -467,4 +494,4 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["get_free_tier_usage"]
+PaginatorName = Literal["get_free_tier_usage", "list_account_activities"]

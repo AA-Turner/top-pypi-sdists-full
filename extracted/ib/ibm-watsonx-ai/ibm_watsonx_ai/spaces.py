@@ -223,7 +223,7 @@ class Spaces(WMLResource):
                     "active",
                 ]:
                     time.sleep(10)
-                    spaces_details = self._get_details(space_id)
+                    spaces_details = self.get_details(space_id)
                     status = spaces_details["entity"]["status"].get("state")
                     status_logger.log_state(status)
             # --- end note
@@ -344,7 +344,6 @@ class Spaces(WMLResource):
 
         return response
 
-    @cached(cache=TTLCache(maxsize=32, ttl=4.5 * 60))
     def get_details(
         self,
         space_id: str | None = None,
@@ -385,25 +384,7 @@ class Spaces(WMLResource):
                 space_details.extend(entry)
 
         """
-        return self._get_details(
-            space_id=space_id,
-            limit=limit,
-            asynchronous=asynchronous,
-            get_all=get_all,
-            space_name=space_name,
-            **kwargs,
-        )
 
-    def _get_details(
-        self,
-        space_id: str | None = None,
-        limit: int | None = None,
-        asynchronous: bool | None = False,
-        get_all: bool | None = False,
-        space_name: str | None = None,
-        **kwargs: Any,
-    ) -> dict:
-        """Get metadata of stored space(s) without caching. It's dedicated for internal usage."""
         Spaces._validate_type(space_id, "space_id", str, False)
 
         href = self._client._href_definitions.get_platform_space_href(space_id)
@@ -420,22 +401,41 @@ class Spaces(WMLResource):
                 200, "Get space", response_get, _silent_response_logging=True
             )
 
-        else:
-            if space_name:
-                query_params.update({"name": space_name})
+        if space_name:
+            query_params.update({"name": space_name})
 
-            return self._get_with_or_without_limit(
-                self._client._href_definitions.get_platform_spaces_href(),
-                limit,
-                "spaces",
-                summary=False,
-                pre_defined=False,
-                skip_space_project_chk=True,
-                query_params=query_params,
-                _async=asynchronous,
-                _all=get_all,
-                _silent_response_logging=True,
-            )
+        return self._get_with_or_without_limit(
+            self._client._href_definitions.get_platform_spaces_href(),
+            limit,
+            "spaces",
+            summary=False,
+            pre_defined=False,
+            skip_space_project_chk=True,
+            query_params=query_params,
+            _async=asynchronous,
+            _all=get_all,
+            _silent_response_logging=True,
+        )
+
+    @cached(cache=TTLCache(maxsize=32, ttl=4.5 * 60))
+    def _get_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool | None = False,
+        get_all: bool | None = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Get metadata of stored space(s) with caching. It's dedicated for internal usage."""
+        return self.get_details(
+            space_id=space_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            space_name=space_name,
+            **kwargs,
+        )
 
     def list(
         self,
@@ -551,7 +551,7 @@ class Spaces(WMLResource):
         self._validate_type(space_id, "space_id", str, True)
         self._validate_type(changes, "changes", dict, True)
 
-        details = self._get_details(space_id)
+        details = self.get_details(space_id)
 
         if "compute" in changes and self._client.CLOUD_PLATFORM_SPACES:
             changes["compute"]["type"] = "machine_learning"

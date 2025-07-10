@@ -600,7 +600,10 @@ class BaseDataConnection(ABC):
         return data
 
     def _download_training_data_from_data_asset_storage(
-        self, binary: bool = False, is_flight_fallback: bool = False
+        self,
+        binary: bool = False,
+        is_flight_fallback: bool = False,
+        read_to_file: str | None = None,
     ) -> DataFrame | bytes:
         """Download training data for this connection. Data Storage."""
 
@@ -657,6 +660,11 @@ class BaseDataConnection(ABC):
                                 self.auto_pipeline_params.get("csv_separator", ","),
                                 self.auto_pipeline_params.get("encoding", "utf-8"),
                             )
+
+                        if read_to_file:
+                            with open(read_to_file, "wb") as file:
+                                buffer.seek(0)
+                                file.write(buffer.getvalue())
 
                         if binary:
                             buffer.seek(0)
@@ -1006,12 +1014,14 @@ class BaseDataConnection(ABC):
         if self._api_client is not None:
             self._api_client._check_if_either_is_set()  # Space or project is required to use Container.
             if self._api_client.default_space_id is not None:
-                details = self._api_client.spaces.get_details(
-                    self._api_client.default_space_id,
-                    include="everything,credentials",
+                details = (
+                    self._api_client.spaces._get_details(  # get details with TTL cache
+                        self._api_client.default_space_id,
+                        include="everything,credentials",
+                    )
                 )
             else:
-                details = self._api_client.projects.get_details(
+                details = self._api_client.projects._get_details(  # get details with TTL cache
                     self._api_client.default_project_id,
                     include="everything,credentials",
                 )

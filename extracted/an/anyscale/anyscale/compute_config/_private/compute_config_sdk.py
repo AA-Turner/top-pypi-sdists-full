@@ -184,7 +184,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             worker_node_types=self._convert_worker_node_group_configs_to_api_models(
                 compute_config.worker_nodes, cloud=cloud,
             ),
-            auto_select_worker_config=compute_config.worker_nodes is None,
+            auto_select_worker_config=compute_config.auto_select_worker_config,
             flags=flags,
         )
         self._populate_advanced_instance_config(
@@ -340,9 +340,14 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         worker_nodes = None
         if not api_model_config.auto_select_worker_config:
-            worker_nodes = self._convert_api_models_to_worker_node_group_configs(
-                api_model_config.worker_node_types, cloud=cloud
-            )
+            if api_model_config.worker_node_types is not None:
+                # Convert worker node types when they are present.
+                worker_nodes = self._convert_api_models_to_worker_node_group_configs(
+                    api_model_config.worker_node_types, cloud=cloud,
+                )
+            else:
+                # An explicit head-node-only cluster (no worker nodes configured).
+                worker_nodes = []
 
         zones = None
         # NOTE(edoakes): the API returns '["any"]' if no AZs are passed in on the creation path.
@@ -379,6 +384,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                 worker_nodes=worker_nodes,  # type: ignore
                 min_resources=min_resources,
                 max_resources=max_resources or None,
+                auto_select_worker_config=api_model_config.auto_select_worker_config,
                 flags=flags,
             ),
         )

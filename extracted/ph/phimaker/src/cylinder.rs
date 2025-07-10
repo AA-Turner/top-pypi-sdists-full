@@ -1,6 +1,6 @@
+use log::debug;
 use lophat::columns::{Column, VecColumn};
 use pyo3::prelude::*;
-use log::debug;
 
 use std::cmp::Ordering;
 
@@ -182,7 +182,10 @@ pub fn build_cylinder(
         codomain: codomain_idxs,
         domain_shift: domain_shift_idxs,
     };
-    debug!("Built mapping cylinder with {} simplices.", cylinder_matrix.len());
+    debug!(
+        "Built mapping cylinder with {} simplices.",
+        cylinder_matrix.len()
+    );
     (cylinder_matrix, metadata)
 }
 
@@ -247,13 +250,13 @@ mod tests {
         .collect();
         let (cyl_matrix, metadata) = build_cylinder(domain_matrix, codomain_matrix, map);
         for (idx, (col, t)) in cyl_matrix.iter().zip(metadata.times.iter()).enumerate() {
-            println!("{}:{} -> {:?}", idx, t, col);
+            println!("{idx}:{t} -> {col:?}");
         }
         let ensemble =
             all_decompositions::<LockFreeAlgorithm<VecColumn>>(cyl_matrix, 0).all_diagrams();
         let pairings: Vec<_> = ensemble.ker.paired.iter().collect();
         for pairing in &pairings {
-            println!("{:?}", pairing);
+            println!("{pairing:?}");
         }
         assert_eq!(pairings.len(), 1);
         let first_pairing = pairings[0];

@@ -73,7 +73,7 @@ dependencies = [
   "pypatchmatch",
   "python-multipart",
   "requests",
-  "semver~=3.0.1",
+  "semver~=3.0.1"
 ]
 
 [project.optional-dependencies]

@@ -28,6 +28,7 @@ module.exports = {
         config.wireframe = typeof (config.wireframe) !== 'undefined' ? config.wireframe : false;
         config.flat_shading = typeof (config.flat_shading) !== 'undefined' ? config.flat_shading : true;
         config.opacity = typeof (config.opacity) !== 'undefined' ? config.opacity : 1.0;
+        config.shininess = typeof (config.shininess) !== 'undefined' ? config.shininess : 50.0;
 
         return new Promise((resolve) => {
             const scalarField = config.scalar_field.data;
@@ -47,14 +48,12 @@ module.exports = {
             let material = new MaterialConstructor({
                 color: config.color,
                 emissive: 0,
-                shininess: 50,
+                shininess: config.shininess,
                 specular: 0x111111,
                 side: config.wireframe ? THREE.FrontSide : THREE.DoubleSide,
                 flatShading: config.flat_shading,
                 wireframe: config.wireframe,
                 opacity: config.opacity,
-                depthWrite: config.opacity === 1.0,
-                transparent: config.opacity !== 1.0,
             });
             let geometry = new THREE.BufferGeometry();
             let positions = [];
@@ -71,7 +70,7 @@ module.exports = {
                     opacityFunction = config.opacity_function.data;
                 }
 
-                const canvas = colorMapHelper.createCanvasGradient(colorMap, 1024, opacityFunction);
+                const canvas = colorMapHelper.createCanvasGradient(colorMap, 1024, 1, opacityFunction);
                 const colormap = new THREE.CanvasTexture(
                     canvas,
                     THREE.UVMapping,
@@ -108,7 +107,7 @@ module.exports = {
                             colormap: { type: 't', value: colormap },
                             emissive: { type: 'v3', value: new THREE.Vector3(0, 0, 0) },
                             specular: { type: 'v3', value: new THREE.Vector3(0.04, 0.04, 0.04) },
-                            shininess: { value: 50 },
+                            shininess: { value: config.shininess },
 
                         },
                         THREE.UniformsLib.lights,
@@ -119,13 +118,19 @@ module.exports = {
                     side: getSide(config),
                     vertexShader: require('./shaders/MarchingCubesVolume.vertex.glsl'),
                     fragmentShader: require('./shaders/MarchingCubesVolume.fragment.glsl'),
-                    depthWrite: (config.opacity === 1.0 && opacityFunction === null),
-                    transparent: (config.opacity !== 1.0 || opacityFunction !== null),
                     wireframe: config.wireframe,
                     flatShading: config.flat_shading,
                     lights: true,
                     clipping: true
                 });
+            }
+
+            if (K3D.parameters.depthPeels === 0) {
+                material.depthWrite = (config.opacity === 1.0 && opacityFunction === null);
+                material.transparent = (config.opacity !== 1.0 || opacityFunction !== null);
+            } else {
+                material.blending = THREE.NoBlending;
+                material.onBeforeCompile = K3D.colorOnBeforeCompile;
             }
 
             if (spacingsX && spacingsY && spacingsZ) {
@@ -257,6 +262,7 @@ module.exports = {
                 const canvas = colorMapHelper.createCanvasGradient(
                     (changes.color_map && changes.color_map.data) || config.color_map.data,
                     1024,
+                    1,
                     (changes.opacity_function && changes.opacity_function.data) || config.opacity_function.data,
                 );
 

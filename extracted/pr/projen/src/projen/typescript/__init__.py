@@ -75,8 +75,11 @@ from ..javascript import (
     ProjenrcOptions as _ProjenrcOptions_179dd39f,
     ScopedPackagesOptions as _ScopedPackagesOptions_52f0a477,
     TypeScriptCompilerOptions as _TypeScriptCompilerOptions_829fc4b0,
+    TypeScriptImportsNotUsedAsValues as _TypeScriptImportsNotUsedAsValues_95cb8527,
+    TypeScriptJsxMode as _TypeScriptJsxMode_8489d67f,
+    TypeScriptModuleDetection as _TypeScriptModuleDetection_28bd432f,
+    TypeScriptModuleResolution as _TypeScriptModuleResolution_56cffb1b,
     TypescriptConfig as _TypescriptConfig_e4a2920d,
-    TypescriptConfigExtends as _TypescriptConfigExtends_ba2a99fc,
     TypescriptConfigOptions as _TypescriptConfigOptions_8c5492cd,
     UpgradeDependenciesOptions as _UpgradeDependenciesOptions_1d8ce4da,
     YarnBerryOptions as _YarnBerryOptions_b6942539,
@@ -754,29 +757,197 @@ class TsJestTsconfig(
     def custom(
         cls,
         *,
-        compiler_options: typing.Optional[typing.Union[_TypeScriptCompilerOptions_829fc4b0, typing.Dict[builtins.str, typing.Any]]] = None,
-        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        extends: typing.Optional[_TypescriptConfigExtends_ba2a99fc] = None,
-        file_name: typing.Optional[builtins.str] = None,
-        include: typing.Optional[typing.Sequence[builtins.str]] = None,
+        allow_arbitrary_extensions: typing.Optional[builtins.bool] = None,
+        allow_importing_ts_extensions: typing.Optional[builtins.bool] = None,
+        allow_js: typing.Optional[builtins.bool] = None,
+        allow_synthetic_default_imports: typing.Optional[builtins.bool] = None,
+        allow_unreachable_code: typing.Optional[builtins.bool] = None,
+        allow_unused_labels: typing.Optional[builtins.bool] = None,
+        always_strict: typing.Optional[builtins.bool] = None,
+        base_url: typing.Optional[builtins.str] = None,
+        check_js: typing.Optional[builtins.bool] = None,
+        custom_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        declaration: typing.Optional[builtins.bool] = None,
+        declaration_dir: typing.Optional[builtins.str] = None,
+        declaration_map: typing.Optional[builtins.bool] = None,
+        downlevel_iteration: typing.Optional[builtins.bool] = None,
+        emit_declaration_only: typing.Optional[builtins.bool] = None,
+        emit_decorator_metadata: typing.Optional[builtins.bool] = None,
+        es_module_interop: typing.Optional[builtins.bool] = None,
+        exact_optional_property_types: typing.Optional[builtins.bool] = None,
+        experimental_decorators: typing.Optional[builtins.bool] = None,
+        force_consistent_casing_in_file_names: typing.Optional[builtins.bool] = None,
+        imports_not_used_as_values: typing.Optional[_TypeScriptImportsNotUsedAsValues_95cb8527] = None,
+        incremental: typing.Optional[builtins.bool] = None,
+        inline_source_map: typing.Optional[builtins.bool] = None,
+        inline_sources: typing.Optional[builtins.bool] = None,
+        isolated_modules: typing.Optional[builtins.bool] = None,
+        jsx: typing.Optional[_TypeScriptJsxMode_8489d67f] = None,
+        jsx_import_source: typing.Optional[builtins.str] = None,
+        lib: typing.Optional[typing.Sequence[builtins.str]] = None,
+        module: typing.Optional[builtins.str] = None,
+        module_detection: typing.Optional[_TypeScriptModuleDetection_28bd432f] = None,
+        module_resolution: typing.Optional[_TypeScriptModuleResolution_56cffb1b] = None,
+        no_emit: typing.Optional[builtins.bool] = None,
+        no_emit_on_error: typing.Optional[builtins.bool] = None,
+        no_fallthrough_cases_in_switch: typing.Optional[builtins.bool] = None,
+        no_implicit_any: typing.Optional[builtins.bool] = None,
+        no_implicit_override: typing.Optional[builtins.bool] = None,
+        no_implicit_returns: typing.Optional[builtins.bool] = None,
+        no_implicit_this: typing.Optional[builtins.bool] = None,
+        no_property_access_from_index_signature: typing.Optional[builtins.bool] = None,
+        no_unchecked_indexed_access: typing.Optional[builtins.bool] = None,
+        no_unused_locals: typing.Optional[builtins.bool] = None,
+        no_unused_parameters: typing.Optional[builtins.bool] = None,
+        out_dir: typing.Optional[builtins.str] = None,
+        paths: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+        resolve_json_module: typing.Optional[builtins.bool] = None,
+        resolve_package_json_exports: typing.Optional[builtins.bool] = None,
+        resolve_package_json_imports: typing.Optional[builtins.bool] = None,
+        root_dir: typing.Optional[builtins.str] = None,
+        skip_lib_check: typing.Optional[builtins.bool] = None,
+        source_map: typing.Optional[builtins.bool] = None,
+        source_root: typing.Optional[builtins.str] = None,
+        strict: typing.Optional[builtins.bool] = None,
+        strict_null_checks: typing.Optional[builtins.bool] = None,
+        strict_property_initialization: typing.Optional[builtins.bool] = None,
+        strip_internal: typing.Optional[builtins.bool] = None,
+        target: typing.Optional[builtins.str] = None,
+        ts_build_info_file: typing.Optional[builtins.str] = None,
+        type_roots: typing.Optional[typing.Sequence[builtins.str]] = None,
+        types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        use_unknown_in_catch_variables: typing.Optional[builtins.bool] = None,
+        verbatim_module_syntax: typing.Optional[builtins.bool] = None,
     ) -> "TsJestTsconfig":
         '''(experimental) Inline compiler options.
 
-        :param compiler_options: (experimental) Compiler options to use.
-        :param exclude: (experimental) Filters results from the "include" option. Default: - node_modules is excluded by default
-        :param extends: (experimental) Base ``tsconfig.json`` configuration(s) to inherit from.
-        :param file_name: Default: "tsconfig.json"
-        :param include: (experimental) Specifies a list of glob patterns that match TypeScript files to be included in compilation. Default: - all .ts files recursively
+        :param allow_arbitrary_extensions: (experimental) Suppress arbitrary extension import errors with the assumption that a bundler will be handling it. Default: undefined
+        :param allow_importing_ts_extensions: (experimental) Allows TypeScript files to import each other with TypeScript-specific extensions (``.ts``, ``.mts``, ``.tsx``). Requires ``noEmit`` or ``emitDeclarationOnly``. Default: undefined
+        :param allow_js: (experimental) Allow JavaScript files to be compiled. Default: false
+        :param allow_synthetic_default_imports: (experimental) Allow default imports from modules with no default export. This does not affect code emit, just typechecking.
+        :param allow_unreachable_code: (experimental) Allow Unreachable Code. When: - ``undefined`` (default) provide suggestions as warnings to editors - ``true`` unreachable code is ignored - ``false`` raises compiler errors about unreachable code These warnings are only about code which is provably unreachable due to the use of JavaScript syntax.
+        :param allow_unused_labels: (experimental) Allow Unused Labels. When: - ``undefined`` (default) provide suggestions as warnings to editors - ``true`` unused labels are ignored - ``false`` raises compiler errors about unused labels Labels are very rare in JavaScript and typically indicate an attempt to write an object literal:: function verifyAge(age: number) { // Forgot 'return' statement if (age > 18) { verified: true; // ^^^^^^^^ Unused label. } }
+        :param always_strict: (experimental) Ensures that your files are parsed in the ECMAScript strict mode, and emit “use strict” for each source file. Default: true
+        :param base_url: (experimental) Lets you set a base directory to resolve non-absolute module names. You can define a root folder where you can do absolute file resolution.
+        :param check_js: (experimental) Check JS. Works in tandem with `allowJs <https://www.typescriptlang.org/tsconfig#allowJs>`_. When checkJs is enabled then errors are reported in JavaScript files. This is the equivalent of including //
+        :param custom_conditions: (experimental) List of additional conditions that should succeed when TypeScript resolves from an ``exports`` or ``imports`` field of a ``package.json``. Default: undefined
+        :param declaration: (experimental) To be specified along with the above.
+        :param declaration_dir: (experimental) Offers a way to configure the root directory for where declaration files are emitted.
+        :param declaration_map: (experimental) Generates a source map for .d.ts files which map back to the original .ts source file. This will allow editors such as VS Code to go to the original .ts file when using features like Go to Definition.
+        :param downlevel_iteration: (experimental) Downleveling is TypeScript’s term for transpiling to an older version of JavaScript. This flag is to enable support for a more accurate implementation of how modern JavaScript iterates through new concepts in older JavaScript runtimes. ECMAScript 6 added several new iteration primitives: the for / of loop (for (el of arr)), Array spread ([a, ...b]), argument spread (fn(...args)), and Symbol.iterator. downlevelIteration allows for these iteration primitives to be used more accurately in ES5 environments if a Symbol.iterator implementation is present.
+        :param emit_declaration_only: (experimental) Only emit .d.ts files; do not emit .js files. Default: false
+        :param emit_decorator_metadata: (experimental) Enables experimental support for decorators, which is in stage 2 of the TC39 standardization process. Decorators are a language feature which hasn’t yet been fully ratified into the JavaScript specification. This means that the implementation version in TypeScript may differ from the implementation in JavaScript when it it decided by TC39. You can find out more about decorator support in TypeScript in the handbook. Default: undefined
+        :param es_module_interop: (experimental) Emit __importStar and __importDefault helpers for runtime babel ecosystem compatibility and enable --allowSyntheticDefaultImports for typesystem compatibility. Default: false
+        :param exact_optional_property_types: (experimental) Specifies that optional property types should be interpreted exactly as written, meaning that ``| undefined`` is not added to the type Available with TypeScript 4.4 and newer. Default: false
+        :param experimental_decorators: (experimental) Enables experimental support for decorators, which is in stage 2 of the TC39 standardization process. Default: true
+        :param force_consistent_casing_in_file_names: (experimental) Disallow inconsistently-cased references to the same file. Default: false
+        :param imports_not_used_as_values: (experimental) This flag works because you can use ``import type`` to explicitly create an ``import`` statement which should never be emitted into JavaScript. Default: "remove"
+        :param incremental: (experimental) Tells TypeScript to save information about the project graph from the last compilation to files stored on disk. This creates a series of .tsbuildinfo files in the same folder as your compilation output. They are not used by your JavaScript at runtime and can be safely deleted. You can read more about the flag in the 3.4 release notes.
+        :param inline_source_map: (experimental) When set, instead of writing out a .js.map file to provide source maps, TypeScript will embed the source map content in the .js files. Default: true
+        :param inline_sources: (experimental) When set, TypeScript will include the original content of the .ts file as an embedded string in the source map. This is often useful in the same cases as inlineSourceMap. Default: true
+        :param isolated_modules: (experimental) Perform additional checks to ensure that separate compilation (such as with transpileModule or. Default: false
+        :param jsx: (experimental) Support JSX in .tsx files: "react", "preserve", "react-native" etc. Default: undefined
+        :param jsx_import_source: (experimental) Declares the module specifier to be used for importing the jsx and jsxs factory functions when using jsx. Default: undefined
+        :param lib: (experimental) Reference for type definitions / libraries to use (eg. ES2016, ES5, ES2018). Default: [ "es2018" ]
+        :param module: (experimental) Sets the module system for the program. See https://www.typescriptlang.org/docs/handbook/modules.html#ambient-modules. Default: "CommonJS"
+        :param module_detection: (experimental) This setting controls how TypeScript determines whether a file is a `script or a module <https://www.typescriptlang.org/docs/handbook/modules/theory.html#scripts-and-modules-in-javascript>`_. Default: "auto"
+        :param module_resolution: (experimental) Determine how modules get resolved. Either "Node" for Node.js/io.js style resolution, or "Classic". Default: "node"
+        :param no_emit: (experimental) Do not emit outputs. Default: false
+        :param no_emit_on_error: (experimental) Do not emit compiler output files like JavaScript source code, source-maps or declarations if any errors were reported. Default: true
+        :param no_fallthrough_cases_in_switch: (experimental) Report errors for fallthrough cases in switch statements. Ensures that any non-empty case inside a switch statement includes either break or return. This means you won’t accidentally ship a case fallthrough bug. Default: true
+        :param no_implicit_any: (experimental) In some cases where no type annotations are present, TypeScript will fall back to a type of any for a variable when it cannot infer the type. Default: true
+        :param no_implicit_override: (experimental) Using ``noImplicitOverride``, you can ensure that sub-classes never go out of sync as they are required to explicitly declare that they are overriding a member using the ``override`` keyword. This also improves readability of the programmer's intent. Available with TypeScript 4.3 and newer. Default: false
+        :param no_implicit_returns: (experimental) When enabled, TypeScript will check all code paths in a function to ensure they return a value. Default: true
+        :param no_implicit_this: (experimental) Raise error on ‘this’ expressions with an implied ‘any’ type. Default: true
+        :param no_property_access_from_index_signature: (experimental) Raise error on use of the dot syntax to access fields which are not defined. Default: true
+        :param no_unchecked_indexed_access: (experimental) Raise error when accessing indexes on objects with unknown keys defined in index signatures. Default: true
+        :param no_unused_locals: (experimental) Report errors on unused local variables. Default: true
+        :param no_unused_parameters: (experimental) Report errors on unused parameters in functions. Default: true
+        :param out_dir: (experimental) Output directory for the compiled files.
+        :param paths: (experimental) A series of entries which re-map imports to lookup locations relative to the baseUrl, there is a larger coverage of paths in the handbook. paths lets you declare how TypeScript should resolve an import in your require/imports.
+        :param resolve_json_module: (experimental) Allows importing modules with a ‘.json’ extension, which is a common practice in node projects. This includes generating a type for the import based on the static JSON shape. Default: true
+        :param resolve_package_json_exports: (experimental) Forces TypeScript to consult the ``exports`` field of ``package.json`` files if it ever reads from a package in ``node_modules``. Default: true
+        :param resolve_package_json_imports: (experimental) Forces TypeScript to consult the ``imports`` field of ``package.json`` when performing a lookup that begins with ``#`` from a file that has a ``package.json`` as an ancestor. Default: undefined
+        :param root_dir: (experimental) Specifies the root directory of input files. Only use to control the output directory structure with ``outDir``.
+        :param skip_lib_check: (experimental) Skip type checking of all declaration files (*.d.ts). Default: false
+        :param source_map: (experimental) Enables the generation of sourcemap files. Default: undefined
+        :param source_root: (experimental) Specify the location where a debugger should locate TypeScript files instead of relative source locations. Default: undefined
+        :param strict: (experimental) The strict flag enables a wide range of type checking behavior that results in stronger guarantees of program correctness. Turning this on is equivalent to enabling all of the strict mode family options, which are outlined below. You can then turn off individual strict mode family checks as needed. Default: true
+        :param strict_null_checks: (experimental) When strictNullChecks is false, null and undefined are effectively ignored by the language. This can lead to unexpected errors at runtime. When strictNullChecks is true, null and undefined have their own distinct types and you’ll get a type error if you try to use them where a concrete value is expected. Default: true
+        :param strict_property_initialization: (experimental) When set to true, TypeScript will raise an error when a class property was declared but not set in the constructor. Default: true
+        :param strip_internal: (experimental) Do not emit declarations for code that has an ``@internal`` annotation in it’s JSDoc comment. Default: true
+        :param target: (experimental) Modern browsers support all ES6 features, so ES6 is a good choice. You might choose to set a lower target if your code is deployed to older environments, or a higher target if your code is guaranteed to run in newer environments. Default: "ES2018"
+        :param ts_build_info_file: (experimental) This setting lets you specify a file for storing incremental compilation information as a part of composite projects which enables faster building of larger TypeScript codebases. You can read more about composite projects in the handbook.
+        :param type_roots: (experimental) If typeRoots is specified, only packages under typeRoots will be included.
+        :param types: (experimental) If types is specified, only packages listed will be included in the global scope.
+        :param use_unknown_in_catch_variables: (experimental) Change the type of the variable in a catch clause from any to unknown Available with TypeScript 4.4 and newer. Default: true
+        :param verbatim_module_syntax: (experimental) Simplifies TypeScript's handling of import/export ``type`` modifiers. Default: undefined
 
-        :see: TypescriptConfigOptions
+        :see: TypeScriptCompilerOptions
         :stability: experimental
         '''
-        config = _TypescriptConfigOptions_8c5492cd(
-            compiler_options=compiler_options,
-            exclude=exclude,
-            extends=extends,
-            file_name=file_name,
-            include=include,
+        config = _TypeScriptCompilerOptions_829fc4b0(
+            allow_arbitrary_extensions=allow_arbitrary_extensions,
+            allow_importing_ts_extensions=allow_importing_ts_extensions,
+            allow_js=allow_js,
+            allow_synthetic_default_imports=allow_synthetic_default_imports,
+            allow_unreachable_code=allow_unreachable_code,
+            allow_unused_labels=allow_unused_labels,
+            always_strict=always_strict,
+            base_url=base_url,
+            check_js=check_js,
+            custom_conditions=custom_conditions,
+            declaration=declaration,
+            declaration_dir=declaration_dir,
+            declaration_map=declaration_map,
+            downlevel_iteration=downlevel_iteration,
+            emit_declaration_only=emit_declaration_only,
+            emit_decorator_metadata=emit_decorator_metadata,
+            es_module_interop=es_module_interop,
+            exact_optional_property_types=exact_optional_property_types,
+            experimental_decorators=experimental_decorators,
+            force_consistent_casing_in_file_names=force_consistent_casing_in_file_names,
+            imports_not_used_as_values=imports_not_used_as_values,
+            incremental=incremental,
+            inline_source_map=inline_source_map,
+            inline_sources=inline_sources,
+            isolated_modules=isolated_modules,
+            jsx=jsx,
+            jsx_import_source=jsx_import_source,
+            lib=lib,
+            module=module,
+            module_detection=module_detection,
+            module_resolution=module_resolution,
+            no_emit=no_emit,
+            no_emit_on_error=no_emit_on_error,
+            no_fallthrough_cases_in_switch=no_fallthrough_cases_in_switch,
+            no_implicit_any=no_implicit_any,
+            no_implicit_override=no_implicit_override,
+            no_implicit_returns=no_implicit_returns,
+            no_implicit_this=no_implicit_this,
+            no_property_access_from_index_signature=no_property_access_from_index_signature,
+            no_unchecked_indexed_access=no_unchecked_indexed_access,
+            no_unused_locals=no_unused_locals,
+            no_unused_parameters=no_unused_parameters,
+            out_dir=out_dir,
+            paths=paths,
+            resolve_json_module=resolve_json_module,
+            resolve_package_json_exports=resolve_package_json_exports,
+            resolve_package_json_imports=resolve_package_json_imports,
+            root_dir=root_dir,
+            skip_lib_check=skip_lib_check,
+            source_map=source_map,
+            source_root=source_root,
+            strict=strict,
+            strict_null_checks=strict_null_checks,
+            strict_property_initialization=strict_property_initialization,
+            strip_internal=strip_internal,
+            target=target,
+            ts_build_info_file=ts_build_info_file,
+            type_roots=type_roots,
+            types=types,
+            use_unknown_in_catch_variables=use_unknown_in_catch_variables,
+            verbatim_module_syntax=verbatim_module_syntax,
         )
 
         return typing.cast("TsJestTsconfig", jsii.sinvoke(cls, "custom", [config]))

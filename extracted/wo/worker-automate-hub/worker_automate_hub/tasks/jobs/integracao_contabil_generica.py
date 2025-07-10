@@ -294,26 +294,37 @@ async def integracao_contabil_generica(
             imagem_finalizada = "assets\\integracao_contabil\\pesquisa_finalizada.png"
 
             if not os.path.exists(imagem_finalizada):
-                raise FileNotFoundError(f"Imagem não encontrada: {imagem_finalizada}")
+                raise FileNotFoundError(f"Imagem não encontrada no caminho: {imagem_finalizada}")
 
             print("Aguardando a imagem aparecer...")
 
-            while True:
+            localizacao = None
+            max_tentativas = 300
+
+            for tentativa in range(1, max_tentativas + 1):
+                print(f"Tentativa {tentativa} de {max_tentativas}...")
                 try:
-                    localizacao = pyautogui.locateOnScreen(
-                        imagem_finalizada, confidence=0.85
-                    )
-                    print("Verificando imagem...")
+                    localizacao = pyautogui.locateOnScreen(imagem_finalizada, confidence=0.85)
                     if localizacao:
-                        print("Imagem encontrada!")
+                        console.print("Imagem encontrada!")
                         break
-                except ImageNotFoundException as err:
-                    print(f"Imagem não encontrada ainda. Detalhe: {err}")
+                    else:
+                        print("Imagem não encontrada ainda.")
                 except Exception as e:
-                    print("Erro inesperado:")
-                time.sleep(5)
+                    print(f"Erro ao verificar a imagem: {e}")
+                
+                await worker_sleep(20)
+
+            if not localizacao:
+                console.print("Imagem não foi encontrada após 300 tentativas")
+                return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno="Imagem de pesquisa finalizada não encontrada, favor verificar.",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                    )
         except Exception as e:
-            print("Procurando imagem...")
+            console.print(f"Erro ao procurar imagem: {e}")
 
         # Conecta ao aplicativo
         app = Application(backend="win32").connect(title_re=".*Integrador Contábil.*")

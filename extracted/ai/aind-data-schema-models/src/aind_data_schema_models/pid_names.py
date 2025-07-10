@@ -1,8 +1,9 @@
 """Module for pidname definitions"""
 
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
+from aind_data_schema_models.registries import Registry
 
 
 class BaseName(BaseModel):
@@ -20,5 +21,5 @@ class PIDName(BaseName):
     the registry for that PID, and abbreviation for that registry
     """
 
-    registry: Optional[BaseName] = Field(default=None, title="Registry")
+    registry: Optional[Union[Registry, str]] = Field(default=None, title="Registry")
     registry_identifier: Optional[str] = Field(default=None, title="Registry identifier")

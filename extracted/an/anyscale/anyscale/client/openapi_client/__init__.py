@@ -382,7 +382,9 @@ from openapi_client.models.machine_connection_state import MachineConnectionStat
 from openapi_client.models.machine_info import MachineInfo
 from openapi_client.models.machine_launch_failure import MachineLaunchFailure
 from openapi_client.models.machine_pool import MachinePool
+from openapi_client.models.machine_pool_search_result import MachinePoolSearchResult
 from openapi_client.models.machine_state_info import MachineStateInfo
+from openapi_client.models.machinepoolsearchresult_list_response import MachinepoolsearchresultListResponse
 from openapi_client.models.machinestateinfo_list_response import MachinestateinfoListResponse
 from openapi_client.models.metric import Metric
 from openapi_client.models.metronome_customer_info_model import MetronomeCustomerInfoModel

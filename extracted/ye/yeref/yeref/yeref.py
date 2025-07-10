@@ -9686,63 +9686,73 @@ async def star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload='-', 
 
 
 async def list_star_invoice_link(bot, PROJECT_USERNAME, PROJECT_TYPE):
+    result = []
     try:
         chat_id = 1
 
         stars = 1
         payload = '-'
-        r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
-        print(f"star_invoice_link_{stars} = '{r_}'")
+        star_invoice_link_1 = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload, None)
+        print(f"star_invoice_link_{stars} = '{star_invoice_link_1}'")
 
         stars = 2
         payload = 'list'
-        r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
-        print(f"star_invoice_list_{stars} = '{r_}'")
+        star_invoice_list_2 = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload, None)
+        print(f"star_invoice_list_{stars} = '{star_invoice_list_2}'")
+
+        stars = 100
+        payload = 'dialog'
+        star_invoice_dialog_100 = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload, None)
+        print(f"star_invoice_dialog_{stars} = '{star_invoice_dialog_100}'")
 
         stars = 10
         payload = 'donate'
-        r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
-        print(f"star_invoice_link_{stars} = '{r_}'")
+        star_invoice_link_10 = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload, None)
+        print(f"star_invoice_link_{stars} = '{star_invoice_link_10}'")
 
         stars = 50
         payload = 'material'
-        r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
-        print(f"star_invoice_link_{stars} = '{r_}'")
+        star_invoice_link_50 = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload, None)
+        print(f"star_invoice_link_{stars} = '{star_invoice_link_50}'")
 
         stars = 100
         payload = 'donate'
-        r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
-        print(f"star_invoice_link_{stars} = '{r_}'")
+        star_invoice_link_100 = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload, None)
+        print(f"star_invoice_link_{stars} = '{star_invoice_link_100}'")
 
         stars = 1
         payload = '1'
         subscription_period = 2592000
-        r_ = await bot.create_invoice_link(title=f"#{PROJECT_TYPE}",
+        star_invoice_subscription_1 = await bot.create_invoice_link(title=f"#{PROJECT_TYPE}",
                                            description=f"@{PROJECT_USERNAME}",
                                            payload=payload,
                                            currency='XTR',
                                            prices=[LabeledPrice(label="XTR", amount=stars)],
                                            subscription_period=subscription_period)  # 604800 2592000
 
-        print(f"star_invoice_subscription_{stars} = '{r_}'")
+        print(f"star_invoice_subscription_{stars} = '{star_invoice_subscription_1}'")
 
         stars = 250
         payload = '1'
         subscription_period = 2592000
-        r_ = await bot.create_invoice_link(title=f"#{PROJECT_TYPE}",
+        star_invoice_subscription_250 = await bot.create_invoice_link(title=f"#{PROJECT_TYPE}",
                                            description=f"@{PROJECT_USERNAME}",
                                            payload=payload,
                                            currency='XTR',
                                            prices=[LabeledPrice(label="XTR", amount=stars)],
                                            subscription_period=subscription_period)  # 604800 2592000
 
-        print(f"star_invoice_subscription_{stars} = '{r_}'")
+        print(f"star_invoice_subscription_{stars} = '{star_invoice_subscription_250}'")
+        result = [star_invoice_link_1, star_invoice_list_2, star_invoice_dialog_100, star_invoice_link_10,
+                  star_invoice_link_50, star_invoice_link_100, star_invoice_subscription_1,
+                  star_invoice_subscription_250]
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 
 
 async def refund_star_payment_fun(bot, state, chat_id, lz, username, telegram_payment_id):

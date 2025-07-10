@@ -1,9 +1,12 @@
 from functools import partial
+
 from .session import StealthSession, AsyncStealthSession
 from .response import StealthResponse
 
+from curl_cffi.requests.session import HttpMethod
 
-def request(method: str, url: str, *args, **kwargs) -> StealthResponse:
+
+def request(method: HttpMethod, url: str, *args, **kwargs) -> StealthResponse:
     with StealthSession() as s:
         return s.request(method, url, *args, **kwargs)
 

@@ -6772,6 +6772,16 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def scatter_16_bit_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+        """
+        void svst1h_scatter_[s32]index[_s32](svbool_t pg, int16_t *base, svint32_t indices, svint32_t data)
+          ST1H Zdata.S, Pg, [Xbase, Zindices.S, SXTW #1]
+        """
+        ...
+
+    @staticmethod
+    @overload
     def scatter_16_bit_narrowing(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         """void svst1h_scatter[_u64base_s64](svbool_t pg, svuint64_t bases, svint64_t data)  ST1H Zdata.D, Pg, [Zbases.D, #0]"""
         ...
@@ -6782,6 +6792,16 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def scatter_32_bit_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+        """
+        void svst1w_scatter_[s64]index[_s64](svbool_t pg, int32_t *base, svint64_t indices, svint64_t data)
+          ST1W Zdata.D, Pg, [Xbase, Zindices.D, LSL #2]
+        """
+        ...
+
+    @staticmethod
+    @overload
     def scatter_32_bit_narrowing(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         """void svst1w_scatter[_u64base_s64](svbool_t pg, svuint64_t bases, svint64_t data)  ST1W Zdata.D, Pg, [Zbases.D, #0]"""
         ...
@@ -6799,6 +6819,24 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
     @staticmethod
     def scatter_8_bit_with_byte_offsets_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         """void svst1b_scatter_[s32]offset[_s32](svbool_t pg, int8_t *base, svint32_t offsets, svint32_t data)  ST1B Zdata.S, Pg, [Xbase, Zoffsets.S, SXTW]"""
+        ...
+
+    @staticmethod
+    @overload
+    def scatter_with_byte_offsets(mask: System.Numerics.Vector[float], address: typing.Any, offsets: System.Numerics.Vector[int], data: System.Numerics.Vector[float]) -> None:
+        """
+        void svst1_scatter_[s64]offset[_f64](svbool_t pg, float64_t *base, svint64_t offsets, svfloat64_t data)
+          ST1D Zdata.D, Pg, [Xbase, Zoffsets.D]
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def scatter_with_byte_offsets(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+        """
+        void svst1_scatter_[s32]offset[_s32](svbool_t pg, int32_t *base, svint32_t offsets, svint32_t data)
+          ST1W Zdata.S, Pg, [Xbase, Zoffsets.S, SXTW]
+        """
         ...
 
     @staticmethod

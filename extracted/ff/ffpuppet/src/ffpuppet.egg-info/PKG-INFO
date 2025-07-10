@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffpuppet
-Version: 0.17.2
+Version: 0.18.0
 Summary: A Python module that aids in the automation of Firefox at the process level
 Home-page: https://github.com/MozillaSecurity/ffpuppet
 Author: Tyson Smith

@@ -10,6 +10,10 @@ from abc import (
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     ExecuteSqlQueryRequest,
     ExecuteSqlQueryResponse,
+    GetDbSchemasRequest,
+    GetDbSchemasResponse,
+    GetTablesRequest,
+    GetTablesResponse,
     PlanSqlQueryRequest,
     PlanSqlQueryResponse,
 )
@@ -30,6 +34,14 @@ class SqlServiceStub:
         PlanSqlQueryRequest,
         PlanSqlQueryResponse,
     ]
+    GetDbSchemas: UnaryUnaryMultiCallable[
+        GetDbSchemasRequest,
+        GetDbSchemasResponse,
+    ]
+    GetTables: UnaryUnaryMultiCallable[
+        GetTablesRequest,
+        GetTablesResponse,
+    ]
 
 class SqlServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +56,17 @@ class SqlServiceServicer(metaclass=ABCMeta):
         request: PlanSqlQueryRequest,
         context: ServicerContext,
     ) -> PlanSqlQueryResponse: ...
+    @abstractmethod
+    def GetDbSchemas(
+        self,
+        request: GetDbSchemasRequest,
+        context: ServicerContext,
+    ) -> GetDbSchemasResponse: ...
+    @abstractmethod
+    def GetTables(
+        self,
+        request: GetTablesRequest,
+        context: ServicerContext,
+    ) -> GetTablesResponse: ...
 
 def add_SqlServiceServicer_to_server(servicer: SqlServiceServicer, server: Server) -> None: ...

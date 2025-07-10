@@ -66,25 +66,27 @@ else:
 extra_include_dirs += ['lib/py-lmdb']
 extra_compile_args = []
 
-patch_lmdb_source = False
-
+patch_lmdb_source = True
 if os.getenv('LMDB_FORCE_SYSTEM') is not None:
     print('py-lmdb: Using system version of liblmdb.')
     extra_sources = []
     extra_include_dirs += []
     libraries = ['lmdb']
+    patch_lmdb_source = False
 elif os.getenv('LMDB_PURE') is not None:
     print('py-lmdb: Using bundled unmodified liblmdb; override with LMDB_FORCE_SYSTEM=1.')
     extra_sources = ['lib/mdb.c', 'lib/midl.c']
     extra_include_dirs += ['lib']
     libraries = []
+    patch_lmdb_source = False
 else:
     print('py-lmdb: Using bundled liblmdb with py-lmdb patches; override with LMDB_FORCE_SYSTEM=1 or LMDB_PURE=1.')
-    extra_sources = ['build/lib/mdb.c', 'build/lib/midl.c']
-    extra_include_dirs += ['build/lib']
+    extra_sources = [os.path.abspath(s) for s in ['build/lib/mdb.c', 'build/lib/midl.c']]
+    extra_include_dirs += [os.path.abspath('build/lib'), os.path.abspath('lib/py-lmdb')]
     extra_compile_args += ['-DHAVE_PATCHED_LMDB=1']
     libraries = []
-    patch_lmdb_source = True
+
+
 
 if patch_lmdb_source:
     if sys.platform.startswith('win'):
@@ -108,13 +110,15 @@ if patch_lmdb_source:
 
     # Copy away the lmdb source then patch it
     if sys.platform.startswith('win'):
-        patchfile = 'lib' + os.sep + 'py-lmdb' + os.sep + 'env-copy-txn.patch'
-        patchset = patch.fromfile(patchfile)
-        rv = patchset.apply(2, root=dest)
-        if not rv:
-            raise Exception('Applying patch failed')
+
+        for patchfile in ['lib\\py-lmdb\\env-copy-txn.patch', 'lib\\py-lmdb\\its-10346.patch']:
+            patchset = patch.fromfile(patchfile)
+            rv = patchset.apply(2, root=dest)
+            if not rv:
+                raise Exception('Applying patch failed')
     else:
         rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/env-copy-txn.patch')
+        rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/its-10346.patch')
         if rv:
             raise Exception('Applying patch failed')
 
@@ -176,12 +180,17 @@ if use_cpython:
 else:
     print('Using cffi extension.')
     install_requires = ['cffi>=0.8']
-    try:
-        import lmdb.cffi
-        ext_modules = [lmdb.cffi._ffi.verifier.get_extension()]
-    except ImportError:
-        sys.stderr.write('Could not import lmdb; ensure cffi is installed!\n')
+    if platform.python_implementation() == 'PyPy':
+        print('Using cffi with PyPy, no extension module to build.')
         ext_modules = []
+    else:
+        print('Using cffi with CPython, building extension module.')
+        try:
+            import lmdb.cffi
+            ext_modules = [lmdb.cffi._ffi.verifier.get_extension()]
+        except ImportError:
+            sys.stderr.write('Could not import lmdb; ensure cffi is installed!\n')
+            ext_modules = []
 
 def grep_version():
     path = os.path.join(os.path.dirname(__file__), 'lmdb/__init__.py')

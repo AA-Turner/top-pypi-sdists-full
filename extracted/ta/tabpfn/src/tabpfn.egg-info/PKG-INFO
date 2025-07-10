@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 2.0.9
+Version: 2.1.0
 Summary: TabPFN: Foundation model for tabular data
 Author: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister, Frank Hutter, Eddie Bergman, Leo Grinsztajn
 License: 
                                       Prior Labs License
-                                   Version 1.0, January 2025
+                                   Version 1.1, May 2025
                                http://priorlabs.ai/tabpfn-license
         
            This license is a derivative of the Apache 2.0 license
@@ -192,7 +192,7 @@ License:
             or a product or service (including another AI model) that contains
             any source or model weights, You shall (A) provide a copy of this
             License with any such materials; and (B) prominently display
-            “Built with TabPFN” on each related website, user interface, blogpost,
+            “Built with PriorLabs-TabPFN” on each related website, user interface, blogpost,
             about page, or product documentation. If You use the source or model
             weights or model outputs to create, train, fine tune, distil, or
             otherwise improve an AI model, which is distributed or made available,
@@ -256,26 +256,26 @@ Dynamic: license-file
 [![Downloads](https://pepy.tech/badge/tabpfn)](https://pepy.tech/project/tabpfn)
 [![Discord](https://img.shields.io/discord/1285598202732482621?color=7289da&label=Discord&logo=discord&logoColor=ffffff)](https://discord.com/channels/1285598202732482621/)
 [![Documentation](https://img.shields.io/badge/docs-priorlabs.ai-blue)](https://priorlabs.ai/docs)
-[![colab](https://colab.research.google.com/assets/colab-badge.svg)](https://tinyurl.com/tabpfn-colab-local)
+[![colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PriorLabs/TabPFN/blob/main/examples/notebooks/TabPFN_Demo_Local.ipynb)
 [![Python Versions](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/project/tabpfn/)
 
 <img src="https://github.com/PriorLabs/tabpfn-extensions/blob/main/tabpfn_summary.webp" width="80%" alt="TabPFN Summary">
 
-⚠️ **Major Update: Version 2.0:** Complete codebase overhaul with new architecture and 
-features. Previous version available at [v1.0.0](../../tree/v1.0.0) and 
+⚠️ **Major Update: Version 2.0:** Complete codebase overhaul with new architecture and
+features. Previous version available at [v1.0.0](../../tree/v1.0.0) and
 `pip install tabpfn==0.1.11`.
 
-📚 For detailed usage examples and best practices, check out [Interactive Colab Tutorial](https://tinyurl.com/tabpfn-colab-local)
+📚 For detailed usage examples and best practices, check out [Interactive Colab Tutorial](https://colab.research.google.com/github/PriorLabs/TabPFN/blob/main/examples/notebooks/TabPFN_Demo_Local.ipynb)
 
 ## 🏁 Quick Start
 
-TabPFN is a foundation model for tabular data that outperforms traditional methods while 
+TabPFN is a foundation model for tabular data that outperforms traditional methods while
 being dramatically faster. This repository contains the core PyTorch implementation with
 CUDA optimization.
 
-> ⚡ **GPU Recommended**:  
-> For optimal performance, use a GPU (even older ones with ~8GB VRAM work well; 16GB needed for some large datasets).  
-> On CPU, only small datasets (≲1000 samples) are feasible.  
+> ⚡ **GPU Recommended**:
+> For optimal performance, use a GPU (even older ones with ~8GB VRAM work well; 16GB needed for some large datasets).
+> On CPU, only small datasets (≲1000 samples) are feasible.
 > No GPU? Use our free hosted inference via [TabPFN Client](https://github.com/PriorLabs/tabpfn-client).
 
 ### Installation
@@ -327,8 +327,7 @@ from sklearn.datasets import fetch_openml
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
-# Assuming there is a TabPFNRegressor (if not, a different regressor should be used)
-from tabpfn import TabPFNRegressor  
+from tabpfn import TabPFNRegressor
 
 # Load Boston Housing data
 df = fetch_openml(data_id=531, as_frame=True)  # Boston Housing dataset
@@ -339,7 +338,7 @@ y = df.target.astype(float)  # Ensure target is float for regression
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=42)
 
 # Initialize the regressor
-regressor = TabPFNRegressor()  
+regressor = TabPFNRegressor()
 regressor.fit(X_train, y_train)
 
 # Predict on the test set
@@ -355,7 +354,7 @@ print("R² Score:", r2)
 
 ### Best Results
 
-For optimal performance, use the `AutoTabPFNClassifier` or `AutoTabPFNRegressor` for post-hoc ensembling. These can be found in the [TabPFN Extensions](https://github.com/PriorLabs/tabpfn-extensions) repository. Post-hoc ensembling combines multiple TabPFN models into an ensemble. 
+For optimal performance, use the `AutoTabPFNClassifier` or `AutoTabPFNRegressor` for post-hoc ensembling. These can be found in the [TabPFN Extensions](https://github.com/PriorLabs/tabpfn-extensions) repository. Post-hoc ensembling combines multiple TabPFN models into an ensemble.
 
 **Steps for Best Results:**
 1. Install the extensions:
@@ -365,7 +364,7 @@ For optimal performance, use the `AutoTabPFNClassifier` or `AutoTabPFNRegressor`
    ```
 
 2.
-   ```python 
+   ```python
    from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNClassifier
 
    clf = AutoTabPFNClassifier(max_time=120, device="cuda") # 120 seconds tuning time
@@ -377,10 +376,10 @@ For optimal performance, use the `AutoTabPFNClassifier` or `AutoTabPFNRegressor`
 
 Choose the right TabPFN implementation for your needs:
 
-- **[TabPFN Client](https://github.com/priorlabs/tabpfn-client)**  
+- **[TabPFN Client](https://github.com/priorlabs/tabpfn-client)**
   Simple API client for using TabPFN via cloud-based inference.
 
-- **[TabPFN Extensions](https://github.com/priorlabs/tabpfn-extensions)**  
+- **[TabPFN Extensions](https://github.com/priorlabs/tabpfn-extensions)**
   A powerful companion repository packed with advanced utilities, integrations, and features - great place to contribute:
 
   - 🔍 **`interpretability`**: Gain insights with SHAP-based explanations, feature importance, and selection tools.
@@ -397,10 +396,10 @@ Choose the right TabPFN implementation for your needs:
   pip install -e tabpfn-extensions
   ```
 
-- **[TabPFN (this repo)](https://github.com/priorlabs/tabpfn)**  
+- **[TabPFN (this repo)](https://github.com/priorlabs/tabpfn)**
   Core implementation for fast and local inference with PyTorch and CUDA support.
 
-- **[TabPFN UX](https://ux.priorlabs.ai)**  
+- **[TabPFN UX](https://ux.priorlabs.ai)**
   No-code graphical interface to explore TabPFN capabilities—ideal for business users and prototyping.
 
 ## 📜 License
@@ -411,12 +410,12 @@ Prior Labs License (Apache 2.0 with additional attribution requirement): [here](
 
 We're building the future of tabular machine learning and would love your involvement:
 
-1. **Connect & Learn**: 
+1. **Connect & Learn**:
    - Join our [Discord Community](https://discord.gg/VJRuU3bSxt)
    - Read our [Documentation](https://priorlabs.ai/docs)
    - Check out [GitHub Issues](https://github.com/priorlabs/tabpfn/issues)
 
-2. **Contribute**: 
+2. **Contribute**:
    - Report bugs or request features
    - Submit pull requests
    - Share your research and use cases
@@ -425,7 +424,7 @@ We're building the future of tabular machine learning and would love your involv
 
 ## 📚 Citation
 
-You can read our paper explaining TabPFN [here](https://doi.org/10.1038/s41586-024-08328-6). 
+You can read our paper explaining TabPFN [here](https://doi.org/10.1038/s41586-024-08328-6).
 
 ```bibtex
 @article{hollmann2025tabpfn,
@@ -456,15 +455,15 @@ You can read our paper explaining TabPFN [here](https://doi.org/10.1038/s41586-0
 
 ### **Usage & Compatibility**
 
-**Q: What dataset sizes work best with TabPFN?**  
+**Q: What dataset sizes work best with TabPFN?**
 A: TabPFN is optimized for **datasets up to 10,000 rows**. For larger datasets, consider using **Random Forest preprocessing** or other extensions. See our [Colab notebook](https://colab.research.google.com/drive/154SoIzNW1LHBWyrxNwmBqtFAr1uZRZ6a#scrollTo=OwaXfEIWlhC8) for strategies.
 
-**Q: Why can't I use TabPFN with Python 3.8?**  
+**Q: Why can't I use TabPFN with Python 3.8?**
 A: TabPFN v2 requires **Python 3.9+** due to newer language features. Compatible versions: **3.9, 3.10, 3.11, 3.12, 3.13**.
 
 ### **Installation & Setup**
 
-**Q: How do I use TabPFN without an internet connection?**  
+**Q: How do I use TabPFN without an internet connection?**
 
 TabPFN automatically downloads model weights when first used. For offline usage:
 
@@ -493,20 +492,46 @@ This script will download the main classifier and regressor models, as well as a
      - macOS: `~/Library/Caches/tabpfn/`
      - Linux: `~/.cache/tabpfn/`
 
-**Q: I'm getting a `pickle` error when loading the model. What should I do?**  
+**Q: I'm getting a `pickle` error when loading the model. What should I do?**
 A: Try the following:
 - Download the newest version of tabpfn `pip install tabpfn --upgrade`
 - Ensure model files downloaded correctly (re-download if needed)
 
+**Q: How do I save and load a trained TabPFN model?**
+A: Use :func:`save_fitted_tabpfn_model` to persist a fitted estimator and reload
+it later with :func:`load_fitted_tabpfn_model` (or the corresponding
+``load_from_fit_state`` class methods).
+
+```python
+from tabpfn import TabPFNRegressor
+from tabpfn.model.loading import (
+    load_fitted_tabpfn_model,
+    save_fitted_tabpfn_model,
+)
+
+# Train the regressor on GPU
+reg = TabPFNRegressor(device="cuda")
+reg.fit(X_train, y_train)
+save_fitted_tabpfn_model(reg, "my_reg.tabpfn_fit")
+
+# Later or on a CPU-only machine
+reg_cpu = load_fitted_tabpfn_model("my_reg.tabpfn_fit", device="cpu")
+```
+
+To store just the foundation model weights (without a fitted estimator) use
+``save_tabpfn_model(reg.model_, "my_tabpfn.ckpt")``. This merely saves a
+checkpoint of the pre-trained weights so you can later create and fit a fresh
+estimator. Reload the checkpoint with ``load_model_criterion_config``.
+
 ### **Performance & Limitations**
 
-**Q: Can TabPFN handle missing values?**  
+**Q: Can TabPFN handle missing values?**
 A: **Yes!**
 
-**Q: How can I improve TabPFN’s performance?**  
+**Q: How can I improve TabPFN’s performance?**
 A: Best practices:
 - Use **AutoTabPFNClassifier** from [TabPFN Extensions](https://github.com/priorlabs/tabpfn-extensions) for post-hoc ensembling
-- Feature engineering: Add domain-specific features to improve model performance  
+- Feature engineering: Add domain-specific features to improve model performance
 Not effective:
   - Adapt feature scaling
   - Convert categorical features to numerical values (e.g., one-hot encoding)
@@ -518,7 +543,7 @@ Not effective:
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 git clone https://github.com/PriorLabs/TabPFN.git
-cd tabpfn
+cd TabPFN
 pip install -e ".[dev]"
 pre-commit install
 ```

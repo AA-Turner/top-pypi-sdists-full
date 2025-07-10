@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-freetier
-Version: 1.39.0
-Summary: Type annotations for boto3 FreeTier 1.39.0 service generated with mypy-boto3-builder 8.11.0
+Version: 1.39.4
+Summary: Type annotations for boto3 FreeTier 1.39.4 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 FreeTier 1.39.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 FreeTier 1.39.4](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.39.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.39.4' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `FreeTier` service.
 4. Use provided commands to install generated packages.
@@ -351,7 +351,7 @@ paginators.
 from boto3.session import Session
 
 from mypy_boto3_freetier import FreeTierClient
-from mypy_boto3_freetier.paginator import GetFreeTierUsagePaginator
+from mypy_boto3_freetier.paginator import GetFreeTierUsagePaginator, ListAccountActivitiesPaginator
 
 client: FreeTierClient = Session().client("freetier")
 
@@ -359,6 +359,9 @@ client: FreeTierClient = Session().client("freetier")
 # Types should be correctly discovered by mypy and IDEs
 get_free_tier_usage_paginator: GetFreeTierUsagePaginator = client.get_paginator(
     "get_free_tier_usage"
+)
+list_account_activities_paginator: ListAccountActivitiesPaginator = client.get_paginator(
+    "list_account_activities"
 )
 ```
 
@@ -373,10 +376,10 @@ Full list of `FreeTier` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_freetier/literals/).
 
 ```python
-from mypy_boto3_freetier.literals import DimensionType
+from mypy_boto3_freetier.literals import AccountPlanStatusType
 
 
-def check_value(value: DimensionType) -> bool: ...
+def check_value(value: AccountPlanStatusType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -391,12 +394,12 @@ Full list of `FreeTier` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_freetier.type_defs import DimensionValuesTypeDef
+from mypy_boto3_freetier.type_defs import MonetaryAmountTypeDef
 
 
-def get_value() -> DimensionValuesTypeDef:
+def get_value() -> MonetaryAmountTypeDef:
     return {
-        "Key": ...,
+        "amount": ...,
     }
 ```
 

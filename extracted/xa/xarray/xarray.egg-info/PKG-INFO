@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray
-Version: 2025.7.0
+Version: 2025.7.1
 Summary: N-D labeled arrays and datasets in Python
 Author-email: xarray Developers <xarray@googlegroups.com>
 License-Expression: Apache-2.0

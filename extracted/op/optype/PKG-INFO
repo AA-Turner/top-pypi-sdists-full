@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optype
-Version: 0.10.0
+Version: 0.11.0
 Summary: Building blocks for precise & flexible type hints
 Project-URL: Repository, https://github.com/jorenham/optype/
 Project-URL: Documentation, https://github.com/jorenham/optype/blob/master/README.md
@@ -69,10 +69,10 @@ Description-Content-Type: text/markdown
             src="https://github.com/jorenham/optype/workflows/CI/badge.svg"
         />
     </a>
-    <a href="https://github.com/KotlinIsland/basedmypy">
+    <a href="https://github.com/python/mypy">
         <img
-            alt="optype - basedmypy"
-            src="https://img.shields.io/badge/basedmypy-checked-fd9002"
+            alt="scipy-stubs - mypy"
+            src="https://www.mypy-lang.org/static/mypy_badge.svg"
         />
     </a>
     <a href="https://detachhead.github.io/basedpyright">

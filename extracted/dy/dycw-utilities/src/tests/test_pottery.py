@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from asyncio import TaskGroup
-from typing import TYPE_CHECKING
+from itertools import repeat
+from typing import TYPE_CHECKING, ClassVar
 
-from pytest import mark, param, raises
+from pytest import LogCaptureFixture, mark, param, raises
 
 from tests.conftest import SKIPIF_CI_AND_NOT_LINUX
 from tests.test_redis import yield_test_redis
@@ -11,6 +12,7 @@ from utilities.asyncio import sleep_td
 from utilities.pottery import (
     _YieldAccessNumLocksError,
     _YieldAccessUnableToAcquireLockError,
+    run_as_service,
     yield_access,
 )
 from utilities.text import unique_str
@@ -21,21 +23,88 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
     from whenever import TimeDelta
 
+    from utilities.types import LoggerOrName
 
-_DELTA: TimeDelta = 0.1 * SECOND
 
+class TestRunAsService:
+    delta: ClassVar[TimeDelta] = 0.1 * SECOND
 
-async def _func_access(num_tasks: int, key: str, /, *, num_locks: int = 1) -> None:
-    async def coroutine() -> None:
-        async with yield_test_redis() as redis, yield_access(redis, key, num=num_locks):
-            await sleep_td(_DELTA)
+    @mark.parametrize("use_logger", [param(True), param(False)])
+    @SKIPIF_CI_AND_NOT_LINUX
+    async def test_main(self, *, use_logger: bool, caplog: LogCaptureFixture) -> None:
+        caplog.set_level("DEBUG", logger=(name := unique_str()))
+        lst: list[None] = []
+        logger = name if use_logger else None
 
-    async with TaskGroup() as tg:
-        _ = [tg.create_task(coroutine()) for _ in range(num_tasks)]
+        async with yield_test_redis() as redis, TaskGroup() as tg:
+            _ = tg.create_task(self.service(lst, redis, key=name, logger=logger))
+            _ = tg.create_task(self.delayed(lst, redis, key=name, logger=logger))
+
+        assert len(lst) == 1
+        if use_logger:
+            messages = [r.message for r in caplog.records if r.name == name]
+            expected = f"Unable to acquire any 1 of 1 locks for {name!r} after PT0.1S"
+            assert expected in messages
+
+    async def func_main(self, lst: list[None], /) -> None:
+        lst.append(None)
+        await sleep_td(5 * self.delta)
+
+    async def service(
+        self,
+        lst: list[None],
+        redis: Redis,
+        /,
+        *,
+        key: str | None = None,
+        logger: LoggerOrName | None = None,
+    ) -> None:
+        await run_as_service(
+            redis,
+            lambda: self.func_main(lst),
+            key=key,
+            timeout_acquire=self.delta,
+            logger=logger,
+        )
+
+    async def delayed(
+        self,
+        lst: list[None],
+        redis: Redis,
+        /,
+        *,
+        key: str | None = None,
+        logger: LoggerOrName | None = None,
+    ) -> None:
+        await sleep_td(self.delta)
+        await self.service(lst, redis, key=key, logger=logger)
+
+    @mark.parametrize("use_logger", [param(True), param(False)])
+    @SKIPIF_CI_AND_NOT_LINUX
+    async def test_error(self, *, use_logger: bool, caplog: LogCaptureFixture) -> None:
+        caplog.set_level("DEBUG", logger=(name := unique_str()))
+        lst: list[None] = []
+
+        async with yield_test_redis() as redis:
+            await run_as_service(
+                redis, lambda: self.func_error(lst), logger=name if use_logger else None
+            )
+
+        if use_logger:
+            messages = [r.message for r in caplog.records if r.name == name]
+            expected = list(repeat("Error running 'func_error' as a service", times=3))
+            assert messages == expected
+
+    async def func_error(self, lst: list[None], /) -> None:
+        lst.append(None)
+        if len(lst) <= 3:
+            msg = "Failure"
+            raise ValueError(msg)
 
 
 class TestYieldAccess:
-    @SKIPIF_CI_AND_NOT_LINUX
+    delta: ClassVar[TimeDelta] = 0.1 * SECOND
+
     @mark.parametrize(
         ("num_tasks", "num_locks", "min_multiple"),
         [
@@ -59,12 +128,13 @@ class TestYieldAccess:
             param(4, 5, 1),
         ],
     )
+    @SKIPIF_CI_AND_NOT_LINUX
     async def test_main(
         self, *, num_tasks: int, num_locks: int, min_multiple: int
     ) -> None:
         with Timer() as timer:
-            await _func_access(num_tasks, unique_str(), num_locks=num_locks)
-        assert (min_multiple * _DELTA) <= timer <= (5 * min_multiple * _DELTA)
+            await self.func(num_tasks, unique_str(), num_locks=num_locks)
+        assert (min_multiple * self.delta) <= timer <= (5 * min_multiple * self.delta)
 
     async def test_error_num_locks(self) -> None:
         key = unique_str()
@@ -94,3 +164,14 @@ class TestYieldAccess:
             _YieldAccessUnableToAcquireLockError,
             match=r"Unable to acquire any 1 of 1 locks for '\w+' after .*",
         )
+
+    async def func(self, num_tasks: int, key: str, /, *, num_locks: int = 1) -> None:
+        async def coroutine() -> None:
+            async with (
+                yield_test_redis() as redis,
+                yield_access(redis, key, num=num_locks),
+            ):
+                await sleep_td(self.delta)
+
+        async with TaskGroup() as tg:
+            _ = [tg.create_task(coroutine()) for _ in range(num_tasks)]

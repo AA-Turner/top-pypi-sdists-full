@@ -1,15 +1,17 @@
 # file: projects/web/nav.py
 
 import os
+import html
 from gway import gw
 from bottle import request
 
-def render(*, homes=None):
+def render(*, homes=None, links=None):
     """
     Renders the sidebar navigation including search, home links, visited links, and a QR compass.
     """
     cookies_ok = gw.web.app.is_setup('web.cookies') and gw.web.cookies.accepted()
-    gw.verbose(f"Render nav with {homes=} {cookies_ok=}")
+    links_map = links or {}
+    gw.verbose(f"Render nav with {homes=} {links_map=} {cookies_ok=}")
 
     visited = []
     if cookies_ok:
@@ -40,12 +42,29 @@ def render(*, homes=None):
         visited_set.add(current_route)
 
     # --- Build HTML links ---
-    links = ""
+    links_html = ""
     if homes:
         for home_title, home_route in homes:
             route = home_route.strip("/")
             is_current = ' class="current"' if route == current_route else ""
-            links += f'<li><a href="/{home_route}"{is_current}>{home_title.upper()}</a></li>'
+            proj_root = route.rsplit('/', 1)[0] if '/' in route else route
+            links_html += f'<li><a href="/{home_route}"{is_current}>{home_title.upper()}</a>'
+            sub = links_map.get(home_route)
+            if sub and current_route.startswith(proj_root):
+                links_html += '<ul class="sub-links">'
+                for name in sub:
+                    if isinstance(name, tuple):
+                        target_proj, view_name = name
+                        target_root = target_proj.replace('.', '/')
+                        sub_route = f"{target_root}/{view_name}".strip('/')
+                        label = view_name.replace('-', ' ').replace('_', ' ').title()
+                    else:
+                        sub_route = f"{proj_root}/{name}".strip('/')
+                        label = name.replace('-', ' ').replace('_',' ').title()
+                    active = ' class="active"' if sub_route == current_route else ''
+                    links_html += f'<li><a href="/{sub_route}"{active}>{label}</a></li>'
+                links_html += '</ul>'
+            links_html += '</li>'
     if cookies_ok and entries:
         visited_rendered = set()
         for title, route in reversed(entries):
@@ -53,9 +72,9 @@ def render(*, homes=None):
                 continue
             visited_rendered.add(route)
             is_current = ' class="current"' if route == current_route else ""
-            links += f'<li><a href="/{route}"{is_current}>{title}</a></li>'
+            links_html += f'<li><a href="/{route}"{is_current}>{title}</a></li>'
     elif not homes:
-        links += f'<li class="current">{current_title.upper()}</li>'
+        links_html += f'<li class="current">{current_title.upper()}</li>'
 
     # --- Search box ---
     search_box = '''
@@ -70,21 +89,76 @@ def render(*, homes=None):
             >{}</textarea>
         </form>
     '''.format(request.query.get("topic", ""))
+    
+    # --- Current user info (Basic Auth) ---
+    user_html = ""
+    try:
+        auth_header = request.get_header("Authorization")
+        username, _ = gw.web.auth.parse_basic_auth_header(auth_header)
+        if username:
+            logout_url = gw.web.app.build_url("auth", "logout")
+            user_html = (
+                f'<p class="user-info">User: {html.escape(username)} '
+                f'<a href="{logout_url}" class="logout">Logout</a></p>'
+            )
+    except Exception as e:
+        gw.debug(f"Could not resolve auth user: {e}")
 
     # --- QR code for this page ---
+
     compass = ""
+    toggle = ""
+
+    # Attempt to locate a view_compass function for the current route
+    view_compass_func = None
     try:
-        url = current_url()
-        qr_url = gw.qr.generate_url(url)
-        compass = f'''
-            <div class="compass">
-                <img src="{qr_url}" alt="QR Code" class="compass" />
-            </div>
-        '''
+        obj = gw
+        for part in current_route.split("/"):
+            attr = part.replace("-", "_")
+            if hasattr(obj, attr):
+                obj = getattr(obj, attr)
+                if hasattr(obj, "view_compass"):
+                    view_compass_func = getattr(obj, "view_compass")
+            else:
+                break
     except Exception as e:
-        gw.debug(f"Could not generate QR compass: {e}")
-        
-    return f"<aside>{search_box}<ul>{links}</ul><br>{compass}</aside>"
+        gw.debug(f"Error searching for view_compass: {e}")
+        view_compass_func = None
+
+    from urllib.parse import parse_qsl, urlencode
+    params = dict(parse_qsl(request.query_string))
+    mode = params.get("compass") or ("local" if view_compass_func else "qr")
+
+    if mode != "qr" and view_compass_func:
+        try:
+            compass = view_compass_func()
+        except Exception as e:
+            gw.debug(f"view_compass error: {e}")
+            compass = ""
+            mode = "qr"
+
+    if mode == "qr":
+        try:
+            url = current_url()
+            qr_url = gw.qr.generate_url(url)
+            compass = f'''
+                <div class="compass">
+                    <img src="{qr_url}" alt="QR Code" class="compass" />
+                </div>
+            '''
+        except Exception as e:
+            gw.debug(f"Could not generate QR compass: {e}")
+
+    if view_compass_func:
+        params["compass"] = "local" if mode == "qr" else "qr"
+        label = "Show local compass" if mode == "qr" else "Show QR to Here"
+        toggle_href = request.fullpath.split("?")[0]
+        qs = urlencode(params)
+        if qs:
+            toggle_href += "?" + qs
+        toggle = f'<p style="font-size:80%" class="compass-toggle"><a href="{toggle_href}">[{label}]</a></p>'
+
+    return f"<aside>{search_box}<ul>{links_html}</ul><br>{compass}{toggle}</aside>"
 
 def active_style():
     """
