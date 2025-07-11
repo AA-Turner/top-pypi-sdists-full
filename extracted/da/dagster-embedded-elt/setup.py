@@ -27,13 +27,14 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_embedded_elt_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.13",
-    install_requires=["dagster==1.11.1", "dagster-sling==0.27.1", "dagster-dlt==0.27.1"],
+    python_requires=">=3.9,<=3.13.3",
+    install_requires=["dagster==1.11.2", "dagster-sling==0.27.2", "dagster-dlt==0.27.2"],
     zip_safe=False,
     extras_require={
         "test": [

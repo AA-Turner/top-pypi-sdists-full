@@ -142,7 +142,7 @@ from .parse_utils import (num_tokens_from_string,
                           chunk_by_language_context,
                           search_code)
 
-from .log_utils import get_logFile,print_or_log,get_json_call_response,initialize_call_log
+from .log_utils import get_caller_info,get_logFile,print_or_log,get_json_call_response,initialize_call_log
 from .error_utils import try_func
 from .class_utils import alias,get_class_inputs
 

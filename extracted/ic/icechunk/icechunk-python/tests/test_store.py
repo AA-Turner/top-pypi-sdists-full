@@ -63,9 +63,9 @@ async def test_support_dimension_names_null() -> None:
     root.create_array(
         name="0", shape=(1, 3, 5, 1), chunks=(1, 3, 2, 1), fill_value=-1, dtype=np.int64
     )
-    meta = json.loads(
-        (await store.get("0/zarr.json", prototype=default_buffer_prototype())).to_bytes()
-    )
+    value = await store.get("0/zarr.json", prototype=default_buffer_prototype())
+    assert value
+    meta = json.loads(value.to_bytes())
     assert "dimension_names" not in meta
 
 
@@ -95,3 +95,30 @@ async def test_with_readonly() -> None:
 
     reader = store.with_read_only(read_only=True)
     assert reader.read_only
+
+
+async def test_transaction() -> None:
+    repo = parse_repo("memory", "test")
+    cid1 = repo.lookup_branch("main")
+    # TODO: test metadata, rebase_with, and rebase_tries kwargs
+    with repo.transaction("main", message="initialize group") as store:
+        assert not store.read_only
+        root = zarr.group(store=store)
+        root.attrs["foo"] = "bar"
+    cid2 = repo.lookup_branch("main")
+    assert cid1 != cid2, "Transaction did not commit changes"
+
+
+async def test_transaction_failed_no_commit() -> None:
+    repo = parse_repo("memory", "test")
+    cid1 = repo.lookup_branch("main")
+    try:
+        with repo.transaction("main", message="initialize group") as store:
+            assert not store.read_only
+            root = zarr.group(store=store)
+            root.attrs["foo"] = "bar"
+            raise RuntimeError("Simulating an error to prevent commit")
+    except RuntimeError:
+        pass
+    cid2 = repo.lookup_branch("main")
+    assert cid1 == cid2, "Transaction committed changes despite error"

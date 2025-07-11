@@ -28,20 +28,21 @@ class Meta(element.Element):
     __resource_type__ = "Meta"
 
     lastUpdated: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="lastUpdated",
         title="When the resource version last changed",
         description="When the resource last changed - e.g. when the version changed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     lastUpdated__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_lastUpdated", title="Extension field for ``lastUpdated``."
+        default=None, alias="_lastUpdated", title="Extension field for ``lastUpdated``."
     )
 
     profile: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="profile",
         title="Profiles this resource claims to conform to",
         description=(
@@ -53,16 +54,17 @@ class Meta(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["StructureDefinition"],
         },
     )
     profile__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_profile", title="Extension field for ``profile``."
+        default=None, alias="_profile", title="Extension field for ``profile``."
     )
 
     security: typing.List[fhirtypes.CodingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="security",
         title="Security Labels applied to this resource",
         description=(
@@ -71,11 +73,12 @@ class Meta(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     source: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="source",
         title="Identifies where the resource comes from",
         description=(
@@ -87,14 +90,15 @@ class Meta(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     source__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_source", title="Extension field for ``source``."
+        default=None, alias="_source", title="Extension field for ``source``."
     )
 
     tag: typing.List[fhirtypes.CodingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="tag",
         title="Tags applied to this resource",
         description=(
@@ -105,11 +109,12 @@ class Meta(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     versionId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versionId",
         title="Version specific identifier",
         description=(
@@ -119,17 +124,18 @@ class Meta(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     versionId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_versionId", title="Extension field for ``versionId``."
+        default=None, alias="_versionId", title="Extension field for ``versionId``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Meta`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Meta`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -141,3 +147,10 @@ class Meta(element.Element):
             "security",
             "tag",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Meta`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["versionId", "lastUpdated", "source", "profile", "security", "tag"]

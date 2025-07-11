@@ -13,13 +13,6 @@ class PlatformerController2d(Entity):
         self.collider = 'box'
 
         self.animator = Animator({'idle' : None, 'walk' : None, 'jump' : None})
-        # self.animation_state_machine.state = 'jump'
-        # self.idle_animation = None
-        # self.walk_animation = None
-        # self.jump_animation = None
-        # self.idle_animation = Entity(parent=self, model='cube', color=color.gray, origin_y=-.5, scale_z=2)
-        # self.walk_animation = Animation(parent=self, texture='ursina_wink', color=color.red, origin_y=-.5, scale=(2,2), double_sided=True)
-        # self.model = None
 
         self.walk_speed = 8
         self.walking = False
@@ -50,7 +43,6 @@ class PlatformerController2d(Entity):
         invoke(setattr, self, 'gravity', target_gravity, delay=1/60)
         self._original_scale_x = self.scale_x
 
-        Entity(model='cube', scale=.1, parent=self, color=color.azure, x=.5, y=.5)
         self.min_x = -99999
         self.max_x = 99999
 
@@ -114,7 +106,7 @@ class PlatformerController2d(Entity):
             if not self.grounded:
                 self.land()
 
-            self.y = max((r.world_point.y for r in (ray, left_ray, right_ray) if r.hit))
+            self.y = max(r.world_point.y for r in (ray, left_ray, right_ray) if r.hit)
             self.grounded = True
             return
         else:
@@ -134,7 +126,6 @@ class PlatformerController2d(Entity):
             hit_above_left = raycast(self.world_position+Vec3(-self.scale_x*.49,self.scale_y/2,0), self.up, distance=self.jump_height-(self.scale_y/2), traverse_target=self.traverse_target, ignore=self.ignore_list)
             hit_above_right = raycast(self.world_position+Vec3(self.scale_x*.49,self.scale_y/2,0), self.up, distance=self.jump_height-(self.scale_y/2), traverse_target=self.traverse_target, ignore=self.ignore_list)
             if any((hit_above.hit, hit_above_left.hit, hit_above_right.hit)):
-                target_y = min(min((r.world_point.y for r in (hit_above, hit_above_left, hit_above_right) if r.hit)), self.y)
                 if hasattr(self, 'y_animator'):
                     self.y_animator.kill()
                 self.air_time = 0

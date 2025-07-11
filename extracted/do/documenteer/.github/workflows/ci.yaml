@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  PYTHON_VERSION: '3.13' # Default Python version
+
 'on':
   push:
     branches-ignore:
@@ -24,7 +27,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
@@ -45,8 +48,9 @@ jobs:
       - name: Run tox
         uses: lsst-sqre/run-tox@v1
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: 'lint'
+          tox-plugins: tox-uv
 
   test:
     runs-on: ubuntu-latest
@@ -54,7 +58,6 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - '3.11'
           - '3.12'
           - '3.13'
         sphinx-version:
@@ -82,33 +85,49 @@ jobs:
           npm install
           npm run build
 
-      - name: Install graphviz
-        run: |
-          sudo apt-get update
-          sudo apt-get install graphviz
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2
 
       - name: Run tox
         uses: lsst-sqre/run-tox@v1
         with:
           python-version: ${{ matrix.python-version }}
-          tox-envs: 'lint,py-test-sphinx${{ matrix.sphinx-version }},typing-sphinx${{ matrix.sphinx-version }},demo'
+          tox-envs: 'py-test-sphinx${{ matrix.sphinx-version }},typing-sphinx${{ matrix.sphinx-version }},demo'
+          tox-plugins: tox-uv
 
   docs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
-      - name: Install Graphviz
-        run: sudo apt-get install graphviz
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
 
       - name: Run tox
         uses: lsst-sqre/run-tox@v1
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: 'docs,docs-lint'
+          tox-plugins: tox-uv
 
       # Only attempt documentation uploads for tagged releases and pull
       # requests from ticket branches in the same repository.  This avoids
@@ -124,7 +143,6 @@ jobs:
         if: >
           github.event_name != 'pull_request' || startsWith(github.head_ref, 'tickets/')
 
-
   test-package:
     name: Test PyPI package build
     runs-on: ubuntu-latest
@@ -134,10 +152,26 @@ jobs:
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
       - name: Build and publish
         uses: lsst-sqre/build-and-publish-to-pypi@v3
         with:
-          upload: 'false'
+          upload: "false"
 
   pypi-publish:
     name: Upload release to PyPI
@@ -159,6 +193,12 @@ jobs:
         with:
           cache: 'npm'
           node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: npm install and build
         run: |

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gradio
-Version: 5.35.0
+Version: 5.36.2
 Summary: Python library for easily interacting with trained machine learning models
 Project-URL: Homepage, https://github.com/gradio-app/gradio
 Author-email: Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Ömer Faruk Özdemir <gradio-team@huggingface.co>, Freddy A Boulton <gradio-team@huggingface.co>, Hannah Blair <gradio-team@huggingface.co>
@@ -22,11 +22,12 @@ Requires-Python: >=3.10
 Requires-Dist: aiofiles<25.0,>=22.0
 Requires-Dist: anyio<5.0,>=3.0
 Requires-Dist: audioop-lts<1.0; python_version >= '3.13'
+Requires-Dist: brotli>=1.1.0
 Requires-Dist: fastapi<1.0,>=0.115.2
 Requires-Dist: ffmpy
 Requires-Dist: gradio-client==1.10.4
 Requires-Dist: groovy~=0.1
-Requires-Dist: httpx>=0.24.1
+Requires-Dist: httpx<1.0,>=0.24.1
 Requires-Dist: huggingface-hub>=0.28.1
 Requires-Dist: jinja2<4.0
 Requires-Dist: markupsafe<4.0,>=2.0
@@ -49,7 +50,7 @@ Requires-Dist: typing-extensions~=4.0
 Requires-Dist: urllib3~=2.0; sys_platform == 'emscripten'
 Requires-Dist: uvicorn>=0.14.0; sys_platform != 'emscripten'
 Provides-Extra: mcp
-Requires-Dist: mcp==1.9.3; extra == 'mcp'
+Requires-Dist: mcp==1.10.1; extra == 'mcp'
 Requires-Dist: pydantic>=2.11; (sys_platform != 'emscripten') and extra == 'mcp'
 Provides-Extra: oauth
 Requires-Dist: authlib; extra == 'oauth'

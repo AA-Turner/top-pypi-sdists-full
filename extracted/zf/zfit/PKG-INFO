@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zfit
-Version: 0.26.0
+Version: 0.27.0
 Summary: scalable pythonic model fitting for high energy physics
 Project-URL: Homepage, https://github.com/zfit/zfit
 Author-email: Jonas Eschle <Jonas.Eschle@cern.ch>, Albert Puig <apuignav@gmail.com>, Rafael Silva Coutinho <rsilvaco@cern.ch>, Matthieu Marinangeli <matthieu.marinangeli@cern.ch>
@@ -17,12 +17,11 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.13,>=3.10
 Requires-Dist: attrs
 Requires-Dist: boost-histogram
 Requires-Dist: colorama
@@ -485,7 +484,7 @@ These core ideas are supported by two basic pillars:
 Prerequisites
 =============
 
-``zfit`` works with Python versions 3.9 and above.
+``zfit`` works with Python versions 3.10 and above.
 The main dependency is `tensorflow <https://www.tensorflow.org/>`_: zfit follows a close version compatibility with TensorFlow.
 
 

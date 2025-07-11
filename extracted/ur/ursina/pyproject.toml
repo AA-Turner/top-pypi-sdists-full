@@ -1,33 +1,75 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry]
+[project]
 name = "ursina"
-version = "7.0.0"
+version = "8.0.1"
 description = "An easy to use game engine/framework for python."
 authors = [
-    "Petter Amland <pokepetter@gmail.com>",
-    ]
-license = "MIT"
-homepage = "https://github.com/pokepetter/ursina"
+    {name = "Petter Amland", email = "pokepetter@gmail.com"}
+]
+license = {text = "MIT"}
 keywords = ["game development"]
 readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "panda3d>=1.10.15",
+    "panda3d-gltf>=1.3.0",
+    "pillow>=10.0.0",
+    "pyperclip>=1.9.0",
+    "screeninfo>=0.8.1",
+    "sswg==4.3.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10"
-panda3d = "*"
-panda3d-gltf = "*"
-pillow = "*"
-pyperclip = "*"
-screeninfo = "*"
+[tool.setuptools]
+include-package-data = true
 
-[tool.poetry.extras]
-extras = ["numpy", "imageio", "psd-tools3", "psutil"]
+[tool.setuptools.packages.find]
+where = ["."]
 
+[tool.setuptools.package-data]
+"ursina.audio" = ["*"]
+"ursina.fonts" = ["*"]
+"ursina.models.procedural" = ["*"]
+"ursina.models_compressed" = ["*"]
+"ursina.prefabs.particle_systems" = ["*"]
+"ursina.scripts" = ["*"]
+"ursina.textures" = ["*"]
+"ursina.textures.items" = ["*"]
+"ursina.shaders.screenspace_shaders" = ["*"]
 
+[project.urls]
+homepage = "https://github.com/pokepetter/ursina"
+
+[project.optional-dependencies]
+extra = [
+    "imageio>=2.37.0",
+    "numpy>=2.3.1",
+    "psutil>=7.0.0",
+    "thumbhash-python>=1.0.1",
+    "tripy>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "imageio>=2.37.0",
+    "numpy>=2.2.3",
+    "psutil>=7.0.0",
+    "ruff>=0.12.1",
+    "sswg>=4.3.0",
+    "tripy>=1.0.0",
+]
 
 [tool.ruff]
+# - E: pycodestyle (errors, e.g., whitespace, line length)
+# - F: pyflakes (unused imports, undefined variables)
+# - I: isort (import sorting)
+# - B: flake8-bugbear (bug risks, e.g., mutable defaults)
+# - UP: pyupgrade (code modernization, e.g., f-strings)
+# - D: pydocstyle (docstring conventions, optional)
+select = ["E", "F", "I", "B", "UP"]
+
 # Allow lines to be as long as 300 characters.
 line-length = 300
 lint.ignore-init-module-imports = true
@@ -37,9 +79,8 @@ lint.ignore-init-module-imports = true
 # E405: ignore to allow undefined or from star import
 # E741: ignore to allow single character variable names
 # E711: ignore to allow var == None instead of var is None
-# F401: ignore to allow importing all the stuff in __init__.py without using __all__
 # E701: ignore to allow multiple statements on one line (colon). This is rarely done anyway.
-lint.ignore = ["F403", "E402", "E722", "E713", "E741", "E711", "F401", "E701"]
+lint.ignore = ["F403", "E402", "E722", "E713", "E741", "E711", "E701"]
 # Make linter not complain about stuff imported with * import
 builtins = [
     "Ursina", "Path", "base", "loader", "render", "globalClock", "LEVEL_EDITOR",
@@ -63,3 +104,4 @@ builtins = [
     "Tooltip", "Sprite", "Draggable", "Panel", "Slider", "ThinSlider", "ButtonList", "ButtonGroup", "WindowPanel", "Space", "TextField", "InputField", "ContentTypes", "Cursor",
     "raycast", "boxcast", "terraincast"
     ]
+

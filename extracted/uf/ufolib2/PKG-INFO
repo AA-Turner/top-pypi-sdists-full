@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ufoLib2
-Version: 0.17.1
+Version: 0.18.1
 Summary: ufoLib2 is a UFO font processing library.
 Author-email: Adrien Tétar <adri-from-59@hotmail.fr>
 License: Apache 2.0
@@ -12,21 +12,22 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Topic :: Text Processing :: Fonts
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs>=22.1.0
-Requires-Dist: fonttools[ufo]>=4.0.0
+Requires-Dist: fonttools[ufo]>=4.58.0
 Provides-Extra: lxml
 Requires-Dist: lxml; extra == "lxml"
 Provides-Extra: converters
-Requires-Dist: cattrs>=24.1; extra == "converters"
+Requires-Dist: cattrs>=25.1.1; extra == "converters"
 Provides-Extra: json
-Requires-Dist: cattrs>=24.1; extra == "json"
+Requires-Dist: cattrs>=25.1.1; extra == "json"
 Requires-Dist: orjson; platform_python_implementation != "PyPy" and extra == "json"
 Provides-Extra: msgpack
-Requires-Dist: cattrs>=24.1; extra == "msgpack"
+Requires-Dist: cattrs>=25.1.1; extra == "msgpack"
 Requires-Dist: msgpack; extra == "msgpack"
+Dynamic: license-file
 
 # ufoLib2
 

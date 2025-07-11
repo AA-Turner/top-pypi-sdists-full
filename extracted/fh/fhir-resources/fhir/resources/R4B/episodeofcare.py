@@ -31,7 +31,7 @@ class EpisodeOfCare(domainresource.DomainResource):
     __resource_type__ = "EpisodeOfCare"
 
     account: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="account",
         title=(
             "The set of accounts that may be used for billing for this " "EpisodeOfCare"
@@ -45,7 +45,7 @@ class EpisodeOfCare(domainresource.DomainResource):
     )
 
     careManager: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="careManager",
         title="Care manager/care coordinator for the patient",
         description=(
@@ -60,17 +60,18 @@ class EpisodeOfCare(domainresource.DomainResource):
     )
 
     diagnosis: typing.List[fhirtypes.EpisodeOfCareDiagnosisType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diagnosis",
         title="The list of diagnosis relevant to this episode of care",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business Identifier(s) relevant for this EpisodeOfCare",
         description=(
@@ -84,7 +85,7 @@ class EpisodeOfCare(domainresource.DomainResource):
     )
 
     managingOrganization: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="managingOrganization",
         title="Organization that assumes care",
         description=(
@@ -93,25 +94,27 @@ class EpisodeOfCare(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     patient: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="patient",
         title="The patient who is the focus of this episode of care",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Interval during responsibility is assumed",
         description=(
@@ -120,11 +123,12 @@ class EpisodeOfCare(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     referralRequest: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="referralRequest",
         title="Originating Referral Request(s)",
         description=(
@@ -139,7 +143,7 @@ class EpisodeOfCare(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "planned | waitlist | active | onhold | finished | cancelled | entered-"
@@ -148,6 +152,7 @@ class EpisodeOfCare(domainresource.DomainResource):
         description="planned | waitlist | active | onhold | finished | cancelled.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -163,11 +168,11 @@ class EpisodeOfCare(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     statusHistory: typing.List[fhirtypes.EpisodeOfCareStatusHistoryType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusHistory",
         title=(
             "Past list of status codes (the current status may be included to cover"
@@ -183,7 +188,7 @@ class EpisodeOfCare(domainresource.DomainResource):
     )
 
     team: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="team",
         title="Other practitioners facilitating this episode of care",
         description=(
@@ -198,7 +203,7 @@ class EpisodeOfCare(domainresource.DomainResource):
     )
 
     type: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Type/class  - e.g. specialist referral, disease management",
         description=(
@@ -207,14 +212,15 @@ class EpisodeOfCare(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EpisodeOfCare`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EpisodeOfCare`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -237,6 +243,23 @@ class EpisodeOfCare(domainresource.DomainResource):
             "careManager",
             "team",
             "account",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EpisodeOfCare`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "status",
+            "type",
+            "diagnosis",
+            "patient",
+            "managingOrganization",
+            "period",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -262,7 +285,7 @@ class EpisodeOfCareDiagnosis(backboneelement.BackboneElement):
     __resource_type__ = "EpisodeOfCareDiagnosis"
 
     condition: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="condition",
         title="Conditions/problems/diagnoses this episode of care is for",
         description=(
@@ -271,26 +294,28 @@ class EpisodeOfCareDiagnosis(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Condition"],
         },
     )
 
     rank: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rank",
         title="Ranking of the diagnosis (for each role type)",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     rank__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_rank", title="Extension field for ``rank``."
+        default=None, alias="_rank", title="Extension field for ``rank``."
     )
 
     role: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="role",
         title=(
             "Role that this diagnosis has within the episode of care (e.g. "
@@ -299,16 +324,24 @@ class EpisodeOfCareDiagnosis(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EpisodeOfCareDiagnosis`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EpisodeOfCareDiagnosis`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "condition", "role", "rank"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EpisodeOfCareDiagnosis`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "condition", "role", "rank"]
 
 
 class EpisodeOfCareStatusHistory(backboneelement.BackboneElement):
@@ -325,7 +358,7 @@ class EpisodeOfCareStatusHistory(backboneelement.BackboneElement):
     __resource_type__ = "EpisodeOfCareStatusHistory"
 
     period: fhirtypes.PeriodType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="period",
         title="Duration the EpisodeOfCare was in the specified status",
         description="The period during this EpisodeOfCare that the specific status applied.",
@@ -335,7 +368,7 @@ class EpisodeOfCareStatusHistory(backboneelement.BackboneElement):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "planned | waitlist | active | onhold | finished | cancelled | entered-"
@@ -359,16 +392,23 @@ class EpisodeOfCareStatusHistory(backboneelement.BackboneElement):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EpisodeOfCareStatusHistory`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EpisodeOfCareStatusHistory`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "status", "period"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EpisodeOfCareStatusHistory`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

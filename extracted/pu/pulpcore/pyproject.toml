@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "pulpcore"
-version = "3.82.1"
+version = "3.83.0"
 description = "Pulp Django Application and Related Modules"
 readme = "README.md"
 authors = [
@@ -56,7 +56,7 @@ dependencies = [
   "opentelemetry-sdk>=1.27.0,<1.35",
   "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.35",
   "protobuf>=4.21.1,<6.0",
-  "pulp-glue>=0.28.0,<0.34",
+  "pulp-glue>=0.28.0,<0.35",
   "pygtrie>=2.5,<=2.5.0",
   "psycopg[binary]>=3.1.8,<3.3",  # SemVer, not explicitely stated, but mentioned on multiple changes.
   "pyparsing>=3.1.0,<3.3",    # Looks like only bugfixes in z-Stream.
@@ -65,7 +65,7 @@ dependencies = [
   "redis>=4.3.0,<5.3",  # Looks like only bugfixes in z-Stream.
   "tablib>=3.5.0,<3.6",  # 3.6.0 breaks with import export. Not sure about semver.
   "url-normalize>=1.4.3,<2.3",  # SemVer. https://github.com/niksite/url-normalize/blob/master/CHANGELOG.md#changelog
-  "uuid6>=2023.5.2,<=2025.0.0",
+  "uuid6>=2023.5.2,<=2025.0.1",
   "whitenoise>=5.0,<6.10.0",
   "yarl>=1.8,<1.21",  # Seems to follow SemVer https://yarl.aio-libs.org/en/latest/contributing/release_guide/#pre-release-activities .
 ]
@@ -208,7 +208,7 @@ ignore = [
 [tool.bumpversion]
 # This section is managed by the plugin template. Do not edit manually.
 
-current_version = "3.82.1"
+current_version = "3.83.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<alpha>0a)?(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

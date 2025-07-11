@@ -4,24 +4,21 @@
 from warnings import warn
 
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.base import clone, BaseEstimator
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
+from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 from itertools import product
 from .dml import _BaseDML
 from .dml import _make_first_stage_selector
-from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
-from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (add_intercept, shape, check_inputs, check_input_arrays,
-                         _deprecate_positional, cross_product, Summary)
+from ..utilities import (shape, check_input_arrays,
+                         cross_product, Summary)
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
 from .._ortho_learner import _OrthoLearner
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV, dml_sensitivity_values,
+                                             sensitivity_summary)
 
 
 class _CausalForestFinalWrapper:
@@ -61,6 +58,11 @@ class _CausalForestFinalWrapper:
             T_res = T_res.reshape((-1, 1))
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
+
+        # if binary/continuous treatment and single outcome, can calculate sensitivity params
+        if not ((self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1)):
+            self.sensitivity_params = dml_sensitivity_values(T_res, Y_res)
+
         self._model.fit(fts, T_res, Y_res, sample_weight=sample_weight)
         # Fit a doubly robust average effect
         if self._discrete_treatment and self._drate:
@@ -215,9 +217,6 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         d_t_orig = T.shape[1:]
         d_t_orig = d_t_orig[0] if d_t_orig else 1
 
-        d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
-
         output_shape = [X.shape[0]]
         if self._d_y:
             output_shape.append(self._d_y[0])
@@ -257,8 +256,10 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
 
 class CausalForestDML(_BaseDML):
-    """A Causal Forest [cfdml1]_ combined with double machine learning based residualization of the treatment
-    and outcome variables. It fits a forest that solves the local moment equation problem:
+    """
+    A Causal Forest [cfdml1]_ combined with DML-based residualization of the treatment and outcome variables.
+
+    It fits a forest that solves the local moment equation problem:
 
     .. code-block::
 
@@ -557,10 +558,10 @@ class CausalForestDML(_BaseDML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.62947..., 1.64576..., 0.68496... ])
+    array([0.62769..., 1.64575..., 0.68497...])
     >>> est.effect_interval(X[:3])
-    (array([0.19136...  , 1.17143..., 0.10789...]),
-    array([1.06758..., 2.12009..., 1.26203...]))
+    (array([0.18798..., 1.17144..., 0.10788...]),
+    array([1.06739..., 2.12006..., 1.26205...]))
 
     Attributes
     ----------
@@ -721,8 +722,9 @@ class CausalForestDML(_BaseDML):
              sample_weight=None, groups=None,
              params='auto'):
         """
-        Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
-        performance. It trains small forests of size 100 trees on a grid of parameters and tests the
+        Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score performance.
+
+        It trains small forests of size 100 trees on a grid of parameters and tests the
         out of sample R-score. After the function is called, then all parameters of `self` have been
         set to the optimal hyperparameters found. The estimator however remains un-fitted, so you need to
         call fit afterwards to fit the estimator with the chosen hyperparameters. The list of tunable parameters
@@ -768,7 +770,7 @@ class CausalForestDML(_BaseDML):
         else:
             # If custom param grid, check that only estimator parameters are being altered
             estimator_param_names = self.tunable_params
-            for key in params.keys():
+            for key in params:
                 if key not in estimator_param_names:
                     raise ValueError(f"Parameter `{key}` is not an tunable causal forest parameter.")
 
@@ -792,6 +794,7 @@ class CausalForestDML(_BaseDML):
         est.inference = False
 
         scorer = RScorer(model_y=est.model_y, model_t=est.model_t,
+                         discrete_outcome=est.discrete_outcome,
                          discrete_treatment=est.discrete_treatment, categories=est.categories,
                          cv=est.cv, mc_iters=est.mc_iters, mc_agg=est.mc_agg,
                          random_state=est.random_state)
@@ -815,6 +818,113 @@ class CausalForestDML(_BaseDML):
             setattr(self, key, value)
 
         return self
+
+    def sensitivity_summary(self, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE.
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_summary(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
+    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
+        """
+        Calculate the sensitivity interval for the ATE.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on [Chernozhukov2022]_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_interval(**sensitivity_params._asdict(), alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
+
+    def robustness_value(self, null_hypothesis=0, alpha=0.05, interval_type='ci'):
+        """
+        Calculate the robustness value for the ATE.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on [Chernozhukov2022]_
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return RV(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis,
+                  alpha=alpha, interval_type=interval_type)
 
     # override only so that we can update the docstring to indicate support for `blb`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
@@ -865,8 +975,8 @@ class CausalForestDML(_BaseDML):
         return imps.reshape(self._d_y + (-1,))
 
     def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get a summary of coefficient and intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -904,7 +1014,6 @@ class CausalForestDML(_BaseDML):
             print("Population summary results are available only if `cache_values=True` at fit time!")
             smry = Summary()
         d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
 
         try:
             intercept_table = self.ate__inference().summary_frame(alpha=alpha,
@@ -957,6 +1066,8 @@ class CausalForestDML(_BaseDML):
 
     def ate__inference(self):
         """
+        Get inference results for the average treatment effect over the training data.
+
         Returns
         -------
         ate__inference : NormalInferenceResults
@@ -985,6 +1096,8 @@ class CausalForestDML(_BaseDML):
 
     def att__inference(self, *, T):
         """
+        Get inference results for the average treatment effect on the treated for the training data.
+
         Parameters
         ----------
         T : int
@@ -1011,6 +1124,8 @@ class CausalForestDML(_BaseDML):
 
     def att_(self, *, T):
         """
+        Get the average treatment effect on the treated for the training data.
+
         Parameters
         ----------
         T : int
@@ -1028,6 +1143,8 @@ class CausalForestDML(_BaseDML):
 
     def att_stderr_(self, *, T):
         """
+        Get the standard error of the average treatment effect on the treated in the training data.
+
         Parameters
         ----------
         T : int

@@ -10,10 +10,13 @@ from math import floor, ceil, inf
 from ursina.window import instance as window
 from ursina.camera import instance as camera
 from ursina.mouse import instance as mouse
+from ursina.scene import instance as scene
 from ursina.main import Ursina
 from panda3d.core import Mat3, Mat4
 from ursina.ursinamath import *
+from ursina.destroy import destroy
 from ursina.ursinastuff import *
+from ursina.array_tools import *
 from ursina import input_handler
 from ursina.input_handler import held_keys, Keys
 from ursina.string_utilities import *
@@ -29,6 +32,7 @@ from ursina.collider import *
 from ursina.raycast import raycast
 from ursina.boxcast import boxcast
 from ursina.audio import Audio
+from ursina import music_system
 from ursina.duplicate import duplicate
 from panda3d.core import Quat
 from ursina.vec2 import Vec2
@@ -36,10 +40,10 @@ from ursina.vec3 import Vec3
 from ursina.vec4 import Vec4
 from ursina.shader import Shader
 from ursina.lights import *
-from ursina.rigidbody import *
 
 from ursina.text import Text
 from ursina.mesh import Mesh, MeshModes
+from ursina.models.procedural.nine_slice import NineSlice
 
 from ursina.prefabs.sprite import Sprite
 from ursina.prefabs.button import Button
@@ -77,7 +81,7 @@ from ursina.prefabs.slider import Slider, ThinSlider
 from ursina.prefabs.button_group import ButtonGroup
 from ursina.prefabs.window_panel import WindowPanel, Space
 from ursina.prefabs.button_list import ButtonList
-from ursina.prefabs.checkbox import CheckBox
+from ursina.prefabs.checkbox import Checkbox
 # from ursina.prefabs.file_browser import FileBrowser
 # from ursina.prefabs import primitives
 

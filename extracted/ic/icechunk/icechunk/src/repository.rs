@@ -38,7 +38,7 @@ use crate::{
     },
     session::{Session, SessionErrorKind, SessionResult},
     storage::{self, FetchConfigResult, StorageErrorKind, UpdateConfigResult},
-    virtual_chunks::{ContainerName, VirtualChunkResolver},
+    virtual_chunks::VirtualChunkResolver,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,9 +72,9 @@ pub enum RepositoryErrorKind {
     #[error("the repository doesn't exist")]
     RepositoryDoesntExist,
     #[error("error in repository serialization")]
-    SerializationError(#[from] rmp_serde::encode::Error),
+    SerializationError(#[from] Box<rmp_serde::encode::Error>),
     #[error("error in repository deserialization")]
-    DeserializationError(#[from] rmp_serde::decode::Error),
+    DeserializationError(#[from] Box<rmp_serde::decode::Error>),
     #[error(
         "error finding conflicting path for node `{0}`, this probably indicades a bug in `rebase`"
     )]
@@ -136,7 +136,7 @@ pub struct Repository {
     storage: Arc<dyn Storage + Send + Sync>,
     asset_manager: Arc<AssetManager>,
     virtual_resolver: Arc<VirtualChunkResolver>,
-    virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
+    authorized_virtual_containers: HashMap<String, Option<Credentials>>,
     default_commit_metadata: SnapshotProperties,
 }
 
@@ -145,7 +145,7 @@ impl Repository {
     pub async fn create(
         config: Option<RepositoryConfig>,
         storage: Arc<dyn Storage + Send + Sync>,
-        virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
+        authorize_virtual_chunk_access: HashMap<String, Option<Credentials>>,
     ) -> RepositoryResult<Self> {
         debug!("Creating Repository");
         if !storage.can_write() {
@@ -220,14 +220,14 @@ impl Repository {
 
         debug_assert!(Self::exists(storage.as_ref()).await.unwrap_or(false));
 
-        Self::new(config, config_version, storage, virtual_chunk_credentials)
+        Self::new(config, config_version, storage, authorize_virtual_chunk_access)
     }
 
     #[instrument(skip_all)]
     pub async fn open(
         config: Option<RepositoryConfig>,
         storage: Arc<dyn Storage + Send + Sync>,
-        virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
+        authorize_virtual_chunk_access: HashMap<String, Option<Credentials>>,
     ) -> RepositoryResult<Self> {
         debug!("Opening Repository");
         let storage_c = Arc::clone(&storage);
@@ -258,14 +258,14 @@ impl Repository {
             let config =
                 config.map(|c| default_config.merge(c)).unwrap_or(default_config);
 
-            Self::new(config, config_version, storage, virtual_chunk_credentials)
+            Self::new(config, config_version, storage, authorize_virtual_chunk_access)
         } else {
             let config = config.unwrap_or_default();
             Self::new(
                 config,
                 storage::VersionInfo::for_creation(),
                 storage,
-                virtual_chunk_credentials,
+                authorize_virtual_chunk_access,
             )
         }
     }
@@ -273,12 +273,12 @@ impl Repository {
     pub async fn open_or_create(
         config: Option<RepositoryConfig>,
         storage: Arc<dyn Storage + Send + Sync>,
-        virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
+        authorize_virtual_chunk_access: HashMap<String, Option<Credentials>>,
     ) -> RepositoryResult<Self> {
         if Self::exists(storage.as_ref()).await? {
-            Self::open(config, storage, virtual_chunk_credentials).await
+            Self::open(config, storage, authorize_virtual_chunk_access).await
         } else {
-            Self::create(config, storage, virtual_chunk_credentials).await
+            Self::create(config, storage, authorize_virtual_chunk_access).await
         }
     }
 
@@ -286,15 +286,15 @@ impl Repository {
         config: RepositoryConfig,
         config_version: storage::VersionInfo,
         storage: Arc<dyn Storage + Send + Sync>,
-        virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
+        authorized_virtual_containers: HashMap<String, Option<Credentials>>,
     ) -> RepositoryResult<Self> {
         let containers = config.virtual_chunk_containers().cloned();
-        validate_credentials(&config, &virtual_chunk_credentials)?;
+        validate_credentials(&config, &authorized_virtual_containers)?;
         let storage_settings =
             config.storage().cloned().unwrap_or_else(|| storage.default_settings());
         let virtual_resolver = Arc::new(VirtualChunkResolver::new(
             containers,
-            virtual_chunk_credentials.clone(),
+            authorized_virtual_containers.clone(),
             storage_settings.clone(),
         ));
         let asset_manager = Arc::new(AssetManager::new_with_config(
@@ -310,7 +310,7 @@ impl Repository {
             storage_settings,
             virtual_resolver,
             asset_manager,
-            virtual_chunk_credentials,
+            authorized_virtual_containers,
             default_commit_metadata: SnapshotProperties::default(),
         })
     }
@@ -331,7 +331,7 @@ impl Repository {
     pub fn reopen(
         &self,
         config: Option<RepositoryConfig>,
-        virtual_chunk_credentials: Option<HashMap<ContainerName, Credentials>>,
+        authorize_virtual_chunk_access: Option<HashMap<String, Option<Credentials>>>,
     ) -> RepositoryResult<Self> {
         // Merge the given config with the current config
         let config = config
@@ -342,19 +342,19 @@ impl Repository {
             config,
             self.config_version.clone(),
             Arc::clone(&self.storage),
-            virtual_chunk_credentials
-                .unwrap_or_else(|| self.virtual_chunk_credentials.clone()),
+            authorize_virtual_chunk_access
+                .unwrap_or_else(|| self.authorized_virtual_containers.clone()),
         )
     }
 
     #[instrument(skip(bytes))]
     pub fn from_bytes(bytes: Vec<u8>) -> RepositoryResult<Self> {
-        rmp_serde::from_slice(&bytes).err_into()
+        rmp_serde::from_slice(&bytes).map_err(Box::new).err_into()
     }
 
     #[instrument(skip(self))]
     pub fn as_bytes(&self) -> RepositoryResult<Vec<u8>> {
-        rmp_serde::to_vec(self).err_into()
+        rmp_serde::to_vec(self).map_err(Box::new).err_into()
     }
 
     #[instrument(skip_all)]
@@ -903,11 +903,11 @@ impl ManifestPreloadCondition {
 
 fn validate_credentials(
     config: &RepositoryConfig,
-    creds: &HashMap<String, Credentials>,
+    creds: &HashMap<String, Option<Credentials>>,
 ) -> RepositoryResult<()> {
-    for (cont, cred) in creds {
-        if let Some(cont) = config.get_virtual_chunk_container(cont) {
-            if let Err(error) = cont.validate_credentials(cred) {
+    for (url_prefix, cred) in creds {
+        if let Some(cont) = config.get_virtual_chunk_container(url_prefix) {
+            if let Err(error) = cont.validate_credentials(cred.as_ref()) {
                 return Err(RepositoryErrorKind::StorageError(StorageErrorKind::Other(
                     error,
                 ))
@@ -961,7 +961,7 @@ mod tests {
 
     use super::*;
 
-    fn ravel_multi_index<'a>(index: &[u32], shape: &[u32]) -> u32 {
+    fn ravel_multi_index(index: &[u32], shape: &[u32]) -> u32 {
         index
             .iter()
             .zip(shape.iter())
@@ -984,8 +984,7 @@ mod tests {
             .await;
         assert_eq!(
             total_manifests, expected,
-            "Mismatch in manifest count: expected {}, but got {}",
-            expected, total_manifests,
+            "Mismatch in manifest count: expected {expected}, but got {total_manifests}",
         );
     }
 
@@ -1346,7 +1345,7 @@ mod tests {
                     session
                         .get_chunk_reader(
                             &array_path,
-                            &ChunkIndices(vec![idx.clone(), 0, 0]),
+                            &ChunkIndices(vec![idx, 0, 0]),
                             &ByteRange::ALL,
                         )
                         .await
@@ -1367,7 +1366,7 @@ mod tests {
                 .set_chunk_ref(
                     array_path.clone(),
                     ChunkIndices(vec![i, 0, 0]),
-                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                    Some(ChunkPayload::Inline(format!("{i}").into())),
                 )
                 .await?
         }
@@ -1448,7 +1447,7 @@ mod tests {
                 .set_chunk_ref(
                     temp_path.clone(),
                     ChunkIndices(vec![i]),
-                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                    Some(ChunkPayload::Inline(format!("{i}").into())),
                 )
                 .await?
         }
@@ -1477,7 +1476,7 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-                assert_eq!(val, Bytes::copy_from_slice(format!("{0}", i).as_bytes()));
+                assert_eq!(val, Bytes::copy_from_slice(format!("{i}").as_bytes()));
             }
         };
 
@@ -1585,7 +1584,7 @@ mod tests {
                 .set_chunk_ref(
                     temp_path.clone(),
                     ChunkIndices(vec![i, 0, 0]),
-                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                    Some(ChunkPayload::Inline(format!("{i}").into())),
                 )
                 .await?
         }
@@ -1600,7 +1599,7 @@ mod tests {
             .set_chunk_ref(
                 temp_path.clone(),
                 ChunkIndices(vec![last_chunk, 0, 0]),
-                Some(ChunkPayload::Inline(format!("{0}", last_chunk).into())),
+                Some(ChunkPayload::Inline(format!("{last_chunk}").into())),
             )
             .await?;
         session.commit("last split", None).await?;
@@ -1665,7 +1664,7 @@ mod tests {
                 .set_chunk_ref(
                     temp_path.clone(),
                     ChunkIndices(vec![i, 0, 0]),
-                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                    Some(ChunkPayload::Inline(format!("{i}").into())),
                 )
                 .await?
         }
@@ -1678,7 +1677,7 @@ mod tests {
                 .set_chunk_ref(
                     temp_path.clone(),
                     ChunkIndices(vec![i, 0, 0]),
-                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                    Some(ChunkPayload::Inline(format!("{i}").into())),
                 )
                 .await?
         }
@@ -1703,7 +1702,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-            assert_eq!(val, Bytes::copy_from_slice(format!("{0}", i).as_bytes()));
+            assert_eq!(val, Bytes::copy_from_slice(format!("{i}").as_bytes()));
         }
 
         // delete all chunks
@@ -1891,15 +1890,14 @@ mod tests {
                 )
                 .await
                 .unwrap()
-                .expect(&format!("getting chunk ref failed for {:?}", &ic));
+                .unwrap_or_else(|| panic!("getting chunk ref failed for {:?}", &ic));
                 let expected_value =
                     ravel_multi_index(ic.as_slice(), array_shape.as_slice());
                 let expected =
-                    Bytes::copy_from_slice(format!("{0}", expected_value).as_bytes());
+                    Bytes::copy_from_slice(format!("{expected_value}").as_bytes());
                 assert_eq!(
                     val, expected,
-                    "For chunk {:?}, received {:?}, expected {:?}",
-                    ic, val, expected
+                    "For chunk {ic:?}, received {val:?}, expected {expected:?}"
                 );
             }
         };
@@ -1927,17 +1925,17 @@ mod tests {
                     .set_chunk_ref(
                         temp_path.clone(),
                         ChunkIndices(index),
-                        Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                        Some(ChunkPayload::Inline(format!("{value}").into())),
                     )
                     .await?
             }
 
             total_manifests +=
                 (axis_size as u32).div_ceil(expected_split_sizes[ax]) as usize;
-            session.commit(format!("finished axis {0}", ax).as_ref(), None).await?;
+            session.commit(format!("finished axis {ax}").as_ref(), None).await?;
             assert_manifest_count(&backend, total_manifests).await;
 
-            verify_data(ax.clone(), &session).await;
+            verify_data(ax, &session).await;
         }
         verify_all_data(&repository).await;
 
@@ -1961,14 +1959,14 @@ mod tests {
             .set_chunk_ref(
                 temp_path.clone(),
                 ChunkIndices(index),
-                Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                Some(ChunkPayload::Inline(format!("{value}").into())),
             )
             .await?;
         // Important: we only create one new manifest in this case for
         // the first split in the `t`-axis. Since the other splits
         // are not modified we preserve all the old manifests
         total_manifests += 1;
-        session.commit(format!("finished time again").as_ref(), None).await?;
+        session.commit("finished time again".to_string().as_ref(), None).await?;
         assert_manifest_count(&backend, total_manifests).await;
         verify_all_data(&repository).await;
 
@@ -1981,13 +1979,13 @@ mod tests {
                 .set_chunk_ref(
                     temp_path.clone(),
                     ChunkIndices(index),
-                    Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                    Some(ChunkPayload::Inline(format!("{value}").into())),
                 )
                 .await?;
         }
         total_manifests +=
             (shape.get(0).unwrap().array_length() as u32).div_ceil(t_split_size) as usize;
-        session.commit(format!("finished time again").as_ref(), None).await?;
+        session.commit("finished time again".to_string().as_ref(), None).await?;
         assert_manifest_count(&backend, total_manifests).await;
         verify_all_data(&repository).await;
 
@@ -2004,7 +2002,7 @@ mod tests {
             .await?;
         // Important: now we rewrite one split per dimension
         total_manifests += 3;
-        session.commit(format!("finished time again").as_ref(), None).await?;
+        session.commit("finished time again".to_string().as_ref(), None).await?;
         assert_manifest_count(&backend, total_manifests).await;
         verify_all_data(&repo_clone).await;
         verify_all_data(&repository).await;
@@ -2017,13 +2015,13 @@ mod tests {
                 .set_chunk_ref(
                     temp_path.clone(),
                     ChunkIndices(index),
-                    Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                    Some(ChunkPayload::Inline(format!("{value}").into())),
                 )
                 .await?;
         }
         total_manifests +=
             (shape.get(0).unwrap().array_length() as u32).div_ceil(t_split_size) as usize;
-        session.commit(format!("finished time again").as_ref(), None).await?;
+        session.commit("finished time again".to_string().as_ref(), None).await?;
         assert_manifest_count(&backend, total_manifests).await;
         verify_all_data(&repo_clone).await;
 
@@ -2041,14 +2039,14 @@ mod tests {
         }
         total_manifests +=
             (shape.get(0).unwrap().array_length() as u32).div_ceil(t_split_size) as usize;
-        session.commit(format!("finished time again").as_ref(), None).await?;
+        session.commit("finished time again".to_string().as_ref(), None).await?;
         assert_manifest_count(&backend, total_manifests).await;
         for idx in [0, 12, 24] {
             let actual = get_chunk(
                 session
                     .get_chunk_reader(
                         &temp_path,
-                        &ChunkIndices(vec![idx.clone(), 0, 0, 0]),
+                        &ChunkIndices(vec![idx, 0, 0, 0]),
                         &ByteRange::ALL,
                     )
                     .await
@@ -2089,7 +2087,7 @@ mod tests {
         .await?;
 
         let indices =
-            vec![vec![0, 0, 1, 0], vec![0, 0, 0, 0], vec![0, 2, 0, 0], vec![0, 2, 0, 1]];
+            [vec![0, 0, 1, 0], vec![0, 0, 0, 0], vec![0, 2, 0, 0], vec![0, 2, 0, 1]];
 
         let mut session1 = repository.writable_session("main").await?;
         let node_id = session1.get_node(&temp_path).await?.id;
@@ -2180,8 +2178,8 @@ mod tests {
             )
             .await
             .unwrap()
-            .expect(&format!("getting chunk ref failed for {:?}", &idx));
-            let expected = Bytes::copy_from_slice(format!("{0}", val).as_bytes());
+            .unwrap_or_else(|| panic!("getting chunk ref failed for {:?}", &idx));
+            let expected = Bytes::copy_from_slice(format!("{val}").as_bytes());
             assert_eq!(actual, expected);
         }
 
@@ -2210,7 +2208,7 @@ mod tests {
             .await?;
 
         session1.merge(session2).await?;
-        let expected = vec![Some(3), Some(4), None, None];
+        let expected = [Some(3), Some(4), None, None];
         for (expect, idx) in zip(expected.iter(), indices.iter()) {
             let actual = get_chunk(
                 session1
@@ -2225,7 +2223,7 @@ mod tests {
             .await
             .unwrap();
             let expected_value =
-                expect.map(|val| Bytes::copy_from_slice(format!("{0}", val).as_bytes()));
+                expect.map(|val| Bytes::copy_from_slice(format!("{val}").as_bytes()));
             assert_eq!(actual, expected_value);
         }
 
@@ -2259,7 +2257,7 @@ mod tests {
         .await?;
 
         let indices =
-            vec![vec![0, 0, 1, 0], vec![0, 0, 0, 0], vec![0, 2, 0, 0], vec![0, 2, 0, 1]];
+            [vec![0, 0, 1, 0], vec![0, 0, 0, 0], vec![0, 2, 0, 0], vec![0, 2, 0, 1]];
 
         let mut session1 = repository.writable_session("main").await?;
         session1
@@ -2336,8 +2334,8 @@ mod tests {
             )
             .await
             .unwrap()
-            .expect(&format!("getting chunk ref failed for {:?}", &idx));
-            let expected = Bytes::copy_from_slice(format!("{0}", val).as_bytes());
+            .unwrap_or_else(|| panic!("getting chunk ref failed for {:?}", &idx));
+            let expected = Bytes::copy_from_slice(format!("{val}").as_bytes());
             assert_eq!(actual, expected);
         }
 

@@ -1,24 +1,25 @@
-from ursina import entity
-from ursina.entity import Entity
-from panda3d.core import PerspectiveLens, OrthographicLens, LensNode, NodePath
-from panda3d.core import Camera as PandaCamera
-from panda3d.core import Texture as PandaTexture
 from direct.filter.FilterManager import FilterManager
-from ursina import application
+from panda3d.core import Camera as PandaCamera
+from panda3d.core import LensNode, NodePath, OrthographicLens, PerspectiveLens
+from panda3d.core import Texture as PandaTexture
+
+from ursina import application, color, entity
+from ursina.entity import Entity
 from ursina.scene import instance as scene
-from ursina.window import instance as window
-from ursina import color
-from ursina.texture import Texture
+from ursina.scripts.property_generator import generate_properties_for_class
 from ursina.shader import Shader
 from ursina.string_utilities import print_info
+from ursina.texture import Texture
+from ursina.window import instance as window
 
-from ursina.scripts.property_generator import generate_properties_for_class
+
 @generate_properties_for_class()
 class Camera(Entity):
-    def __init__(self):
+
+    def __init__(self, **kwargs):
         original_warn_if_ursina_not_instantiated = entity._warn_if_ursina_not_instantiated
         entity._warn_if_ursina_not_instantiated = False
-        super().__init__()
+        super().__init__(**kwargs)
         entity._warn_if_ursina_not_instantiated = original_warn_if_ursina_not_instantiated
 
         self.parent = scene
@@ -27,19 +28,19 @@ class Camera(Entity):
 
         self._cam = None
         self._render = None
-        self.ui_size = 40
 
         self._ui_lens_node = None
-        self.perspective_lens_node = None
-        self.orthographic_lens_node = None
-        self.ui = Entity(eternal=True, name='ui', scale=(self.ui_size*.5, self.ui_size*.5), add_to_scene_entities=False)
+        self._perspective_lens_node = None
+        self._orthographic_lens_node = None
+        self._ui_size = 40
+        self.ui = Entity(eternal=True, name='ui', scale=(self._ui_size*.5, self._ui_size*.5), add_to_scene_entities=False)
         self.overlay = Entity(parent=self.ui, model='quad', scale=99, color=color.clear, eternal=True, z=-99, add_to_scene_entities=False)
         # self.ready = False
         # self._orthographic = False
         # self._fov = 40   # horizontal fov
 
 
-    def set_up(self):
+    def _set_up(self):
         self.display_region = application.base.camNode.get_display_region(0)
         win = self.display_region.get_window()
 
@@ -47,12 +48,12 @@ class Camera(Entity):
         self.perspective_lens = application.base.camLens # use panda3d's default for automatic aspect ratio on window resize
         self.lens = self.perspective_lens
         self.perspective_lens.set_aspect_ratio(window.aspect_ratio)
-        self.perspective_lens_node = LensNode('perspective_lens_node', self.perspective_lens)
-        self.lens_node = self.perspective_lens_node
+        self._perspective_lens_node = LensNode('_perspective_lens_node', self.perspective_lens)
+        self.lens_node = self._perspective_lens_node
 
         self.orthographic_lens = OrthographicLens()
         self.orthographic_lens.set_film_size(self.fov * window.aspect_ratio, self.fov)
-        self.orthographic_lens_node = LensNode('orthographic_lens_node', self.orthographic_lens)
+        self._orthographic_lens_node = LensNode('_orthographic_lens_node', self.orthographic_lens)
 
         application.base.cam.node().set_lens(self.lens)
 
@@ -72,8 +73,8 @@ class Camera(Entity):
         self._ui_lens_node = LensNode('_ui_lens_node', self.ui_lens)
 
         self.ui_render = NodePath('ui_render')
-        self.ui_render.set_depth_test(0)
-        self.ui_render.set_depth_write(0)
+        self.ui_render.set_depth_test(True)
+        self.ui_render.set_depth_write(True)
         self.ui_camera.reparent_to(self.ui_render)
         self.ui_display_region.set_camera(self.ui_camera)
         scene.ui_camera = self.ui_camera
@@ -93,7 +94,7 @@ class Camera(Entity):
 
     def orthographic_setter(self, value):
         self._orthographic = value
-        self.lens_node = (self.perspective_lens_node, self.orthographic_lens_node)[value] # this need to be set for the mouse raycasting
+        self.lens_node = (self._perspective_lens_node, self._orthographic_lens_node)[value] # this need to be set for the mouse raycasting
         application.base.cam.node().set_lens((self.perspective_lens, self.orthographic_lens)[value])
         self.fov = self.fov
 
@@ -122,11 +123,13 @@ class Camera(Entity):
         self.lens.set_far(value)
 
 
-    def aspect_ratio_getter(self):
+    def aspect_ratio_getter(self):      # get current aspect ratio. can not be set.
         return self.perspective_lens.get_aspect_ratio()
 
 
-    def shader_setter(self, value):
+    def shader_setter(self, value):     # for applying post-processing effects.
+        if value == Entity.default_shader:
+            return
         self._shader = value
         if value is None:
             self.filter_manager.cleanup()
@@ -159,20 +162,23 @@ class Camera(Entity):
             self.filter_quad.set_shader_input("tex", self.render_texture)
             self.filter_quad.set_shader_input("dtex", self.depth_texture)
 
-            self.clip_plane_near = 1
+            if hasattr(value.default_input, 'clip_plane_near'):
+                self.clip_plane_near = value.default_input['clip_plane_near']
+            if hasattr(value.default_input, 'clip_plane_far'):
+                self.clip_plane_far = value.default_input['clip_plane_far']
             # self.filter_quad.set_shader_input("ntex", self.normals_texture)
 
         self.filter_quad.setShader(shader)
 
         if hasattr(value, 'default_input'):
-            for key, value in value.default_input.items():
-                if callable(value):
-                    value = value()
-
-                self.set_shader_input(key, value)
+            for key, input_value in value.default_input.items():
+                if callable(input_value):
+                    input_value = input_value()
+                self.set_shader_input(key, input_value)
 
 
         print_info('set camera shader to:', shader)
+
 
 
     def set_shader_input(self, name, value):
@@ -190,7 +196,7 @@ instance = Camera()
 
 if __name__ == '__main__':
     from ursina import *
-    from ursina import Ursina, camera, Entity, EditorCamera
+    from ursina import EditorCamera, Entity, Ursina, camera
 
     # window.borderless = False
     app = Ursina()

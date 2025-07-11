@@ -113,6 +113,15 @@ class FastApiMCP:
             Optional[AuthConfig],
             Doc("Configuration for MCP authentication"),
         ] = None,
+        headers: Annotated[
+            Optional[List[str]],
+            Doc(
+                """
+                List of HTTP header names to forward from the incoming MCP request into each tool invocation.
+                Only headers in this allowlist will be forwarded. Defaults to ['authorization'].
+                """
+            ),
+        ] = None,
     ):
         # Validate operation and tag filtering options
         if include_operations is not None and exclude_operations is not None:
@@ -146,6 +155,8 @@ class FastApiMCP:
             base_url=self._base_url,
             timeout=10.0,
         )
+
+        self._forward_headers = {h.lower() for h in (headers or ["Authorization"])}
 
         self.setup_server()
 
@@ -299,7 +310,9 @@ class FastApiMCP:
             str,
             Doc(
                 """
-                Path where the MCP server will be mounted. Defaults to '/mcp'.
+                Path where the MCP server will be mounted.
+                Mount path is appended to the root path of FastAPI router, or to the prefix of APIRouter.
+                Defaults to '/mcp'.
                 """
             ),
         ] = "/mcp",
@@ -328,14 +341,9 @@ class FastApiMCP:
             router = self.fastapi
 
         # Build the base path correctly for the SSE transport
-        if isinstance(router, FastAPI):
-            base_path = router.root_path
-        elif isinstance(router, APIRouter):
-            base_path = self.fastapi.root_path + router.prefix
-        else:
-            raise ValueError(f"Invalid router type: {type(router)}")
-
-        messages_path = f"{base_path}{mount_path}/messages/"
+        assert isinstance(router, (FastAPI, APIRouter)), f"Invalid router type: {type(router)}"
+        base_path = mount_path if isinstance(router, FastAPI) else router.prefix + mount_path
+        messages_path = f"{base_path}/messages/"
 
         sse_transport = FastApiSseTransport(messages_path)
 
@@ -407,11 +415,12 @@ class FastApiMCP:
                     raise ValueError(f"Parameter name is None for parameter: {param}")
                 headers[param_name] = arguments.pop(param_name)
 
+        # Forward headers that are in the allowlist
         if http_request_info and http_request_info.headers:
-            if "Authorization" in http_request_info.headers:
-                headers["Authorization"] = http_request_info.headers["Authorization"]
-            elif "authorization" in http_request_info.headers:
-                headers["Authorization"] = http_request_info.headers["authorization"]
+            for name, value in http_request_info.headers.items():
+                # case-insensitive check for allowed headers
+                if name.lower() in self._forward_headers:
+                    headers[name] = value
 
         body = arguments if arguments else None
 

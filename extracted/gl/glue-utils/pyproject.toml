@@ -1,6 +1,6 @@
 [project]
 name = "glue-utils"
-version = "0.11.1"
+version = "0.11.2"
 description = "Reusable utilities for working with Glue PySpark jobs"
 readme = "README.md"
 authors = [{ name = "Noel Llevares", email = "dashmug@gmail.com" }]
@@ -43,9 +43,9 @@ build-backend = "hatchling.build"
 include = ["src", "test", "README.md", "pyproject.toml", "LICENSE", "py.typed"]
 
 [dependency-groups]
-dev = ["bumpver>=2024.1130", "mypy>=1.16.0", "ruff>=0.11.13"]
+dev = ["bumpver>=2025.1131", "mypy>=1.16.1", "ruff>=0.12.2"]
 local = ["aws-glue-libs", "pyspark==3.5.4"]
-test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-randomly>=3.16.0"]
+test = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "pytest-randomly>=3.16.0"]
 
 [tool.uv.sources]
 aws-glue-libs = { git = "https://github.com/awslabs/aws-glue-libs.git", branch = "master" }
@@ -146,7 +146,7 @@ exclude_also = [
 output = "coverage/results.xml"
 
 [tool.bumpver]
-current_version = "0.11.1"
+current_version = "0.11.2"
 version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "release: Bump version {old_version} -> {new_version}"
 commit = true

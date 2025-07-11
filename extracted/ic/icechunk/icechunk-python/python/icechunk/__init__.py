@@ -69,7 +69,7 @@ from icechunk.credentials import (
     s3_static_credentials,
 )
 from icechunk.repository import Repository
-from icechunk.session import Session
+from icechunk.session import ForkSession, Session
 from icechunk.storage import (
     AnyObjectStoreConfig,
     azure_storage,
@@ -78,6 +78,7 @@ from icechunk.storage import (
     http_store,
     in_memory_storage,
     local_filesystem_storage,
+    local_filesystem_store,
     r2_storage,
     s3_storage,
     s3_store,
@@ -106,6 +107,7 @@ __all__ = [
     "ConflictType",
     "Credentials",
     "Diff",
+    "ForkSession",
     "GCSummary",
     "GcsBearerCredential",
     "GcsCredentials",
@@ -151,6 +153,7 @@ __all__ = [
     "in_memory_storage",
     "initialize_logs",
     "local_filesystem_storage",
+    "local_filesystem_store",
     "print_debug_info",
     "r2_storage",
     "s3_anonymous_credentials",
@@ -186,7 +189,13 @@ def print_debug_info() -> None:
 # convert it to tuples that preserve order, and pass those to Rust
 
 SplitSizesDict: TypeAlias = dict[
-    ManifestSplitCondition, dict[ManifestSplitDimCondition, int]
+    ManifestSplitCondition,
+    dict[
+        ManifestSplitDimCondition.Axis
+        | ManifestSplitDimCondition.DimensionName
+        | ManifestSplitDimCondition.Any,
+        int,
+    ],
 ]
 
 
@@ -202,7 +211,7 @@ def to_dict(config: ManifestSplittingConfig) -> SplitSizesDict:
     }
 
 
-ManifestSplittingConfig.from_dict = from_dict  # type: ignore[attr-defined]
+ManifestSplittingConfig.from_dict = from_dict  # type: ignore[method-assign]
 ManifestSplittingConfig.to_dict = to_dict  # type: ignore[attr-defined]
 
 initialize_logs()

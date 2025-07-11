@@ -1,4 +1,10 @@
-from ursina import *; ssao_shader = Shader(language=Shader.GLSL, fragment='''
+from ursina import color
+from ursina.shader import Shader
+from ursina.texture_importer import load_texture
+from ursina.ursinastuff import Func
+from ursina.vec3 import Vec3
+
+ssao_shader = Shader(language=Shader.GLSL, fragment='''
 #version 140
 
 
@@ -27,7 +33,6 @@ uniform float radius;
 uniform float amount;
 uniform float strength;
 uniform float falloff;
-
 
 vec3 get_normal(vec2 texcoords) {
     const vec2 offset1 = vec2(0.0, 0.001);
@@ -92,11 +97,12 @@ void main() {
 
 default_input = {
     'numsamples' : 16,
-    'radius' : 0.01, # 0.05 is broken and cool
-    'amount' : 3.0,
+    'radius' : 0.01,
+    'amount' : 5.0,
     'strength' : 0.001,
-    'falloff' : 0.000002,
+    'falloff' : 0.00005,
     'random_texture' : Func(load_texture, 'noise'),
+    'clip_plane_near' : 1,
 }
 )
 if __name__ == '__main__':
@@ -106,9 +112,9 @@ if __name__ == '__main__':
     e = Entity(model='sphere', color=color.orange)
     e = Entity(model='cube', y=-1)
     e = Entity(model='plane', scale=100, y=-1)
+    Sky()
+    Button(y=-.4, scale=.1)
     camera.shader = ssao_shader
-    #camera.clip_plane_far = 500
-    camera.clip_plane_near = 1
 
     EditorCamera()
 
@@ -124,4 +130,6 @@ if __name__ == '__main__':
     for i in range(20):
         e = Entity(model='cube', position=Vec3(random.random(),random.random(),random.random())*3, rotation=Vec3(random.random(),random.random(),random.random())*360)
         # e.shader = matcap_shader
+
+
     app.run()

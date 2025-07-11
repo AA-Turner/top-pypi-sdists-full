@@ -26,7 +26,7 @@ class ClinicalUseDefinition(domainresource.DomainResource):
     __resource_type__ = "ClinicalUseDefinition"
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title=(
             "A categorisation of the issue, primarily for dividing warnings into "
@@ -39,88 +39,96 @@ class ClinicalUseDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     contraindication: fhirtypes.ClinicalUseDefinitionContraindicationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contraindication",
         title="Specifics for when this is a contraindication",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier for this issue",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     indication: fhirtypes.ClinicalUseDefinitionIndicationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="indication",
         title="Specifics for when this is an indication",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     interaction: fhirtypes.ClinicalUseDefinitionInteractionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="interaction",
         title="Specifics for when this is an interaction",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     library: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="library",
         title="Logic used by the clinical use definition",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Library"],
         },
     )
     library__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_library", title="Extension field for ``library``."
+        default=None, alias="_library", title="Extension field for ``library``."
     )
 
     population: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="population",
         title="The population group to which this applies",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Group"],
         },
     )
 
     status: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="Whether this is a current issue or one that has been retired etc",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     subject: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title=(
             "The medication, product, substance, device, procedure etc. for which "
@@ -129,6 +137,7 @@ class ClinicalUseDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "MedicinalProductDefinition",
@@ -145,7 +154,7 @@ class ClinicalUseDefinition(domainresource.DomainResource):
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "indication | contraindication | interaction | undesirable-effect | "
@@ -154,6 +163,7 @@ class ClinicalUseDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -167,11 +177,11 @@ class ClinicalUseDefinition(domainresource.DomainResource):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     undesirableEffect: fhirtypes.ClinicalUseDefinitionUndesirableEffectType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="undesirableEffect",
         title="A possible negative outcome from the use of this treatment",
         description=(
@@ -180,11 +190,12 @@ class ClinicalUseDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     warning: fhirtypes.ClinicalUseDefinitionWarningType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="warning",
         title=(
             "Critical environmental, health or physical risks or hazards. For "
@@ -198,14 +209,15 @@ class ClinicalUseDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -215,6 +227,30 @@ class ClinicalUseDefinition(domainresource.DomainResource):
             "text",
             "contained",
             "extension",
+            "modifierExtension",
+            "identifier",
+            "type",
+            "category",
+            "subject",
+            "status",
+            "contraindication",
+            "indication",
+            "interaction",
+            "population",
+            "library",
+            "undesirableEffect",
+            "warning",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "modifierExtension",
             "identifier",
             "type",
@@ -253,7 +289,7 @@ class ClinicalUseDefinitionContraindication(backboneelement.BackboneElement):
     __resource_type__ = "ClinicalUseDefinitionContraindication"
 
     applicability: fhirtypes.ExpressionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="applicability",
         title=(
             "An expression that returns true or false, indicating whether the "
@@ -267,19 +303,20 @@ class ClinicalUseDefinitionContraindication(backboneelement.BackboneElement):
     )
 
     comorbidity: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="comorbidity",
         title="A comorbidity (concurrent condition) or coinfection",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     diseaseStatus: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diseaseStatus",
         title="The status of the disease or symptom for the contraindication",
         description=(
@@ -288,13 +325,14 @@ class ClinicalUseDefinitionContraindication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     diseaseSymptomProcedure: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diseaseSymptomProcedure",
         title=(
             "The situation that is being documented as contraindicating against "
@@ -303,25 +341,27 @@ class ClinicalUseDefinitionContraindication(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     indication: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="indication",
         title="The indication which this is a contraidication for",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ClinicalUseDefinition"],
         },
     )
 
     otherTherapy: typing.List[fhirtypes.ClinicalUseDefinitionContraindicationOtherTherapyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="otherTherapy",
         title=(
             "Information about use of the product in relation to other therapies "
@@ -333,14 +373,15 @@ class ClinicalUseDefinitionContraindication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionContraindication`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionContraindication`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -351,6 +392,20 @@ class ClinicalUseDefinitionContraindication(backboneelement.BackboneElement):
             "comorbidity",
             "indication",
             "applicability",
+            "otherTherapy",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionContraindication`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "modifierExtension",
+            "diseaseSymptomProcedure",
+            "diseaseStatus",
+            "comorbidity",
+            "indication",
             "otherTherapy",
         ]
 
@@ -371,7 +426,7 @@ class ClinicalUseDefinitionContraindicationOtherTherapy(
     __resource_type__ = "ClinicalUseDefinitionContraindicationOtherTherapy"
 
     relationshipType: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="relationshipType",
         title=(
             "The type of relationship between the product "
@@ -383,11 +438,12 @@ class ClinicalUseDefinitionContraindicationOtherTherapy(
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     treatment: fhirtypes.CodeableReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="treatment",
         title=(
             "Reference to a specific medication, substance etc. as part of an "
@@ -400,6 +456,7 @@ class ClinicalUseDefinitionContraindicationOtherTherapy(
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "MedicinalProductDefinition",
@@ -415,11 +472,18 @@ class ClinicalUseDefinitionContraindicationOtherTherapy(
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionContraindicationOtherTherapy`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionContraindicationOtherTherapy`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "relationshipType", "treatment"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionContraindicationOtherTherapy`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "relationshipType", "treatment"]
 
 
 class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
@@ -433,7 +497,7 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
     __resource_type__ = "ClinicalUseDefinitionIndication"
 
     applicability: fhirtypes.ExpressionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="applicability",
         title=(
             "An expression that returns true or false, indicating whether the "
@@ -447,7 +511,7 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
     )
 
     comorbidity: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="comorbidity",
         title="A comorbidity or coinfection as part of the indication",
         description=(
@@ -456,13 +520,14 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     diseaseStatus: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diseaseStatus",
         title="The status of the disease or symptom for the indication",
         description=(
@@ -471,25 +536,27 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     diseaseSymptomProcedure: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diseaseSymptomProcedure",
         title="The situation that is being documented as an indicaton for this item",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     durationRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="durationRange",
         title="Timing or duration information",
         description=(
@@ -500,6 +567,7 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e duration[x]
             "one_of_many": "duration",
             "one_of_many_required": False,
@@ -507,7 +575,7 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
     )
 
     durationString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="durationString",
         title="Timing or duration information",
         description=(
@@ -518,29 +586,33 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e duration[x]
             "one_of_many": "duration",
             "one_of_many_required": False,
         },
     )
     durationString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_durationString", title="Extension field for ``durationString``."
+        default=None,
+        alias="_durationString",
+        title="Extension field for ``durationString``.",
     )
 
     intendedEffect: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="intendedEffect",
         title="The intended effect, aim or strategy to be achieved",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     otherTherapy: typing.List[fhirtypes.ClinicalUseDefinitionContraindicationOtherTherapyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="otherTherapy",
         title=(
             "The use of the medicinal product in relation to other therapies "
@@ -552,11 +624,12 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     undesirableEffect: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="undesirableEffect",
         title=(
             "An unwanted side effect or negative outcome of the subject of this "
@@ -568,6 +641,7 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ClinicalUseDefinition"],
         },
@@ -575,9 +649,9 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionIndication`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionIndication`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -591,6 +665,23 @@ class ClinicalUseDefinitionIndication(backboneelement.BackboneElement):
             "durationString",
             "undesirableEffect",
             "applicability",
+            "otherTherapy",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionIndication`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "modifierExtension",
+            "diseaseSymptomProcedure",
+            "diseaseStatus",
+            "comorbidity",
+            "intendedEffect",
+            "durationRange",
+            "durationString",
+            "undesirableEffect",
             "otherTherapy",
         ]
 
@@ -622,7 +713,7 @@ class ClinicalUseDefinitionInteraction(backboneelement.BackboneElement):
     __resource_type__ = "ClinicalUseDefinitionInteraction"
 
     effect: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="effect",
         title=(
             'The effect of the interaction, for example "reduced gastric absorption'
@@ -631,23 +722,25 @@ class ClinicalUseDefinitionInteraction(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
     )
 
     incidence: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="incidence",
         title="The incidence of the interaction, e.g. theoretical, observed",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     interactant: typing.List[fhirtypes.ClinicalUseDefinitionInteractionInteractantType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="interactant",
         title=(
             "The specific medication, product, food etc. or laboratory test that "
@@ -659,21 +752,23 @@ class ClinicalUseDefinitionInteraction(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     management: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="management",
         title="Actions for managing the interaction",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "The type of the interaction e.g. drug-drug interaction, drug-lab test "
@@ -685,18 +780,33 @@ class ClinicalUseDefinitionInteraction(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionInteraction`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionInteraction`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "interactant",
+            "type",
+            "effect",
+            "incidence",
+            "management",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionInteraction`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "interactant",
             "type",
@@ -720,7 +830,7 @@ class ClinicalUseDefinitionInteractionInteractant(backboneelement.BackboneElemen
     __resource_type__ = "ClinicalUseDefinitionInteractionInteractant"
 
     itemCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemCodeableConcept",
         title=(
             "The specific medication, product, food etc. or laboratory test that "
@@ -732,6 +842,7 @@ class ClinicalUseDefinitionInteractionInteractant(backboneelement.BackboneElemen
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e item[x]
             "one_of_many": "item",
             "one_of_many_required": True,
@@ -739,7 +850,7 @@ class ClinicalUseDefinitionInteractionInteractant(backboneelement.BackboneElemen
     )
 
     itemReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemReference",
         title=(
             "The specific medication, product, food etc. or laboratory test that "
@@ -751,6 +862,7 @@ class ClinicalUseDefinitionInteractionInteractant(backboneelement.BackboneElemen
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e item[x]
             "one_of_many": "item",
             "one_of_many_required": True,
@@ -768,9 +880,9 @@ class ClinicalUseDefinitionInteractionInteractant(backboneelement.BackboneElemen
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionInteractionInteractant`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionInteractionInteractant`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -779,6 +891,13 @@ class ClinicalUseDefinitionInteractionInteractant(backboneelement.BackboneElemen
             "itemReference",
             "itemCodeableConcept",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionInteractionInteractant`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "itemReference", "itemCodeableConcept"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -810,32 +929,35 @@ class ClinicalUseDefinitionUndesirableEffect(backboneelement.BackboneElement):
     __resource_type__ = "ClinicalUseDefinitionUndesirableEffect"
 
     classification: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="classification",
         title="High level classification of the effect",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     frequencyOfOccurrence: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="frequencyOfOccurrence",
         title="How often the effect is seen",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     symptomConditionEffect: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="symptomConditionEffect",
         title="The situation in which the undesirable effect may manifest",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ObservationDefinition"],
         },
@@ -843,13 +965,25 @@ class ClinicalUseDefinitionUndesirableEffect(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionUndesirableEffect`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionUndesirableEffect`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "symptomConditionEffect",
+            "classification",
+            "frequencyOfOccurrence",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionUndesirableEffect`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "symptomConditionEffect",
             "classification",
@@ -873,32 +1007,41 @@ class ClinicalUseDefinitionWarning(backboneelement.BackboneElement):
     __resource_type__ = "ClinicalUseDefinitionWarning"
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="A coded or unformatted textual definition of this warning",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="A textual definition of this warning, with formatting",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClinicalUseDefinitionWarning`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClinicalUseDefinitionWarning`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "description", "code"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClinicalUseDefinitionWarning`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "description", "code"]

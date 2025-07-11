@@ -1,15 +1,18 @@
 from ursina import Entity, Text, camera, color, mouse, BoxCollider, Sequence, Func, Vec2, Vec3, scene, Default, Audio
+from ursina import color as color_module
 from ursina.models.procedural.quad import Quad
-import textwrap
 
 from ursina.scripts.property_generator import generate_properties_for_class
+
 @generate_properties_for_class()
 class Button(Entity):
 
     default_color = color.black90
+    default_highlight_color = None
     default_model = None # will default to rounded Quad
 
-    def __init__(self, text='', parent=camera.ui, model=Default, radius=.1, origin=(0,0), text_origin=(0,0), text_size=1, color=Default, collider='box', highlight_scale=1, pressed_scale=1, disabled=False, **kwargs):
+    def __init__(self,
+        text='', parent=camera.ui, model=Default, radius=.1, origin=(0,0), text_origin=(0,0), text_size=1, text_color=Default, color=Default, collider='box', highlight_scale=1, pressed_scale=1, disabled=False, **kwargs):
         super().__init__(parent=parent)
 
         for key in ('scale', 'scale_x', 'scale_y', 'scale_z', 'world_scale', 'world_scale_x', 'world_scale_y', 'world_scale_z'):
@@ -31,20 +34,22 @@ class Button(Entity):
             color = Button.default_color
         self.color = color
 
-        self.highlight_color = self.color.tint(.2)
+        self.highlight_color = self.color.tint(.2) if __class__.default_highlight_color is None else __class__.default_highlight_color
         self.pressed_color = self.color.tint(-.2)
         self.highlight_scale = highlight_scale    # multiplier
         self.pressed_scale = pressed_scale     # multiplier
         self.highlight_sound = None
         self.pressed_sound = None
         self.collider = collider
-        self.disabled = disabled
+        self.disabled = disabled    # Used for temporary deactivating buttons without making them invisible, and still have collision.
 
         self.text_entity = None
         self.text_origin = text_origin
+        text_color = text_color if text_color is not Default else color_module.text_color
         if text:
             self.text = text
             self.text_size = text_size
+            self.text_color = text_color
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -168,7 +173,7 @@ class Button(Entity):
                 self.model.setScale(Vec3(1,1,1))
 
 
-    def on_mouse_enter(self):
+    def on_mouse_enter(self):   # Handles color tinting, scale change, audio and Tooltip when hovering the Button
         if not self.disabled and self.model:
             self.model.setColorScale(self.highlight_color)
 
@@ -185,7 +190,7 @@ class Button(Entity):
             self.tooltip.enabled = True
 
 
-    def on_mouse_exit(self):
+    def on_mouse_exit(self):    # Handles color tinting, scale change, audio and Tooltip when unhovering the Button
         if not self.disabled and self.model:
             self.model.setColorScale(self.color)
 
@@ -218,13 +223,15 @@ if __name__ == '__main__':
     from ursina import *
     app = Ursina()
 
-    Button.default_color = color.red
+    # # test settging default colors
+    # Button.default_color = color.magenta
+    # Button.default_highlight_color = color.blue
+
     b = Button(model='quad', scale=.05, x=-.5, color=color.lime, text='text scale\ntest', text_size=.5, text_color=color.black)
     b.text_size = .5
     b.on_click = Sequence(Wait(.5), Func(print, 'aaaaaa'), )
 
     b = Button(parent=camera.ui, text='hello world!', scale=.25)
-    Button.default_color = color.blue
     b = Button(text='hello world!', icon='sword', scale=.25, text_origin=(-.5,0), x=.5)
     # b.fit_to_text()
     b.on_click = application.quit # assign a function to the button.
@@ -248,5 +255,5 @@ if __name__ == '__main__':
         if key == 'space':
             b.text = 'updated text'
 
-
+    Sky()
     app.run()

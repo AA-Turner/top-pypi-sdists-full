@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-jmespath
-Version: 1.0.2.20250529
+Version: 1.0.2.20250711
 Summary: Typing stubs for jmespath
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -36,8 +36,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
+mypy 1.16.1,
+pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`c30f63140c4c81124e44baaf997b67f88e8febb4`](https://github.com/python/typeshed/commit/c30f63140c4c81124e44baaf997b67f88e8febb4).
+[`df3b5f3cdd7736079ad3124db244e4553625590c`](https://github.com/python/typeshed/commit/df3b5f3cdd7736079ad3124db244e4553625590c).

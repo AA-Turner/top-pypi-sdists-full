@@ -149,8 +149,6 @@ Endpoint Type of Swift service.
 This string value indicates the endpoint type to use to fetch the
 Swift endpoint. The endpoint type determines the actions the user will
 be allowed to perform, for instance, reading and writing to the Store.
-This setting is only used if swift_store_auth_version is greater than
-1.
 
 Possible values:
     * publicURL
@@ -169,11 +167,6 @@ Type of Swift service to use.
 Provide a string value representing the service type to use for
 storing images while using Swift backend storage. The default
 service type is set to ``object-store``.
-
-NOTE: If ``swift_store_auth_version`` is set to 2, the value for
-this configuration option needs to be ``object-store``. If using
-a higher version of Keystone or a different auth scheme, this
-option may be modified.
 
 Possible values:
     * A string representing a valid service type for Swift storage.
@@ -977,14 +970,18 @@ class BaseStore(driver.Store):
                         if image_size == 0:
                             content_length = None
                         else:
-                            left = image_size - combined_chunks_size
-                            if left == 0:
-                                break
-                            if chunk_size > left:
-                                chunk_size = left
                             content_length = chunk_size
-
                         chunk_name = "%s-%05d" % (location.obj, chunk_id)
+                        # Check if actual data exceeds the specified
+                        # image_size
+                        if (image_size != 0 and
+                                combined_chunks_size > image_size):
+                            raise glance_store.Invalid(
+                                _("Size exceeds: expected "
+                                  "%(expected)d "
+                                  "bytes, got %(actual)d bytes") %
+                                {'expected': image_size,
+                                 'actual': combined_chunks_size})
 
                         with self.reader_class(
                                 image_file, checksum, os_hash_value,
@@ -1026,10 +1023,17 @@ class BaseStore(driver.Store):
 
                         chunk_id += 1
                         combined_chunks_size += bytes_read
-                    # In the case we have been given an unknown image size,
-                    # set the size to the total size of the combined chunks.
-                    if image_size == 0:
-                        image_size = combined_chunks_size
+
+                    # Validate total size after all chunks are uploaded
+                    if image_size != 0 and combined_chunks_size != image_size:
+                        message = (_("Size mismatch: expected %(expected)d "
+                                     "bytes, got %(actual)d bytes") %
+                                   {'expected': image_size,
+                                    'actual': combined_chunks_size})
+                        raise glance_store.Invalid(message=message)
+
+                    # Assign actual written data size
+                    image_size = combined_chunks_size
 
                     # Now we write the object manifest in X-Object-Manifest
                     # header as defined for Dynamic Large Objects (DLO) Mode.
@@ -1066,6 +1070,15 @@ class BaseStore(driver.Store):
                 return (location.get_uri(credentials_included=include_creds),
                         image_size, obj_etag, os_hash_value.hexdigest(),
                         metadata)
+            except exceptions.Invalid:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_("Error during chunked upload "
+                                "to backend, deleting stale "
+                                "chunks."))
+                    self._delete_stale_chunks(
+                        manager.get_connection(),
+                        location.container,
+                        written_chunks)
             except swiftclient.ClientException as e:
                 if e.http_status == http.client.CONFLICT:
                     msg = _("Swift already has an image at this location")
@@ -1394,17 +1407,13 @@ class SingleTenantStore(BaseStore):
         if not auth_url.endswith('/'):
             auth_url += '/'
 
-        if self.auth_version in ('2', '3'):
-            try:
-                tenant_name, user = location.user.split(':')
-            except ValueError:
-                reason = (_("Badly formed tenant:user '%(user)s' in "
-                            "Swift URI") % {'user': location.user})
-                LOG.info(reason)
-                raise exceptions.BadStoreUri(message=reason)
-        else:
-            tenant_name = None
-            user = location.user
+        try:
+            tenant_name, user = location.user.split(':')
+        except ValueError:
+            reason = (_("Badly formed tenant:user '%(user)s' in "
+                        "Swift URI") % {'user': location.user})
+            LOG.info(reason)
+            raise exceptions.BadStoreUri(message=reason)
 
         os_options = {}
         if self.region:

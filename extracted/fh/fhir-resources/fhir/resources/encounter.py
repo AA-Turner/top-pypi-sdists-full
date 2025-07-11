@@ -30,7 +30,7 @@ class Encounter(domainresource.DomainResource):
     __resource_type__ = "Encounter"
 
     account: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="account",
         title="The set of accounts that may be used for billing for this Encounter",
         description=None,
@@ -42,7 +42,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     actualPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actualPeriod",
         title="The actual start and end time of the encounter",
         description=None,
@@ -52,7 +52,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     admission: fhirtypes.EncounterAdmissionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="admission",
         title="Details about the admission to a healthcare service",
         description=(
@@ -67,19 +67,20 @@ class Encounter(domainresource.DomainResource):
     )
 
     appointment: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="appointment",
         title="The appointment that scheduled this encounter",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Appointment"],
         },
     )
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="The request that initiated this encounter",
         description=(
@@ -99,7 +100,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     careTeam: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="careTeam",
         title="The group(s) that are allocated to participate in this encounter",
         description=(
@@ -116,7 +117,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     class_fhir: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="class",
         title=(
             "Classification of patient encounter context - e.g. Inpatient, "
@@ -129,21 +130,23 @@ class Encounter(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     diagnosis: typing.List[fhirtypes.EncounterDiagnosisType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diagnosis",
         title="The list of diagnosis relevant to this encounter",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     dietPreference: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dietPreference",
         title="Diet preferences reported by the patient",
         description=None,
@@ -153,7 +156,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     episodeOfCare: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="episodeOfCare",
         title="Episode(s) of care that this encounter should be recorded against",
         description=(
@@ -168,23 +171,25 @@ class Encounter(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["EpisodeOfCare"],
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Identifier(s) by which this encounter is known",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     length: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="length",
         title="Actual quantity of time the encounter lasted (less time absent)",
         description=(
@@ -198,7 +203,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     location: typing.List[fhirtypes.EncounterLocationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="List of locations where the patient has been",
         description="List of locations where  the patient has been during this encounter.",
@@ -208,7 +213,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     partOf: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="partOf",
         title="Another Encounter this encounter is part of",
         description=(
@@ -223,17 +228,18 @@ class Encounter(domainresource.DomainResource):
     )
 
     participant: typing.List[fhirtypes.EncounterParticipantType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="participant",
         title="List of participants involved in the encounter",
         description="The list of people responsible for providing the service.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     plannedEndDate: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="plannedEndDate",
         title="The planned end date/time (or discharge date) of the encounter",
         description=None,
@@ -242,11 +248,13 @@ class Encounter(domainresource.DomainResource):
         },
     )
     plannedEndDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_plannedEndDate", title="Extension field for ``plannedEndDate``."
+        default=None,
+        alias="_plannedEndDate",
+        title="Extension field for ``plannedEndDate``.",
     )
 
     plannedStartDate: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="plannedStartDate",
         title="The planned start date/time (or admission date) of the encounter",
         description=None,
@@ -255,13 +263,13 @@ class Encounter(domainresource.DomainResource):
         },
     )
     plannedStartDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_plannedStartDate",
         title="Extension field for ``plannedStartDate``.",
     )
 
     priority: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="Indicates the urgency of the encounter",
         description=None,
@@ -271,7 +279,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     reason: typing.List[fhirtypes.EncounterReasonType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title=(
             "The list of medical reasons that are expected to be addressed during "
@@ -280,11 +288,12 @@ class Encounter(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     serviceProvider: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="serviceProvider",
         title="The organization (facility) responsible for this encounter",
         description=(
@@ -303,7 +312,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     serviceType: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="serviceType",
         title="Specific type of service",
         description=(
@@ -312,13 +321,14 @@ class Encounter(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["HealthcareService"],
         },
     )
 
     specialArrangement: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialArrangement",
         title="Wheelchair, translator, stretcher, etc",
         description=(
@@ -331,7 +341,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     specialCourtesy: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialCourtesy",
         title="Special courtesies (VIP, board member)",
         description=(
@@ -344,7 +354,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "planned | in-progress | on-hold | discharged | completed | cancelled |"
@@ -356,6 +366,7 @@ class Encounter(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -373,11 +384,11 @@ class Encounter(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="The patient or group related to this encounter",
         description=(
@@ -387,13 +398,14 @@ class Encounter(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Group"],
         },
     )
 
     subjectStatus: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subjectStatus",
         title="The current status of the subject in relation to the Encounter",
         description=(
@@ -407,7 +419,7 @@ class Encounter(domainresource.DomainResource):
     )
 
     type: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "Specific type of encounter (e.g. e-mail consultation, surgical day-"
@@ -419,11 +431,12 @@ class Encounter(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     virtualService: typing.List[fhirtypes.VirtualServiceDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="virtualService",
         title="Connection details of a virtual service (e.g. conference call)",
         description=None,
@@ -434,9 +447,9 @@ class Encounter(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Encounter`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Encounter`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -477,6 +490,29 @@ class Encounter(domainresource.DomainResource):
             "location",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Encounter`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "identifier",
+            "status",
+            "class",
+            "type",
+            "serviceType",
+            "subject",
+            "episodeOfCare",
+            "participant",
+            "appointment",
+            "reason",
+            "diagnosis",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -505,7 +541,7 @@ class EncounterAdmission(backboneelement.BackboneElement):
     __resource_type__ = "EncounterAdmission"
 
     admitSource: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="admitSource",
         title="From where patient was admitted (physician referral, transfer)",
         description=None,
@@ -515,7 +551,7 @@ class EncounterAdmission(backboneelement.BackboneElement):
     )
 
     destination: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="destination",
         title="Location/organization to which the patient is discharged",
         description=None,
@@ -527,7 +563,7 @@ class EncounterAdmission(backboneelement.BackboneElement):
     )
 
     dischargeDisposition: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dischargeDisposition",
         title="Category or kind of location after discharge",
         description=None,
@@ -537,7 +573,7 @@ class EncounterAdmission(backboneelement.BackboneElement):
     )
 
     origin: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="origin",
         title="The location/organization from which the patient came before admission",
         description=None,
@@ -549,7 +585,7 @@ class EncounterAdmission(backboneelement.BackboneElement):
     )
 
     preAdmissionIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preAdmissionIdentifier",
         title="Pre-admission identifier",
         description=None,
@@ -559,7 +595,7 @@ class EncounterAdmission(backboneelement.BackboneElement):
     )
 
     reAdmission: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reAdmission",
         title="Indicates that the patient is being re-admitted",
         description=(
@@ -574,9 +610,9 @@ class EncounterAdmission(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EncounterAdmission`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EncounterAdmission`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -590,6 +626,13 @@ class EncounterAdmission(backboneelement.BackboneElement):
             "dischargeDisposition",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EncounterAdmission`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
+
 
 class EncounterDiagnosis(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -602,7 +645,7 @@ class EncounterDiagnosis(backboneelement.BackboneElement):
     __resource_type__ = "EncounterDiagnosis"
 
     condition: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="condition",
         title="The diagnosis relevant to the encounter",
         description=(
@@ -612,13 +655,14 @@ class EncounterDiagnosis(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Condition"],
         },
     )
 
     use: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title=(
             "Role that this diagnosis has within the encounter (e.g. admission, "
@@ -632,11 +676,18 @@ class EncounterDiagnosis(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EncounterDiagnosis`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EncounterDiagnosis`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "condition", "use"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EncounterDiagnosis`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "condition"]
 
 
 class EncounterLocation(backboneelement.BackboneElement):
@@ -651,7 +702,7 @@ class EncounterLocation(backboneelement.BackboneElement):
     __resource_type__ = "EncounterLocation"
 
     form: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="form",
         title=(
             "The physical type of the location (usually the level in the location "
@@ -667,7 +718,7 @@ class EncounterLocation(backboneelement.BackboneElement):
     )
 
     location: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="location",
         title="Location the encounter takes place",
         description="The location where the encounter takes place.",
@@ -679,7 +730,7 @@ class EncounterLocation(backboneelement.BackboneElement):
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Time period during which the patient was present at the location",
         description=None,
@@ -689,7 +740,7 @@ class EncounterLocation(backboneelement.BackboneElement):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="planned | active | reserved | completed",
         description=(
@@ -705,14 +756,14 @@ class EncounterLocation(backboneelement.BackboneElement):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EncounterLocation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EncounterLocation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -723,6 +774,13 @@ class EncounterLocation(backboneelement.BackboneElement):
             "form",
             "period",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EncounterLocation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class EncounterParticipant(backboneelement.BackboneElement):
@@ -737,7 +795,7 @@ class EncounterParticipant(backboneelement.BackboneElement):
     __resource_type__ = "EncounterParticipant"
 
     actor: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actor",
         title="The individual, device, or service participating in the encounter",
         description=(
@@ -749,6 +807,7 @@ class EncounterParticipant(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Patient",
@@ -763,7 +822,7 @@ class EncounterParticipant(backboneelement.BackboneElement):
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Period of time during the encounter that the participant participated",
         description=(
@@ -777,22 +836,30 @@ class EncounterParticipant(backboneelement.BackboneElement):
     )
 
     type: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Role of participant in encounter",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EncounterParticipant`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EncounterParticipant`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "period", "actor"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EncounterParticipant`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "type", "actor"]
 
 
 class EncounterReason(backboneelement.BackboneElement):
@@ -807,7 +874,7 @@ class EncounterReason(backboneelement.BackboneElement):
     __resource_type__ = "EncounterReason"
 
     use: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title="What the reason value should be used for/as",
         description=(
@@ -816,11 +883,12 @@ class EncounterReason(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     value: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="Reason the encounter takes place (core or reference)",
         description=(
@@ -830,6 +898,7 @@ class EncounterReason(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Condition",
@@ -843,8 +912,15 @@ class EncounterReason(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EncounterReason`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EncounterReason`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "use", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EncounterReason`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "use", "value"]

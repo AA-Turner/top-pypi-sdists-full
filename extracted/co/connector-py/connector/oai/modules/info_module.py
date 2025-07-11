@@ -692,7 +692,7 @@ class InfoModule(BaseIntegrationModule):
         return credentials_dump
 
     def _get_model_extended_json_schema(self, model: type[BaseModel]) -> dict[str, Any]:
-        json_schema = model.model_json_schema()
+        json_schema = model.model_json_schema(ref_template="#/components/schemas/{model}")
         field_order = list(model.model_fields.keys())
         json_schema["x-field_order"] = field_order
         return json_schema

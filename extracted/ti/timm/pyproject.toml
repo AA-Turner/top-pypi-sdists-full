@@ -40,7 +40,7 @@ dependencies = [
     "safetensors",
 ]
 dynamic = []
-version = "1.0.16"
+version = "1.0.17"
 
 [project.license]
 text = "Apache-2.0"

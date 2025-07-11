@@ -9,9 +9,8 @@
 
 #include "compiled_grammar_data_structure.h"
 #include "grammar_data_structure.h"
-#include "picojson.h"
-#include "support/json.h"
 #include "support/logging.h"
+#include "support/reflection/json_serializer.h"
 #include "support/utils.h"
 #include "tokenizer_info_impl.h"
 #include "xgrammar/compiler.h"
@@ -20,7 +19,7 @@
 
 namespace xgrammar {
 
-static constexpr const char kXGrammarSerializeVersion[] = "v1";
+static constexpr const char kXGrammarSerializeVersion[] = "v2";
 
 bool TokenizerInfo::Impl::operator==(const TokenizerInfo::Impl& other) const {
   static constexpr auto tie = [](const TokenizerInfo::Impl& impl) {

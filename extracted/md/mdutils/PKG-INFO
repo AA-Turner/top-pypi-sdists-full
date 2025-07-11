@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mdutils
-Version: 1.7.0
+Version: 1.8.0
 Summary: Useful package for creating Markdown files while executing python code.
 Home-page: https://github.com/didix21/mdutils
 Author: Didac Coll

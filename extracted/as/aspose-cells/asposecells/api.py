@@ -1691,6 +1691,7 @@ class MarkdownTableHeaderType(IntEnum):
     EMPTY = 2,
     FIRST_ROW = 0,
 class MemorySetting(IntEnum):
+    FILE_CACHE = 2,
     MEMORY_PREFERENCE = 1,
     NORMAL = 0,
 class MergedCellsShrinkType(IntEnum):
@@ -3461,7 +3462,6 @@ from com.aspose.cells import WorkbookPrintingPreview
 from com.aspose.cells import WorkbookRender
 from com.aspose.cells import XlsbSaveOptions
 from com.aspose.cells import XlsSaveOptions
-from com.aspose.cells import XmlColumnProperty
 from com.aspose.cells import XmlLoadOptions
 from com.aspose.cells import XmlSaveOptions
 from com.aspose.cells import XpsSaveOptions

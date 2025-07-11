@@ -4,7 +4,6 @@ import numpy as np
 import os
 import re
 from glob import glob
-from pathlib import Path
 
 with open(os.path.join(os.path.dirname(__file__), "econml", "_version.py")) as file:
     for line in file:
@@ -20,11 +19,14 @@ pyx_files = [file for file in pyx_files if (os.path.splitext(file)[0] + ".c") no
 
 c_extensions = [Extension(os.path.splitext(file)[0].replace(os.sep, '.'),
                           [file],
-                          include_dirs=[np.get_include()])
+                          include_dirs=[np.get_include()],
+                          define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")])
                 for file in c_files]
 
 if pyx_files:
     from Cython.Build import cythonize
+    from Cython.Compiler import Options
+    Options.warning_errors = True  # Treat Cython warnings as errors
     pyx_extensions = cythonize([Extension("*",
                                           pyx_files,
                                           include_dirs=[np.get_include()])],

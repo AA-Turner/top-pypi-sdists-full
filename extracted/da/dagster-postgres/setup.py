@@ -27,6 +27,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
@@ -37,7 +38,7 @@ setup(
         ]
     },
     include_package_data=True,
-    python_requires=">=3.9,<3.13",
-    install_requires=["dagster==1.11.1", "psycopg2-binary"],
+    python_requires=">=3.9,<=3.13.3",
+    install_requires=["dagster==1.11.2", "psycopg2-binary"],
     zip_safe=False,
 )

@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: django-allauth
-Version: 65.9.0
+Version: 65.10.0
 Summary: Integrated set of Django applications addressing authentication, registration, account management as well as 3rd party (social) account authentication.
-Home-page: https://allauth.org
-Author: Raymond Penners
-Author-email: raymond.penners@intenct.nl
+Author-email: Raymond Penners <raymond.penners@intenct.nl>
 License: MIT
+Project-URL: Homepage, https://allauth.org
 Project-URL: Documentation, https://docs.allauth.org/en/latest/
-Project-URL: Changelog, https://codeberg.org/allauth/django-allauth/src/branch/main/ChangeLog.rst
+Project-URL: Release notes, https://codeberg.org/allauth/django-allauth/src/branch/main/ChangeLog.rst
 Project-URL: Source, https://codeberg.org/allauth/django-allauth
 Project-URL: Tracker, https://codeberg.org/allauth/django-allauth/issues
-Project-URL: Donate, https://github.com/sponsors/pennersr
+Project-URL: Funding, https://github.com/sponsors/pennersr
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -38,7 +37,7 @@ License-File: AUTHORS
 Requires-Dist: Django>=4.2.16
 Requires-Dist: asgiref>=3.8.1
 Provides-Extra: idp-oidc
-Requires-Dist: oauthlib<4,>=3.2.2; extra == "idp-oidc"
+Requires-Dist: oauthlib<4,>=3.3.0; extra == "idp-oidc"
 Requires-Dist: pyjwt[crypto]<3,>=2.0; extra == "idp-oidc"
 Provides-Extra: mfa
 Requires-Dist: qrcode<9,>=7.0.0; extra == "mfa"
@@ -50,7 +49,7 @@ Requires-Dist: python3-saml<2.0.0,>=1.15.0; extra == "saml"
 Provides-Extra: steam
 Requires-Dist: python3-openid<4,>=3.0.8; extra == "steam"
 Provides-Extra: socialaccount
-Requires-Dist: requests-oauthlib>=0.3.0; extra == "socialaccount"
+Requires-Dist: oauthlib<4,>=3.3.0; extra == "socialaccount"
 Requires-Dist: requests<3,>=2.0.0; extra == "socialaccount"
 Requires-Dist: pyjwt[crypto]<3,>=2.0; extra == "socialaccount"
 Dynamic: license-file

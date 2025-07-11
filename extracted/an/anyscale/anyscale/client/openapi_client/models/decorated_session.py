@@ -91,7 +91,8 @@ class DecoratedSession(object):
         'compute_template': 'MiniComputeTemplate',
         'idle_time_remaining_seconds': 'int',
         'access': 'SessionAccess',
-        'project': 'MiniProject'
+        'project': 'MiniProject',
+        'latest_started_at': 'datetime'
     }
 
     attribute_map = {
@@ -153,10 +154,11 @@ class DecoratedSession(object):
         'compute_template': 'compute_template',
         'idle_time_remaining_seconds': 'idle_time_remaining_seconds',
         'access': 'access',
-        'project': 'project'
+        'project': 'project',
+        'latest_started_at': 'latest_started_at'
     }
 
-    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, build=None, cloud=None, creator=None, compute_template=None, idle_time_remaining_seconds=None, access=None, project=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, build=None, cloud=None, creator=None, compute_template=None, idle_time_remaining_seconds=None, access=None, project=None, latest_started_at=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedSession - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -221,6 +223,7 @@ class DecoratedSession(object):
         self._idle_time_remaining_seconds = None
         self._access = None
         self._project = None
+        self._latest_started_at = None
         self.discriminator = None
 
         self.name = name
@@ -326,6 +329,8 @@ class DecoratedSession(object):
             self.access = access
         if project is not None:
             self.project = project
+        if latest_started_at is not None:
+            self.latest_started_at = latest_started_at
 
     @property
     def name(self):
@@ -1713,6 +1718,29 @@ class DecoratedSession(object):
         """
 
         self._project = project
+
+    @property
+    def latest_started_at(self):
+        """Gets the latest_started_at of this DecoratedSession.  # noqa: E501
+
+        The datetime of the latest transition to StartingUp state.  # noqa: E501
+
+        :return: The latest_started_at of this DecoratedSession.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._latest_started_at
+
+    @latest_started_at.setter
+    def latest_started_at(self, latest_started_at):
+        """Sets the latest_started_at of this DecoratedSession.
+
+        The datetime of the latest transition to StartingUp state.  # noqa: E501
+
+        :param latest_started_at: The latest_started_at of this DecoratedSession.  # noqa: E501
+        :type: datetime
+        """
+
+        self._latest_started_at = latest_started_at
 
     def to_dict(self):
         """Returns the model properties as a dict"""

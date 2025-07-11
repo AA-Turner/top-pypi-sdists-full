@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: sling
-Version: 1.4.13
+Version: 1.4.13.post1
 Summary: Slings data from a source to a target
 Home-page: https://github.com/slingdata-io/sling-python
 Download-URL: https://github.com/slingdata-io/sling-python/archive/master.zip
-Author: Fritz Larco
-Author-email: fritz@slingdata.io
+Author: Sling Data
+Author-email: support@slingdata.io
 Keywords: sling,etl,elt,extract,load
 Classifier: Programming Language :: Python :: 3
 Classifier: Intended Audience :: Developers

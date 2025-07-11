@@ -5,16 +5,17 @@
 
 from __future__ import annotations
 
-import configparser
-import logging
 import os
-import platform as std_platform
 import re
-import shutil
-import tempfile
+from configparser import RawConfigParser
+from contextlib import suppress
 from datetime import datetime, timedelta
 from importlib.metadata import PackageNotFoundError, version
+from logging import DEBUG, INFO, WARNING, basicConfig, getLogger
 from pathlib import Path
+from platform import system
+from shutil import copy
+from tempfile import mkstemp
 from typing import TYPE_CHECKING, Any
 
 from pytz import timezone
@@ -37,7 +38,7 @@ except PackageNotFoundError:
     # package is not installed
     __version__ = "unknown"
 
-LOG = logging.getLogger("fuzzfetch")
+LOG = getLogger("fuzzfetch")
 BUG_URL = "https://github.com/MozillaSecurity/fuzzfetch/issues/"
 
 
@@ -77,7 +78,7 @@ class Fetcher:
         self._platform = platform or Platform()
         self._simulated = simulated
         self._targets = targets
-        self._task = None
+        self._task: BuildTask | None = None
 
         if not isinstance(build, BuildTask):
             if is_namespace(build):
@@ -255,7 +256,7 @@ class Fetcher:
     @property
     def _artifacts_url(self) -> str:
         """Build the artifacts url"""
-        assert isinstance(self._task, BuildTask)
+        assert self._task is not None
         return f"{self._task.queue_server}/task/{self.task_id}/artifacts"
 
     @property
@@ -300,21 +301,21 @@ class Fetcher:
     @property
     def rank(self) -> int:
         """Return the build's rank"""
-        assert isinstance(self._task, BuildTask)
+        assert self._task is not None
         assert isinstance(self._task.rank, int)
         return self._task.rank
 
     @property
     def task_id(self) -> str:
         """Return the build's TaskCluster ID"""
-        assert isinstance(self._task, BuildTask)
+        assert self._task is not None
         assert isinstance(self._task.taskId, str)
         return self._task.taskId
 
     @property
     def task_url(self) -> str:
         """Return the TaskCluster base url"""
-        assert isinstance(self._task, BuildTask)
+        assert self._task is not None
         assert isinstance(self._task.url, str)
         return self._task.url
 
@@ -360,11 +361,9 @@ class Fetcher:
             if self._platform.system == "Linux":
                 for ext in ("xz", "bz2"):
                     url = self.artifact_url(f"tar.{ext}")
-                    try:
+                    with suppress(FetcherException):
                         resolve_url(url)
                         break
-                    except FetcherException:
-                        pass
                 else:
                     raise FetcherException("Failed to resolve linux artifacts!")
             elif self._platform.system == "Darwin":
@@ -438,11 +437,9 @@ class Fetcher:
             if self._platform.system == "Linux":
                 for ext in ("xz", "bz2"):
                     url = self.artifact_url(f"tar.{ext}")
-                    try:
+                    with suppress(FetcherException):
                         resolve_url(url)
                         break
-                    except FetcherException:
-                        pass
                 # warn if we don't have a fast decompressor for bz2
                 if ext == "bz2" and LBZIP2_PATH is None:
                     LOG.warning("WARNING: Install lbzip2 for much faster extraction.")
@@ -480,7 +477,7 @@ class Fetcher:
             (path / "gtest" / "gtest_bin" / "gtest" / libxul).rename(
                 path / "gtest" / libxul
             )
-            shutil.copy(
+            copy(
                 path / "gtest" / "dependentlibs.list.gtest",
                 path / "dependentlibs.list.gtest",
             )
@@ -535,7 +532,7 @@ class Fetcher:
             target: firefox/js
             path: fuzzmanager config path
         """
-        output = configparser.RawConfigParser()
+        output = RawConfigParser()
         output.add_section("Main")
         processor = self._platform.machine
         assert isinstance(processor, str)
@@ -586,7 +583,7 @@ class Fetcher:
             url: artifact to download
             path: path to extract zip to
         """
-        zip_fd, zip_fn = tempfile.mkstemp(prefix="fuzzfetch-", suffix=".zip")
+        zip_fd, zip_fn = mkstemp(prefix="fuzzfetch-", suffix=".zip")
         os.close(zip_fd)
         try:
             download_url(url, zip_fn)
@@ -605,7 +602,7 @@ class Fetcher:
             path: path to extract tar to
         """
         mode = url.split(".")[-1]
-        tar_fd, tar_fn = tempfile.mkstemp(prefix="fuzzfetch-", suffix=f".tar.{mode}")
+        tar_fd, tar_fn = mkstemp(prefix="fuzzfetch-", suffix=f".tar.{mode}")
         os.close(tar_fd)
         try:
             download_url(url, tar_fn)
@@ -621,7 +618,7 @@ class Fetcher:
         Arguments:
             path
         """
-        apk_fd, apk_fn = tempfile.mkstemp(prefix="fuzzfetch-", suffix=".apk")
+        apk_fd, apk_fn = mkstemp(prefix="fuzzfetch-", suffix=".apk")
         os.close(apk_fd)
         try:
             # _artifact_base is like 'path/to/target' .. but geckoview doesn't
@@ -629,7 +626,7 @@ class Fetcher:
             artifact_path = "/".join(self._artifact_base.split("/")[:-1])
             url = f"{self._artifacts_url}/{artifact_path}/geckoview_example.apk"
             download_url(url, apk_fn)
-            shutil.copy(apk_fn, Path(path) / "target.apk")
+            copy(apk_fn, Path(path) / "target.apk")
         finally:
             os.unlink(apk_fn)
 
@@ -642,16 +639,16 @@ class Fetcher:
         Arguments:
             path: path to extract dmg contents to
         """
-        dmg_fd, dmg_fn = tempfile.mkstemp(prefix="fuzzfetch-", suffix=".dmg")
+        dmg_fd, dmg_fn = mkstemp(prefix="fuzzfetch-", suffix=".dmg")
         os.close(dmg_fd)
         try:
             download_url(self.artifact_url("dmg"), dmg_fn)
-            if std_platform.system() == "Darwin":
+            if system() == "Darwin":
                 LOG.info(".. extracting")
                 extract_dmg(dmg_fn, path)
             else:
-                LOG.warning(".. can't extract target.dmg on %s", std_platform.system())
-                shutil.copy(dmg_fn, Path(path) / "target.dmg")
+                LOG.warning(".. can't extract target.dmg on %s", system())
+                copy(dmg_fn, Path(path) / "target.dmg")
         finally:
             os.unlink(dmg_fn)
 
@@ -734,15 +731,13 @@ class Fetcher:
 
         Run with --help for usage
         """
-        log_level = logging.INFO
+        log_level = INFO
         log_fmt = "%(message)s"
         if bool(os.getenv("DEBUG")):
-            log_level = logging.DEBUG
+            log_level = DEBUG
             log_fmt = "%(levelname).1s %(name)s [%(asctime)s] %(message)s"
-        logging.basicConfig(
-            format=log_fmt, datefmt="%Y-%m-%d %H:%M:%S", level=log_level
-        )
-        logging.getLogger("requests").setLevel(logging.WARNING)
+        basicConfig(format=log_fmt, datefmt="%Y-%m-%d %H:%M:%S", level=log_level)
+        getLogger("requests").setLevel(WARNING)
 
         try:
             obj, extract_args = cls.from_args()

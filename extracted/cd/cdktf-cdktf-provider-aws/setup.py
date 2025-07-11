@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.1.0",
+    "version": "21.2.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -1635,6 +1635,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.pipes_pipe",
         "cdktf_cdktf_provider_aws.placement_group",
         "cdktf_cdktf_provider_aws.prometheus_alert_manager_definition",
+        "cdktf_cdktf_provider_aws.prometheus_query_logging_configuration",
         "cdktf_cdktf_provider_aws.prometheus_rule_group_namespace",
         "cdktf_cdktf_provider_aws.prometheus_scraper",
         "cdktf_cdktf_provider_aws.prometheus_workspace",
@@ -2140,7 +2141,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.1.0.jsii.tgz"
+            "provider-aws@21.2.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

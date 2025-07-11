@@ -1,4 +1,4 @@
-from ursina import Entity, camera, Text, Vec2, mouse, color, floor, clamp, time, held_keys, destroy
+from ursina import Entity, camera, Text, Vec2, mouse, color, floor, clamp, time, held_keys, destroy, curve
 import pyperclip
 
 from ursina.string_utilities import multireplace
@@ -9,7 +9,7 @@ class TextField(Entity):
     def __init__(self, max_lines=64, line_height=1.1, character_limit=None, **kwargs):
         super().__init__(parent=camera.ui, x=-.5, y=.4, ignore_paused=True)
 
-        self.font = 'VeraMono.ttf'
+        self.font = Text.default_monospace_font
         self.line_height = line_height
         self.max_lines = max_lines
         self.character_limit = character_limit
@@ -20,7 +20,7 @@ class TextField(Entity):
         self.character_width = Text.get_width('a', font=self.font)
         self.cursor_parent = Entity(parent=self.scroll_parent, scale=(self.character_width, -1*Text.size*self.line_height))
         self.cursor = Entity(name='text_field_cursor', parent=self.cursor_parent, model='cube', color=color.cyan, origin=(-.5, -.5), scale=(.1, 1, 0), enabled=False)
-        self.cursor.blink(duration=1.2, loop=True)
+        self.cursor.animate_color(color.red, duration=1.2, curve=curve.linear_boomerang, loop=True)
         self.bg = Entity(name='text_field_bg', parent=self, model='quad', double_sided=True, color=color.dark_gray, origin=(-.5,.5), z=0.005, scale=(120, Text.size*self.max_lines*self.line_height), collider='box', visible=True)
 
         self.selection = [Vec2(0,0), Vec2(0,0)]
@@ -51,8 +51,6 @@ class TextField(Entity):
             'duplicate_line':   ('ctrl+shift+d',),
             'undo':             ('ctrl+z', 'ctrl+z hold'),
             'redo':             ('ctrl+y', 'ctrl+y hold', 'ctrl+shift+z', 'ctrl+shift+z hold'),
-            # 'save':             ('ctrl+s',),
-            # 'save_as':          ('ctrl+shift+s',),
             'indent':           ('tab',),
             'dedent':           ('shift+tab',),
             'move_line_down':   ('ctrl+down arrow', 'ctrl+down arrow hold'),
@@ -66,8 +64,6 @@ class TextField(Entity):
             'select_word':      ('double click',),
             'select_line':      ('triple click',),
             'scroll_to_bottom': ('shift+alt+e',),
-            # 'toggle_comment':   ('ctrl+alt+c',),
-            # 'find':             ('ctrl+f',),
             'move_operations' : {
                 'move_left':                ('left arrow', 'left arrow hold', 'shift+left arrow', 'shift+left arrow hold'),
                 'move_right':               ('right arrow', 'right arrow hold', 'shift+right arrow', 'shift+right arrow hold'),
@@ -76,7 +72,10 @@ class TextField(Entity):
                 'move_to_end_of_word' :     ('ctrl+right arrow', 'ctrl+right arrow hold', 'ctrl+shift+right arrow', 'ctrl+shift+right arrow hold'),
                 'move_to_start_of_word' :   ('ctrl+left arrow', 'ctrl+left arrow hold', 'ctrl+shift+left arrow', 'ctrl+shift+left arrow hold'),
             },
-
+            # 'save':             ('ctrl+s',),
+            # 'save_as':          ('ctrl+shift+s',),
+            # 'toggle_comment':   ('ctrl+alt+c',),
+            # 'find':             ('ctrl+f',),
             # 'select_word_left': ('ctrl+shift+left arrow', 'ctrl+shift+left arrow hold'),
             # 'select_word_right': ('ctrl+shift+right arrow', 'ctrl+shift+right arrow hold'),
         }

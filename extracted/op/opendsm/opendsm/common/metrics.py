@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 import pydantic
-from typing import Optional
+from typing import Optional, Union
 from enum import Enum
 
 from functools import cached_property  # TODO: This requires Python 3.8
@@ -32,18 +32,8 @@ from opendsm.common.pydantic_utils import (
     ArbitraryPydanticModel,
     PydanticDf,
     PydanticFromDict,
+    computed_field_cached_property,
 )
-
-
-def computed_field_cached_property():
-    decs = [pydantic.computed_field, cached_property]
-
-    def deco(f):
-        for dec in reversed(decs):
-            f = dec(f)
-        return f
-
-    return deco
 
 
 class ColumnMetrics(ArbitraryPydanticModel):
@@ -98,7 +88,9 @@ class ColumnMetrics(ArbitraryPydanticModel):
 
 
 def _safe_divide(numerator, denominator, min_denominator=1e-3):
-    if denominator <= min_denominator and numerator > 10 * min_denominator:
+    if denominator == 0:
+        return None
+    elif denominator <= min_denominator and numerator > 10 * min_denominator:
         return None
 
     return numerator / denominator
@@ -240,12 +232,14 @@ class BaselineMetrics(ArbitraryPydanticModel):
     @computed_field_cached_property()
     def n_prime(self) -> float:
         # lag should be 1 according to https://www.osti.gov/servlets/purl/1366449
-        autocorr = self._df["residuals"].autocorr(lag=1)
+        autocorr = acf(self._df["residuals"].values, lag_n=1, moving_mean_std=True)[1]
 
         _n_prime = float(self.n * (1 - autocorr) / (1 + autocorr))
 
         if not np.isfinite(_n_prime):
             # TODO: Create warning
+            _n_prime = 1
+        elif _n_prime < 1:
             _n_prime = 1
 
         return _n_prime
@@ -371,6 +365,7 @@ class BaselineMetrics(ArbitraryPydanticModel):
         res = _safe_divide(num, den, self._min_denominator)
         if res is None:
             return None
+        
         return 1 - res
 
     @computed_field_cached_property()
@@ -386,7 +381,8 @@ class BaselineMetrics(ArbitraryPydanticModel):
 
 def BaselineMetricsFromDict(input_dict):
     for k in ["observed", "predicted", "residuals"]:
-        input_dict[k] = PydanticFromDict(input_dict[k], name="ColumnMetrics")
+        if k in input_dict:
+            input_dict[k] = PydanticFromDict(input_dict[k], name="ColumnMetrics")
 
     return PydanticFromDict(input_dict, name="BaselineMetrics")
 
@@ -401,7 +397,7 @@ class ModelChoice(str, Enum):
 class ReportingMetrics(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
-    baseline_metrics: BaselineMetrics = pydantic.Field(exclude=True)
+    baseline_metrics: Union[BaselineMetrics, pydantic.BaseModel] = pydantic.Field(exclude=True)
 
     """Reporting dataframe to be used for metrics calculations"""
     reporting_df: pd.DataFrame = pydantic.Field(exclude=True)
@@ -475,12 +471,16 @@ class ReportingMetrics(pydantic.BaseModel):
         n_prime = self._baseline.n_prime
         m = self.n
         t = self.t_stat
-        cvrmse_autocorr_adj = self._baseline.cvrmse_autocorr_adj
+        # cvrmse_autocorr_adj = self._baseline.cvrmse_autocorr_adj
+        cvrmse_adj = self._baseline.cvrmse_adj
 
         # part of approximation factor used in ashrae 14 guideline
-        approx_factor = np.sqrt(n / (m * n_prime) * (1 + (2 / n_prime)))
+        approx_factor = np.sqrt(n / n_prime * (1 + (2 / n_prime)) * m)
 
-        s_unc_base = E_reporting * (t * cvrmse_autocorr_adj * approx_factor)
+        try:
+            s_unc_base = np.abs(E_reporting / m * cvrmse_adj) * t * approx_factor
+        except:
+            return None
 
         if self.data_frequency == "hourly":
             s_unc = 1.26 * s_unc_base
@@ -488,6 +488,7 @@ class ReportingMetrics(pydantic.BaseModel):
         elif self.data_frequency in ["daily", "billing"]:
             M = len(self._df.index.month.unique())
 
+            # Sun & Baltazar 2013
             if self.data_frequency == "daily":
                 coefs = [-0.00024, 0.03535, 1.00286]
             else:
@@ -506,4 +507,41 @@ class ReportingMetrics(pydantic.BaseModel):
 
     @computed_field_cached_property()
     def predicted_data_point_unc(self) -> float:
+        if self.total_savings_uncertainty is None:
+            return None
+        
         return self.total_savings_uncertainty / np.sqrt(self.n)
+
+def acf(x, lag_n=None, moving_mean_std=False):
+    """
+    Computes the autocorrelation function (ACF) of a given time series. It is the correlation of a signal with a delayed copy of itself as a function of delay.
+    It allows finding repeating patterns, such as the presence of a periodic signal obscured by noise, or identifying the missing fundamental frequency in a signal implied by its harmonic frequencies.
+
+    Parameters:
+        x (array-like): The time series data.
+        lag_n (int, optional): The number of lags to compute the ACF for. If None, computes the ACF for all possible lags.
+        moving_mean_std (bool, optional): Whether to use a moving mean and standard deviation to compute the ACF. If False, uses the regular formula.
+
+    Returns:
+        array-like: The autocorrelation function values for the given time series and lags.
+    """
+
+    if lag_n is None:
+        lags = range(len(x) - 1)
+    else:
+        lags = range(lag_n + 1)
+
+    if moving_mean_std:
+        corr = [1.0 if l == 0 else np.corrcoef(x[l:], x[:-l])[0][1] for l in lags]
+
+        corr = np.array(corr)
+
+    else:
+        mean = x.mean()
+        var = np.var(x)
+        xp = x - mean
+        corr = np.correlate(xp, xp, "full")[len(x) - 1 :] / var / len(x)
+
+        corr = corr[: len(lags)]
+
+    return corr

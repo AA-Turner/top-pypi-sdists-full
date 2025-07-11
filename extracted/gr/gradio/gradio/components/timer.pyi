@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from gradio_client.documentation import document
 
-from gradio.components.base import FormComponent
+from gradio.components.base import Component
 from gradio.events import Events
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from gradio.events import Dependency
 
 @document()
-class Timer(FormComponent):
+class Timer(Component):
     """
     Special component that ticks at regular intervals when active. It is not visible, and only used to trigger events at a regular interval through the `tick` event listener.
     """
@@ -66,6 +66,10 @@ class Timer(FormComponent):
 
     def example_value(self):
         return 1
+
+    def breaks_grouping(self) -> bool:
+        """Timer components should not break wrapper grouping chains."""
+        return False
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
     if TYPE_CHECKING:

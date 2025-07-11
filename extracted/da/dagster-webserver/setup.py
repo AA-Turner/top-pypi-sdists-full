@@ -36,17 +36,18 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_webserver_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.13",
+    python_requires=">=3.9,<=3.13.3",
     install_requires=[
         # cli
         "click>=7.0,<9.0",
-        "dagster==1.11.1",
-        "dagster-graphql==1.11.1",
+        "dagster==1.11.2",
+        "dagster-graphql==1.11.2",
         "starlette!=0.36.0",  # avoid bad version https://github.com/encode/starlette/discussions/2436
         "uvicorn[standard]",
     ],

@@ -2,8 +2,11 @@
 
 import os
 import html
+import random
 from gway import gw
 from bottle import request
+
+_forced_style = None
 
 def render(*, homes=None, links=None):
     """
@@ -173,14 +176,32 @@ def active_style():
     style_query = request.query.get("css")
     style_path = None
 
+    if _forced_style:
+        if _forced_style == "random":
+            if styles:
+                src, fname = random.choice(styles)
+                return f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
+        else:
+            for src, fname in styles:
+                if fname == _forced_style:
+                    return f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
+            if _forced_style.startswith("/"):
+                return _forced_style
+
     # Prefer query param (if exists and valid)
     if style_query:
+        if style_query == "random" and styles:
+            src, fname = random.choice(styles)
+            return f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
         for src, fname in styles:
             if fname == style_query:
                 style_path = f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
                 break
     # Otherwise, prefer cookie
     if not style_path and style_cookie:
+        if style_cookie == "random" and styles:
+            src, fname = random.choice(styles)
+            return f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
         for src, fname in styles:
             if fname == style_cookie:
                 style_path = f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
@@ -246,6 +267,8 @@ def view_style_switcher(*, css=None, project=None):
     styles = list_styles_local(project)
     all_styles = [fname for _, fname in styles]
     style_sources = {fname: src for src, fname in styles}
+    # Include the special 'random' option
+    all_styles.append("random")
 
     cookies_enabled = gw.web.app.is_setup('web.cookies')
     cookies_accepted = gw.web.cookies.accepted() if cookies_enabled else False
@@ -274,16 +297,31 @@ def view_style_switcher(*, css=None, project=None):
         selected_style = all_styles[0] if all_styles else "base.css"
 
     # Determine preview link and path for raw CSS
-    if style_sources.get(selected_style) == "global":
-        preview_href = f"/static/styles/{selected_style}"
-        css_path = gw.resource("data", "static", "styles", selected_style)
-        css_link = f'<link rel="stylesheet" href="/static/styles/{selected_style}">'
+    if selected_style == "random":
+        css_link = ""
+        if styles:
+            src, fname = random.choice(styles)
+            preview_href = f"/static/styles/{fname}" if src == "global" else f"/static/{src}/styles/{fname}"
+            css_link = f'<link rel="stylesheet" href="{preview_href}">'
+        preview_html = f"""
+        {css_link}
+        <div class="style-preview">
+            <h2>Theme Preview: RANDOM</h2>
+            <p>This option selects a random theme on each visit.</p>
+        </div>
+        """
+        css_code = "Random theme"
     else:
-        preview_href = f"/static/{project}/styles/{selected_style}"
-        css_path = gw.resource("data", "static", project, "styles", selected_style)
-        css_link = f'<link rel="stylesheet" href="/static/{project}/styles/{selected_style}">'
+        if style_sources.get(selected_style) == "global":
+            preview_href = f"/static/styles/{selected_style}"
+            css_path = gw.resource("data", "static", "styles", selected_style)
+            css_link = f'<link rel="stylesheet" href="/static/styles/{selected_style}">' 
+        else:
+            preview_href = f"/static/{project}/styles/{selected_style}"
+            css_path = gw.resource("data", "static", project, "styles", selected_style)
+            css_link = f'<link rel="stylesheet" href="/static/{project}/styles/{selected_style}">' 
 
-    preview_html = f"""
+        preview_html = f"""
         {css_link}
         <div class="style-preview">
             <h2>Theme Preview: {selected_style[:-4].replace('_', ' ').title()}</h2>
@@ -291,16 +329,17 @@ def view_style_switcher(*, css=None, project=None):
             <button>Sample button</button>
             <pre>code block</pre>
         </div>
-    """
-    css_code = ""
-    try:
-        with open(css_path, encoding="utf-8") as f:
-            css_code = f.read()
-    except Exception:
-        css_code = "Could not load CSS file."
+        """
+        css_code = ""
+        try:
+            with open(css_path, encoding="utf-8") as f:
+                css_code = f.read()
+        except Exception:
+            css_code = "Could not load CSS file."
 
+    styles_with_random = styles + [(None, "random")]
     selector = style_selector_form(
-        all_styles=styles,
+        all_styles=styles_with_random,
         selected_style=selected_style,
         cookies_enabled=cookies_enabled,
         cookies_accepted=cookies_accepted,
@@ -319,6 +358,10 @@ def view_style_switcher(*, css=None, project=None):
 def style_selector_form(all_styles, selected_style, cookies_enabled, cookies_accepted, project):
     options = []
     for src, fname in all_styles:
+        if fname == "random":
+            selected = " selected" if fname == selected_style else ""
+            options.append(f'<option value="random"{selected}>RANDOM</option>')
+            continue
         label = fname[:-4].upper()
         label = f"GLOBAL: {label}" if src == "global" else f"{src.upper()}: {label}"
         selected = " selected" if fname == selected_style else ""
@@ -367,3 +410,16 @@ def list_styles(project=None):
                         styles.append((project, f))
                         seen.add(f)
     return styles
+
+
+def setup_app(*, app=None, style=None, **_):
+    """Optional hook to set a default style when the project is added.
+
+    Pass ``style='random'`` to select a random theme on each request.
+    """
+    global _forced_style
+    if style:
+        _forced_style = style
+        gw.info(f"web.nav forced style: {style}")
+    return app
+

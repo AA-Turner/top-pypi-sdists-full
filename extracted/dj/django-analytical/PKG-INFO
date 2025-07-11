@@ -1,37 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-analytical
-Version: 3.1.0
+Version: 3.2.0
 Summary: Analytics service integration for Django projects
-Home-page: https://github.com/jazzband/django-analytical
-Download-URL: https://github.com/jazzband/django-analytical/archive/main.zip
-Author: Joost Cassee
-Author-email: joost@cassee.net
-License: UNKNOWN
+Author-email: Joost Cassee <joost@cassee.net>, Joshua Krall <joshuakrall@pobox.com>, Aleck Landgraf <aleck.landgraf@buildingenergy.com>, Alexandre Pocquet <apocquet@lecko.fr>, Bateau Knowledge <info@bateauknowledge.nl>, Bogdan Bodnar <bogdanbodnar@mail.com>, Brad Pitcher <bradpitcher@gmail.com>, Corentin Mercier <corentin@mercier.link>, Craig Bruce <craig@eyesopen.com>, Daniel Vitiello <ezdismissal@gmail.com>, David Smith <smithdc@gmail.com>, Diederik van der Boor <vdboor@edoburu.nl>, Eric Amador <eric.amador14@gmail.com>, Eric Davis <eric@davislv.com>, Eric Wang <gnawrice@gmail.com>, Garrett Coakley <garrettc@users.noreply.github.com>, Garrett Robinson <garrett.f.robinson@gmail.com>, GreenKahuna <info@greenkahuna.com>, Hugo Osvaldo Barrera <hugo@barrera.io>, Ian Ramsay <ianalexr@yahoo.com>, Iván Raskovsky <raskovsky+git@gmail.com>, James Paden <james@xemion.com>, Jannis Leidel <jannis@leidel.info>, Julien Grenier <julien.grenier42@gmail.com>, Kevin Olbrich <ko@sv01.de>, Marc Bourqui <m.bourqui@edsi-tech.com>, Martey Dodoo <martey@mobolic.com>, Martín Gaitán <gaitan@gmail.com>, "Matthäus G. Chajdas" <dev@anteru.net>, Max Arnold <arnold.maxim@gmail.com>, Nikolay Korotkiy <sikmir@gmail.com>, Paul Oswald <pauloswald@gmail.com>, Peter Bittner <django@bittner.it>, Petr Dlouhý <petr.dlouhy@email.cz>, "Philippe O. Wagner" <admin@arteria.ch>, Pi Delport <pjdelport@gmail.com>, Sandra Mau <sandra.mau@gmail.com>, Scott Adams <scottadams80@gmail.com>, Scott Karlin <gitlab@karlin-online.com>, Sean Wallace <sean@lowpro.ca>, Sid Mitra <sidmitra.del@gmail.com>, Simon Ye <sye737@gmail.com>, Steve Schwarz <steve@agilitynerd.com>, Steven Skoczen <steven.skoczen@wk.com>, Tim Gates <tim.gates@iress.com>, Tinnet Coronam <tinnet@coronam.net>, Uros Trebec <uros@trebec.org>, Walter Renner <walter.renner@me.com>
+Maintainer-email: Jazzband community <jazzband-bot@users.noreply.github.com>, Peter Bittner <django@bittner.it>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/jazzband/django-analytical
 Project-URL: Documentation, https://django-analytical.readthedocs.io/
 Keywords: django,analytics
-Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-License-File: AUTHORS.rst
+Requires-Dist: django>=4.2
+Dynamic: license-file
 
 django-analytical |latest-version|
 ==================================
@@ -112,7 +112,7 @@ Currently Supported Services
 * `Yandex.Metrica`_ web analytics
 
 .. _`Chartbeat`: http://www.chartbeat.com/
-.. _`Clickmap`: http://getclickmap.com/
+.. _`Clickmap`: http://clickmap.ch/
 .. _`Clicky`: http://getclicky.com/
 .. _`Crazy Egg`: http://www.crazyegg.com/
 .. _`Facebook Pixel`: https://developers.facebook.com/docs/facebook-pixel/
@@ -173,5 +173,3 @@ This is a `Jazzband`_ project.  By contributing you agree to abide by the
 .. _`guidelines`: https://jazzband.co/about/guidelines
 
 .. end contribute include
-
-

@@ -25,7 +25,7 @@ class ExampleScenario(domainresource.DomainResource):
     __resource_type__ = "ExampleScenario"
 
     actor: typing.List[fhirtypes.ExampleScenarioActorType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actor",
         title="Individual involved in exchange",
         description=(
@@ -38,7 +38,7 @@ class ExampleScenario(domainresource.DomainResource):
     )
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for the publisher",
         description=(
@@ -47,11 +47,12 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     copyright: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copyright",
         title="Use and/or publishing restrictions",
         description=(
@@ -64,11 +65,11 @@ class ExampleScenario(domainresource.DomainResource):
         },
     )
     copyright__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_copyright", title="Extension field for ``copyright``."
+        default=None, alias="_copyright", title="Extension field for ``copyright``."
     )
 
     copyrightLabel: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copyrightLabel",
         title="Copyright holder and year(s)",
         description=(
@@ -82,11 +83,13 @@ class ExampleScenario(domainresource.DomainResource):
         },
     )
     copyrightLabel__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_copyrightLabel", title="Extension field for ``copyrightLabel``."
+        default=None,
+        alias="_copyrightLabel",
+        title="Extension field for ``copyrightLabel``.",
     )
 
     date: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date last changed",
         description=(
@@ -98,14 +101,15 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Natural language description of the ExampleScenario",
         description=(
@@ -114,14 +118,15 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     experimental: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="experimental",
         title="For testing purposes, not real usage",
         description=(
@@ -131,14 +136,17 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     experimental__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_experimental", title="Extension field for ``experimental``."
+        default=None,
+        alias="_experimental",
+        title="Extension field for ``experimental``.",
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Additional identifier for the example scenario",
         description=(
@@ -148,11 +156,12 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     instance: typing.List[fhirtypes.ExampleScenarioInstanceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instance",
         title="Data used in the scenario",
         description="A single data collection that is shared as part of the scenario.",
@@ -162,7 +171,7 @@ class ExampleScenario(domainresource.DomainResource):
     )
 
     jurisdiction: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="Intended jurisdiction for example scenario (if applicable)",
         description=(
@@ -171,24 +180,26 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="To be removed?",
         description="Temporarily retained for tooling purposes.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     process: typing.List[fhirtypes.ExampleScenarioProcessType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="process",
         title="Major process within scenario",
         description=(
@@ -201,7 +212,7 @@ class ExampleScenario(domainresource.DomainResource):
     )
 
     publisher: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="publisher",
         title="Name of the publisher/steward (organization or individual)",
         description=(
@@ -210,14 +221,15 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     publisher__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_publisher", title="Extension field for ``publisher``."
+        default=None, alias="_publisher", title="Extension field for ``publisher``."
     )
 
     purpose: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="purpose",
         title="The purpose of the example, e.g. to illustrate a scenario",
         description=(
@@ -230,11 +242,11 @@ class ExampleScenario(domainresource.DomainResource):
         },
     )
     purpose__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_purpose", title="Extension field for ``purpose``."
+        default=None, alias="_purpose", title="Extension field for ``purpose``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | active | retired | unknown",
         description=(
@@ -243,6 +255,7 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -250,24 +263,25 @@ class ExampleScenario(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Name for this example scenario (human friendly)",
         description="A short, descriptive, user-friendly title for the ExampleScenario.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title=(
             "Canonical identifier for this example scenario, represented as a URI "
@@ -284,14 +298,15 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     useContext: typing.List[fhirtypes.UsageContextType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="useContext",
         title="The context that the content is intended to support",
         description=(
@@ -303,11 +318,12 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Business version of the example scenario",
         description=(
@@ -321,14 +337,15 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     versionAlgorithmCoding: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versionAlgorithmCoding",
         title="How to compare versions",
         description=(
@@ -337,6 +354,7 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e versionAlgorithm[x]
             "one_of_many": "versionAlgorithm",
             "one_of_many_required": False,
@@ -344,7 +362,7 @@ class ExampleScenario(domainresource.DomainResource):
     )
 
     versionAlgorithmString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versionAlgorithmString",
         title="How to compare versions",
         description=(
@@ -353,22 +371,23 @@ class ExampleScenario(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e versionAlgorithm[x]
             "one_of_many": "versionAlgorithm",
             "one_of_many_required": False,
         },
     )
     versionAlgorithmString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_versionAlgorithmString",
         title="Extension field for ``versionAlgorithmString``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenario`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenario`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -400,6 +419,33 @@ class ExampleScenario(domainresource.DomainResource):
             "actor",
             "instance",
             "process",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenario`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "url",
+            "identifier",
+            "version",
+            "versionAlgorithmString",
+            "versionAlgorithmCoding",
+            "name",
+            "title",
+            "status",
+            "experimental",
+            "date",
+            "publisher",
+            "contact",
+            "description",
+            "useContext",
+            "jurisdiction",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -444,7 +490,7 @@ class ExampleScenarioActor(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioActor"
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Details about actor",
         description="An explanation of who/what the actor is and its role in the scenario.",
@@ -453,11 +499,11 @@ class ExampleScenarioActor(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     key: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="key",
         title="ID or acronym of the actor",
         description=(
@@ -470,11 +516,11 @@ class ExampleScenarioActor(backboneelement.BackboneElement):
         },
     )
     key__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_key", title="Extension field for ``key``."
+        default=None, alias="_key", title="Extension field for ``key``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label for actor when rendering",
         description=(
@@ -486,11 +532,11 @@ class ExampleScenarioActor(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="person | system",
         description="The category of actor - person or system.",
@@ -503,14 +549,14 @@ class ExampleScenarioActor(backboneelement.BackboneElement):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioActor`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioActor`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -521,6 +567,13 @@ class ExampleScenarioActor(backboneelement.BackboneElement):
             "title",
             "description",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioActor`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -550,7 +603,7 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioInstance"
 
     containedInstance: typing.List[fhirtypes.ExampleScenarioInstanceContainedInstanceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="containedInstance",
         title="Resources contained in the instance",
         description=(
@@ -563,7 +616,7 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
     )
 
     content: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="content",
         title="Example instance data",
         description=(
@@ -576,7 +629,7 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Human-friendly description of the instance",
         description="An explanation of what the instance contains and what it's for.",
@@ -585,11 +638,11 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     key: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="key",
         title="ID or acronym of the instance",
         description=(
@@ -602,11 +655,11 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
         },
     )
     key__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_key", title="Extension field for ``key``."
+        default=None, alias="_key", title="Extension field for ``key``."
     )
 
     structureProfileCanonical: fhirtypes.CanonicalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="structureProfileCanonical",
         title="Rules instance adheres to",
         description=(
@@ -620,13 +673,13 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
         },
     )
     structureProfileCanonical__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_structureProfileCanonical",
         title="Extension field for ``structureProfileCanonical``.",
     )
 
     structureProfileUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="structureProfileUri",
         title="Rules instance adheres to",
         description=(
@@ -640,13 +693,13 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
         },
     )
     structureProfileUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_structureProfileUri",
         title="Extension field for ``structureProfileUri``.",
     )
 
     structureType: fhirtypes.CodingType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="structureType",
         title="Data structure for example",
         description=(
@@ -659,7 +712,7 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
     )
 
     structureVersion: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="structureVersion",
         title="E.g. 4.0.1",
         description=(
@@ -671,13 +724,13 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
         },
     )
     structureVersion__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_structureVersion",
         title="Extension field for ``structureVersion``.",
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label for instance",
         description=(
@@ -690,11 +743,11 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     version: typing.List[fhirtypes.ExampleScenarioInstanceVersionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Snapshot of instance that changes",
         description="Represents the instance as it was at a specific time-point.",
@@ -705,9 +758,9 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioInstance`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioInstance`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -724,6 +777,13 @@ class ExampleScenarioInstance(backboneelement.BackboneElement):
             "version",
             "containedInstance",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioInstance`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -768,7 +828,7 @@ class ExampleScenarioInstanceContainedInstance(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioInstanceContainedInstance"
 
     instanceReference: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instanceReference",
         title="Key of contained instance",
         description="A reference to the key of an instance found within this one.",
@@ -778,13 +838,13 @@ class ExampleScenarioInstanceContainedInstance(backboneelement.BackboneElement):
         },
     )
     instanceReference__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_instanceReference",
         title="Extension field for ``instanceReference``.",
     )
 
     versionReference: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versionReference",
         title="Key of contained instance version",
         description=(
@@ -796,16 +856,16 @@ class ExampleScenarioInstanceContainedInstance(backboneelement.BackboneElement):
         },
     )
     versionReference__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_versionReference",
         title="Extension field for ``versionReference``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioInstanceContainedInstance`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioInstanceContainedInstance`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -814,6 +874,13 @@ class ExampleScenarioInstanceContainedInstance(backboneelement.BackboneElement):
             "instanceReference",
             "versionReference",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioInstanceContainedInstance`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -839,7 +906,7 @@ class ExampleScenarioInstanceVersion(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioInstanceVersion"
 
     content: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="content",
         title="Example instance version data",
         description=(
@@ -852,7 +919,7 @@ class ExampleScenarioInstanceVersion(backboneelement.BackboneElement):
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Details about version",
         description=(
@@ -864,11 +931,11 @@ class ExampleScenarioInstanceVersion(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     key: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="key",
         title="ID or acronym of the version",
         description=(
@@ -881,11 +948,11 @@ class ExampleScenarioInstanceVersion(backboneelement.BackboneElement):
         },
     )
     key__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_key", title="Extension field for ``key``."
+        default=None, alias="_key", title="Extension field for ``key``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label for instance version",
         description=(
@@ -897,14 +964,14 @@ class ExampleScenarioInstanceVersion(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioInstanceVersion`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioInstanceVersion`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -915,6 +982,13 @@ class ExampleScenarioInstanceVersion(backboneelement.BackboneElement):
             "description",
             "content",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioInstanceVersion`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -940,7 +1014,7 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioProcess"
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Human-friendly description of the process",
         description="An explanation of what the process represents and what it does.",
@@ -949,11 +1023,11 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     postConditions: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="postConditions",
         title="Status after successful completion",
         description=(
@@ -965,11 +1039,13 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
         },
     )
     postConditions__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_postConditions", title="Extension field for ``postConditions``."
+        default=None,
+        alias="_postConditions",
+        title="Extension field for ``postConditions``.",
     )
 
     preConditions: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preConditions",
         title="Status before process starts",
         description=(
@@ -981,11 +1057,13 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
         },
     )
     preConditions__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_preConditions", title="Extension field for ``preConditions``."
+        default=None,
+        alias="_preConditions",
+        title="Extension field for ``preConditions``.",
     )
 
     step: typing.List[fhirtypes.ExampleScenarioProcessStepType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="step",
         title="Event within of the process",
         description="A significant action that occurs as part of the process.",
@@ -995,7 +1073,7 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label for procss",
         description=(
@@ -1003,18 +1081,19 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioProcess`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioProcess`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1026,6 +1105,13 @@ class ExampleScenarioProcess(backboneelement.BackboneElement):
             "postConditions",
             "step",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioProcess`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "title"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1051,7 +1137,7 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioProcessStep"
 
     alternative: typing.List[fhirtypes.ExampleScenarioProcessStepAlternativeType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="alternative",
         title="Alternate non-typical step action",
         description=(
@@ -1065,7 +1151,7 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
     )
 
     number: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="number",
         title="Sequential number of the step",
         description="The sequential number of the step, e.g. 1.2.5.",
@@ -1074,11 +1160,11 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
         },
     )
     number__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_number", title="Extension field for ``number``."
+        default=None, alias="_number", title="Extension field for ``number``."
     )
 
     operation: fhirtypes.ExampleScenarioProcessStepOperationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="operation",
         title="Step is simple action",
         description="The step represents a single operation invoked on receiver by sender.",
@@ -1088,7 +1174,7 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
     )
 
     pause: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="pause",
         title="Pause in the flow?",
         description=(
@@ -1101,11 +1187,11 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
         },
     )
     pause__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_pause", title="Extension field for ``pause``."
+        default=None, alias="_pause", title="Extension field for ``pause``."
     )
 
     process: fhirtypes.ExampleScenarioProcessType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="process",
         title="Step is nested process",
         description="Indicates that the step is a complex sub-process with its own steps.",
@@ -1115,7 +1201,7 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
     )
 
     workflow: fhirtypes.CanonicalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="workflow",
         title="Step is nested workflow",
         description="Indicates that the step is defined by a seaparate scenario instance.",
@@ -1126,14 +1212,14 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
         },
     )
     workflow__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_workflow", title="Extension field for ``workflow``."
+        default=None, alias="_workflow", title="Extension field for ``workflow``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioProcessStep`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioProcessStep`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1146,6 +1232,13 @@ class ExampleScenarioProcessStep(backboneelement.BackboneElement):
             "alternative",
             "pause",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioProcessStep`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ExampleScenarioProcessStepAlternative(backboneelement.BackboneElement):
@@ -1162,7 +1255,7 @@ class ExampleScenarioProcessStepAlternative(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioProcessStepAlternative"
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Human-readable description of option",
         description=(
@@ -1174,11 +1267,11 @@ class ExampleScenarioProcessStepAlternative(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     step: typing.List[fhirtypes.ExampleScenarioProcessStepType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="step",
         title="Alternative action(s)",
         description=(
@@ -1191,7 +1284,7 @@ class ExampleScenarioProcessStepAlternative(backboneelement.BackboneElement):
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label for alternative",
         description=(
@@ -1204,16 +1297,23 @@ class ExampleScenarioProcessStepAlternative(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioProcessStepAlternative`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioProcessStepAlternative`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "title", "description", "step"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioProcessStepAlternative`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1239,7 +1339,7 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
     __resource_type__ = "ExampleScenarioProcessStepOperation"
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Human-friendly description of the operation",
         description="An explanation of what the operation represents and what it does.",
@@ -1248,11 +1348,11 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     initiator: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="initiator",
         title="Who starts the operation",
         description="The system that invokes the action/transmits the data.",
@@ -1261,11 +1361,11 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
         },
     )
     initiator__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_initiator", title="Extension field for ``initiator``."
+        default=None, alias="_initiator", title="Extension field for ``initiator``."
     )
 
     initiatorActive: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="initiatorActive",
         title="Initiator stays active?",
         description="If false, the initiator is deactivated right after the operation.",
@@ -1274,11 +1374,13 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
         },
     )
     initiatorActive__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_initiatorActive", title="Extension field for ``initiatorActive``."
+        default=None,
+        alias="_initiatorActive",
+        title="Extension field for ``initiatorActive``.",
     )
 
     receiver: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="receiver",
         title="Who receives the operation",
         description="The system on which the action is invoked/receives the data.",
@@ -1287,11 +1389,11 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
         },
     )
     receiver__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_receiver", title="Extension field for ``receiver``."
+        default=None, alias="_receiver", title="Extension field for ``receiver``."
     )
 
     receiverActive: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="receiverActive",
         title="Receiver stays active?",
         description="If false, the receiver is deactivated right after the operation.",
@@ -1300,11 +1402,13 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
         },
     )
     receiverActive__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_receiverActive", title="Extension field for ``receiverActive``."
+        default=None,
+        alias="_receiverActive",
+        title="Extension field for ``receiverActive``.",
     )
 
     request: fhirtypes.ExampleScenarioInstanceContainedInstanceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="request",
         title="Instance transmitted on invocation",
         description=(
@@ -1317,7 +1421,7 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
     )
 
     response: fhirtypes.ExampleScenarioInstanceContainedInstanceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="response",
         title="Instance transmitted on invocation response",
         description=(
@@ -1330,7 +1434,7 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label for step",
         description="A short descriptive label the step to be used in tables or diagrams.",
@@ -1340,11 +1444,11 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     type: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Kind of action",
         description="The standardized type of action (FHIR or otherwise).",
@@ -1355,9 +1459,9 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExampleScenarioProcessStepOperation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExampleScenarioProcessStepOperation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1373,6 +1477,13 @@ class ExampleScenarioProcessStepOperation(backboneelement.BackboneElement):
             "request",
             "response",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExampleScenarioProcessStepOperation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

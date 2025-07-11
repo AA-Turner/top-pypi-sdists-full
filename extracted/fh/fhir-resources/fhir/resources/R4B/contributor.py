@@ -27,7 +27,7 @@ class Contributor(element.Element):
     __resource_type__ = "Contributor"
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details of the contributor",
         description=(
@@ -36,11 +36,12 @@ class Contributor(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Who contributed the content",
         description=(
@@ -49,20 +50,22 @@ class Contributor(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="author | editor | reviewer | endorser",
         description="The type of contributor.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -70,16 +73,23 @@ class Contributor(element.Element):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Contributor`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Contributor`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "type", "name", "contact"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Contributor`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["type", "name", "contact"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

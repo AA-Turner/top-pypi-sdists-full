@@ -16,17 +16,20 @@ def duplicate(entity, copy_children=True, *args, **kwargs): # use a for loop ins
     for name in entity.attributes:
         if name == 'model':
             continue
-        elif name == 'collider' and entity.collider and entity.collider.name:
+        if name == 'collider' and entity.collider and entity.collider.name:
             # TODO: currently only copies colliders set with strings, not custom colliders.
             e.collider = entity.collider.name
-
-        elif name == 'scripts':
+            continue
+        if name == 'scripts':
             for script in entity.scripts:
                 e.add_script(copy(script))
+            continue
 
         else:
             if hasattr(entity, name):
                 setattr(e, name, getattr(entity, name))
+
+    e.shader_input = entity.shader_input
 
     for c in entity.children:
         clone = duplicate(c, copy_children=False)
@@ -72,9 +75,13 @@ if __name__ == '__main__':
     #     e2 = duplicate(e)
     #     e2.y += 1.5
 
-    e = Button(parent=scene, scale=1, text='yolo')
-    # e.c = Entity(parent=e, model='cube', scale=.5, y=.5, color=color.azure)
-    e2 = duplicate(e, x=1.25)
+    new_parent = Entity(scale=1)
+    from ursina.shaders import matcap_shader, triplanar_shader
+    e = Button(parent=scene, scale=2, text='test', texture='shore', texture_scale=Vec2(2), color=color.gray)
+    e.c = Entity(parent=e, model='icosphere', scale=.5, y=.5, shader=matcap_shader, texture='matcap_4')
+    e.c2 = Entity(parent=e.c, model='cube', scale=.5, y=.5, x=1, color=color.green, shader=triplanar_shader, texture='grass')
+
+    e2 = duplicate(e, x=2.25, parent=new_parent)
     # print(e.text_entity.z, e2.text_entity.z)
     # e2.x +=1.1
     EditorCamera()

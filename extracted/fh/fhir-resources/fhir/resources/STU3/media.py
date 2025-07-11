@@ -26,7 +26,7 @@ class Media(domainresource.DomainResource):
     __resource_type__ = "Media"
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="Procedure that caused this media to be created",
         description=(
@@ -35,13 +35,14 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ProcedureRequest"],
         },
     )
 
     bodySite: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="bodySite",
         title="Body part in media",
         description=(
@@ -50,11 +51,12 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     content: fhirtypes.AttachmentType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="content",
         title="Actual Media - reference or data",
         description=(
@@ -67,7 +69,7 @@ class Media(domainresource.DomainResource):
     )
 
     context: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="context",
         title="Encounter / Episode associated with media",
         description=(
@@ -76,38 +78,41 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Encounter", "EpisodeOfCare"],
         },
     )
 
     device: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="device",
         title="Observing Device",
         description="The device used to collect the media.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Device", "DeviceMetric"],
         },
     )
 
     duration: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="duration",
         title="Length in seconds (audio / video)",
         description="The duration of the recording in seconds - for audio and video.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     duration__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_duration", title="Extension field for ``duration``."
+        default=None, alias="_duration", title="Extension field for ``duration``."
     )
 
     frames: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="frames",
         title="Number of frames if > 1 (photo)",
         description=(
@@ -119,27 +124,29 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     frames__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_frames", title="Extension field for ``frames``."
+        default=None, alias="_frames", title="Extension field for ``frames``."
     )
 
     height: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="height",
         title="Height of the image in pixels (photo/video)",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     height__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_height", title="Extension field for ``height``."
+        default=None, alias="_height", title="Extension field for ``height``."
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Identifier(s) for the image",
         description=(
@@ -150,11 +157,12 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Comments made about the media",
         description=(
@@ -167,30 +175,32 @@ class Media(domainresource.DomainResource):
     )
 
     occurrenceDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrenceDateTime",
         title="When Media was collected",
         description="The date and time(s) at which the media was collected.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
         },
     )
     occurrenceDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_occurrenceDateTime",
         title="Extension field for ``occurrenceDateTime``.",
     )
 
     occurrencePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrencePeriod",
         title="When Media was collected",
         description="The date and time(s) at which the media was collected.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
@@ -198,34 +208,37 @@ class Media(domainresource.DomainResource):
     )
 
     operator: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="operator",
         title="The person who generated the image",
         description="The person who administered the collection of the image.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Practitioner"],
         },
     )
 
     reasonCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonCode",
         title="Why was event performed?",
         description="Describes why the event occurred in coded or textual form.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="Who/What this Media is a record of",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Patient",
@@ -238,7 +251,7 @@ class Media(domainresource.DomainResource):
     )
 
     subtype: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subtype",
         title="The type of acquisition equipment/process",
         description=(
@@ -248,11 +261,12 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="photo | video | audio",
         description=(
@@ -261,6 +275,7 @@ class Media(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -268,37 +283,39 @@ class Media(domainresource.DomainResource):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     view: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="view",
         title="Imaging view, e.g. Lateral or Antero-posterior",
         description="The name of the imaging view e.g. Lateral or Antero-posterior (AP).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     width: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="width",
         title="Width of the image in pixels (photo/video)",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     width__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_width", title="Extension field for ``width``."
+        default=None, alias="_width", title="Extension field for ``width``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Media`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Media`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -328,6 +345,34 @@ class Media(domainresource.DomainResource):
             "duration",
             "content",
             "note",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Media`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "basedOn",
+            "type",
+            "subtype",
+            "view",
+            "subject",
+            "context",
+            "occurrenceDateTime",
+            "occurrencePeriod",
+            "operator",
+            "reasonCode",
+            "bodySite",
+            "device",
+            "height",
+            "width",
+            "frames",
+            "duration",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:

@@ -25,7 +25,7 @@ class MarketingStatus(backboneelement.BackboneElement):
     __resource_type__ = "MarketingStatus"
 
     country: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="country",
         title=(
             "The country in which the marketing authorisation has been granted "
@@ -35,11 +35,12 @@ class MarketingStatus(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     dateRange: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dateRange",
         title=(
             "The date when the Medicinal Product is placed on the market by the "
@@ -53,11 +54,12 @@ class MarketingStatus(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     jurisdiction: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title=(
             "Where a Medicines Regulatory Agency has granted a marketing "
@@ -69,11 +71,12 @@ class MarketingStatus(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     restoreDate: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="restoreDate",
         title=(
             "The date when the Medicinal Product is placed on the market by the "
@@ -87,14 +90,15 @@ class MarketingStatus(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     restoreDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_restoreDate", title="Extension field for ``restoreDate``."
+        default=None, alias="_restoreDate", title="Extension field for ``restoreDate``."
     )
 
     status: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="status",
         title=(
             "This attribute provides information on the status of the marketing of "
@@ -104,18 +108,33 @@ class MarketingStatus(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MarketingStatus`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MarketingStatus`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "country",
+            "jurisdiction",
+            "status",
+            "dateRange",
+            "restoreDate",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MarketingStatus`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "country",
             "jurisdiction",

@@ -56,12 +56,18 @@ KeyCallable = t.Callable[[GuestProtocol], KeyBase]
 KeyFlexible = t.Union[KeyBase, KeyCallable]
 
 
-def guess_key(key: KeyFlexible, obj: GuestProtocol, use_random: bool = False) -> Key:
+def guess_key(
+    key: KeyFlexible,
+    obj: GuestProtocol,
+    random: bool = False,
+    use: t.Literal["sig", "enc"] | None = None,
+) -> Key:
     """Guess key from a various sources.
 
     :param key: a very flexible key
     :param obj: a protocol that has ``headers`` and ``set_kid`` methods
-    :param use_random: pick a random key from key set
+    :param random: pick a random key from key set
+    :param use: optional "use" value
     """
     resolved_key: KeyBase
     if callable(key):
@@ -74,21 +80,50 @@ def guess_key(key: KeyFlexible, obj: GuestProtocol, use_random: bool = False) ->
     elif isinstance(resolved_key, KeySet):
         headers = obj.headers()
         kid: str | None = headers.get("kid")
-        if not kid and use_random:
+
+        parameters: KeyParameters = {"alg": headers["alg"]}
+        if use:
+            parameters["use"] = use
+
+        if not kid and random:
             # choose one key by random
-            return_key = resolved_key.pick_random_key(headers["alg"])
+            return_key = resolved_key.pick_random_key(headers["alg"], parameters)
             if return_key is None:
                 raise ValueError("Invalid key")
             return_key.ensure_kid()
             obj.set_kid(t.cast(str, return_key.kid))
         else:
-            return_key = resolved_key.get_by_kid(kid)
+            return_key = resolved_key.get_by_kid(kid, parameters)
         return return_key
     else:
         raise ValueError("Invalid key")
 
 
-def import_key(data: AnyKey, key_type: str | None = None, parameters: KeyParameters | None = None) -> Key:
+@t.overload
+def import_key(data: AnyKey, key_type: t.Literal["oct"], parameters: KeyParameters | None = None) -> OctKey: ...
+
+
+@t.overload
+def import_key(data: AnyKey, key_type: t.Literal["RSA"], parameters: KeyParameters | None = None) -> RSAKey: ...
+
+
+@t.overload
+def import_key(data: AnyKey, key_type: t.Literal["EC"], parameters: KeyParameters | None = None) -> ECKey: ...
+
+
+@t.overload
+def import_key(data: AnyKey, key_type: t.Literal["OKP"], parameters: KeyParameters | None = None) -> OKPKey: ...
+
+
+@t.overload
+def import_key(data: DictKey, key_type: None = None, parameters: KeyParameters | None = None) -> Key: ...
+
+
+def import_key(
+    data: AnyKey,
+    key_type: t.Literal["oct", "RSA", "EC", "OKP"] | None = None,
+    parameters: KeyParameters | None = None,
+) -> Key:
     """Importing a key from bytes, string, and dict. When ``value`` is a dict,
     this method can tell the key type automatically, otherwise, developers
     SHOULD pass the ``key_type`` themselves.
@@ -101,8 +136,48 @@ def import_key(data: AnyKey, key_type: str | None = None, parameters: KeyParamet
     return JWKRegistry.import_key(data, key_type, parameters)
 
 
+@t.overload
 def generate_key(
-    key_type: str,
+    key_type: t.Literal["oct"],
+    crv_or_size: int | None = None,
+    parameters: KeyParameters | None = None,
+    private: bool = True,
+    auto_kid: bool = False,
+) -> OctKey: ...
+
+
+@t.overload
+def generate_key(
+    key_type: t.Literal["RSA"],
+    crv_or_size: int | None = None,
+    parameters: KeyParameters | None = None,
+    private: bool = True,
+    auto_kid: bool = False,
+) -> RSAKey: ...
+
+
+@t.overload
+def generate_key(
+    key_type: t.Literal["EC"],
+    crv_or_size: t.Literal["P-256", "P-384", "P-521", "secp256k1"] | None = None,
+    parameters: KeyParameters | None = None,
+    private: bool = True,
+    auto_kid: bool = False,
+) -> ECKey: ...
+
+
+@t.overload
+def generate_key(
+    key_type: t.Literal["OKP"],
+    crv_or_size: t.Literal["Ed25519", "Ed448", "X25519", "X448"] | None = None,
+    parameters: KeyParameters | None = None,
+    private: bool = True,
+    auto_kid: bool = False,
+) -> OKPKey: ...
+
+
+def generate_key(
+    key_type: t.Literal["oct", "RSA", "EC", "OKP"],
     crv_or_size: str | int | None = None,
     parameters: KeyParameters | None = None,
     private: bool = True,

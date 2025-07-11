@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sherpa-onnx
-Version: 1.12.4
+Version: 1.12.5
 Summary: UNKNOWN
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
@@ -385,6 +385,14 @@ It uses TTS from sherpa-onnx. See also [✨ Speak command that uses the new glob
 Enable custom wake word for XiaoAi Speakers. 让小爱音箱支持自定义唤醒词。
 
 Video demo in Chinese: [小爱同学启动～˶╹ꇴ╹˶！](https://www.bilibili.com/video/BV1YfVUz5EMj)
+
+### [C++ WebSocket ASR Server](https://github.com/mawwalker/stt-server)
+
+It provides a WebSocket server based on C++ for ASR using sherpa-onnx.
+
+### [Go WebSocket Server](https://github.com/bbeyondllove/asr_server)
+
+It provides a WebSocket server based on the Go programming language for sherpa-onnx.
 
 ### [Making robot Paimon, Ep10 "The AI Part 1"](https://www.youtube.com/watch?v=KxPKkwxGWZs)
 

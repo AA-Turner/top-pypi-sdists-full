@@ -55,7 +55,7 @@ class RepositoryVersionsApi:
         number__lte: Annotated[Optional[StrictInt], Field(description="Filter results where number is less than or equal to value")] = None,
         number__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where number is between two comma separated values")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -107,7 +107,7 @@ class RepositoryVersionsApi:
         :type number__range: List[int]
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -214,7 +214,7 @@ class RepositoryVersionsApi:
         number__lte: Annotated[Optional[StrictInt], Field(description="Filter results where number is less than or equal to value")] = None,
         number__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where number is between two comma separated values")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -266,7 +266,7 @@ class RepositoryVersionsApi:
         :type number__range: List[int]
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -373,7 +373,7 @@ class RepositoryVersionsApi:
         number__lte: Annotated[Optional[StrictInt], Field(description="Filter results where number is less than or equal to value")] = None,
         number__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where number is between two comma separated values")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -425,7 +425,7 @@ class RepositoryVersionsApi:
         :type number__range: List[int]
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]

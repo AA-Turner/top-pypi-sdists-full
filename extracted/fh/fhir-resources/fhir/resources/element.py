@@ -26,7 +26,7 @@ class Element(base.Base):
     __resource_type__ = "Element"
 
     extension: typing.List[fhirtypes.ExtensionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="extension",
         title="Additional content defined by implementations",
         description=(
@@ -43,7 +43,7 @@ class Element(base.Base):
     )
 
     id: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="id",
         title="Unique id for inter-element referencing",
         description=(
@@ -57,8 +57,15 @@ class Element(base.Base):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Element`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Element`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Element`` according to specification,
+        with preserving the original sequence order.
+        """
+        return []

@@ -1,5 +1,5 @@
-from ursina import Shader
-
+from ursina import color
+from ursina.shader import Shader
 
 camera_grayscale_shader = Shader(
 fragment='''
@@ -37,5 +37,5 @@ if __name__ == '__main__':
             else:
                 camera.shader = camera_grayscale_shader
 
-
+    Sky()
     app.run()

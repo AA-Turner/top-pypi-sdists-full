@@ -238,7 +238,7 @@ impl<'a> TryFrom<generated::NodeSnapshot<'a>> for NodeSnapshot {
             generated::NodeData::Group => {
                 value.node_data_as_group().expect("Bug in flatbuffers library").into()
             }
-            x => panic!("Invalid node data type in flatbuffers file {:?}", x),
+            x => panic!("Invalid node data type in flatbuffers file {x:?}"),
         };
         let res = NodeSnapshot {
             id: value.id().into(),
@@ -388,7 +388,7 @@ impl Snapshot {
             .iter()
             .map(|(k, v)| {
                 let name = builder.create_shared_string(k.as_str());
-                let serialized = rmp_serde::to_vec(v)?;
+                let serialized = rmp_serde::to_vec(v).map_err(Box::new)?;
                 let value = builder.create_vector(serialized.as_slice());
                 Ok::<_, IcechunkFormatError>(generated::MetadataItem::create(
                     &mut builder,
@@ -463,7 +463,8 @@ impl Snapshot {
             .iter()
             .map(|item| {
                 let key = item.name().to_string();
-                let value = rmp_serde::from_slice(item.value().bytes())?;
+                let value =
+                    rmp_serde::from_slice(item.value().bytes()).map_err(Box::new)?;
                 Ok((key, value))
             })
             .try_collect()

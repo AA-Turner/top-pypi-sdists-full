@@ -24,6 +24,8 @@ from .output.table import (
     format_date_only,
 )
 
+from .licensing.licenses import apply_constraint_and_vars
+
 
 def delete_billing_account(ctx, billing_account_id=None, **kwargs):
     client = get_apiclient_from_ctx(ctx)
@@ -372,6 +374,10 @@ def remove_org_from_subscription(ctx, billing_subscription_id, org_id, **kwargs)
 
 def replace_billing_account(
     ctx,
+    license_constraints,
+    constraint_vars,
+    replace_constraints,
+    replace_vars,
     billing_account_id=None,
     customer_id=None,
     dev_mode=None,
@@ -387,6 +393,13 @@ def replace_billing_account(
         existing.spec.dev_mode = dev_mode
     if product_id is not None:
         existing.spec.product_id = product_id
+    apply_constraint_and_vars(
+        existing.spec,
+        license_constraints,
+        constraint_vars,
+        replace_constraints,
+        replace_vars,
+    )
     return client.billing_api.replace_billing_account(
         billing_account_id, billing_account=existing
     )

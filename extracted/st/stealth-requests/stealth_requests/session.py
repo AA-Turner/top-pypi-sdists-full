@@ -34,12 +34,12 @@ with user_agents_path.open() as f:
 
 class BaseStealthSession:
     def __init__(self, **kwargs):
-        self.last_request_url = 'https://www.google.com/'
-
         timeout = kwargs.pop('timeout', 30)
 
         headers = kwargs.pop('headers', {})
         headers.setdefault('User-Agent', random.choice(user_agents))
+
+        self.last_request_url = None
 
         super().__init__(impersonate='chrome', timeout=timeout, headers=headers, **kwargs)
 
@@ -51,7 +51,8 @@ class StealthSession(BaseStealthSession, Session):
     def request(self, method: HttpMethod, url: str, *args, retry: int = 0, **kwargs) -> StealthResponse:
         assert retry >= 0
 
-        extra_headers = {'Referer': self.last_request_url} | kwargs.pop('headers', {})
+        referer = {'Referer': self.last_request_url} if self.last_request_url else {}
+        extra_headers = referer | kwargs.pop('headers', {})
 
         for attempt in range(retry + 1):
             resp = super().request(method, url, *args, headers=extra_headers, **kwargs)
@@ -84,7 +85,8 @@ class AsyncStealthSession(BaseStealthSession, AsyncSession):
     async def request(self, method: HttpMethod, url: str, *args, retry: int = 0, **kwargs) -> StealthResponse:
         assert retry >= 0
 
-        extra_headers = {'Referer': self.last_request_url} | kwargs.pop('headers', {})
+        referer = {'Referer': self.last_request_url} if self.last_request_url else {}
+        extra_headers = referer | kwargs.pop('headers', {})
 
         for attempt in range(retry + 1):
             resp = await super().request(method, url, *args, headers=extra_headers, **kwargs)

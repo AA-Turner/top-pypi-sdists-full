@@ -8,11 +8,11 @@ from hiddifypanel.cache import cache
 from hiddifypanel.models.child import Child, ChildMode
 from sqlalchemy import Column, String, Boolean, Enum, ForeignKey, Integer
 from strenum import StrEnum
-from sqlalchemy_serializer import SerializerMixin
+
 from loguru import logger
 
 
-class BoolConfig(db.Model, SerializerMixin):
+class BoolConfig(db.Model):
     child_id = Column(Integer, ForeignKey('child.id'), primary_key=True, default=0)
     # category = db.Column(db.String(128), primary_key=True)
     key = Column(Enum(ConfigEnum), primary_key=True)
@@ -35,7 +35,7 @@ class BoolConfig(db.Model, SerializerMixin):
         return HConfigSchema().load(conf_dict)
 
 
-class StrConfig(db.Model, SerializerMixin):
+class StrConfig(db.Model):
     child_id = Column(Integer, ForeignKey('child.id'), primary_key=True, default=0)
     # category = db.Column(db.String(128), primary_key=True)
     key = Column(Enum(ConfigEnum), primary_key=True, default=ConfigEnum.admin_secret)
@@ -66,13 +66,13 @@ def hconfig(key: ConfigEnum, child_id: Optional[int] = None):  # -> str | int | 
     value = None
     try:
         if key.type == bool:
-            bool_conf = BoolConfig.query.filter(BoolConfig.key == key, BoolConfig.child_id == child_id).first()
+            bool_conf = db.session.query(BoolConfig).filter(BoolConfig.key == key, BoolConfig.child_id == child_id).first()
             if bool_conf:
                 value = bool_conf.value
             else:
                 logger.warning(f'bool {key} not found ')
         else:
-            str_conf = StrConfig.query.filter(StrConfig.key == key, StrConfig.child_id == child_id).first()
+            str_conf = db.session.query(StrConfig).filter(StrConfig.key == key, StrConfig.child_id == child_id).first()
             if str_conf:
                 value = str_conf.value
             else:
@@ -80,7 +80,7 @@ def hconfig(key: ConfigEnum, child_id: Optional[int] = None):  # -> str | int | 
     except BaseException:
         logger.exception(f'{key} error!')
         raise
-    if value != None:
+    if value is not None:
         if key.type == int:
             return int(value)
         elif hasattr(key.type, 'from_str'):
@@ -107,7 +107,7 @@ def set_hconfig(key: ConfigEnum, value: str | int | bool, child_id: int | None =
     get_hconfigs.invalidate_all()
     old_v = None
     if key.type == bool:
-        dbconf = BoolConfig.query.filter(BoolConfig.key == key, BoolConfig.child_id == child_id).first()
+        dbconf = db.session.query(BoolConfig).filter(BoolConfig.key == key, BoolConfig.child_id == child_id).first()
         if not dbconf:
             dbconf = BoolConfig(key=key, value=value, child_id=child_id)
             db.session.add(dbconf)
@@ -115,7 +115,7 @@ def set_hconfig(key: ConfigEnum, value: str | int | bool, child_id: int | None =
             old_v = dbconf.value
     else:
         value = str(value)
-        dbconf = StrConfig.query.filter(StrConfig.key == key, StrConfig.child_id == child_id).first()
+        dbconf = db.session.query(StrConfig).filter(StrConfig.key == key, StrConfig.child_id == child_id).first()
         if not dbconf:
             dbconf = StrConfig(key=key, value=value, child_id=child_id)
             db.session.add(dbconf)

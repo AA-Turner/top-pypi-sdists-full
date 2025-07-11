@@ -24,20 +24,20 @@ class Animation(Sprite):
             self.frames = [Texture(Image.fromarray(frame)) for frame in gif]
 
         else:   # load image sequence
-            texture_folders = (application.compressed_textures_folder, application.asset_folder, application.internal_textures_folder)
+            texture_folders = (application.textures_compressed_folder, application.asset_folder, application.internal_textures_folder)
             self.frames = [Texture(e) for e in find_sequence(name, ('png', 'jpg'), texture_folders)]
 
+        if not self.frames:
+            self.frames = [load_texture('white_cube.png')]
 
-        if self.frames:
-            super().__init__(texture=self.frames[0])
+        super().__init__(texture=self.frames[0])
 
         self.sequence = Sequence(loop=loop, auto_destroy=False)
-
         self.frame_times = frame_times
         if not self.frame_times:
             self.frame_times = [1/fps for i in range(len(self.frames))]
 
-        for i, frame in enumerate(self.frames):
+        for i, _frame in enumerate(self.frames):
             self.sequence.append(Func(setattr, self, 'texture', self.frames[i]))
             self.sequence.append(Wait(self.frame_times[i]))
 

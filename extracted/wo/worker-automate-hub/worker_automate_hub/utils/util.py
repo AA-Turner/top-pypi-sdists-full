@@ -4723,9 +4723,9 @@ async def post_partner(
 
 async def pessoas_ativa_cliente_fornecedor(
     cod_cliente: str, ativar_cliente: bool, ativar_forcedor: bool
-) -> RpaRetornoProcessoDTO:
+) -> tuple[RpaRetornoProcessoDTO, str]:
     try:
-        app = Application().connect(class_name="TFrmCadastroPessoaNew", timeout=60)
+        app = Application().connect(class_name="TFrmCadastroPessoaNew", timeout=120)
         main_window = app["TFrmCadastroPessoaNew"]
         main_window.set_focus()
 
@@ -4767,7 +4767,14 @@ async def pessoas_ativa_cliente_fornecedor(
                 checkbox_cliente.click()
                 console.print("Ativo como Cliente...\n")
 
-        if cliente_atualizado == True or forncedor_atualizado == True:
+        # Captura o valor do campo UF
+        try:
+            campo_validar = main_window.child_window(class_name="TDBIEditString", found_index=9)
+            texto_campo = campo_validar.window_text().strip()
+        except Exception as e:
+            texto_campo = ""
+
+        if cliente_atualizado or forncedor_atualizado:
             await worker_sleep(2)
             inserir_registro = pyautogui.locateOnScreen(
                 ASSETS_PATH + "\\notas_saida\\salvar_nf_saida.png", confidence=0.8
@@ -4779,7 +4786,7 @@ async def pessoas_ativa_cliente_fornecedor(
             confirm_pop_up = await is_window_open_by_class(
                 "TMessageForm", "TMessageForm"
             )
-            if confirm_pop_up["IsOpened"] == True:
+            if confirm_pop_up["IsOpened"]:
                 app_confirm = Application().connect(class_name="TMessageForm")
                 main_window_confirm = app_confirm["TMessageForm"]
 
@@ -4795,39 +4802,45 @@ async def pessoas_ativa_cliente_fornecedor(
                     main_window.close()
                     return RpaRetornoProcessoDTO(
                         sucesso=True,
-                        retorno=f"Sucesso",
-                        status=RpaHistoricoStatusEnum.Sucesso,
-                    )
+                        retorno="Sucesso",
+                        status=RpaHistoricoStatusEnum.Sucesso
+                    ), texto_campo
                 except:
                     return RpaRetornoProcessoDTO(
                         sucesso=False,
-                        retorno=f"Não foi possivel clicar em No durante a alteração no tipo de cadastro",
+                        retorno="Não foi possível clicar em No durante a alteração no tipo de cadastro",
                         status=RpaHistoricoStatusEnum.Falha,
                         tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                    )
+                    ), texto_campo
             else:
                 pyautogui.press("enter")
                 main_window.set_focus()
                 await worker_sleep(2)
                 main_window.close()
                 return RpaRetornoProcessoDTO(
-                    sucesso=True, retorno=f"Sucesso", status=RpaHistoricoStatusEnum.Sucesso
-                )
+                    sucesso=True,
+                    retorno="Sucesso",
+                    status=RpaHistoricoStatusEnum.Sucesso
+                ), texto_campo
         else:
             main_window.set_focus()
             pyautogui.press("enter")
             await worker_sleep(2)
             main_window.close()
             return RpaRetornoProcessoDTO(
-                sucesso=True, retorno=f"Sucesso", status=RpaHistoricoStatusEnum.Sucesso
-            )
+                sucesso=True,
+                retorno="Sucesso",
+                status=RpaHistoricoStatusEnum.Sucesso
+            ), texto_campo
+
     except Exception as e:
         return RpaRetornoProcessoDTO(
             sucesso=False,
-            retorno=f"Não foi possivel clicar na Lupa para buscar a nota fiscal na tela de nota fiscal de saída, erro: {e}",
+            retorno=f"Erro durante o processamento: {e}",
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-        )
+        ), ""
+
 
 
 async def save_pdf_emsys(file_path):

@@ -35,6 +35,11 @@ def run(
     task_on_scheduler: bool | None = None,
     array: str | None = None,
     scheduler_task_array: str | None = None,
+    map_over_values: list[str] | None = None,
+    map_over_file: str | None = None,
+    map_over_input_var: str | None = None,
+    map_over_task_var_dicts: list[dict[str, str]] | None = None,
+    map_over_delimiter: str | None = None,
     max_workers: int | None = None,
     wait_for_ready_cluster: bool | None = None,
     forward_aws_credentials: bool | None = None,
@@ -48,6 +53,13 @@ def run(
     """Submit a batch job to run on Coiled.
 
     See ``coiled batch run --help`` for documentation.
+
+    Additional Parameters
+    ---------------------
+    map_over_task_var_dicts
+        takes a list of dictionaries, so you can specify multiple environment variables for each task.
+        For example, ``[{"FOO": 1, "BAR": 2}, {"FOO": 3, "BAR": 4}]`` will pass ``FOO=1 BAR=2`` to one task and
+        ``FOO=3 BAR=4`` to another.
     """
     if isinstance(command, str):
         command = shlex.split(command)
@@ -81,6 +93,12 @@ def run(
         task_on_scheduler=task_on_scheduler,
         array=array,
         scheduler_task_array=scheduler_task_array,
+        # for CLI, map_over_values is a single string that needs to be split
+        map_over_split_values=map_over_values,
+        map_over_file=map_over_file,
+        map_over_input_var=map_over_input_var,
+        map_over_delimiter=map_over_delimiter,
+        map_over_task_var_dicts=map_over_task_var_dicts,  # not exposed in CLI
         max_workers=max_workers,
         wait_for_ready_cluster=wait_for_ready_cluster,
         forward_aws_credentials=forward_aws_credentials,

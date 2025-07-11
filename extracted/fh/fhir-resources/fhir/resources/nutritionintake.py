@@ -35,7 +35,7 @@ class NutritionIntake(domainresource.DomainResource):
     __resource_type__ = "NutritionIntake"
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="Fulfils plan, proposal or order",
         description=(
@@ -44,23 +44,25 @@ class NutritionIntake(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["NutritionOrder", "CarePlan", "ServiceRequest"],
         },
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Code representing an overall type of nutrition intake",
         description="Overall type of nutrition intake.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     consumedItem: typing.List[fhirtypes.NutritionIntakeConsumedItemType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="consumedItem",
         title="What food or fluid product or item was consumed",
         description=None,
@@ -70,7 +72,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     derivedFrom: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="derivedFrom",
         title="Additional supporting information",
         description=(
@@ -86,19 +88,20 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     encounter: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="encounter",
         title="Encounter associated with NutritionIntake",
         description="The encounter that establishes the context for this NutritionIntake.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Encounter"],
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="External identifier",
         description=(
@@ -111,11 +114,12 @@ class NutritionIntake(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     ingredientLabel: typing.List[fhirtypes.NutritionIntakeIngredientLabelType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="ingredientLabel",
         title="Total nutrient for the whole meal, product, serving",
         description="Total nutrient amounts for the whole meal, product, serving, etc.",
@@ -125,7 +129,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     instantiatesCanonical: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instantiatesCanonical",
         title="Instantiates FHIR protocol or definition",
         description=None,
@@ -151,13 +155,13 @@ class NutritionIntake(domainresource.DomainResource):
         },
     )
     instantiatesCanonical__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_instantiatesCanonical",
         title="Extension field for ``instantiatesCanonical``.",
     )
 
     instantiatesUri: typing.List[fhirtypes.UriType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instantiatesUri",
         title="Instantiates external protocol or definition",
         description=None,
@@ -166,11 +170,13 @@ class NutritionIntake(domainresource.DomainResource):
         },
     )
     instantiatesUri__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_instantiatesUri", title="Extension field for ``instantiatesUri``."
+        default=None,
+        alias="_instantiatesUri",
+        title="Extension field for ``instantiatesUri``.",
     )
 
     location: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="Where the intake occurred",
         description=None,
@@ -182,7 +188,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Further information about the consumption",
         description=(
@@ -195,7 +201,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     occurrenceDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrenceDateTime",
         title="The date/time or interval when the food or fluid is/was consumed",
         description=(
@@ -204,19 +210,20 @@ class NutritionIntake(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
         },
     )
     occurrenceDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_occurrenceDateTime",
         title="Extension field for ``occurrenceDateTime``.",
     )
 
     occurrencePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrencePeriod",
         title="The date/time or interval when the food or fluid is/was consumed",
         description=(
@@ -225,6 +232,7 @@ class NutritionIntake(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
@@ -232,19 +240,20 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     partOf: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="partOf",
         title="Part of referenced event",
         description="A larger event of which this particular event is a component or step.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["NutritionIntake", "Procedure", "Observation"],
         },
     )
 
     performer: typing.List[fhirtypes.NutritionIntakePerformerType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="performer",
         title="Who was performed in the intake",
         description="Who performed the intake and how they were involved.",
@@ -254,7 +263,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     reason: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title="Reason for why the food or fluid is /was consumed",
         description=(
@@ -274,7 +283,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     recorded: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="recorded",
         title="When the intake was recorded",
         description=(
@@ -283,14 +292,15 @@ class NutritionIntake(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     recorded__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_recorded", title="Extension field for ``recorded``."
+        default=None, alias="_recorded", title="Extension field for ``recorded``."
     )
 
     reportedBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reportedBoolean",
         title=(
             "Person or organization that provided the information about the "
@@ -309,11 +319,13 @@ class NutritionIntake(domainresource.DomainResource):
         },
     )
     reportedBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_reportedBoolean", title="Extension field for ``reportedBoolean``."
+        default=None,
+        alias="_reportedBoolean",
+        title="Extension field for ``reportedBoolean``.",
     )
 
     reportedReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reportedReference",
         title=(
             "Person or organization that provided the information about the "
@@ -341,7 +353,7 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "preparation | in-progress | not-done | on-hold | stopped | completed |"
@@ -354,6 +366,7 @@ class NutritionIntake(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -370,11 +383,11 @@ class NutritionIntake(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     statusReason: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusReason",
         title="Reason for current status",
         description="Captures the reason for the current state of the NutritionIntake.",
@@ -384,12 +397,13 @@ class NutritionIntake(domainresource.DomainResource):
     )
 
     subject: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="subject",
         title="Who is/was consuming the food or fluid",
         description="The person, animal or group who is/was consuming the food or fluid.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Group"],
         },
@@ -397,9 +411,9 @@ class NutritionIntake(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``NutritionIntake`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``NutritionIntake`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -432,6 +446,28 @@ class NutritionIntake(domainresource.DomainResource):
             "derivedFrom",
             "reason",
             "note",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``NutritionIntake`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "identifier",
+            "basedOn",
+            "partOf",
+            "status",
+            "code",
+            "subject",
+            "encounter",
+            "occurrenceDateTime",
+            "occurrencePeriod",
+            "recorded",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -476,17 +512,18 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
     __resource_type__ = "NutritionIntakeConsumedItem"
 
     amount: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title="Quantity of the specified food",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     notConsumed: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="notConsumed",
         title=(
             "Flag to indicate if the food or fluid item was refused or otherwise "
@@ -504,11 +541,11 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
         },
     )
     notConsumed__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_notConsumed", title="Extension field for ``notConsumed``."
+        default=None, alias="_notConsumed", title="Extension field for ``notConsumed``."
     )
 
     notConsumedReason: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="notConsumedReason",
         title="Reason food or fluid was not consumed",
         description=(
@@ -521,7 +558,7 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
     )
 
     nutritionProduct: fhirtypes.CodeableReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="nutritionProduct",
         title="Code that identifies the food or fluid product that was consumed",
         description=(
@@ -532,23 +569,25 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["NutritionProduct"],
         },
     )
 
     rate: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rate",
         title="Rate at which enteral feeding was administered",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     schedule: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="schedule",
         title="Scheduled frequency of consumption",
         description=None,
@@ -558,7 +597,7 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="The type of food or fluid product",
         description=(
@@ -567,14 +606,15 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``NutritionIntakeConsumedItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``NutritionIntakeConsumedItem`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -589,6 +629,13 @@ class NutritionIntakeConsumedItem(backboneelement.BackboneElement):
             "notConsumedReason",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``NutritionIntakeConsumedItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "type", "nutritionProduct", "amount", "rate"]
+
 
 class NutritionIntakeIngredientLabel(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -602,7 +649,7 @@ class NutritionIntakeIngredientLabel(backboneelement.BackboneElement):
     __resource_type__ = "NutritionIntakeIngredientLabel"
 
     amount: fhirtypes.QuantityType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="amount",
         title="Total amount of nutrient consumed",
         description=None,
@@ -612,7 +659,7 @@ class NutritionIntakeIngredientLabel(backboneelement.BackboneElement):
     )
 
     nutrient: fhirtypes.CodeableReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="nutrient",
         title="Total nutrient consumed",
         description=(
@@ -628,11 +675,18 @@ class NutritionIntakeIngredientLabel(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``NutritionIntakeIngredientLabel`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``NutritionIntakeIngredientLabel`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "nutrient", "amount"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``NutritionIntakeIngredientLabel`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class NutritionIntakePerformer(backboneelement.BackboneElement):
@@ -647,7 +701,7 @@ class NutritionIntakePerformer(backboneelement.BackboneElement):
     __resource_type__ = "NutritionIntakePerformer"
 
     actor: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="actor",
         title="Who performed the intake",
         description=None,
@@ -667,7 +721,7 @@ class NutritionIntakePerformer(backboneelement.BackboneElement):
     )
 
     function: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="function",
         title="Type of performer",
         description=None,
@@ -678,8 +732,15 @@ class NutritionIntakePerformer(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``NutritionIntakePerformer`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``NutritionIntakePerformer`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "function", "actor"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``NutritionIntakePerformer`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

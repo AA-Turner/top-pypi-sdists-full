@@ -29,7 +29,7 @@ class FormularyItem(domainresource.DomainResource):
     __resource_type__ = "FormularyItem"
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Codes that identify this formulary item",
         description=(
@@ -38,21 +38,23 @@ class FormularyItem(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier for this formulary item",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="active | entered-in-error | inactive",
         description=(
@@ -61,20 +63,21 @@ class FormularyItem(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["active", "entered-in-error", "inactive"],
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``FormularyItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``FormularyItem`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -84,6 +87,21 @@ class FormularyItem(domainresource.DomainResource):
             "text",
             "contained",
             "extension",
+            "modifierExtension",
+            "identifier",
+            "code",
+            "status",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``FormularyItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "modifierExtension",
             "identifier",
             "code",

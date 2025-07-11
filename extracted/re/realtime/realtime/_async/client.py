@@ -3,13 +3,14 @@ import json
 import logging
 import re
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import urlencode, urlparse, urlunparse
 
 import websockets
 from websockets import connect
-from websockets.client import ClientProtocol
+from websockets.asyncio.client import ClientConnection
 
+from ..exceptions import NotConnectedError
 from ..message import Message
 from ..transformers import http_endpoint_url
 from ..types import (
@@ -61,7 +62,7 @@ class AsyncRealtimeClient:
         :param timeout: Connection timeout in seconds. Defaults to DEFAULT_TIMEOUT.
         """
         if not is_ws_url(url):
-            ValueError("url must be a valid WebSocket URL or HTTP URL string")
+            raise ValueError("url must be a valid WebSocket URL or HTTP URL string")
         self.url = f"{re.sub(r'https://', 'wss://', re.sub(r'http://', 'ws://', url, flags=re.IGNORECASE), flags=re.IGNORECASE)}/websocket"
         if token:
             self.url += f"?apikey={token}"
@@ -71,7 +72,7 @@ class AsyncRealtimeClient:
         self.access_token = token
         self.send_buffer: List[Callable] = []
         self.hb_interval = hb_interval
-        self._ws_connection: Optional[ClientProtocol] = None
+        self._ws_connection: Optional[ClientConnection] = None
         self.ref = 0
         self.auto_reconnect = auto_reconnect
         self.channels: Dict[str, AsyncRealtimeChannel] = {}
@@ -92,18 +93,20 @@ class AsyncRealtimeClient:
         """
 
         if not self._ws_connection:
-            raise Exception("WebSocket connection not established")
+            raise NotConnectedError("_listen")
 
         try:
             async for msg in self._ws_connection:
-                logger.info(f"receive: {msg}")
+                logger.info(f"receive: {msg!r}")
 
-                msg = Message(**json.loads(msg))
-                channel = self.channels.get(msg.topic)
+                message = Message.model_validate_json(msg)
+                channel = self.channels.get(message.topic)
 
                 if channel:
-                    channel._trigger(msg.event, msg.payload, msg.ref)
-        except Exception as e:
+                    channel._trigger(
+                        message.event, dict(**message.payload), message.ref
+                    )
+        except websockets.exceptions.ConnectionClosedError as e:
             await self._on_connect_error(e)
 
     async def _reconnect(self) -> None:
@@ -186,19 +189,18 @@ class AsyncRealtimeClient:
         self._heartbeat_task = asyncio.create_task(self._heartbeat())
         await self._flush_send_buffer()
 
-    async def _on_connect_error(self, e: Exception) -> None:
-        if isinstance(e, websockets.exceptions.ConnectionClosedError):
-            logger.error(
-                f"WebSocket connection closed with code: {e.code}, reason: {e.reason}"
-            )
+    async def _on_connect_error(
+        self, e: websockets.exceptions.ConnectionClosedError
+    ) -> None:
+        logger.error(
+            f"WebSocket connection closed with code: {e.code}, reason: {e.reason}"
+        )
 
-            if self.auto_reconnect:
-                logger.info("Initiating auto-reconnect sequence...")
-                await self._reconnect()
-            else:
-                logger.error("Auto-reconnect disabled, terminating connection")
+        if self.auto_reconnect:
+            logger.info("Initiating auto-reconnect sequence...")
+            await self._reconnect()
         else:
-            logger.error(f"Error on connect: {e}")
+            logger.error("Auto-reconnect disabled, terminating connection")
 
     async def _flush_send_buffer(self):
         if self.is_connected and len(self.send_buffer) > 0:
@@ -232,11 +234,11 @@ class AsyncRealtimeClient:
 
     async def _heartbeat(self) -> None:
         if not self._ws_connection:
-            raise Exception("WebSocket connection not established")
+            raise NotConnectedError("_heartbeat")
 
         while self.is_connected:
             try:
-                data = dict(
+                data = Message(
                     topic=PHOENIX_CHANNEL,
                     event=ChannelEvents.heartbeat,
                     payload={},
@@ -245,8 +247,10 @@ class AsyncRealtimeClient:
                 await self.send(data)
                 await asyncio.sleep(max(self.hb_interval, 15))
 
-            except Exception as e:
+            except websockets.exceptions.ConnectionClosedError as e:
                 await self._on_connect_error(e)
+            except websockets.exceptions.ConnectionClosedOK as e:
+                pass
 
     def channel(
         self, topic: str, params: Optional[RealtimeChannelOptions] = None
@@ -292,14 +296,6 @@ class AsyncRealtimeClient:
 
         await self.close()
 
-    def summary(self) -> None:
-        """
-        Prints a list of topics and event the socket is listening to
-        :return: None
-        """
-        for topic, channel in self.channels.items():
-            print(f"Topic: {topic} | Events: {[e for e, _ in channel.listeners]}]")
-
     async def set_auth(self, token: Optional[str]) -> None:
         """
         Set the authentication token for the connection and update all joined channels.
@@ -323,7 +319,7 @@ class AsyncRealtimeClient:
         self.ref += 1
         return f"{self.ref}"
 
-    async def send(self, message: Dict[str, Any]) -> None:
+    async def send(self, message: Union[Message, Dict[str, Any]]) -> None:
         """
         Send a message through the WebSocket connection.
 
@@ -338,20 +334,26 @@ class AsyncRealtimeClient:
         Returns:
             None
         """
-
-        message = json.dumps(message)
-        logger.info(f"send: {message}")
+        if isinstance(message, Message):
+            msg = message
+        else:
+            logger.warning(
+                "Warning: calling AsyncRealtimeClient.send with a dictionary is deprecated. Please call it with a Message object instead. This will be a hard error in the future."
+            )
+            msg = Message(**message)
+        message_str = msg.model_dump_json()
+        logger.info(f"send: {message_str}")
 
         async def send_message():
             if not self._ws_connection:
-                raise Exception(
-                    "WebSocket connection not established, a connection is expected to be established before sending a message"
-                )
+                raise NotConnectedError("_send")
 
             try:
-                await self._ws_connection.send(message)
-            except Exception as e:
+                await self._ws_connection.send(message_str)
+            except websockets.exceptions.ConnectionClosedError as e:
                 await self._on_connect_error(e)
+            except websockets.exceptions.ConnectionClosedOK:
+                pass
 
         if self.is_connected:
             await send_message()

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stealth-requests"
-version = "2.0.0"
+version = "2.0.4"
 description = "Undetected web-scraping & seamless HTML parsing in Python!"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9"
@@ -15,11 +15,7 @@ authors = [
 keywords = ["HTTP", "requests", "scraping", "browser"]
 urls = { "Homepage" = "https://github.com/jpjacobpadilla/Stealth-Requests" }
 
-dependencies = [
-    "curl_cffi",
-    "lxml>=6.0.0",
-    "notebook>=7.4.4",
-]
+dependencies = ["curl_cffi"]
 
 [project.optional-dependencies]
 parsers = [

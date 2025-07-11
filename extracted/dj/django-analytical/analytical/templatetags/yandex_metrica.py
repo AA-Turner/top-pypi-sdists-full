@@ -12,7 +12,7 @@ from analytical.utils import disable_html, get_required_setting, is_internal_ip
 
 COUNTER_ID_RE = re.compile(r'^\d{8}$')
 COUNTER_CODE = """
-    <script type="text/javascript">
+    <script>
         (function (d, w, c) {
             (w[c] = w[c] || []).push(function() {
                 try {
@@ -57,15 +57,17 @@ def yandex_metrica(parser, token):
 class YandexMetricaNode(Node):
     def __init__(self):
         self.counter_id = get_required_setting(
-                'YANDEX_METRICA_COUNTER_ID', COUNTER_ID_RE,
-                "must be (a string containing) a number'")
+            'YANDEX_METRICA_COUNTER_ID',
+            COUNTER_ID_RE,
+            "must be (a string containing) a number'",
+        )
 
     def render(self, context):
         options = {
             'id': int(self.counter_id),
             'clickmap': True,
             'trackLinks': True,
-            'accurateTrackBounce': True
+            'accurateTrackBounce': True,
         }
         if getattr(settings, 'YANDEX_METRICA_WEBVISOR', False):
             options['webvisor'] = True

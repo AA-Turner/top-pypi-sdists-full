@@ -4,13 +4,14 @@ from enum import auto
 from sqlalchemy import Column, String, Integer, Boolean, Enum, ForeignKey
 
 from hiddifypanel.database import db
-from sqlalchemy_serializer import SerializerMixin
+
+from sqlalchemy.types import JSON
 
 
 class ProxyTransport(StrEnum):
     h2 = auto()
     grpc = auto()
-    XTLS = auto()
+    # XTLS = auto()
     faketls = auto()
     shadowtls = auto()
     restls1_2 = auto()
@@ -59,7 +60,7 @@ class ProxyL3(StrEnum):
     custom = auto()
 
 
-class Proxy(db.Model, SerializerMixin):  # type: ignore
+class Proxy(db.Model):  # type: ignore
     id = Column(Integer, primary_key=True, autoincrement=True)
     child_id = Column(Integer, ForeignKey('child.id'), default=0)
     name = Column(String(200), nullable=False, unique=False)
@@ -68,6 +69,7 @@ class Proxy(db.Model, SerializerMixin):  # type: ignore
     l3 = Column(Enum(ProxyL3), nullable=False)
     transport = Column(Enum(ProxyTransport), nullable=False)
     cdn = Column(Enum(ProxyCDN), nullable=False)
+    params = Column(JSON,default={})
 
     @property
     def enabled(self):
@@ -81,7 +83,8 @@ class Proxy(db.Model, SerializerMixin):  # type: ignore
             'l3': self.l3,
             'transport': self.transport,
             'cdn': self.cdn,
-            'child_unique_id': self.child.unique_id if self.child else ''
+            'child_unique_id': self.child.unique_id if self.child else '',
+            'params': self.params
         }
 
     def __str__(self):
@@ -96,9 +99,12 @@ class Proxy(db.Model, SerializerMixin):  # type: ignore
         dbproxy.enable = proxy['enable']
         dbproxy.name = proxy['name']
         dbproxy.proto = proxy['proto']
+        if proxy['transport']=="splithttp":
+            proxy['transport']="xhttp"
         dbproxy.transport = proxy['transport']
         dbproxy.cdn = proxy['cdn']
         dbproxy.l3 = proxy['l3']
+        dbproxy.params=proxy['params']
         dbproxy.child_id = child_id
         if commit:
             db.session.commit()  # type: ignore

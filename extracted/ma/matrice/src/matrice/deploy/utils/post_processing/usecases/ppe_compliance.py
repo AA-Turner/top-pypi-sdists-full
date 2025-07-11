@@ -158,13 +158,13 @@ class PPEComplianceUseCase(BaseProcessor):
         if not stream_info:
             return "00:00:00.00"
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        if is_video_chunk:
-            video_timestamp = stream_info.get("video_timestamp", 0.0)
-            return self._format_timestamp_for_video(video_timestamp)
-        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        # if is_video_chunk:
+        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
+        #     return self._format_timestamp_for_video(video_timestamp)
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, return video timestamp
             stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str
+            return stream_time_str[:8]
         else:
             stream_time_str = stream_info.get("stream_time", "")
             if stream_time_str:

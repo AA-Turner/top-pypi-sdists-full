@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: aiotieba
-Version: 4.5.3
+Version: 4.6.0
 Summary: Asynchronous I/O Client for Baidu Tieba
 Keywords: baidu,tieba
 Author-Email: lumina37 <starry.qvq@gmail.com>
@@ -23,18 +23,20 @@ Requires-Dist: aiohttp<4,>=3.11.0; python_version == "3.12"
 Requires-Dist: aiohttp<4,>=3.11.0; python_version >= "3.13"
 Requires-Dist: beautifulsoup4<5,>=4.5.2; python_version == "3.9"
 Requires-Dist: beautifulsoup4<5,>=4.7.1; python_version >= "3.10"
-Requires-Dist: lxml<6,>=4.6.0; python_version == "3.9"
-Requires-Dist: lxml<6,>=4.6.4; python_version == "3.10"
-Requires-Dist: lxml<6,>=4.9.2; python_version == "3.11"
-Requires-Dist: lxml<6,>=4.9.3; python_version == "3.12"
-Requires-Dist: lxml<6,>=5.3.0; python_version >= "3.13"
-Requires-Dist: protobuf<6,>=4.21.1
+Requires-Dist: lxml<7,>=4.6.0; python_version == "3.9"
+Requires-Dist: lxml<7,>=4.6.4; python_version == "3.10"
+Requires-Dist: lxml<7,>=4.9.2; python_version == "3.11"
+Requires-Dist: lxml<7,>=4.9.3; python_version == "3.12"
+Requires-Dist: lxml<7,>=5.3.0; python_version >= "3.13"
+Requires-Dist: protobuf<7,>=4.21.1
 Requires-Dist: cryptography<41,>=35.0.0; python_version >= "3.9" and python_version < "3.12"
-Requires-Dist: cryptography<45,>=35.0.0; python_version >= "3.12"
+Requires-Dist: cryptography<46,>=35.0.0; python_version >= "3.12"
 Requires-Dist: async-timeout<6,>=4.0; python_version < "3.11"
 Requires-Dist: StrEnum<0.5,>=0.4.0; python_version < "3.11"
+Provides-Extra: img
 Requires-Dist: opencv-contrib-python-headless<5,>=4.6.0.66; sys_platform == "linux" and extra == "img"
 Requires-Dist: opencv-contrib-python<5,>=4.6.0.66; sys_platform != "linux" and extra == "img"
+Provides-Extra: speedup
 Requires-Dist: orjson<4,>=2.2.0; python_version == "3.9" and extra == "speedup"
 Requires-Dist: orjson<4,>=3.4.7; python_version == "3.10" and extra == "speedup"
 Requires-Dist: orjson<4,>=3.7.10; python_version == "3.11" and extra == "speedup"
@@ -45,8 +47,6 @@ Requires-Dist: uvloop<1.0,>=0.16.0; python_version == "3.10" and sys_platform !=
 Requires-Dist: uvloop<1.0,>=0.17.0; python_version == "3.11" and sys_platform != "win32" and extra == "speedup"
 Requires-Dist: uvloop<1.0,>=0.18.0; python_version == "3.12" and sys_platform != "win32" and extra == "speedup"
 Requires-Dist: uvloop<1.0,>=0.21.0; python_version >= "3.13" and sys_platform != "win32" and extra == "speedup"
-Provides-Extra: img
-Provides-Extra: speedup
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -126,6 +126,7 @@ tid=8537699088 text=记录一下自己人生第一次当“老师”的经历^_^
 + [基于aiotieba的tieba bot](https://github.com/adk23333/BungleCat)
 + [基于aiotieba的贴吧管理器](https://github.com/adk23333/tieba-admin)
 + [C#版本的贴吧接口库](https://github.com/BaWuZhuShou/AioTieba4DotNet)
++ [贴吧第三方网页前端](https://0xacab.org/johnxina/rat)
 + [贴吧protobuf定义文件合集（更新至12.51.7.1）](https://github.com/n0099/tbclient.protobuf)
 + [TiebaLite 第三方安卓客户端（已停更）](https://github.com/HuanCheng65/TiebaLite/tree/4.0-dev)
 

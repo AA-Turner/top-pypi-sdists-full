@@ -2,13 +2,14 @@
 # Licensed under the MIT License.
 
 """
-Doubly Robust Learner. The method uses the doubly robust correction to construct doubly
+Doubly Robust Learner.
+
+The method uses the doubly robust correction to construct doubly
 robust estimates of all the potential outcomes of each samples. Then estimates a CATE model
 by regressing the potential outcome differences on the heterogeneity features X.
 
 References
 ----------
-
 Dylan Foster, Vasilis Syrgkanis (2019).
     Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
@@ -35,27 +36,24 @@ Tsiatis AA (2006).
 """
 
 from warnings import warn
-from copy import deepcopy
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import (LassoCV, LinearRegression,
-                                  LogisticRegressionCV)
-from sklearn.ensemble import RandomForestRegressor
 
 
 from .._ortho_learner import _OrthoLearner
-from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, BaseCateEstimator,
-                               ForestModelFinalCateEstimatorDiscreteMixin,
+from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, ForestModelFinalCateEstimatorDiscreteMixin,
                                StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from ..inference import GenericModelFinalInferenceDiscrete
 from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
-    DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+    DebiasedLasso, StatsModelsLinearRegression)
 from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, get_selector
-from ..utilities import (_deprecate_positional, check_high_dimensional,
+from ..utilities import (check_high_dimensional,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV,
+                                             sensitivity_summary, dr_sensitivity_values)
 
 
 class _ModelNuisance(ModelSelector):
@@ -99,7 +97,7 @@ class _ModelNuisance(ModelSelector):
 
     def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
-        propensities = np.maximum(self._model_propensity.predict_proba(XW), self._min_propensity)
+        propensities = np.clip(self._model_propensity.predict_proba(XW), self._min_propensity, 1-self._min_propensity)
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
@@ -122,9 +120,7 @@ class _ModelNuisance(ModelSelector):
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
             Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
-        propensities_weight = np.sum(propensities * T_complete, axis=1)
-        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
+        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities
 
 
 def _make_first_stage_selector(model, is_discrete, random_state):
@@ -147,9 +143,15 @@ class _ModelFinal:
 
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
-        Y_pred, propensities = nuisances
+        Y_pred, T_pred = nuisances
+        self.sensitivity_params = dr_sensitivity_values(Y, T, Y_pred, T_pred)
+
+        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
+        propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
+
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
+
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
 
@@ -187,6 +189,7 @@ class _ModelFinal:
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         Y_pred, _ = nuisances
+
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
             cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
@@ -207,9 +210,9 @@ class _ModelFinal:
 
 class DRLearner(_OrthoLearner):
     """
-    CATE estimator that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms. The estimator is a special
-    case of an :class:`._OrthoLearner` estimator, so it follows the two
+    CATE estimator that uses doubly-robust correction to account for selection bias between the treatment arms.
+
+    The estimator is a special case of an :class:`._OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
     :class:`._OrthoLearner` for a description of this two stage process.
@@ -361,18 +364,18 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.const_marginal_effect(X[:2])
-    array([[0.516931..., 0.995704...],
-           [0.356427..., 0.671870...]])
+    array([[0.516888..., 0.995747...],
+           [0.356386..., 0.671889...]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([0.516931..., 0.356427...])
+    array([0.516888..., 0.356386...])
     >>> est.score_
-    2.84365756...
+    np.float64(2.845660...)
     >>> est.score(y, T, X=X)
-    1.06259465...
+    np.float64(1.062668...)
     >>> est.model_cate(T=1).coef_
-    array([ 0.447095..., -0.001013... ,  0.018982...])
+    array([ 0.447146..., -0.001025...,  0.018984...])
     >>> est.model_cate(T=2).coef_
-    array([ 0.925055..., -0.012357... ,  0.033489...])
+    array([ 0.925064..., -0.012351...,  0.033480...])
     >>> est.cate_feature_names()
     ['X0', 'X1', 'X2']
 
@@ -396,7 +399,7 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    1.7...
+    np.float64(1.73...)
     >>> est.const_marginal_effect(X[:3])
     array([[0.68..., 1.10...],
            [0.56..., 0.79... ],
@@ -404,11 +407,11 @@ class DRLearner(_OrthoLearner):
     >>> est.model_cate(T=2).coef_
     array([0.74..., 0.        , 0.        ])
     >>> est.model_cate(T=2).intercept_
-    1.9...
+    np.float64(1.9...)
     >>> est.model_cate(T=1).coef_
     array([0.24..., 0.00..., 0.        ])
     >>> est.model_cate(T=1).intercept_
-    0.94...
+    np.float64(0.94...)
 
     Attributes
     ----------
@@ -580,7 +583,9 @@ class DRLearner(_OrthoLearner):
 
     def score(self, Y, T, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -676,12 +681,12 @@ class DRLearner(_OrthoLearner):
 
     @property
     def nuisance_scores_propensity(self):
-        """Gets the score for the propensity model on out-of-sample training data"""
+        """Get the score for the propensity model on out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_regression(self):
-        """Gets the score for the regression model on out-of-sample training data"""
+        """Get the score for the regression model on out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
@@ -753,12 +758,133 @@ class DRLearner(_OrthoLearner):
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
+    def sensitivity_summary(self, T, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE for a given treatment.
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return sensitivity_summary(**sensitivity_params, null_hypothesis=null_hypothesis, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
+    def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
+        """
+        Calculate the sensitivity interval for the ATE for a given treatment category.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Based on [Chernozhukov2022]_
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to calculate the sensitivity interval.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE for treatment T
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return sensitivity_interval(**sensitivity_params, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
+
+
+    def robustness_value(self, T, null_hypothesis=0, alpha=0.05, interval_type='ci'):
+        """
+        Calculate the robustness value for the ATE for a given treatment category.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
+
+        Based on [Chernozhukov2022]_
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to calculate the robustness value.
+
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return RV(**sensitivity_params, null_hypothesis=null_hypothesis, alpha=alpha, interval_type=interval_type)
+
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`.DRLearner` where the final stage
-    is a Linear Regression on a low dimensional set of features. In this case, inference
-    can be performed via the asymptotic normal characterization of the estimated parameters.
+    Special case of :class:`.DRLearner` where the final stage is Linear Regression on a low dimensional set of features.
+
+    In this case, inference can be performed via the asymptotic normal characterization of the estimated parameters.
     This is computationally faster than bootstrap inference. To do this, just leave the setting ``inference='auto'``
     unchanged, or explicitly set ``inference='statsmodels'`` or alter the covariance type calculation via
     ``inference=StatsModelsInferenceDiscrete(cov_type='HC1)``.
@@ -889,17 +1015,19 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.432476...,  0.359739..., -0.085326...])
+    array([ 0.432365...,  0.359694..., -0.085428...])
     >>> est.effect_interval(X[:3])
-    (array([ 0.084145... , -0.178020..., -0.734688...]), array([0.780807..., 0.897500..., 0.564035...]))
+    (array([ 0.084048..., -0.177951... , -0.734747...]),
+    array([0.780683..., 0.897341..., 0.563889...]))
     >>> est.coef_(T=1)
-    array([ 0.450620..., -0.008792...,  0.075242...])
+    array([ 0.450666..., -0.008821...,  0.075271...])
     >>> est.coef__interval(T=1)
-    (array([ 0.156233... , -0.252177..., -0.159805...]), array([0.745007..., 0.234592..., 0.310290...]))
+    (array([ 0.156245..., -0.252216..., -0.159709...]),
+    array([0.745086..., 0.234572..., 0.310252...]))
     >>> est.intercept_(T=1)
-    0.90916103...
+    np.float64(0.909121...)
     >>> est.intercept__interval(T=1)
-    (0.66855287..., 1.14976919...)
+    (np.float64(0.668518...), np.float64(1.149723...))
 
     Attributes
     ----------
@@ -1036,8 +1164,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
 class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`.DRLearner` where the final stage
-    is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
+    Special case of the :class:`.DRLearner` where the final stage is a Debiased Lasso Regression.
+
+    In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
     ``inference='debiasedlasso'`` at fit time to enable inference via asymptotic normality.
@@ -1194,7 +1323,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.43...,  0.35..., -0.08...  ])
+    array([ 0.43...,  0.35..., -0.08...])
     >>> est.effect_interval(X[:3])
     (array([-0.01..., -0.26..., -0.81...]), array([0.87..., 0.98..., 0.65...]))
     >>> est.coef_(T=1)
@@ -1202,9 +1331,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     >>> est.coef__interval(T=1)
     (array([ 0.19... , -0.24..., -0.17...]), array([0.70..., 0.22..., 0.32...]))
     >>> est.intercept_(T=1)
-    0.90...
+    np.float64(0.90...)
     >>> est.intercept__interval(T=1)
-    (0.66..., 1.14...)
+    (np.float64(0.66...), np.float64(1.14...))
 
     Attributes
     ----------
@@ -1350,8 +1479,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
 
 class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
-    """ Instance of DRLearner with a :class:`~econml.grf.RegressionForest`
-    as a final model, so as to enable non-parametric inference.
+    """
+    Instance of DRLearner with a :class:`~econml.grf.RegressionForest` final model to enable non-parametric inference.
 
     Parameters
     ----------

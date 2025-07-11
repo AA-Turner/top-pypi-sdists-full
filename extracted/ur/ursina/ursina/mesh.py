@@ -6,15 +6,22 @@ import array
 
 from ursina import application
 from ursina import color
+from ursina.color import Color
 from ursina.scripts.generate_normals import generate_normals
 from ursina.scripts.project_uvs import project_uvs
 from ursina.scripts.colorize import colorize
-from ursina.ursinastuff import LoopingList
+from ursina.array_tools import LoopingList
 from ursina.vec3 import Vec3
 from ursina.vec2 import Vec2
 from ursina.sequence import Func
 
 import panda3d.core as p3d
+
+try:
+    from warnings import deprecated
+except:
+    from ursina.scripts.deprecated_decorator import deprecated
+
 
 class MeshModes(Enum):
     triangle = 'triangle'
@@ -91,7 +98,7 @@ class Mesh(p3d.NodePath):
         except:
             raise Exception(f'Error in Mesh. Ensure Mesh is valid and the inputs have same length: vertices:{len(self.vertices)}, triangles:{len(self.triangles)}, normals:{len(self.normals)}, colors:{len(self.colors)}, uvs:{len(self.uvs)}')
 
-    def generate(self):
+    def generate(self): # Must be called after a mesh's values has been updated in order to update visually
         self._generated_vertices = None
 
         if hasattr(self, 'geomNode'):
@@ -186,6 +193,7 @@ class Mesh(p3d.NodePath):
                 self._set_array_data(vdata.modify_array(normal_attribute_index), self._ravel(self.normals), 'f')
 
         geom = p3d.Geom(vdata)
+        self.geom = geom
 
         if len(self.triangles) == 0:    # no triangles provided, so just add them in order
             prim = Mesh._modes[self.mode](static_mode)
@@ -245,10 +253,11 @@ class Mesh(p3d.NodePath):
 
         if self.mode == 'point':
             self.setTexGen(p3d.TextureStage.getDefault(), p3d.TexGenAttrib.MPointSprite)
+            # self.setShaderAuto()
 
 
     @property
-    def indices(self):
+    def indices(self):  # Get the vertex indices as a flat list. For example if you have tuples in triangles :((0,1,2),(3,4,5)) -> (0,1,2,3,4,5). Or with quads: ((0,1,2,3),) -> (0,1,2,2,3,0).
         if not self.triangles:
             return list(range(len(self.vertices)))
 
@@ -295,31 +304,28 @@ class Mesh(p3d.NodePath):
     def generated_vertices(self, value):
         self._generated_vertices = value
 
-    @property
-    def recipe(self):
-        if hasattr(self, '_recipe'):
-            return self._recipe
 
+    def serialize(self, vertex_decimal_limit=4, color_decimal_limit=4, uv_decimal_limit=4, normal_decimal_limit=4):
         vbuf_format = self.vertex_buffer_format
         if vbuf_format is not None:
             vbuf_format = f'"{vbuf_format}"'
 
-        return dedent(f'''
-            Mesh(
-                vertices={[tuple(e) for e in self.vertices]},
-                triangles={self.triangles},
-                colors={[tuple(e) for e in self.colors]},
-                uvs={[tuple(e) for e in self.uvs]},
-                normals={[tuple(e) for e in self.normals]},
-                static={self.static},
-                mode="{self.mode}",
-                thickness={self.thickness},
-                render_points_in_3d={self.render_points_in_3d},
-                vertex_buffer={self.vertex_buffer},
-                vertex_buffer_length={self.vertex_buffer_length},
-                vertex_buffer_format={vbuf_format}
-            )
-        ''')
+        mesh_as_string = 'Mesh('
+        mesh_as_string += f'\n    vertices={[tuple(round(e, vertex_decimal_limit) for e in vert) for vert in self.vertices]},' if self.vertices else ''
+        mesh_as_string += f'\n    triangles={self.triangles},' if self.triangles else ''
+        mesh_as_string += f'\n    colors={[tuple(round(e, color_decimal_limit) for e in col) for col in self.colors]},' if self.colors else ''
+        mesh_as_string += f'\n    uvs={[tuple(round(e, uv_decimal_limit) for e in uv) for uv in self.uvs]},' if self.uvs else ''
+        mesh_as_string += f'\n    normals={[tuple(round(e, normal_decimal_limit) for e in norm) for norm in self.normals]},' if self.normals else ''
+        mesh_as_string += f'\n    static={self.static},' if not self.static else ''
+        mesh_as_string += f'\n    mode="{self.mode}",' if self.mode != 'triangle' else ''
+        mesh_as_string += f'\n    thickness={self.thickness},' if self.thickness != 1 else ''
+        mesh_as_string += f'\n    render_points_in_3d={self.render_points_in_3d},' if not self.render_points_in_3d else ''
+        mesh_as_string += f'\n    vertex_buffer={self.vertex_buffer},' if self.vertex_buffer is not None else ''
+        mesh_as_string += f'\n    vertex_buffer_length={self.vertex_buffer_length},' if self.vertex_buffer_length is not None else ''
+        mesh_as_string += f'\n    vertex_buffer_format={vbuf_format},' if self.vertex_buffer_format is not None else ''
+
+        mesh_as_string += '\n    )'
+        return mesh_as_string
 
 
     @property
@@ -335,7 +341,7 @@ class Mesh(p3d.NodePath):
         if not self.name == 'mesh':
             return self.name
         else:
-            return self.recipe
+            return self.serialize()
 
     def __str__(self):
         if hasattr(self, 'name'):
@@ -381,7 +387,7 @@ class Mesh(p3d.NodePath):
         self.setRenderModeThickness(value)
 
     def generate_normals(self, smooth=True, regenerate=True):
-        self.normals = list(generate_normals(self.vertices, self.triangles, smooth))
+        self.normals = list(generate_normals(self.vertices, self.indices, smooth))
         if regenerate:
             self.generate()
         return self.normals
@@ -389,8 +395,8 @@ class Mesh(p3d.NodePath):
     def colorize(self, left=color.white, right=color.blue, down=color.red, up=color.green, back=color.white, forward=color.white, smooth=True, world_space=True, strength=1):
         colorize(self, left, right, down, up, back, forward, smooth, world_space, strength)
 
-    def project_uvs(self, aspect_ratio=1, direction='forward'):
-        project_uvs(self, aspect_ratio)
+    def project_uvs(self, aspect_ratio=1, direction=Vec3.forward):
+        project_uvs(self, aspect_ratio, direction=direction)
 
     def clear(self, regenerate=True):
         if self.vertex_buffer is not None:
@@ -405,7 +411,7 @@ class Mesh(p3d.NodePath):
         if regenerate:
             self.generate()
 
-    def save(self, name='', folder:Path=Func(getattr, application, 'compressed_models_folder'), flip_faces=False, max_decimals=16):
+    def save(self, name='', folder:Path=Func(getattr, application, 'models_compressed_folder'), flip_faces=False, vertex_decimal_limit=5, color_decimal_limit=4):
         if callable(folder):
             folder = folder()
         if not folder.exists():
@@ -413,32 +419,20 @@ class Mesh(p3d.NodePath):
 
         if not name and hasattr(self, 'path'):
             name = self.path.stem
-            if '.' not in name:
-                name += '.ursinamesh'
+        if '.' not in name:
+            name += '.ursinamesh'
 
         if name.endswith('ursinamesh'):
-            mesh_code = dedent(f'''
-            Mesh(
-                vertices={[tuple(round(_,max_decimals) for _ in e) for e in self.vertices]},
-                triangles={self.triangles},
-                colors={[tuple(round(_,max_decimals) for _ in e) for e in self.colors]},
-                uvs={[tuple(round(_,max_decimals) for _ in e) for e in self.uvs]},
-                normals={[tuple(round(_,max_decimals) for _ in e) for e in self.normals]},
-                static={self.static},
-                mode="{self.mode}",
-                thickness={self.thickness},
-                render_points_in_3d={self.render_points_in_3d},
-            )'''[1:])
             with open(folder / name, 'w') as f:
-                f.write(mesh_code)
-            print('saved .ursinamesh to:', folder / name)
+                f.write(self.serialize(vertex_decimal_limit=vertex_decimal_limit, color_decimal_limit=color_decimal_limit))
+            print('saved .ursinamesh to:', folder / name, 'vertex_decimal_limit:', vertex_decimal_limit, 'color_decimal_limit:', color_decimal_limit)
 
 
         elif name.endswith('.obj'):
             from ursina.mesh_exporter import ursinamesh_to_obj
             import os
             name = str(os.path.splitext(name)[0])
-            ursinamesh_to_obj(self, name, folder, flip_faces)
+            ursinamesh_to_obj(self, name, folder, flip_faces=flip_faces)
         elif name.endswith('.dae'):
             from ursina.mesh_exporter import ursinamesh_to_dae
             import os
@@ -452,6 +446,9 @@ class Mesh(p3d.NodePath):
 if __name__ == '__main__':
     from ursina import *
     app = Ursina()
+
+    from ursina.shaders.unlit_shader import unlit_shader
+    Entity.default_shader = unlit_shader
 
     # verts as list of tuples
     e = Entity(position=(0,0), model=Mesh(vertices=[(-.5,0,0), (.5,0,0), (0, 1, 0)]))
@@ -508,11 +505,19 @@ if __name__ == '__main__':
         ), color=color.magenta)
     Text(parent=line_segments, text='line_segments', y=1, scale=5)
 
-    points = Entity(position=(6,0), model=Mesh(vertices=(Vec3(0,0,0), Vec3(.6,.3,0), Vec3(1,1,0), Vec3(.6,1.7,0), Vec3(0,2,0)), mode='point', thickness=.05), color=color.red)
-    Text(parent=points, text='points', y=1, scale=5)
+    points_3d = Entity(position=(6,0), model=Mesh(vertices=(Vec3(0,0,0), Vec3(.6,.3,0), Vec3(1,1,0), Vec3(.6,1.7,0), Vec3(0,2,0)), mode='point', thickness=.05),
+        color=color.red,
+        texture='circle',
+        )
+    # points_3d.setShaderAuto()
+    # points_3d.model.setShaderAuto()
+    # points_3d.shader = None
+    Text(parent=points_3d, text='points_3d', y=1, scale=5)
 
-    points_2d = Entity(position=(6,-2), model=Mesh(vertices=(Vec3(0,0,0), Vec3(.6,.3,0), Vec3(1,1,0), Vec3(.6,1.7,0), Vec3(0,2,0)), mode='point', thickness=10, render_points_in_3d=False), color=color.red)
+    points_2d = Entity(position=(6,-2), model=Mesh(vertices=(Vec3(0,0,0), Vec3(.6,.3,0), Vec3(1,1,0), Vec3(.6,1.7,0), Vec3(0,2,0)), mode='point', thickness=10, render_points_in_3d=False), color=color.red, texture='circle')
     Text(parent=points_2d, text='points_2d', y=1, scale=5)
+    points_2d.set_shader_auto()
+    print('----------------------', points_2d.model.getShader())
 
     quad = Entity(
         position=(8,0),
@@ -541,6 +546,7 @@ if __name__ == '__main__':
             uvs=((1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 0)),
             normals=[(-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0)],
             mode='triangle'),
+        texture='shore',
         )
     Text(parent=quad, text='quad_with_usv_and_normals', y=1, scale=5, origin=(0,-.5))
 
@@ -552,6 +558,7 @@ if __name__ == '__main__':
             normals=[(-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0), (-0.0, 0.0, -1.0)],
             colors=[color.red, color.yellow, color.green, color.cyan, color.blue, color.magenta],
             mode='triangle'),
+        texture='shore'
         )
     Text(parent=quad, text='quad_with_usv_and_normals_and_vertex_colors', y=1, scale=5, origin=(0,-.5))
 
@@ -592,10 +599,13 @@ if __name__ == '__main__':
     clear_test.model.clear()
     Text(parent=clear_test, text='.clear() test', y=1, scale=5, origin=(0,-.5))
 
-    recipe_test = Entity(position=(12,-6), model=eval(quad.model.recipe))
-    Text(parent=recipe_test, text='.recipe test', y=1, scale=5, origin=(0,-.5))
+    # recipe_test = Entity(position=(12,-6), model=eval(quad.model.recipe))
+    # Text(parent=recipe_test, text='.recipe test', y=1, scale=5, origin=(0,-.5))
 
     window.color = color.black
     EditorCamera()
 
+    # m = Mesh()
+    # print(load_model('sphere', application.internal_models_compressed_folder, use_deepcopy=True).serialize())
+    # print()
     app.run()

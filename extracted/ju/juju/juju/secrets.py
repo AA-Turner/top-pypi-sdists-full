@@ -27,14 +27,9 @@ def create_secret_data(args):
     """
     data = {}
     for val in args:
-        # Remove any base64 padding ("=") before splitting the key=value.
-        stripped = val.rstrip(base64.b64encode(b"=").decode("utf-8"))
-        idx = stripped.find("=")
-        if idx < 1:
+        key, _, value = val.partition("=")
+        if not key or not value:
             raise ValueError(f"Invalid key value {val}")
-
-        key = stripped[0:idx]
-        value = stripped[idx + 1 :]
 
         # If the key doesn't have the #file suffix, then add it to the bag and continue.
         if not key.endswith(file_suffix):

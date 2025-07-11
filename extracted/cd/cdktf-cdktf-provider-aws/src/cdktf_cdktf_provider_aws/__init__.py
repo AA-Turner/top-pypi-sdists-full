@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.2.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.3.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.2.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.3.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -1738,6 +1738,7 @@ __all__ = [
     "pipes_pipe",
     "placement_group",
     "prometheus_alert_manager_definition",
+    "prometheus_query_logging_configuration",
     "prometheus_rule_group_namespace",
     "prometheus_scraper",
     "prometheus_workspace",
@@ -3857,6 +3858,7 @@ from . import pinpointsmsvoicev2_phone_number
 from . import pipes_pipe
 from . import placement_group
 from . import prometheus_alert_manager_definition
+from . import prometheus_query_logging_configuration
 from . import prometheus_rule_group_namespace
 from . import prometheus_scraper
 from . import prometheus_workspace

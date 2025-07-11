@@ -1,4 +1,6 @@
-from ursina import Shader; camera_contrast_shader = Shader(fragment='''
+from ursina.shader import Shader
+
+camera_contrast_shader = Shader(fragment='''
 #version 430
 
 uniform sampler2D tex;

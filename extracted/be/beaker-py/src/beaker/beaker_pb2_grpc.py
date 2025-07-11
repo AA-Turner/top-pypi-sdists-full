@@ -141,6 +141,11 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.ListClustersRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ListClustersResponse.FromString,
                 _registered_method=True)
+        self.CreateCluster = channel.unary_unary(
+                '/allenai.beaker.Beaker/CreateCluster',
+                request_serializer=beaker__pb2.CreateClusterRequest.SerializeToString,
+                response_deserializer=beaker__pb2.CreateClusterResponse.FromString,
+                _registered_method=True)
         self.UpdateCluster = channel.unary_unary(
                 '/allenai.beaker.Beaker/UpdateCluster',
                 request_serializer=beaker__pb2.UpdateClusterRequest.SerializeToString,
@@ -150,6 +155,21 @@ class BeakerStub(object):
                 '/allenai.beaker.Beaker/ListClusterSlotUsage',
                 request_serializer=beaker__pb2.ListClusterSlotUsageRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ListClusterSlotUsageResponse.FromString,
+                _registered_method=True)
+        self.UpdateClusterName = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateClusterName',
+                request_serializer=beaker__pb2.UpdateClusterNameRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateClusterNameResponse.FromString,
+                _registered_method=True)
+        self.CreateClusterAlias = channel.unary_unary(
+                '/allenai.beaker.Beaker/CreateClusterAlias',
+                request_serializer=beaker__pb2.CreateClusterAliasRequest.SerializeToString,
+                response_deserializer=beaker__pb2.CreateClusterAliasResponse.FromString,
+                _registered_method=True)
+        self.DeleteCluster = channel.unary_unary(
+                '/allenai.beaker.Beaker/DeleteCluster',
+                request_serializer=beaker__pb2.DeleteClusterRequest.SerializeToString,
+                response_deserializer=beaker__pb2.DeleteClusterResponse.FromString,
                 _registered_method=True)
         self.GetNode = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetNode',
@@ -584,6 +604,12 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def UpdateCluster(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -591,6 +617,24 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListClusterSlotUsage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateClusterName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateClusterAlias(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteCluster(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1064,6 +1108,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.ListClustersRequest.FromString,
                     response_serializer=beaker__pb2.ListClustersResponse.SerializeToString,
             ),
+            'CreateCluster': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateCluster,
+                    request_deserializer=beaker__pb2.CreateClusterRequest.FromString,
+                    response_serializer=beaker__pb2.CreateClusterResponse.SerializeToString,
+            ),
             'UpdateCluster': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateCluster,
                     request_deserializer=beaker__pb2.UpdateClusterRequest.FromString,
@@ -1073,6 +1122,21 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.ListClusterSlotUsage,
                     request_deserializer=beaker__pb2.ListClusterSlotUsageRequest.FromString,
                     response_serializer=beaker__pb2.ListClusterSlotUsageResponse.SerializeToString,
+            ),
+            'UpdateClusterName': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateClusterName,
+                    request_deserializer=beaker__pb2.UpdateClusterNameRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateClusterNameResponse.SerializeToString,
+            ),
+            'CreateClusterAlias': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateClusterAlias,
+                    request_deserializer=beaker__pb2.CreateClusterAliasRequest.FromString,
+                    response_serializer=beaker__pb2.CreateClusterAliasResponse.SerializeToString,
+            ),
+            'DeleteCluster': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteCluster,
+                    request_deserializer=beaker__pb2.DeleteClusterRequest.FromString,
+                    response_serializer=beaker__pb2.DeleteClusterResponse.SerializeToString,
             ),
             'GetNode': grpc.unary_unary_rpc_method_handler(
                     servicer.GetNode,
@@ -1955,6 +2019,33 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
+    def CreateCluster(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/CreateCluster',
+            beaker__pb2.CreateClusterRequest.SerializeToString,
+            beaker__pb2.CreateClusterResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def UpdateCluster(request,
             target,
             options=(),
@@ -1998,6 +2089,87 @@ class Beaker(object):
             '/allenai.beaker.Beaker/ListClusterSlotUsage',
             beaker__pb2.ListClusterSlotUsageRequest.SerializeToString,
             beaker__pb2.ListClusterSlotUsageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateClusterName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateClusterName',
+            beaker__pb2.UpdateClusterNameRequest.SerializeToString,
+            beaker__pb2.UpdateClusterNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateClusterAlias(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/CreateClusterAlias',
+            beaker__pb2.CreateClusterAliasRequest.SerializeToString,
+            beaker__pb2.CreateClusterAliasResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteCluster(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/DeleteCluster',
+            beaker__pb2.DeleteClusterRequest.SerializeToString,
+            beaker__pb2.DeleteClusterResponse.FromString,
             options,
             channel_credentials,
             insecure,

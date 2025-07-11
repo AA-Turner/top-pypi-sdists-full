@@ -29,7 +29,7 @@ class Goal(domainresource.DomainResource):
     __resource_type__ = "Goal"
 
     addresses: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addresses",
         title="Issues addressed by this goal",
         description=(
@@ -51,17 +51,18 @@ class Goal(domainresource.DomainResource):
     )
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="E.g. Treatment, dietary, behavioral, etc.",
         description="Indicates a category the goal falls within.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     description: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="description",
         title="Code or text describing goal",
         description=(
@@ -71,23 +72,25 @@ class Goal(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     expressedBy: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="expressedBy",
         title="Who's responsible for creating Goal?",
         description="Indicates whose goal this is - patient goal, practitioner goal, etc.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Practitioner", "RelatedPerson"],
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="External Ids for this goal",
         description=(
@@ -102,7 +105,7 @@ class Goal(domainresource.DomainResource):
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Comments about the goal",
         description="Any comments related to the goal.",
@@ -112,7 +115,7 @@ class Goal(domainresource.DomainResource):
     )
 
     outcomeCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcomeCode",
         title="What result was achieved regarding the goal?",
         description=(
@@ -125,7 +128,7 @@ class Goal(domainresource.DomainResource):
     )
 
     outcomeReference: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcomeReference",
         title="Observation that resulted from goal",
         description="Details of what's changed (or not changed).",
@@ -137,7 +140,7 @@ class Goal(domainresource.DomainResource):
     )
 
     priority: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="high-priority | medium-priority | low-priority",
         description=(
@@ -146,16 +149,18 @@ class Goal(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     startCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="startCodeableConcept",
         title="When goal pursuit begins",
         description="The date or event after which the goal should begin being pursued.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e start[x]
             "one_of_many": "start",
             "one_of_many_required": False,
@@ -163,23 +168,24 @@ class Goal(domainresource.DomainResource):
     )
 
     startDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="startDate",
         title="When goal pursuit begins",
         description="The date or event after which the goal should begin being pursued.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e start[x]
             "one_of_many": "start",
             "one_of_many_required": False,
         },
     )
     startDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_startDate", title="Extension field for ``startDate``."
+        default=None, alias="_startDate", title="Extension field for ``startDate``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "proposed | accepted | planned | in-progress | on-target | ahead-of-"
@@ -192,6 +198,7 @@ class Goal(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -213,11 +220,11 @@ class Goal(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     statusDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusDate",
         title="When goal status took effect",
         description=(
@@ -226,14 +233,15 @@ class Goal(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     statusDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_statusDate", title="Extension field for ``statusDate``."
+        default=None, alias="_statusDate", title="Extension field for ``statusDate``."
     )
 
     statusReason: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusReason",
         title="Reason for current status",
         description="Captures the reason for the current status.",
@@ -242,11 +250,13 @@ class Goal(domainresource.DomainResource):
         },
     )
     statusReason__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_statusReason", title="Extension field for ``statusReason``."
+        default=None,
+        alias="_statusReason",
+        title="Extension field for ``statusReason``.",
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="Who this goal is intended for",
         description=(
@@ -255,13 +265,14 @@ class Goal(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Group", "Organization"],
         },
     )
 
     target: fhirtypes.GoalTargetType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="target",
         title="Target outcome for the goal",
         description="Indicates what should be done by when.",
@@ -272,9 +283,9 @@ class Goal(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Goal`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Goal`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -301,6 +312,26 @@ class Goal(domainresource.DomainResource):
             "note",
             "outcomeCode",
             "outcomeReference",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Goal`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "status",
+            "category",
+            "priority",
+            "description",
+            "subject",
+            "startDate",
+            "startCodeableConcept",
+            "statusDate",
+            "expressedBy",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -343,7 +374,7 @@ class GoalTarget(backboneelement.BackboneElement):
     __resource_type__ = "GoalTarget"
 
     detailCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detailCodeableConcept",
         title="The target value to be achieved",
         description=(
@@ -357,6 +388,7 @@ class GoalTarget(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e detail[x]
             "one_of_many": "detail",
             "one_of_many_required": False,
@@ -364,7 +396,7 @@ class GoalTarget(backboneelement.BackboneElement):
     )
 
     detailQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detailQuantity",
         title="The target value to be achieved",
         description=(
@@ -378,6 +410,7 @@ class GoalTarget(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e detail[x]
             "one_of_many": "detail",
             "one_of_many_required": False,
@@ -385,7 +418,7 @@ class GoalTarget(backboneelement.BackboneElement):
     )
 
     detailRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detailRange",
         title="The target value to be achieved",
         description=(
@@ -399,6 +432,7 @@ class GoalTarget(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e detail[x]
             "one_of_many": "detail",
             "one_of_many_required": False,
@@ -406,7 +440,7 @@ class GoalTarget(backboneelement.BackboneElement):
     )
 
     dueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dueDate",
         title="Reach goal on or before",
         description=(
@@ -415,17 +449,18 @@ class GoalTarget(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e due[x]
             "one_of_many": "due",
             "one_of_many_required": False,
         },
     )
     dueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_dueDate", title="Extension field for ``dueDate``."
+        default=None, alias="_dueDate", title="Extension field for ``dueDate``."
     )
 
     dueDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dueDuration",
         title="Reach goal on or before",
         description=(
@@ -434,6 +469,7 @@ class GoalTarget(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e due[x]
             "one_of_many": "due",
             "one_of_many_required": False,
@@ -441,7 +477,7 @@ class GoalTarget(backboneelement.BackboneElement):
     )
 
     measure: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="measure",
         title="The parameter whose value is being tracked",
         description=(
@@ -450,18 +486,34 @@ class GoalTarget(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``GoalTarget`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``GoalTarget`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "measure",
+            "detailQuantity",
+            "detailRange",
+            "detailCodeableConcept",
+            "dueDate",
+            "dueDuration",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``GoalTarget`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "measure",
             "detailQuantity",

@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_service_custom_field_value`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_service_custom_field_value`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value).
+Refer to the Terraform Registry for docs: [`data_pagerduty_service_custom_field_value`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyServiceCustomFieldValue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyServiceCustomFieldValue.DataPagerdutyServiceCustomFieldValue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value pagerduty_service_custom_field_value}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value pagerduty_service_custom_field_value}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataPagerdutyServiceCustomFieldValue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value pagerduty_service_custom_field_value} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value pagerduty_service_custom_field_value} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_id: The ID of the service to get custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value#service_id DataPagerdutyServiceCustomFieldValue#service_id}
+        :param service_id: The ID of the service to get custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value#service_id DataPagerdutyServiceCustomFieldValue#service_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataPagerdutyServiceCustomFieldValue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyServiceCustomFieldValue to import.
-        :param import_from_id: The id of the existing DataPagerdutyServiceCustomFieldValue that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyServiceCustomFieldValue that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyServiceCustomFieldValue to import is found.
         '''
         if __debug__:
@@ -192,7 +192,7 @@ class DataPagerdutyServiceCustomFieldValueConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_id: The ID of the service to get custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value#service_id DataPagerdutyServiceCustomFieldValue#service_id}
+        :param service_id: The ID of the service to get custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value#service_id DataPagerdutyServiceCustomFieldValue#service_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -292,7 +292,7 @@ class DataPagerdutyServiceCustomFieldValueConfig(
     def service_id(self) -> builtins.str:
         '''The ID of the service to get custom field values for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.26.3/docs/data-sources/service_custom_field_value#service_id DataPagerdutyServiceCustomFieldValue#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.0/docs/data-sources/service_custom_field_value#service_id DataPagerdutyServiceCustomFieldValue#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"

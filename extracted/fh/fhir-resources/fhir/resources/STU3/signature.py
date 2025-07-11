@@ -29,7 +29,7 @@ class Signature(element.Element):
     __resource_type__ = "Signature"
 
     blob: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="blob",
         title="The actual signature content (XML DigSig. JWT, picture, etc.)",
         description=(
@@ -41,11 +41,11 @@ class Signature(element.Element):
         },
     )
     blob__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_blob", title="Extension field for ``blob``."
+        default=None, alias="_blob", title="Extension field for ``blob``."
     )
 
     contentType: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentType",
         title="The technical format of the signature",
         description=(
@@ -56,14 +56,15 @@ class Signature(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     contentType__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_contentType", title="Extension field for ``contentType``."
+        default=None, alias="_contentType", title="Extension field for ``contentType``."
     )
 
     onBehalfOfReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="onBehalfOfReference",
         title="The party represented",
         description=(
@@ -72,6 +73,7 @@ class Signature(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e onBehalfOf[x]
             "one_of_many": "onBehalfOf",
             "one_of_many_required": False,
@@ -87,7 +89,7 @@ class Signature(element.Element):
     )
 
     onBehalfOfUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="onBehalfOfUri",
         title="The party represented",
         description=(
@@ -96,17 +98,20 @@ class Signature(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e onBehalfOf[x]
             "one_of_many": "onBehalfOf",
             "one_of_many_required": False,
         },
     )
     onBehalfOfUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_onBehalfOfUri", title="Extension field for ``onBehalfOfUri``."
+        default=None,
+        alias="_onBehalfOfUri",
+        title="Extension field for ``onBehalfOfUri``.",
     )
 
     type: typing.List[fhirtypes.CodingType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Indication of the reason the entity signed the object(s)",
         description=(
@@ -117,25 +122,27 @@ class Signature(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     when: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="when",
         title="When the signature was created",
         description="When the digital signature was signed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     when__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_when", title="Extension field for ``when``."
+        default=None, alias="_when", title="Extension field for ``when``."
     )
 
     whoReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whoReference",
         title="Who signed",
         description=(
@@ -144,6 +151,7 @@ class Signature(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e who[x]
             "one_of_many": "who",
             "one_of_many_required": True,
@@ -159,7 +167,7 @@ class Signature(element.Element):
     )
 
     whoUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whoUri",
         title="Who signed",
         description=(
@@ -168,20 +176,21 @@ class Signature(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e who[x]
             "one_of_many": "who",
             "one_of_many_required": True,
         },
     )
     whoUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_whoUri", title="Extension field for ``whoUri``."
+        default=None, alias="_whoUri", title="Extension field for ``whoUri``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Signature`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Signature`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -202,6 +211,29 @@ class Signature(element.Element):
             "onBehalfOfReference",
             "contentType",
             "blob",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Signature`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "type",
+            "when",
+            "whoUri",
+            "whoReference",
+            "whoReference",
+            "whoReference",
+            "whoReference",
+            "whoReference",
+            "onBehalfOfUri",
+            "onBehalfOfReference",
+            "onBehalfOfReference",
+            "onBehalfOfReference",
+            "onBehalfOfReference",
+            "onBehalfOfReference",
+            "contentType",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:

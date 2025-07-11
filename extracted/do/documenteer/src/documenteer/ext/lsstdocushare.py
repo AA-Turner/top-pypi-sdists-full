@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from docutils import nodes
+
+from ..version import __version__
 
 if TYPE_CHECKING:
     from docutils.nodes import Node, system_message
     from docutils.parsers.rst.states import Inliner
     from sphinx.application import Sphinx
+    from sphinx.util.typing import ExtensionMetadata
 
 
 def lsstio_doc_shortlink_role(
@@ -18,9 +21,9 @@ def lsstio_doc_shortlink_role(
     text: str,
     lineno: int,
     inliner: Inliner,
-    options: Optional[Dict] = None,
-    content: Optional[List[str]] = None,
-) -> Tuple[List[Node], List[system_message]]:
+    options: dict | None = None,
+    content: list[str] | None = None,
+) -> tuple[list[Node], list[system_message]]:
     """Link to LSST documents given their handle that are hosted on
     lsst.io (Rubin's deployment of LSST the Docs).
 
@@ -31,8 +34,8 @@ def lsstio_doc_shortlink_role(
     options = options or {}
     content = content or []
     node = nodes.reference(
-        text="{0}-{1}".format(name.upper(), text),
-        refuri="https://{0}-{1}.lsst.io/".format(name.lower(), text),
+        text=f"{name.upper()}-{text}",
+        refuri=f"https://{name.lower()}-{text}.lsst.io/",
         **options,
     )
     return [node], []
@@ -44,9 +47,9 @@ def lsst_doc_shortlink_role(
     text: str,
     lineno: int,
     inliner: Inliner,
-    options: Optional[Dict] = None,
-    content: Optional[List[str]] = None,
-) -> Tuple[List[Node], List[system_message]]:
+    options: dict | None = None,
+    content: list[str] | None = None,
+) -> tuple[list[Node], list[system_message]]:
     """Link to LSST documents given their handle using LSST's ls.st link
     shortener.
 
@@ -57,8 +60,8 @@ def lsst_doc_shortlink_role(
     options = options or {}
     content = content or []
     node = nodes.reference(
-        text="{0}-{1}".format(name.upper(), text),
-        refuri="https://ls.st/{0}-{1}".format(name, text),
+        text=f"{name.upper()}-{text}",
+        refuri=f"https://ls.st/{name}-{text}",
         **options,
     )
     return [node], []
@@ -70,9 +73,9 @@ def lsst_doc_shortlink_titlecase_display_role(
     text: str,
     lineno: int,
     inliner: Inliner,
-    options: Optional[Dict] = None,
-    content: Optional[List[str]] = None,
-) -> Tuple[List[Node], List[system_message]]:
+    options: dict | None = None,
+    content: list[str] | None = None,
+) -> tuple[list[Node], list[system_message]]:
     """Link to LSST documents given their handle using LSST's ls.st link
     shortener with the document handle displayed in title case.
 
@@ -86,14 +89,15 @@ def lsst_doc_shortlink_titlecase_display_role(
     options = options or {}
     content = content or []
     node = nodes.reference(
-        text="{0}-{1}".format(name.title(), text),
-        refuri="https://ls.st/{0}-{1}".format(name, text),
+        text=f"{name.title()}-{text}",
+        refuri=f"https://ls.st/{name}-{text}",
         **options,
     )
     return [node], []
 
 
-def setup(app: Sphinx) -> None:
+def setup(app: Sphinx) -> ExtensionMetadata:
+    """Set up the LSST DocuShare and ls.st reference roles."""
     # LSST Data Management
     app.add_role("ldm", lsst_doc_shortlink_role)
     # LSST Systems Engineering
@@ -143,3 +147,9 @@ def setup(app: Sphinx) -> None:
     app.add_role("ittn", lsstio_doc_shortlink_role)
     # T&S Technical Note
     app.add_role("tstn", lsstio_doc_shortlink_role)
+
+    return {
+        "version": __version__,
+        "parallel_read_safe": True,
+        "parallel_write_safe": True,
+    }

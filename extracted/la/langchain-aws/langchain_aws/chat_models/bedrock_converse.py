@@ -524,7 +524,8 @@ class ChatBedrockConverse(BaseChatModel):
             (
                 provider == "amazon"
                 and any(
-                    x in model_id_lower for x in ["nova-lite", "nova-micro", "nova-pro"]
+                    x in model_id_lower
+                    for x in ["nova-lite", "nova-micro", "nova-pro", "nova-premier"]
                 )
             )
             or
@@ -652,7 +653,7 @@ class ChatBedrockConverse(BaseChatModel):
         params = self._converse_params(
             stop=stop,
             **_snake_to_camel_keys(
-                kwargs, excluded_keys={"inputSchema", "properties", "thinking", "stream"}
+                kwargs, excluded_keys={"inputSchema", "properties", "thinking"}
             ),
         )
         logger.debug(f"Input params: {params}")
@@ -676,7 +677,7 @@ class ChatBedrockConverse(BaseChatModel):
         params = self._converse_params(
             stop=stop,
             **_snake_to_camel_keys(
-                kwargs, excluded_keys={"inputSchema", "properties", "thinking", "stream"}
+                kwargs, excluded_keys={"inputSchema", "properties", "thinking"}
             ),
         )
         response = self.client.converse_stream(
@@ -856,6 +857,7 @@ class ChatBedrockConverse(BaseChatModel):
         guardrailConfig: Optional[dict] = None,
         performanceConfig: Optional[Mapping[str, Any]] = None,
         requestMetadata: Optional[dict] = None,
+        stream: Optional[bool] = True,
     ) -> Dict[str, Any]:
         if not inferenceConfig:
             inferenceConfig = {

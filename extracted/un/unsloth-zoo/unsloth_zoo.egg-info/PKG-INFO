@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2025.7.1
+Version: 2025.7.4
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch<=2.7.0
+Requires-Dist: torch>=2.4.0
 Requires-Dist: triton>=3.0.0; platform_system == "Linux"
 Requires-Dist: triton-windows; platform_system == "Windows"
 Requires-Dist: packaging
@@ -36,6 +36,7 @@ Requires-Dist: cut_cross_entropy
 Requires-Dist: pillow
 Requires-Dist: regex
 Requires-Dist: msgspec
+Requires-Dist: typing_extensions
 Dynamic: license-file
 
 <div align="center">

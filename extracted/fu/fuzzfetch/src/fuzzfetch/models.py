@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
-import itertools
-import platform as std_platform
 from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import Enum
+from itertools import product
 from logging import getLogger
+from platform import machine as plat_machine
+from platform import system as plat_system
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
@@ -55,18 +56,18 @@ class BuildFlags:
         The latter is generated. If it fails, the caller should try the former.
         """
         return (
-            ("-ccov" if self.coverage else "")
-            + ("-fuzzilli" if self.fuzzilli else "")
-            + ("-fuzzing" if self.fuzzing else "")
-            + ("-asan" if self.asan else "")
-            + ("-tsan" if self.tsan else "")
-            + ("-afl" if self.afl else "")
-            + ("-nyx" if self.nyx else "")
-            + ("-valgrind" if self.valgrind else "")
-            + ("-noopt" if self.no_opt else "")
-            + ("-searchfox" if self.searchfox else "")
-            + ("-debug" if self.debug else "")
-            + ("-opt" if not self.no_opt and not self.debug else "")
+            f"{'-ccov' if self.coverage else ''}"
+            f"{'-fuzzilli' if self.fuzzilli else ''}"
+            f"{'-fuzzing' if self.fuzzing else ''}"
+            f"{'-asan' if self.asan else ''}"
+            f"{'-tsan' if self.tsan else ''}"
+            f"{'-afl' if self.afl else ''}"
+            f"{'-nyx' if self.nyx else ''}"
+            f"{'-valgrind' if self.valgrind else ''}"
+            f"{'-noopt' if self.no_opt else ''}"
+            f"{'-searchfox' if self.searchfox else ''}"
+            f"{'-debug' if self.debug else ''}"
+            f"{'-opt' if not self.no_opt and not self.debug else ''}"
         )
 
     def update_from_string(self, build_string: str) -> None:
@@ -179,7 +180,7 @@ class BuildTask:
                 build_date_ns = f"{build[:4]}.{build[4:6]}.{build[6:8]}"
                 filt = build
             task_template_paths: Iterable[tuple[str, str]] = tuple(
-                (template, path + flag_str)
+                (template, f"{path}{flag_str}")
                 for (template, path) in cls._pushdate_template_paths(
                     build_date_ns, branch, target_platform
                 )
@@ -192,19 +193,20 @@ class BuildTask:
                 build = HgRevision(build, branch).hash
             flag_str = flags.build_string()
             task_paths = tuple(
-                path + flag_str
+                f"{path}{flag_str}"
                 for path in cls._revision_paths(build.lower(), branch, target_platform)
             )
-            task_template_paths = itertools.product((cls.TASKCLUSTER_API,), task_paths)
+            task_template_paths = product((cls.TASKCLUSTER_API,), task_paths)
 
         elif build == "latest":
             if branch not in {"autoland", "try"}:
                 branch = f"mozilla-{branch}"
 
-            namespaces = [f"gecko.v2.{branch}.latest"]
+            namespaces = []
             if not any(flags):
                 # Opt builds are now indexed under 'shippable'
                 namespaces.append(f"gecko.v2.{branch}.shippable.latest")
+            namespaces.append(f"gecko.v2.{branch}.latest")
 
             prod = "mobile" if "android" in target_platform else "firefox"
             suffix = f"{target_platform}{flags.build_string()}"
@@ -223,16 +225,14 @@ class BuildTask:
                         yield f"/task/{namespace}.{prod_}.sm-{suffix_}"
 
             task_paths = tuple(generate_task_paths(namespaces, prod, suffix, simulated))
-            task_template_paths = itertools.product((cls.TASKCLUSTER_API,), task_paths)
+            task_template_paths = product((cls.TASKCLUSTER_API,), task_paths)
 
         else:
             # try to use build argument directly as a namespace
             task_path = f"/task/{build}"
             task_template_paths = ((cls.TASKCLUSTER_API, task_path),)
 
-        for template_path, try_wo_opt in itertools.product(
-            task_template_paths, (False, True)
-        ):
+        for template_path, try_wo_opt in product(task_template_paths, (False, True)):
             template, path = template_path
 
             if try_wo_opt:
@@ -282,21 +282,21 @@ class BuildTask:
 
         for path in paths:
             index_base = cls.TASKCLUSTER_API % ("index",)
-            url = index_base + path
+            url = f"{index_base}{path}"
             try:
                 base = HTTP_SESSION.post(url, json={})
                 base.raise_for_status()
             except RequestException:
                 continue
 
-            product = "mobile" if "android" in target_platform else "firefox"
+            prod = "mobile" if "android" in target_platform else "firefox"
             json = base.json()
             for namespace in sorted(json["namespaces"], key=lambda x: str(x["name"])):
                 task_paths = (
-                    f"/task/{namespace['namespace']}.{product}.{target_platform}",
-                    f"/task/{namespace['namespace']}.{product}.sm-{target_platform}",
+                    f"/task/{namespace['namespace']}.{prod}.{target_platform}",
+                    f"/task/{namespace['namespace']}.{prod}.sm-{target_platform}",
                 )
-                yield from itertools.product((cls.TASKCLUSTER_API,), task_paths)
+                yield from product((cls.TASKCLUSTER_API,), task_paths)
 
     @classmethod
     def _revision_paths(
@@ -310,14 +310,14 @@ class BuildTask:
             branch = f"mozilla-{branch}"
 
         namespaces = (
-            f"gecko.v2.{branch}.revision.{rev}",
             f"gecko.v2.{branch}.shippable.revision.{rev}",
+            f"gecko.v2.{branch}.revision.{rev}",
         )
 
         for namespace in namespaces:
-            product = "mobile" if "android" in target_platform else "firefox"
-            yield f"/task/{namespace}.{product}.{target_platform}"
-            yield f"/task/{namespace}.{product}.sm-{target_platform}"
+            prod = "mobile" if "android" in target_platform else "firefox"
+            yield f"/task/{namespace}.{prod}.{target_platform}"
+            yield f"/task/{namespace}.{prod}.sm-{target_platform}"
 
 
 class HgRevision:
@@ -409,9 +409,9 @@ class Platform:
         machine: str | None = None,
     ) -> None:
         if system is None:
-            system = std_platform.system()
+            system = plat_system()
         if machine is None:
-            machine = std_platform.machine()
+            machine = plat_machine()
         if system not in self.SUPPORTED:
             raise FetcherException(f"Unknown system: {system}")
         fixed_machine = self.CPU_ALIASES.get(machine, machine)
@@ -439,10 +439,8 @@ class Platform:
         """Generate platform prefix for cross-platform downloads."""
         # if the platform is not native, auto_name would clobber native downloads.
         # make a prefix to avoid this
-        native_system = std_platform.system()
-        native_machine = self.CPU_ALIASES.get(
-            std_platform.machine(), std_platform.machine()
-        )
+        native_system = plat_system()
+        native_machine = self.CPU_ALIASES.get(plat_machine(), plat_machine())
         if native_system == self.system and native_machine == self.machine:
             return ""
         platform = {

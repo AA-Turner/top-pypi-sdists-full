@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster_shared
-Version: 1.11.1
+Version: 1.11.2
 Summary: Shared code between dagster and dagster-dg-core.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-shared
 Author: Dagster Labs
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 License-File: LICENSE

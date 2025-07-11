@@ -31,7 +31,7 @@ class ChargeItemDefinition(domainresource.DomainResource):
     __resource_type__ = "ChargeItemDefinition"
 
     applicability: typing.List[fhirtypes.ChargeItemDefinitionApplicabilityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="applicability",
         title="Whether or not the billing code is applicable",
         description="Expressions that describe applicability criteria for the billing code.",
@@ -41,7 +41,7 @@ class ChargeItemDefinition(domainresource.DomainResource):
     )
 
     approvalDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="approvalDate",
         title="When the charge item definition was approved by publisher",
         description=(
@@ -54,11 +54,13 @@ class ChargeItemDefinition(domainresource.DomainResource):
         },
     )
     approvalDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_approvalDate", title="Extension field for ``approvalDate``."
+        default=None,
+        alias="_approvalDate",
+        title="Extension field for ``approvalDate``.",
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Billing codes or product types this definition applies to",
         description=(
@@ -67,11 +69,12 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for the publisher",
         description=(
@@ -80,11 +83,12 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     copyright: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copyright",
         title="Use and/or publishing restrictions",
         description=(
@@ -97,11 +101,11 @@ class ChargeItemDefinition(domainresource.DomainResource):
         },
     )
     copyright__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_copyright", title="Extension field for ``copyright``."
+        default=None, alias="_copyright", title="Extension field for ``copyright``."
     )
 
     date: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date last changed",
         description=(
@@ -113,14 +117,15 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     derivedFromUri: typing.List[fhirtypes.UriType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="derivedFromUri",
         title="Underlying externally-defined charge item definition",
         description=(
@@ -129,14 +134,17 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     derivedFromUri__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_derivedFromUri", title="Extension field for ``derivedFromUri``."
+        default=None,
+        alias="_derivedFromUri",
+        title="Extension field for ``derivedFromUri``.",
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Natural language description of the charge item definition",
         description=(
@@ -145,14 +153,15 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     effectivePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="effectivePeriod",
         title="When the charge item definition is expected to be used",
         description=(
@@ -161,11 +170,12 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     experimental: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="experimental",
         title="For testing purposes, not real usage",
         description=(
@@ -175,14 +185,17 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     experimental__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_experimental", title="Extension field for ``experimental``."
+        default=None,
+        alias="_experimental",
+        title="Extension field for ``experimental``.",
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Additional identifier for the charge item definition",
         description=(
@@ -192,11 +205,12 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     instance: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instance",
         title="Instances this definition applies to",
         description=(
@@ -211,7 +225,7 @@ class ChargeItemDefinition(domainresource.DomainResource):
     )
 
     jurisdiction: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="Intended jurisdiction for charge item definition (if applicable)",
         description=(
@@ -220,11 +234,12 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     lastReviewDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="lastReviewDate",
         title="When the charge item definition was last reviewed",
         description=(
@@ -237,11 +252,13 @@ class ChargeItemDefinition(domainresource.DomainResource):
         },
     )
     lastReviewDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_lastReviewDate", title="Extension field for ``lastReviewDate``."
+        default=None,
+        alias="_lastReviewDate",
+        title="Extension field for ``lastReviewDate``.",
     )
 
     partOf: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="partOf",
         title=(
             "A larger definition of which this particular definition is a component"
@@ -250,16 +267,17 @@ class ChargeItemDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ChargeItemDefinition"],
         },
     )
     partOf__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_partOf", title="Extension field for ``partOf``."
+        default=None, alias="_partOf", title="Extension field for ``partOf``."
     )
 
     propertyGroup: typing.List[fhirtypes.ChargeItemDefinitionPropertyGroupType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="propertyGroup",
         title="Group of properties which are applicable under the same conditions",
         description=(
@@ -273,7 +291,7 @@ class ChargeItemDefinition(domainresource.DomainResource):
     )
 
     publisher: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="publisher",
         title="Name of the publisher (organization or individual)",
         description=(
@@ -282,14 +300,15 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     publisher__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_publisher", title="Extension field for ``publisher``."
+        default=None, alias="_publisher", title="Extension field for ``publisher``."
     )
 
     replaces: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="replaces",
         title=(
             "Completed or terminated request(s) whose function is taken by this new"
@@ -301,21 +320,23 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ChargeItemDefinition"],
         },
     )
     replaces__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_replaces", title="Extension field for ``replaces``."
+        default=None, alias="_replaces", title="Extension field for ``replaces``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | active | retired | unknown",
         description="The current state of the ChargeItemDefinition.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -323,11 +344,11 @@ class ChargeItemDefinition(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Name for this charge item definition (human friendly)",
         description=(
@@ -336,14 +357,15 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title=(
             "Canonical identifier for this charge item definition, represented as a"
@@ -361,15 +383,16 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     useContext: typing.List[fhirtypes.UsageContextType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="useContext",
         title="The context that the content is intended to support",
         description=(
@@ -382,11 +405,12 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Business version of the charge item definition",
         description=(
@@ -404,17 +428,18 @@ class ChargeItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ChargeItemDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ChargeItemDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -450,6 +475,34 @@ class ChargeItemDefinition(domainresource.DomainResource):
             "propertyGroup",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ChargeItemDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "url",
+            "identifier",
+            "version",
+            "title",
+            "derivedFromUri",
+            "partOf",
+            "replaces",
+            "status",
+            "experimental",
+            "date",
+            "publisher",
+            "contact",
+            "description",
+            "useContext",
+            "jurisdiction",
+            "effectivePeriod",
+            "code",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -474,7 +527,7 @@ class ChargeItemDefinitionApplicability(backboneelement.BackboneElement):
     __resource_type__ = "ChargeItemDefinitionApplicability"
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Natural language description of the condition",
         description=(
@@ -486,11 +539,11 @@ class ChargeItemDefinitionApplicability(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     expression: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="expression",
         title="Boolean-valued expression",
         description=(
@@ -504,11 +557,11 @@ class ChargeItemDefinitionApplicability(backboneelement.BackboneElement):
         },
     )
     expression__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_expression", title="Extension field for ``expression``."
+        default=None, alias="_expression", title="Extension field for ``expression``."
     )
 
     language: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Language of the expression",
         description=(
@@ -521,14 +574,14 @@ class ChargeItemDefinitionApplicability(backboneelement.BackboneElement):
         },
     )
     language__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_language", title="Extension field for ``language``."
+        default=None, alias="_language", title="Extension field for ``language``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ChargeItemDefinitionApplicability`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ChargeItemDefinitionApplicability`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -538,6 +591,13 @@ class ChargeItemDefinitionApplicability(backboneelement.BackboneElement):
             "language",
             "expression",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ChargeItemDefinitionApplicability`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ChargeItemDefinitionPropertyGroup(backboneelement.BackboneElement):
@@ -554,7 +614,7 @@ class ChargeItemDefinitionPropertyGroup(backboneelement.BackboneElement):
     __resource_type__ = "ChargeItemDefinitionPropertyGroup"
 
     applicability: typing.List[fhirtypes.ChargeItemDefinitionApplicabilityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="applicability",
         title="Conditions under which the priceComponent is applicable",
         description=(
@@ -567,7 +627,7 @@ class ChargeItemDefinitionPropertyGroup(backboneelement.BackboneElement):
     )
 
     priceComponent: typing.List[fhirtypes.ChargeItemDefinitionPropertyGroupPriceComponentType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priceComponent",
         title="Components of total line item price",
         description=(
@@ -586,9 +646,9 @@ class ChargeItemDefinitionPropertyGroup(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ChargeItemDefinitionPropertyGroup`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ChargeItemDefinitionPropertyGroup`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -597,6 +657,13 @@ class ChargeItemDefinitionPropertyGroup(backboneelement.BackboneElement):
             "applicability",
             "priceComponent",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ChargeItemDefinitionPropertyGroup`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneElement):
@@ -616,7 +683,7 @@ class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneEl
     __resource_type__ = "ChargeItemDefinitionPropertyGroupPriceComponent"
 
     amount: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title="Monetary amount associated with this component",
         description="The amount calculated for this component.",
@@ -626,7 +693,7 @@ class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneEl
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Code identifying the specific component",
         description=(
@@ -639,7 +706,7 @@ class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneEl
     )
 
     factor: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="factor",
         title="Factor used for calculating this component",
         description=(
@@ -651,11 +718,11 @@ class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneEl
         },
     )
     factor__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_factor", title="Extension field for ``factor``."
+        default=None, alias="_factor", title="Extension field for ``factor``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="base | surcharge | deduction | discount | tax | informational",
         description="This code identifies the type of the component.",
@@ -675,14 +742,14 @@ class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneEl
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ChargeItemDefinitionPropertyGroupPriceComponent`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ChargeItemDefinitionPropertyGroupPriceComponent`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -693,6 +760,13 @@ class ChargeItemDefinitionPropertyGroupPriceComponent(backboneelement.BackboneEl
             "factor",
             "amount",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ChargeItemDefinitionPropertyGroupPriceComponent`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

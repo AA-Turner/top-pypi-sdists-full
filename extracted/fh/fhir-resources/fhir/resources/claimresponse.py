@@ -27,7 +27,7 @@ class ClaimResponse(domainresource.DomainResource):
     __resource_type__ = "ClaimResponse"
 
     addItem: typing.List[fhirtypes.ClaimResponseAddItemType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addItem",
         title="Insurer added line items",
         description=(
@@ -40,7 +40,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Header-level adjudication",
         description=(
@@ -53,7 +53,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     communicationRequest: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="communicationRequest",
         title="Request for additional information",
         description="Request for additional supporting or authorizing information.",
@@ -65,21 +65,22 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     created: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="created",
         title="Response creation date",
         description="The date this resource was created.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     created__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_created", title="Extension field for ``created``."
+        default=None, alias="_created", title="Extension field for ``created``."
     )
 
     decision: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="decision",
         title="Result of the adjudication",
         description=(
@@ -88,11 +89,12 @@ class ClaimResponse(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     diagnosisRelatedGroup: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="diagnosisRelatedGroup",
         title="Package billing code",
         description=(
@@ -106,7 +108,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     disposition: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="disposition",
         title="Disposition Message",
         description="A human readable description of the status of the adjudication.",
@@ -115,11 +117,11 @@ class ClaimResponse(domainresource.DomainResource):
         },
     )
     disposition__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_disposition", title="Extension field for ``disposition``."
+        default=None, alias="_disposition", title="Extension field for ``disposition``."
     )
 
     encounter: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="encounter",
         title="Encounters associated with the listed treatments",
         description="Healthcare encounters related to this claim.",
@@ -131,7 +133,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     error: typing.List[fhirtypes.ClaimResponseErrorType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="error",
         title="Processing errors",
         description="Errors encountered during the processing of the adjudication.",
@@ -141,7 +143,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     event: typing.List[fhirtypes.ClaimResponseEventType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="event",
         title="Event information",
         description="Information code for an event with a corresponding date or period.",
@@ -151,7 +153,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     form: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="form",
         title="Printed reference or actual form",
         description=(
@@ -164,7 +166,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     formCode: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="formCode",
         title="Printed form identifier",
         description="A code for the form to be used for printing the content.",
@@ -174,7 +176,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     fundsReserve: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fundsReserve",
         title="Funds reserved status",
         description=(
@@ -187,7 +189,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business Identifier for a claim response",
         description="A unique identifier assigned to this claim response.",
@@ -197,7 +199,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     insurance: typing.List[fhirtypes.ClaimResponseInsuranceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="insurance",
         title="Patient insurance information",
         description=(
@@ -210,7 +212,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     insurer: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="insurer",
         title="Party responsible for reimbursement",
         description=(
@@ -219,13 +221,14 @@ class ClaimResponse(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     item: typing.List[fhirtypes.ClaimResponseItemType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="item",
         title="Adjudication for claim line items",
         description=(
@@ -238,7 +241,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     outcome: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcome",
         title="queued | complete | error | partial",
         description=(
@@ -247,6 +250,7 @@ class ClaimResponse(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -254,11 +258,11 @@ class ClaimResponse(domainresource.DomainResource):
         },
     )
     outcome__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_outcome", title="Extension field for ``outcome``."
+        default=None, alias="_outcome", title="Extension field for ``outcome``."
     )
 
     patient: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="patient",
         title="The recipient of the products and services",
         description=(
@@ -268,13 +272,14 @@ class ClaimResponse(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient"],
         },
     )
 
     payeeType: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="payeeType",
         title="Party to be paid any benefits payable",
         description="Type of Party to be reimbursed: subscriber, provider, other.",
@@ -284,7 +289,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     payment: fhirtypes.ClaimResponsePaymentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="payment",
         title="Payment Details",
         description="Payment details for the adjudication of the claim.",
@@ -294,7 +299,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     preAuthPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preAuthPeriod",
         title="Preauthorization reference effective period",
         description="The time frame during which this authorization is effective.",
@@ -304,7 +309,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     preAuthRef: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preAuthRef",
         title="Preauthorization reference",
         description=(
@@ -316,11 +321,11 @@ class ClaimResponse(domainresource.DomainResource):
         },
     )
     preAuthRef__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_preAuthRef", title="Extension field for ``preAuthRef``."
+        default=None, alias="_preAuthRef", title="Extension field for ``preAuthRef``."
     )
 
     processNote: typing.List[fhirtypes.ClaimResponseProcessNoteType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="processNote",
         title="Note concerning adjudication",
         description=(
@@ -333,19 +338,20 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     request: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="request",
         title="Id of resource triggering adjudication",
         description="Original request resource reference.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Claim"],
         },
     )
 
     requestor: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requestor",
         title="Party responsible for the claim",
         description=(
@@ -364,12 +370,13 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="active | cancelled | draft | entered-in-error",
         description="The status of the resource instance.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -377,11 +384,11 @@ class ClaimResponse(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subType: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subType",
         title="More granular claim type",
         description=(
@@ -395,17 +402,18 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     total: typing.List[fhirtypes.ClaimResponseTotalType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="total",
         title="Adjudication totals",
         description="Categorized monetary totals for the adjudication.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -418,7 +426,7 @@ class ClaimResponse(domainresource.DomainResource):
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="More granular claim type",
         description=(
@@ -428,11 +436,12 @@ class ClaimResponse(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     use: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title="claim | preauthorization | predetermination",
         description=(
@@ -451,6 +460,7 @@ class ClaimResponse(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -458,14 +468,14 @@ class ClaimResponse(domainresource.DomainResource):
         },
     )
     use__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_use", title="Extension field for ``use``."
+        default=None, alias="_use", title="Extension field for ``use``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponse`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponse`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -510,6 +520,28 @@ class ClaimResponse(domainresource.DomainResource):
             "error",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponse`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "status",
+            "type",
+            "use",
+            "patient",
+            "created",
+            "insurer",
+            "request",
+            "outcome",
+            "decision",
+            "total",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -540,7 +572,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseAddItem"
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Added items adjudication",
         description="The adjudication results.",
@@ -550,7 +582,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     bodySite: typing.List[fhirtypes.ClaimResponseAddItemBodySiteType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="bodySite",
         title="Anatomical location",
         description="Physical location where the service is performed or applies.",
@@ -560,7 +592,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     detail: typing.List[fhirtypes.ClaimResponseAddItemDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detail",
         title="Insurer added line details",
         description="The second-tier service adjudications for payor added services.",
@@ -570,7 +602,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     detailSequence: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detailSequence",
         title="Detail sequence number",
         description=(
@@ -582,11 +614,13 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
         },
     )
     detailSequence__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_detailSequence", title="Extension field for ``detailSequence``."
+        default=None,
+        alias="_detailSequence",
+        title="Extension field for ``detailSequence``.",
     )
 
     factor: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="factor",
         title="Price scaling factor",
         description=(
@@ -600,11 +634,11 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
         },
     )
     factor__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_factor", title="Extension field for ``factor``."
+        default=None, alias="_factor", title="Extension field for ``factor``."
     )
 
     itemSequence: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemSequence",
         title="Item sequence number",
         description="Claim items which this service line is intended to replace.",
@@ -613,11 +647,13 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
         },
     )
     itemSequence__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_itemSequence", title="Extension field for ``itemSequence``."
+        default=None,
+        alias="_itemSequence",
+        title="Extension field for ``itemSequence``.",
     )
 
     locationAddress: fhirtypes.AddressType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="locationAddress",
         title="Place of service or where product was supplied",
         description="Where the product or service was provided.",
@@ -630,7 +666,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     locationCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="locationCodeableConcept",
         title="Place of service or where product was supplied",
         description="Where the product or service was provided.",
@@ -643,7 +679,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     locationReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="locationReference",
         title="Place of service or where product was supplied",
         description="Where the product or service was provided.",
@@ -658,7 +694,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     modifier: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="modifier",
         title="Service/Product billing modifiers",
         description=(
@@ -671,7 +707,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     net: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="net",
         title="Total item cost",
         description=(
@@ -684,7 +720,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     noteNumber: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="noteNumber",
         title="Applicable note numbers",
         description=(
@@ -696,11 +732,11 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
         },
     )
     noteNumber__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_noteNumber", title="Extension field for ``noteNumber``."
+        default=None, alias="_noteNumber", title="Extension field for ``noteNumber``."
     )
 
     productOrService: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productOrService",
         title="Billing, service, product, or drug code",
         description=(
@@ -717,7 +753,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     productOrServiceEnd: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productOrServiceEnd",
         title="End of a range of codes",
         description=(
@@ -734,7 +770,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     programCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="programCode",
         title="Program the product or service is provided under",
         description="Identifies the program under which this may be recovered.",
@@ -744,7 +780,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     provider: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="provider",
         title="Authorized providers",
         description=(
@@ -763,7 +799,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="Count of products or services",
         description="The number of repetitions of a service or product.",
@@ -773,7 +809,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     request: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="request",
         title="Request or Referral for Service",
         description="Request or Referral for Goods or Service to be rendered.",
@@ -792,7 +828,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     revenue: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="revenue",
         title="Revenue or cost center code",
         description=(
@@ -805,7 +841,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     reviewOutcome: fhirtypes.ClaimResponseItemReviewOutcomeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reviewOutcome",
         title="Added items adjudication results",
         description=(
@@ -818,7 +854,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     servicedDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="servicedDate",
         title="Date or dates of service or product delivery",
         description=(
@@ -833,11 +869,13 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
         },
     )
     servicedDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_servicedDate", title="Extension field for ``servicedDate``."
+        default=None,
+        alias="_servicedDate",
+        title="Extension field for ``servicedDate``.",
     )
 
     servicedPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="servicedPeriod",
         title="Date or dates of service or product delivery",
         description=(
@@ -853,7 +891,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     subdetailSequence: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subdetailSequence",
         title="Subdetail sequence number",
         description=(
@@ -865,13 +903,13 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
         },
     )
     subdetailSequence__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_subdetailSequence",
         title="Extension field for ``subdetailSequence``.",
     )
 
     tax: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="tax",
         title="Total tax",
         description="The total of taxes applicable for this product or service.",
@@ -881,7 +919,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -894,7 +932,7 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
     )
 
     unitPrice: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="unitPrice",
         title="Fee, charge or cost per item",
         description=(
@@ -909,9 +947,9 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseAddItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseAddItem`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -944,6 +982,13 @@ class ClaimResponseAddItem(backboneelement.BackboneElement):
             "adjudication",
             "detail",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseAddItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -981,7 +1026,7 @@ class ClaimResponseAddItemBodySite(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseAddItemBodySite"
 
     site: typing.List[fhirtypes.CodeableReferenceType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="site",
         title="Location",
         description="Physical service site on the patient (limb, tooth, etc.).",
@@ -993,7 +1038,7 @@ class ClaimResponseAddItemBodySite(backboneelement.BackboneElement):
     )
 
     subSite: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subSite",
         title="Sub-location",
         description=(
@@ -1007,11 +1052,18 @@ class ClaimResponseAddItemBodySite(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseAddItemBodySite`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseAddItemBodySite`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "site", "subSite"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseAddItemBodySite`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
@@ -1026,7 +1078,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseAddItemDetail"
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Added items detail adjudication",
         description="The adjudication results.",
@@ -1036,7 +1088,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     factor: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="factor",
         title="Price scaling factor",
         description=(
@@ -1050,11 +1102,11 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
         },
     )
     factor__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_factor", title="Extension field for ``factor``."
+        default=None, alias="_factor", title="Extension field for ``factor``."
     )
 
     modifier: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="modifier",
         title="Service/Product billing modifiers",
         description=(
@@ -1067,7 +1119,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     net: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="net",
         title="Total item cost",
         description=(
@@ -1080,7 +1132,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     noteNumber: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="noteNumber",
         title="Applicable note numbers",
         description=(
@@ -1092,11 +1144,11 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
         },
     )
     noteNumber__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_noteNumber", title="Extension field for ``noteNumber``."
+        default=None, alias="_noteNumber", title="Extension field for ``noteNumber``."
     )
 
     productOrService: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productOrService",
         title="Billing, service, product, or drug code",
         description=(
@@ -1113,7 +1165,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     productOrServiceEnd: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productOrServiceEnd",
         title="End of a range of codes",
         description=(
@@ -1130,7 +1182,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="Count of products or services",
         description="The number of repetitions of a service or product.",
@@ -1140,7 +1192,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     revenue: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="revenue",
         title="Revenue or cost center code",
         description=(
@@ -1153,7 +1205,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     reviewOutcome: fhirtypes.ClaimResponseItemReviewOutcomeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reviewOutcome",
         title="Added items detail level adjudication results",
         description=(
@@ -1166,7 +1218,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     subDetail: typing.List[fhirtypes.ClaimResponseAddItemDetailSubDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subDetail",
         title="Insurer added line items",
         description="The third-tier service adjudications for payor added services.",
@@ -1176,7 +1228,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     tax: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="tax",
         title="Total tax",
         description="The total of taxes applicable for this product or service.",
@@ -1186,7 +1238,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -1199,7 +1251,7 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
     )
 
     unitPrice: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="unitPrice",
         title="Fee, charge or cost per item",
         description=(
@@ -1214,9 +1266,9 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseAddItemDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseAddItemDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1238,6 +1290,13 @@ class ClaimResponseAddItemDetail(backboneelement.BackboneElement):
             "subDetail",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseAddItemDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
+
 
 class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -1251,7 +1310,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseAddItemDetailSubDetail"
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Added items subdetail adjudication",
         description="The adjudication results.",
@@ -1261,7 +1320,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     factor: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="factor",
         title="Price scaling factor",
         description=(
@@ -1275,11 +1334,11 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
         },
     )
     factor__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_factor", title="Extension field for ``factor``."
+        default=None, alias="_factor", title="Extension field for ``factor``."
     )
 
     modifier: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="modifier",
         title="Service/Product billing modifiers",
         description=(
@@ -1292,7 +1351,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     net: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="net",
         title="Total item cost",
         description=(
@@ -1305,7 +1364,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     noteNumber: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="noteNumber",
         title="Applicable note numbers",
         description=(
@@ -1317,11 +1376,11 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
         },
     )
     noteNumber__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_noteNumber", title="Extension field for ``noteNumber``."
+        default=None, alias="_noteNumber", title="Extension field for ``noteNumber``."
     )
 
     productOrService: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productOrService",
         title="Billing, service, product, or drug code",
         description=(
@@ -1338,7 +1397,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     productOrServiceEnd: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productOrServiceEnd",
         title="End of a range of codes",
         description=(
@@ -1355,7 +1414,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="Count of products or services",
         description="The number of repetitions of a service or product.",
@@ -1365,7 +1424,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     revenue: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="revenue",
         title="Revenue or cost center code",
         description=(
@@ -1378,7 +1437,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     reviewOutcome: fhirtypes.ClaimResponseItemReviewOutcomeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reviewOutcome",
         title="Added items subdetail level adjudication results",
         description=(
@@ -1391,7 +1450,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     tax: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="tax",
         title="Total tax",
         description="The total of taxes applicable for this product or service.",
@@ -1401,7 +1460,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -1414,7 +1473,7 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     unitPrice: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="unitPrice",
         title="Fee, charge or cost per item",
         description=(
@@ -1429,9 +1488,9 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseAddItemDetailSubDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseAddItemDetailSubDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1452,6 +1511,13 @@ class ClaimResponseAddItemDetailSubDetail(backboneelement.BackboneElement):
             "adjudication",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseAddItemDetailSubDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
+
 
 class ClaimResponseError(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -1465,7 +1531,7 @@ class ClaimResponseError(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseError"
 
     code: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="code",
         title="Error code detailing processing issues",
         description=(
@@ -1474,11 +1540,12 @@ class ClaimResponseError(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     detailSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detailSequence",
         title="Detail sequence number",
         description=(
@@ -1491,11 +1558,13 @@ class ClaimResponseError(backboneelement.BackboneElement):
         },
     )
     detailSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_detailSequence", title="Extension field for ``detailSequence``."
+        default=None,
+        alias="_detailSequence",
+        title="Extension field for ``detailSequence``.",
     )
 
     expression: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="expression",
         title="FHIRPath of element(s) related to issue",
         description=(
@@ -1506,14 +1575,15 @@ class ClaimResponseError(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     expression__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_expression", title="Extension field for ``expression``."
+        default=None, alias="_expression", title="Extension field for ``expression``."
     )
 
     itemSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemSequence",
         title="Item sequence number",
         description=(
@@ -1526,11 +1596,13 @@ class ClaimResponseError(backboneelement.BackboneElement):
         },
     )
     itemSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_itemSequence", title="Extension field for ``itemSequence``."
+        default=None,
+        alias="_itemSequence",
+        title="Extension field for ``itemSequence``.",
     )
 
     subDetailSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subDetailSequence",
         title="Subdetail sequence number",
         description=(
@@ -1543,16 +1615,16 @@ class ClaimResponseError(backboneelement.BackboneElement):
         },
     )
     subDetailSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_subDetailSequence",
         title="Extension field for ``subDetailSequence``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseError`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseError`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1564,6 +1636,13 @@ class ClaimResponseError(backboneelement.BackboneElement):
             "code",
             "expression",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseError`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "code", "expression"]
 
 
 class ClaimResponseEvent(backboneelement.BackboneElement):
@@ -1578,7 +1657,7 @@ class ClaimResponseEvent(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseEvent"
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Specific event",
         description="A coded event such as when a service is expected or a card printed.",
@@ -1588,7 +1667,7 @@ class ClaimResponseEvent(backboneelement.BackboneElement):
     )
 
     whenDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whenDateTime",
         title="Occurance date or period",
         description=(
@@ -1603,11 +1682,13 @@ class ClaimResponseEvent(backboneelement.BackboneElement):
         },
     )
     whenDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_whenDateTime", title="Extension field for ``whenDateTime``."
+        default=None,
+        alias="_whenDateTime",
+        title="Extension field for ``whenDateTime``.",
     )
 
     whenPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whenPeriod",
         title="Occurance date or period",
         description=(
@@ -1624,9 +1705,9 @@ class ClaimResponseEvent(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseEvent`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseEvent`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1636,6 +1717,13 @@ class ClaimResponseEvent(backboneelement.BackboneElement):
             "whenDateTime",
             "whenPeriod",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseEvent`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -1667,7 +1755,7 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseInsurance"
 
     businessArrangement: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="businessArrangement",
         title="Additional provider contract number",
         description=(
@@ -1679,13 +1767,13 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
         },
     )
     businessArrangement__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_businessArrangement",
         title="Extension field for ``businessArrangement``.",
     )
 
     claimResponse: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="claimResponse",
         title="Adjudication results",
         description=(
@@ -1700,7 +1788,7 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
     )
 
     coverage: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="coverage",
         title="Insurance information",
         description=(
@@ -1717,7 +1805,7 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
     )
 
     focal: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="focal",
         title="Coverage to be used for adjudication",
         description=(
@@ -1730,11 +1818,11 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
         },
     )
     focal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_focal", title="Extension field for ``focal``."
+        default=None, alias="_focal", title="Extension field for ``focal``."
     )
 
     sequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sequence",
         title="Insurance instance identifier",
         description=(
@@ -1747,14 +1835,14 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
         },
     )
     sequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sequence", title="Extension field for ``sequence``."
+        default=None, alias="_sequence", title="Extension field for ``sequence``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseInsurance`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseInsurance`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1766,6 +1854,13 @@ class ClaimResponseInsurance(backboneelement.BackboneElement):
             "businessArrangement",
             "claimResponse",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseInsurance`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1792,7 +1887,7 @@ class ClaimResponseItem(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseItem"
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Adjudication details",
         description=(
@@ -1806,7 +1901,7 @@ class ClaimResponseItem(backboneelement.BackboneElement):
     )
 
     detail: typing.List[fhirtypes.ClaimResponseItemDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detail",
         title="Adjudication for claim details",
         description=(
@@ -1819,7 +1914,7 @@ class ClaimResponseItem(backboneelement.BackboneElement):
     )
 
     itemSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemSequence",
         title="Claim item instance identifier",
         description="A number to uniquely reference the claim item entries.",
@@ -1829,11 +1924,13 @@ class ClaimResponseItem(backboneelement.BackboneElement):
         },
     )
     itemSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_itemSequence", title="Extension field for ``itemSequence``."
+        default=None,
+        alias="_itemSequence",
+        title="Extension field for ``itemSequence``.",
     )
 
     noteNumber: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="noteNumber",
         title="Applicable note numbers",
         description=(
@@ -1845,11 +1942,11 @@ class ClaimResponseItem(backboneelement.BackboneElement):
         },
     )
     noteNumber__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_noteNumber", title="Extension field for ``noteNumber``."
+        default=None, alias="_noteNumber", title="Extension field for ``noteNumber``."
     )
 
     reviewOutcome: fhirtypes.ClaimResponseItemReviewOutcomeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reviewOutcome",
         title="Adjudication results",
         description=(
@@ -1862,7 +1959,7 @@ class ClaimResponseItem(backboneelement.BackboneElement):
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -1876,9 +1973,9 @@ class ClaimResponseItem(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseItem`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1891,6 +1988,13 @@ class ClaimResponseItem(backboneelement.BackboneElement):
             "adjudication",
             "detail",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1918,7 +2022,7 @@ class ClaimResponseItemAdjudication(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseItemAdjudication"
 
     amount: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title="Monetary amount",
         description="Monetary amount associated with the category.",
@@ -1928,7 +2032,7 @@ class ClaimResponseItemAdjudication(backboneelement.BackboneElement):
     )
 
     category: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="category",
         title="Type of adjudication information",
         description=(
@@ -1945,7 +2049,7 @@ class ClaimResponseItemAdjudication(backboneelement.BackboneElement):
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="Non-monetary value",
         description=(
@@ -1958,7 +2062,7 @@ class ClaimResponseItemAdjudication(backboneelement.BackboneElement):
     )
 
     reason: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title="Explanation of adjudication outcome",
         description=(
@@ -1972,9 +2076,9 @@ class ClaimResponseItemAdjudication(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseItemAdjudication`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseItemAdjudication`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1985,6 +2089,13 @@ class ClaimResponseItemAdjudication(backboneelement.BackboneElement):
             "amount",
             "quantity",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseItemAdjudication`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ClaimResponseItemDetail(backboneelement.BackboneElement):
@@ -2000,7 +2111,7 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseItemDetail"
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Detail level adjudication details",
         description="The adjudication results.",
@@ -2010,7 +2121,7 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
     )
 
     detailSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detailSequence",
         title="Claim detail instance identifier",
         description="A number to uniquely reference the claim detail entry.",
@@ -2020,11 +2131,13 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
         },
     )
     detailSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_detailSequence", title="Extension field for ``detailSequence``."
+        default=None,
+        alias="_detailSequence",
+        title="Extension field for ``detailSequence``.",
     )
 
     noteNumber: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="noteNumber",
         title="Applicable note numbers",
         description=(
@@ -2036,11 +2149,11 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
         },
     )
     noteNumber__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_noteNumber", title="Extension field for ``noteNumber``."
+        default=None, alias="_noteNumber", title="Extension field for ``noteNumber``."
     )
 
     reviewOutcome: fhirtypes.ClaimResponseItemReviewOutcomeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reviewOutcome",
         title="Detail level adjudication results",
         description=(
@@ -2053,7 +2166,7 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
     )
 
     subDetail: typing.List[fhirtypes.ClaimResponseItemDetailSubDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subDetail",
         title="Adjudication for claim sub-details",
         description="A sub-detail adjudication of a simple product or service.",
@@ -2063,7 +2176,7 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -2077,9 +2190,9 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseItemDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseItemDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -2092,6 +2205,13 @@ class ClaimResponseItemDetail(backboneelement.BackboneElement):
             "adjudication",
             "subDetail",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseItemDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -2117,7 +2237,7 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseItemDetailSubDetail"
 
     adjudication: typing.List[fhirtypes.ClaimResponseItemAdjudicationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjudication",
         title="Subdetail level adjudication details",
         description="The adjudication results.",
@@ -2127,7 +2247,7 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     noteNumber: typing.List[fhirtypes.PositiveIntType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="noteNumber",
         title="Applicable note numbers",
         description=(
@@ -2139,11 +2259,11 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
         },
     )
     noteNumber__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_noteNumber", title="Extension field for ``noteNumber``."
+        default=None, alias="_noteNumber", title="Extension field for ``noteNumber``."
     )
 
     reviewOutcome: fhirtypes.ClaimResponseItemReviewOutcomeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reviewOutcome",
         title="Subdetail level adjudication results",
         description=(
@@ -2156,7 +2276,7 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
     )
 
     subDetailSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subDetailSequence",
         title="Claim sub-detail instance identifier",
         description="A number to uniquely reference the claim sub-detail entry.",
@@ -2166,13 +2286,13 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
         },
     )
     subDetailSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_subDetailSequence",
         title="Extension field for ``subDetailSequence``.",
     )
 
     traceNumber: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="traceNumber",
         title="Number for tracking",
         description=(
@@ -2186,9 +2306,9 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseItemDetailSubDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseItemDetailSubDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -2200,6 +2320,13 @@ class ClaimResponseItemDetailSubDetail(backboneelement.BackboneElement):
             "reviewOutcome",
             "adjudication",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseItemDetailSubDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -2226,7 +2353,7 @@ class ClaimResponseItemReviewOutcome(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseItemReviewOutcome"
 
     decision: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="decision",
         title="Result of the adjudication",
         description=(
@@ -2239,7 +2366,7 @@ class ClaimResponseItemReviewOutcome(backboneelement.BackboneElement):
     )
 
     preAuthPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preAuthPeriod",
         title="Preauthorization reference effective period",
         description="The time frame during which this authorization is effective.",
@@ -2249,7 +2376,7 @@ class ClaimResponseItemReviewOutcome(backboneelement.BackboneElement):
     )
 
     preAuthRef: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preAuthRef",
         title="Preauthorization reference",
         description=(
@@ -2261,11 +2388,11 @@ class ClaimResponseItemReviewOutcome(backboneelement.BackboneElement):
         },
     )
     preAuthRef__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_preAuthRef", title="Extension field for ``preAuthRef``."
+        default=None, alias="_preAuthRef", title="Extension field for ``preAuthRef``."
     )
 
     reason: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title="Reason for result of the adjudication",
         description=(
@@ -2279,9 +2406,9 @@ class ClaimResponseItemReviewOutcome(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseItemReviewOutcome`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseItemReviewOutcome`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -2292,6 +2419,13 @@ class ClaimResponseItemReviewOutcome(backboneelement.BackboneElement):
             "preAuthRef",
             "preAuthPeriod",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseItemReviewOutcome`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ClaimResponsePayment(backboneelement.BackboneElement):
@@ -2306,7 +2440,7 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponsePayment"
 
     adjustment: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjustment",
         title="Payment adjustment for non-claim issues",
         description=(
@@ -2319,7 +2453,7 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
     )
 
     adjustmentReason: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="adjustmentReason",
         title="Explanation for the adjustment",
         description="Reason for the payment adjustment.",
@@ -2329,7 +2463,7 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
     )
 
     amount: fhirtypes.MoneyType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="amount",
         title="Payable amount after adjustment",
         description="Benefits payable less any payment adjustment.",
@@ -2339,7 +2473,7 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
     )
 
     date: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Expected date of payment",
         description=(
@@ -2351,11 +2485,11 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     identifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier for the payment",
         description="Issuer's unique identifier for the payment instrument.",
@@ -2365,7 +2499,7 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Partial or complete payment",
         description=(
@@ -2379,9 +2513,9 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponsePayment`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponsePayment`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -2394,6 +2528,13 @@ class ClaimResponsePayment(backboneelement.BackboneElement):
             "amount",
             "identifier",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponsePayment`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ClaimResponseProcessNote(backboneelement.BackboneElement):
@@ -2409,7 +2550,7 @@ class ClaimResponseProcessNote(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseProcessNote"
 
     language: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Language of the text",
         description="A code to define the language used in the text of the note.",
@@ -2419,7 +2560,7 @@ class ClaimResponseProcessNote(backboneelement.BackboneElement):
     )
 
     number: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="number",
         title="Note instance identifier",
         description="A number to uniquely identify a note entry.",
@@ -2428,11 +2569,11 @@ class ClaimResponseProcessNote(backboneelement.BackboneElement):
         },
     )
     number__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_number", title="Extension field for ``number``."
+        default=None, alias="_number", title="Extension field for ``number``."
     )
 
     text: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="text",
         title="Note explanatory text",
         description="The explanation or description associated with the processing.",
@@ -2442,11 +2583,11 @@ class ClaimResponseProcessNote(backboneelement.BackboneElement):
         },
     )
     text__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_text", title="Extension field for ``text``."
+        default=None, alias="_text", title="Extension field for ``text``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Note purpose",
         description="The business purpose of the note text.",
@@ -2457,9 +2598,9 @@ class ClaimResponseProcessNote(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseProcessNote`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseProcessNote`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -2470,6 +2611,13 @@ class ClaimResponseProcessNote(backboneelement.BackboneElement):
             "text",
             "language",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseProcessNote`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -2495,17 +2643,18 @@ class ClaimResponseTotal(backboneelement.BackboneElement):
     __resource_type__ = "ClaimResponseTotal"
 
     amount: fhirtypes.MoneyType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="amount",
         title="Financial total for the category",
         description="Monetary total amount associated with the category.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     category: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="category",
         title="Type of adjudication information",
         description=(
@@ -2518,13 +2667,21 @@ class ClaimResponseTotal(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ClaimResponseTotal`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ClaimResponseTotal`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "category", "amount"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ClaimResponseTotal`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "category", "amount"]

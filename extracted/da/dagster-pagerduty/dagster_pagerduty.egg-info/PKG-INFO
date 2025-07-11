@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pagerduty
-Version: 0.27.1
+Version: 0.27.2
 Summary: Package for pagerduty Dagster framework components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-pagerduty
 Author: Dagster Labs
@@ -10,9 +10,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<3.13
+Requires-Python: >=3.9,<=3.13.3
 License-File: LICENSE
-Requires-Dist: dagster==1.11.1
+Requires-Dist: dagster==1.11.2
 Requires-Dist: pypd
 Dynamic: author
 Dynamic: author-email

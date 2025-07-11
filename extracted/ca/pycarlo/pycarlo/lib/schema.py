@@ -7616,6 +7616,19 @@ class MonitoredTableRuleInput(sgqlc.types.Input):
     """Monitoring rule type"""
 
 
+class MonteCarloStateMappingInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("servicenow_incident_state", "incident_feedback")
+    servicenow_incident_state = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="servicenowIncidentState"
+    )
+
+    incident_feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="incidentFeedback",
+    )
+
+
 class MskKafkaConnectCredentialsInput(sgqlc.types.Input):
     """Credentials for MSK Kafka Connect"""
 
@@ -8711,6 +8724,7 @@ class ServiceNowIntegrationOptionsInput(sgqlc.types.Input):
         "supports_fetch_fields",
         "supports_fetch_incident",
         "set_description_field",
+        "status_mappings",
     )
     oauth_token_endpoint = sgqlc.types.Field(String, graphql_name="oauthTokenEndpoint")
 
@@ -8725,6 +8739,11 @@ class ServiceNowIntegrationOptionsInput(sgqlc.types.Input):
     supports_fetch_incident = sgqlc.types.Field(Boolean, graphql_name="supportsFetchIncident")
 
     set_description_field = sgqlc.types.Field(Boolean, graphql_name="setDescriptionField")
+
+    status_mappings = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonteCarloStateMappingInput)),
+        graphql_name="statusMappings",
+    )
 
 
 class ServiceNowStateMappingInput(sgqlc.types.Input):
@@ -23589,6 +23608,19 @@ class MonteCarloConfigTemplateUpdateResponse(sgqlc.types.Type):
 
     info_as_json = sgqlc.types.Field(String, graphql_name="infoAsJson")
     """Informational messages"""
+
+
+class MonteCarloStateMapping(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("servicenow_incident_state", "incident_feedback")
+    servicenow_incident_state = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="servicenowIncidentState"
+    )
+
+    incident_feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="incidentFeedback",
+    )
 
 
 class MsTeamsChannel(sgqlc.types.Type):
@@ -58826,6 +58858,7 @@ class ServiceNowIntegrationOptions(sgqlc.types.Type):
         "supports_fetch_fields",
         "supports_fetch_incident",
         "set_description_field",
+        "status_mappings",
     )
     oauth_token_endpoint = sgqlc.types.Field(String, graphql_name="oauthTokenEndpoint")
 
@@ -58847,6 +58880,11 @@ class ServiceNowIntegrationOptions(sgqlc.types.Type):
 
     set_description_field = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="setDescriptionField"
+    )
+
+    status_mappings = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonteCarloStateMapping)),
+        graphql_name="statusMappings",
     )
 
 

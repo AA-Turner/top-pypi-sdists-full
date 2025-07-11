@@ -1,7 +1,7 @@
 from setuptools import setup
 
 # Version
-VERSION = "2.2.1"
+VERSION = "2.2.2"
 if "#" in VERSION:
     import sys
     sys.stderr.write("Bad version %s\n" % VERSION)

@@ -29,7 +29,7 @@ class ValueSet(domainresource.DomainResource):
     __resource_type__ = "ValueSet"
 
     compose: fhirtypes.ValueSetComposeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="compose",
         title="Content logical definition of the value set (CLD)",
         description=(
@@ -44,7 +44,7 @@ class ValueSet(domainresource.DomainResource):
     )
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for the publisher",
         description=(
@@ -53,11 +53,12 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     copyright: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copyright",
         title="Use and/or publishing restrictions",
         description=(
@@ -70,11 +71,11 @@ class ValueSet(domainresource.DomainResource):
         },
     )
     copyright__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_copyright", title="Extension field for ``copyright``."
+        default=None, alias="_copyright", title="Extension field for ``copyright``."
     )
 
     date: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date last changed",
         description=(
@@ -83,14 +84,15 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Natural language description of the value set",
         description=(
@@ -105,11 +107,11 @@ class ValueSet(domainresource.DomainResource):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     expansion: fhirtypes.ValueSetExpansionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="expansion",
         title='Used when the value set is "expanded"',
         description=(
@@ -123,7 +125,7 @@ class ValueSet(domainresource.DomainResource):
     )
 
     experimental: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="experimental",
         title="For testing purposes, not real usage",
         description=(
@@ -133,14 +135,17 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     experimental__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_experimental", title="Extension field for ``experimental``."
+        default=None,
+        alias="_experimental",
+        title="Extension field for ``experimental``.",
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Additional identifier for the value set (business identifier)",
         description=(
@@ -150,11 +155,12 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     immutable: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="immutable",
         title=(
             "Indicates whether or not any change to the content logical definition "
@@ -166,14 +172,15 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     immutable__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_immutable", title="Extension field for ``immutable``."
+        default=None, alias="_immutable", title="Extension field for ``immutable``."
     )
 
     jurisdiction: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="Intended jurisdiction for value set (if applicable)",
         description=(
@@ -182,11 +189,12 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name for this value set (computer friendly)",
         description=(
@@ -196,14 +204,15 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     publisher: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="publisher",
         title="Name of the publisher (organization or individual)",
         description=(
@@ -212,14 +221,15 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     publisher__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_publisher", title="Extension field for ``publisher``."
+        default=None, alias="_publisher", title="Extension field for ``publisher``."
     )
 
     purpose: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="purpose",
         title="Why this value set is defined",
         description=(
@@ -231,11 +241,11 @@ class ValueSet(domainresource.DomainResource):
         },
     )
     purpose__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_purpose", title="Extension field for ``purpose``."
+        default=None, alias="_purpose", title="Extension field for ``purpose``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | active | retired | unknown",
         description=(
@@ -246,6 +256,7 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -253,24 +264,25 @@ class ValueSet(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Name for this value set (human friendly)",
         description="A short, descriptive, user-friendly title for the value set.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title=(
             "Canonical identifier for this value set, represented as a URI "
@@ -287,14 +299,15 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     useContext: typing.List[fhirtypes.UsageContextType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="useContext",
         title="The context that the content is intended to support",
         description=(
@@ -306,11 +319,12 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Business version of the value set",
         description=(
@@ -324,17 +338,18 @@ class ValueSet(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSet`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSet`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -365,6 +380,30 @@ class ValueSet(domainresource.DomainResource):
             "expansion",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSet`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "url",
+            "identifier",
+            "version",
+            "name",
+            "title",
+            "status",
+            "experimental",
+            "date",
+            "publisher",
+            "contact",
+            "useContext",
+            "jurisdiction",
+            "immutable",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -391,7 +430,7 @@ class ValueSetCompose(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetCompose"
 
     exclude: typing.List[fhirtypes.ValueSetComposeIncludeType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="exclude",
         title="Explicitly exclude codes from a code system or other value sets",
         description=(
@@ -404,7 +443,7 @@ class ValueSetCompose(backboneelement.BackboneElement):
     )
 
     inactive: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="inactive",
         title="Whether inactive codes are in the value set",
         description=(
@@ -418,24 +457,26 @@ class ValueSetCompose(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     inactive__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_inactive", title="Extension field for ``inactive``."
+        default=None, alias="_inactive", title="Extension field for ``inactive``."
     )
 
     include: typing.List[fhirtypes.ValueSetComposeIncludeType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="include",
         title="Include one or more codes from a code system or other value set(s)",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     lockedDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="lockedDate",
         title="Fixed date for references with no specified version (transitive)",
         description=(
@@ -446,17 +487,18 @@ class ValueSetCompose(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     lockedDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_lockedDate", title="Extension field for ``lockedDate``."
+        default=None, alias="_lockedDate", title="Extension field for ``lockedDate``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetCompose`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetCompose`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -467,6 +509,13 @@ class ValueSetCompose(backboneelement.BackboneElement):
             "include",
             "exclude",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetCompose`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "lockedDate", "inactive", "include"]
 
 
 class ValueSetComposeInclude(backboneelement.BackboneElement):
@@ -480,7 +529,7 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetComposeInclude"
 
     concept: typing.List[fhirtypes.ValueSetComposeIncludeConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="concept",
         title="A concept defined in the system",
         description="Specifies a concept to be included or excluded.",
@@ -490,7 +539,7 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
     )
 
     filter: typing.List[fhirtypes.ValueSetComposeIncludeFilterType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="filter",
         title="Select codes/concepts by their properties (including relationships)",
         description=(
@@ -501,11 +550,12 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     system: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="system",
         title="The system the codes come from",
         description=(
@@ -514,14 +564,15 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     system__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_system", title="Extension field for ``system``."
+        default=None, alias="_system", title="Extension field for ``system``."
     )
 
     valueSet: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueSet",
         title="Select the contents included in this value set",
         description=(
@@ -532,16 +583,17 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ValueSet"],
         },
     )
     valueSet__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_valueSet", title="Extension field for ``valueSet``."
+        default=None, alias="_valueSet", title="Extension field for ``valueSet``."
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Specific version of the code system referred to",
         description=(
@@ -550,17 +602,18 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetComposeInclude`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetComposeInclude`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -572,6 +625,13 @@ class ValueSetComposeInclude(backboneelement.BackboneElement):
             "filter",
             "valueSet",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetComposeInclude`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "system", "version", "filter", "valueSet"]
 
 
 class ValueSetComposeIncludeConcept(backboneelement.BackboneElement):
@@ -586,7 +646,7 @@ class ValueSetComposeIncludeConcept(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetComposeIncludeConcept"
 
     code: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Code or expression from system",
         description="Specifies a code for the concept to be included or excluded.",
@@ -596,11 +656,11 @@ class ValueSetComposeIncludeConcept(backboneelement.BackboneElement):
         },
     )
     code__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_code", title="Extension field for ``code``."
+        default=None, alias="_code", title="Extension field for ``code``."
     )
 
     designation: typing.List[fhirtypes.ValueSetComposeIncludeConceptDesignationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="designation",
         title="Additional representations for this concept",
         description=(
@@ -614,7 +674,7 @@ class ValueSetComposeIncludeConcept(backboneelement.BackboneElement):
     )
 
     display: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="display",
         title="Text to display for this code for this value set in this valueset",
         description=(
@@ -627,14 +687,14 @@ class ValueSetComposeIncludeConcept(backboneelement.BackboneElement):
         },
     )
     display__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_display", title="Extension field for ``display``."
+        default=None, alias="_display", title="Extension field for ``display``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetComposeIncludeConcept`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetComposeIncludeConcept`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -644,6 +704,13 @@ class ValueSetComposeIncludeConcept(backboneelement.BackboneElement):
             "display",
             "designation",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetComposeIncludeConcept`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -671,7 +738,7 @@ class ValueSetComposeIncludeConceptDesignation(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetComposeIncludeConceptDesignation"
 
     language: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Human language of the designation",
         description="The language this designation is defined for.",
@@ -680,11 +747,11 @@ class ValueSetComposeIncludeConceptDesignation(backboneelement.BackboneElement):
         },
     )
     language__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_language", title="Extension field for ``language``."
+        default=None, alias="_language", title="Extension field for ``language``."
     )
 
     use: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title="Types of uses of designations",
         description="A code that represents types of uses of designations.",
@@ -694,7 +761,7 @@ class ValueSetComposeIncludeConceptDesignation(backboneelement.BackboneElement):
     )
 
     value: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="The text value for this designation",
         description=None,
@@ -704,16 +771,23 @@ class ValueSetComposeIncludeConceptDesignation(backboneelement.BackboneElement):
         },
     )
     value__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetComposeIncludeConceptDesignation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetComposeIncludeConceptDesignation`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "language", "use", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetComposeIncludeConceptDesignation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -741,7 +815,7 @@ class ValueSetComposeIncludeFilter(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetComposeIncludeFilter"
 
     op: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="op",
         title=(
             "= | is-a | descendent-of | is-not-a | regex | in | not-in | "
@@ -750,6 +824,7 @@ class ValueSetComposeIncludeFilter(backboneelement.BackboneElement):
         description="The kind of operation to perform as a part of the filter criteria.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -767,11 +842,11 @@ class ValueSetComposeIncludeFilter(backboneelement.BackboneElement):
         },
     )
     op__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_op", title="Extension field for ``op``."
+        default=None, alias="_op", title="Extension field for ``op``."
     )
 
     property: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="property",
         title="A property/filter defined by the code system",
         description=(
@@ -780,15 +855,16 @@ class ValueSetComposeIncludeFilter(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     property__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_property", title="Extension field for ``property``."
+        default=None, alias="_property", title="Extension field for ``property``."
     )
 
     value: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="Code from the system, or regex criteria, or boolean value for exists",
         description=(
@@ -801,20 +877,28 @@ class ValueSetComposeIncludeFilter(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     value__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetComposeIncludeFilter`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetComposeIncludeFilter`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "property", "op", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetComposeIncludeFilter`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "property", "op", "value"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -846,7 +930,7 @@ class ValueSetExpansion(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetExpansion"
 
     contains: typing.List[fhirtypes.ValueSetExpansionContainsType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contains",
         title="Codes in the value set",
         description="The codes that are contained in the value set expansion.",
@@ -856,7 +940,7 @@ class ValueSetExpansion(backboneelement.BackboneElement):
     )
 
     identifier: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Identifies the value set expansion (business identifier)",
         description=(
@@ -872,11 +956,11 @@ class ValueSetExpansion(backboneelement.BackboneElement):
         },
     )
     identifier__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_identifier", title="Extension field for ``identifier``."
+        default=None, alias="_identifier", title="Extension field for ``identifier``."
     )
 
     offset: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="offset",
         title="Offset at which this resource starts",
         description=(
@@ -889,11 +973,11 @@ class ValueSetExpansion(backboneelement.BackboneElement):
         },
     )
     offset__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_offset", title="Extension field for ``offset``."
+        default=None, alias="_offset", title="Extension field for ``offset``."
     )
 
     parameter: typing.List[fhirtypes.ValueSetExpansionParameterType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="parameter",
         title="Parameter that controlled the expansion process",
         description=(
@@ -908,7 +992,7 @@ class ValueSetExpansion(backboneelement.BackboneElement):
     )
 
     timestamp: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timestamp",
         title="Time ValueSet expansion happened",
         description="The time at which the expansion was produced by the expanding system.",
@@ -918,11 +1002,11 @@ class ValueSetExpansion(backboneelement.BackboneElement):
         },
     )
     timestamp__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_timestamp", title="Extension field for ``timestamp``."
+        default=None, alias="_timestamp", title="Extension field for ``timestamp``."
     )
 
     total: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="total",
         title="Total number of codes in the expansion",
         description=(
@@ -935,14 +1019,14 @@ class ValueSetExpansion(backboneelement.BackboneElement):
         },
     )
     total__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_total", title="Extension field for ``total``."
+        default=None, alias="_total", title="Extension field for ``total``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetExpansion`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetExpansion`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -955,6 +1039,13 @@ class ValueSetExpansion(backboneelement.BackboneElement):
             "parameter",
             "contains",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetExpansion`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -980,7 +1071,7 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetExpansionContains"
 
     abstract: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="abstract",
         title="If user cannot select this entry",
         description=(
@@ -993,11 +1084,11 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
         },
     )
     abstract__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_abstract", title="Extension field for ``abstract``."
+        default=None, alias="_abstract", title="Extension field for ``abstract``."
     )
 
     code: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Code - if blank, this is not a selectable code",
         description=(
@@ -1010,11 +1101,11 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
         },
     )
     code__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_code", title="Extension field for ``code``."
+        default=None, alias="_code", title="Extension field for ``code``."
     )
 
     contains: typing.List[fhirtypes.ValueSetExpansionContainsType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contains",
         title="Codes contained under this entry",
         description="Other codes and entries contained under this entry in the hierarchy.",
@@ -1024,7 +1115,7 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
     )
 
     designation: typing.List[fhirtypes.ValueSetComposeIncludeConceptDesignationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="designation",
         title="Additional representations for this item",
         description=(
@@ -1039,7 +1130,7 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
     )
 
     display: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="display",
         title="User display for the concept",
         description="The recommended display for this item in the expansion.",
@@ -1048,11 +1139,11 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
         },
     )
     display__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_display", title="Extension field for ``display``."
+        default=None, alias="_display", title="Extension field for ``display``."
     )
 
     inactive: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="inactive",
         title="If concept is inactive in the code system",
         description=(
@@ -1067,11 +1158,11 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
         },
     )
     inactive__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_inactive", title="Extension field for ``inactive``."
+        default=None, alias="_inactive", title="Extension field for ``inactive``."
     )
 
     system: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="system",
         title="System value for the code",
         description=(
@@ -1083,11 +1174,11 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
         },
     )
     system__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_system", title="Extension field for ``system``."
+        default=None, alias="_system", title="Extension field for ``system``."
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Version in which this code/display is defined",
         description=(
@@ -1102,14 +1193,14 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetExpansionContains`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetExpansionContains`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1124,6 +1215,13 @@ class ValueSetExpansionContains(backboneelement.BackboneElement):
             "designation",
             "contains",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetExpansionContains`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ValueSetExpansionParameter(backboneelement.BackboneElement):
@@ -1140,7 +1238,7 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
     __resource_type__ = "ValueSetExpansionParameter"
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name as assigned by the client or server",
         description=(
@@ -1154,11 +1252,11 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     valueBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBoolean",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1170,11 +1268,13 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueBoolean", title="Extension field for ``valueBoolean``."
+        default=None,
+        alias="_valueBoolean",
+        title="Extension field for ``valueBoolean``.",
     )
 
     valueCode: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCode",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1186,11 +1286,11 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueCode__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueCode", title="Extension field for ``valueCode``."
+        default=None, alias="_valueCode", title="Extension field for ``valueCode``."
     )
 
     valueDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDateTime",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1202,11 +1302,13 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDateTime", title="Extension field for ``valueDateTime``."
+        default=None,
+        alias="_valueDateTime",
+        title="Extension field for ``valueDateTime``.",
     )
 
     valueDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDecimal",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1218,11 +1320,13 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDecimal", title="Extension field for ``valueDecimal``."
+        default=None,
+        alias="_valueDecimal",
+        title="Extension field for ``valueDecimal``.",
     )
 
     valueInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueInteger",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1234,11 +1338,13 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueInteger", title="Extension field for ``valueInteger``."
+        default=None,
+        alias="_valueInteger",
+        title="Extension field for ``valueInteger``.",
     )
 
     valueString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueString",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1250,11 +1356,11 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueString", title="Extension field for ``valueString``."
+        default=None, alias="_valueString", title="Extension field for ``valueString``."
     )
 
     valueUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueUri",
         title="Value of the named parameter",
         description="The value of the parameter.",
@@ -1266,14 +1372,14 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
         },
     )
     valueUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueUri", title="Extension field for ``valueUri``."
+        default=None, alias="_valueUri", title="Extension field for ``valueUri``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ValueSetExpansionParameter`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ValueSetExpansionParameter`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1288,6 +1394,13 @@ class ValueSetExpansionParameter(backboneelement.BackboneElement):
             "valueCode",
             "valueDateTime",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ValueSetExpansionParameter`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

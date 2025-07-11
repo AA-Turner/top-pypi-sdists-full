@@ -3,6 +3,7 @@ from _kaldi_native_fbank import (
     FeatureWindowFunction,
     FrameExtractionOptions,
     IStft,
+    MelBanks,
     MelBanksOptions,
     MfccOptions,
     OnlineFbank,
@@ -14,4 +15,4 @@ from _kaldi_native_fbank import (
     StftResult,
     WhisperFeatureOptions,
 )
-__version__ = '1.21.2'
+__version__ = '1.21.3'

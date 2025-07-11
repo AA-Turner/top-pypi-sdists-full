@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oslo.log
-Version: 7.1.0
+Version: 7.2.0
 Summary: oslo.log library
 Home-page: https://docs.openstack.org/oslo.log/latest
 Author: OpenStack
@@ -38,7 +38,7 @@ Requires-Dist: testtools>=2.3.0; extra == "test"
 Requires-Dist: oslotest>=3.3.0; extra == "test"
 Requires-Dist: coverage>=4.5.1; extra == "test"
 Requires-Dist: fixtures>=3.0.0; extra == "test"
-Requires-Dist: eventlet>=0.30.1; extra == "test"
+Requires-Dist: eventlet>=0.38.2; extra == "test"
 
 ========================
 Team and repository tags

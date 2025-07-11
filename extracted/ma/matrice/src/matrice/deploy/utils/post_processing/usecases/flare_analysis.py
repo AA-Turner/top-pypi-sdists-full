@@ -69,6 +69,7 @@ class FlareAnalysisUseCase(BaseProcessor):
         self._global_frame_offset = 0
         self._flare_total_track_ids = {}
         self._flare_current_frame_track_ids = {}
+        self._tracking_start_time = None
 
     def reset_tracker(self) -> None:
         if self.tracker is not None:
@@ -80,6 +81,7 @@ class FlareAnalysisUseCase(BaseProcessor):
         self._flare_current_frame_track_ids = {}
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        self._tracking_start_time = None
         self.logger.info("Flare tracking state reset")
 
     def reset_all_tracking(self) -> None:
@@ -145,6 +147,88 @@ class FlareAnalysisUseCase(BaseProcessor):
 
     def get_total_flare_counts(self):
         return {key: len(ids) for key, ids in getattr(self, '_flare_total_track_ids', {}).items()}
+    
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        # if is_video_chunk:
+        #     # For video chunks, use video_timestamp from stream_info
+        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
+        #     return self._format_timestamp_for_video(video_timestamp)
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str[:8]
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        
+        
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+        if is_video_chunk:
+            # For video chunks, start from 00:00:00
+            return "00:00:00"
+        
+        elif stream_info.get("video_format") is not None and isinstance(stream_info.get("video_format"),str):
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         frame_track_ids = set(det.get('track_id') for det in detections if det.get('track_id') is not None)
@@ -251,19 +335,6 @@ class FlareAnalysisUseCase(BaseProcessor):
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
             flare_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
 
-            # if config.enable_smoothing:
-            #     if self.smoothing_tracker is None:
-            #         smoothing_config = BBoxSmoothingConfig(
-            #             smoothing_algorithm=config.smoothing_algorithm,
-            #             window_size=config.smoothing_window_size,
-            #             cooldown_frames=config.smoothing_cooldown_frames,
-            #             confidence_threshold=config.confidence_threshold,
-            #             confidence_range_factor=config.smoothing_confidence_range_factor,
-            #             enable_smoothing=True
-            #         )
-            #         self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            #     flare_processed_data = bbox_smoothing(flare_processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-
             try:
                 from ..advanced_tracker import AdvancedTracker
                 from ..advanced_tracker.config import TrackerConfig
@@ -275,7 +346,6 @@ class FlareAnalysisUseCase(BaseProcessor):
             except Exception as e:
                 self.logger.warning(f"AdvancedTracker failed: {e}")
 
-            # flare_processed_data = self._deduplicate_detections(flare_processed_data, iou_thresh=0.7)
             self._update_flare_tracking_state(flare_processed_data)
             self._total_frame_counter += 1
 
@@ -297,8 +367,8 @@ class FlareAnalysisUseCase(BaseProcessor):
             predictions = self._extract_predictions(flare_analysis, config)
             summary = self._generate_summary(flare_summary, general_summary, alerts)
 
-            events_list = self._generate_events(flare_summary, alerts, config, frame_number)
-            tracking_stats_list = self._generate_tracking_stats(flare_summary, insights, summary, config, frame_number)
+            events_list = self._generate_events(flare_summary, alerts, config, frame_number,stream_info)
+            tracking_stats_list = self._generate_tracking_stats(flare_summary, insights, summary, config, frame_number, stream_info)
             events = events_list[0] if events_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
 
@@ -451,19 +521,39 @@ class FlareAnalysisUseCase(BaseProcessor):
         h, w = image.shape[:2]
         if bbox_format == "auto":
             bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
+        
         if bbox_format == "xmin_ymin_xmax_ymax":
             xmin = max(0, int(bbox["xmin"]))
             ymin = max(0, int(bbox["ymin"]))
             xmax = min(w, int(bbox["xmax"]))
             ymax = min(h, int(bbox["ymax"]))
+            x_center = (xmin + xmax) / 2
+            x_offset = (xmax - xmin) / 4
+            y_center = (ymin + ymax) / 2
+            y_offset = (ymax - ymin) / 4
+            new_xmin = max(0, int(x_center - x_offset))
+            new_xmax = min(w, int(x_center + x_offset))
+            new_ymin = max(0, int(y_center - y_offset))
+            new_ymax = min(h, int(y_center + y_offset))
         elif bbox_format == "x_y_width_height":
-            xmin = max(0, int(bbox["x"]))
-            ymin = max(0, int(bbox["y"]))
-            xmax = min(w, int(bbox["x"] + bbox["width"]))
-            ymax = min(h, int(bbox["y"] + bbox["height"]))
+            x = max(0, int(bbox["x"]))
+            y = max(0, int(bbox["y"]))
+            width = int(bbox["width"])
+            height = int(bbox["height"])
+            xmax = min(w, x + width)
+            ymax = min(h, y + height)
+            x_center = (x + xmax) / 2
+            x_offset = (xmax - x) / 4
+            y_center = (y + ymax) / 2
+            y_offset = (ymax - y) / 4
+            new_xmin = max(0, int(x_center - x_offset))
+            new_xmax = min(w, int(x_center + x_offset))
+            new_ymin = max(0, int(y_center - y_offset))
+            new_ymax = min(h, int(y_center + y_offset))
         else:
             return np.zeros((0, 0, 3), dtype=np.uint8)
-        return image[ymin:ymax, xmin:xmax]
+        
+        return image[new_ymin:new_ymax, new_xmin:new_xmax]
 
     def _calculate_flare_summary(self, flare_analysis: List[Dict], config: FlareAnalysisConfig) -> Dict[str, Any]:
         category_colors = defaultdict(lambda: defaultdict(int))
@@ -538,7 +628,7 @@ class FlareAnalysisUseCase(BaseProcessor):
         for category, colors in categories.items():
             total = sum(colors.values())
             color_details = ", ".join([f"{color}: {count}" for color, count in colors.items()])
-            insights.append(f"{category.capitalize()} colors: {color_details} (Total: {total})")
+            insights.append(f"{category.capitalize()} color[s]: {color_details} (Total: {total})")
         for category, info in dominant_colors.items():
             insights.append(
                 f"{category.capitalize()} is mostly {info['color']} "
@@ -654,33 +744,29 @@ class FlareAnalysisUseCase(BaseProcessor):
             summary_parts.append(f"with {alert_count} alert{'s' if alert_count != 1 else ''}")
         return ", ".join(summary_parts)
 
-    def _generate_events(self, flare_summary: Dict, alerts: List, config: FlareAnalysisConfig, frame_number: Optional[int] = None) -> List[Dict]:
+    def _generate_events(self, flare_summary: Dict, alerts: List, config: FlareAnalysisConfig, frame_number: Optional[int] = None,stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         events = [{frame_key: []}]
         frame_events = events[0][frame_key]
         
-        # Check if BadFlare is detected
-        bad_flare_detected = flare_summary.get("categories", {}).get("BadFlare", {})
-        total_bad_flare_detections = sum(bad_flare_detected.values()) if bad_flare_detected else 0
+        # bad_flare_detected = flare_summary.get("categories", {}).get("BadFlare", {})
+        # total_bad_flare_detections = sum(bad_flare_detected.values()) if bad_flare_detected else 0
 
-        if total_bad_flare_detections > 0:
+        categories = flare_summary.get("categories", {})
+        total_detections = sum(sum(colors.values()) for colors in categories.values())
+
+        if total_detections > 0:
+
+            # Generate human text in new format
+            human_text_lines = ["EVENTS DETECTED:"]
+            human_text_lines.append(f"    - {total_detections} Flares(s) detected [INFO]")
+            human_text = "\n".join(human_text_lines)
+
             level = "info"
-            intensity = min(10.0, total_bad_flare_detections / 5.0)
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 20)
-                intensity = min(10.0, (total_bad_flare_detections / threshold) * 10)
-                level = "critical" if intensity >= 7 else "warning" if intensity >= 5 else "info"
-            elif total_bad_flare_detections > 50:
-                level = "critical"
-                intensity = 9.0
-            elif total_bad_flare_detections > 25:
-                level = "warning"
-                intensity = 7.0
             event = {
                 "type": "flare_detection",
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": level,
-                "intensity": round(intensity, 1),
                 "config": {
                     "min_value": 0,
                     "max_value": 10,
@@ -689,17 +775,10 @@ class FlareAnalysisUseCase(BaseProcessor):
                 "application_name": "Flare Detection System",
                 "application_version": "1.2",
                 "location_info": None,
-                "human_text": (
-                    f"Event: BadFlare Detection\nLevel: {level.title()}\n"
-                    f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')}\n"
-                    f"Detections: {total_bad_flare_detections} BadFlares analyzed\n"
-                    f"Unique Colors: {len(bad_flare_detected) if bad_flare_detected else 0}\n"
-                    f"Intensity: {intensity:.1f}/10"
-                )
+                "human_text": human_text
             }
             frame_events.append(event)
 
-        # Generate alert events as in the original logic
         for alert in alerts:
             alert_event = {
                 "type": alert.get("type", "flare_alert"),
@@ -720,12 +799,120 @@ class FlareAnalysisUseCase(BaseProcessor):
         
         return events
 
-    def _generate_tracking_stats(self, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig, frame_number: Optional[int] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
         total_detections = flare_summary.get("total_detections", 0)
+        categories = flare_summary.get("categories", {})
+        total_count = sum(sum(colors.values()) for colors in categories.values())
         track_ids_info = self._get_track_ids_info(flare_summary.get("detections", []))
+        
+        # Get formatted timestamps
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
+
+        # Build human-readable summary string in new format
+        human_text_lines = []
+        
+        # CURRENT FRAME section
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+        if total_detections > 0:
+            # Calculate category-wise detections with dominant color and average relative height
+            category_stats = {}
+            frame_height = stream_info.get("input_settings", {}).get("height") if stream_info else None
+            for detection in flare_summary.get("detections", []):
+                if detection.get("frame_id") != frame_key:
+                    continue
+                category = detection.get("category", "unknown")
+                main_color = detection.get("main_color", "unknown")
+                if category not in category_stats:
+                    category_stats[category] = {"colors": defaultdict(int), "heights": [], "count": 0}
+                category_stats[category]["colors"][main_color] += 1
+                category_stats[category]["count"] += 1
+                if frame_height:
+                    bbox = detection.get("bounding_box", detection.get("bbox"))
+                    if bbox:
+                        if config.bbox_format == "auto":
+                            bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
+                        else:
+                            bbox_format = config.bbox_format
+                        if bbox_format == "xmin_ymin_xmax_ymax":
+                            bbox_height = bbox["ymax"] - bbox["ymin"]
+                        elif bbox_format == "x_y_width_height":
+                            bbox_height = bbox["height"]
+                        else:
+                            bbox_height = 0
+                        if bbox_height > 0:
+                            relative_height = (bbox_height / frame_height) * 100
+                            category_stats[category]["heights"].append(relative_height)
+            
+            # Format category-wise detections
+            category_lines = []
+            categories = flare_summary.get("categories", {})
+            for category, colors in categories.items():
+                total = sum(colors.values())
+                color_details = ", ".join([f"{color}" for color, count in colors.items()])
+                category_lines.append(f"  {total}  {color_details} colored  {category.capitalize()}  ")
+            human_text_lines.append(f"    - Flare[s] Detected: {', '.join(category_lines)}")
+            
+            # Add average relative height for current frame (across all categories)
+            if frame_height and total_detections > 0:
+                total_relative_height = 0.0
+                frame_detection_count = 0
+                for detection in flare_summary.get("detections", []):
+                    if detection.get("frame_id") == frame_key:
+                        bbox = detection.get("bounding_box", detection.get("bbox"))
+                        if not bbox:
+                            continue
+                        if config.bbox_format == "auto":
+                            bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
+                        else:
+                            bbox_format = config.bbox_format
+                        if bbox_format == "xmin_ymin_xmax_ymax":
+                            bbox_height = bbox["ymax"] - bbox["ymin"]
+                        elif bbox_format == "x_y_width_height":
+                            bbox_height = bbox["height"]
+                        else:
+                            continue
+                        relative_height = (bbox_height / frame_height) * 100
+                        total_relative_height += relative_height
+                        frame_detection_count += 1
+                if frame_detection_count > 0:
+                    avg_relative_height = total_relative_height / frame_detection_count
+                    # human_text_lines.append(f"    - Average Relative Height: {avg_relative_height:.1f}%")
+        else:
+            human_text_lines.append("    - No Flares detected")
+        
+        human_text_lines.append("")  # Empty line for spacing
+        
+        # TOTAL SINCE section
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
+        human_text_lines.append(f"    - Total Flares Detected: {total_count}")
+        # Calculate average relative height for all detections
+        if frame_height and total_count > 0:
+            total_relative_height = 0.0
+            for detection in flare_summary.get("detections", []):
+                bbox = detection.get("bounding_box", detection.get("bbox"))
+                if not bbox:
+                    continue
+                if config.bbox_format == "auto":
+                    bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
+                else:
+                    bbox_format = config.bbox_format
+                if bbox_format == "xmin_ymin_xmax_ymax":
+                    bbox_height = bbox["ymax"] - bbox["ymin"]
+                elif bbox_format == "x_y_width_height":
+                    bbox_height = bbox["height"]
+                else:
+                    continue
+                relative_height = (bbox_height / frame_height) * 100
+                total_relative_height += relative_height
+            avg_relative_height = total_relative_height / total_count
+            human_text_lines.append(f"    - Average Relative Height: {avg_relative_height:.1f}%")
+
+        human_text = "\n".join(human_text_lines)
+        
         tracking_stat = {
             "type": "flare_tracking",
             "category": "flare_detection",
@@ -733,7 +920,7 @@ class FlareAnalysisUseCase(BaseProcessor):
             "insights": insights,
             "summary": summary,
             "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": self._generate_human_text_for_tracking(total_detections, flare_summary, insights, summary, config),
+            "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
             "local_frame_id": frame_key
@@ -741,19 +928,15 @@ class FlareAnalysisUseCase(BaseProcessor):
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
-    def _generate_human_text_for_tracking(self, total_detections: int, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig) -> str:
+    def _generate_human_text_for_tracking(self, total_detections: int, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig, stream_info: Optional[Dict[str, Any]] = None) -> str:
         text_parts = []
         if config.time_window_minutes:
             detection_rate_per_hour = (total_detections / config.time_window_minutes) * 60
-            # text_parts.append(f"Detection Rate: {detection_rate_per_hour:.1f} flares per hour")
         unique_colors = len(flare_summary.get("color_distribution", {}))
-        # text_parts.append(f"Unique Colors Detected: {unique_colors}")
         if total_detections > 0:
             color_diversity = (unique_colors / total_detections) * 100
-            # text_parts.append(f"Color Diversity: {color_diversity:.1f}%")
         categories = flare_summary.get("categories", {})
         if categories:
-            # text_parts.append(f"Categories Analyzed: {len(categories)}")
             for category, colors in categories.items():
                 category_total = sum(colors.values())
                 if category_total > 0:
@@ -762,9 +945,44 @@ class FlareAnalysisUseCase(BaseProcessor):
         color_distribution = flare_summary.get("color_distribution", {})
         if color_distribution:
             top_colors = sorted(color_distribution.items(), key=lambda x: x[1], reverse=True)[:3]
-            # text_parts.append("Top Colors:")
             for color, count in top_colors:
                 percentage = (count / total_detections) * 100
-                # text_parts.append(f"  {color.title()}: {count} flares ({percentage:.1f}%)")
+
+        # Calculate average relative height
+        frame_height = stream_info.get("input_settings", {}).get("height") if stream_info else None
+        if frame_height and total_detections > 0:
+            total_relative_height = 0.0
+            for detection in flare_summary.get("detections", []):
+                bbox = detection.get("bounding_box", detection.get("bbox"))
+                if not bbox:
+                    continue
+                if config.bbox_format == "auto":
+                    bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
+                else:
+                    bbox_format = config.bbox_format
+                if bbox_format == "xmin_ymin_xmax_ymax":
+                    bbox_height = bbox["ymax"] - bbox["ymin"]
+                elif bbox_format == "x_y_width_height":
+                    bbox_height = bbox["height"]
+                else:
+                    continue
+                relative_height = (bbox_height / frame_height) * 100
+                total_relative_height += relative_height
+            avg_relative_height = total_relative_height / total_detections
+            text_parts.append(f"Average Relative Height: {avg_relative_height:.1f}%")
 
         return "\n".join(text_parts)
+    
+    def _format_timestamp(self, timestamp: float) -> str:
+        """Format a timestamp for human-readable output."""
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+
+    def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
+        self._tracking_start_time = time.time()

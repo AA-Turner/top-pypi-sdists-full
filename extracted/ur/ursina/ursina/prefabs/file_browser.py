@@ -1,6 +1,7 @@
 from ursina import *
 from ursina.scripts.property_generator import generate_properties_for_class
 
+
 @generate_properties_for_class()
 class FileButton(Button):
     def __init__(self, load_menu, path, **kwargs):
@@ -34,7 +35,7 @@ class FileButton(Button):
 
     def selected_setter(self, value):
         self._selected = value
-        if value == True:
+        if value:
             self.color = color.azure
             self.highlight_color = color.azure.tint(.1)
         else:
@@ -47,8 +48,9 @@ class FileButton(Button):
 
 @generate_properties_for_class()
 class FileBrowser(Entity):
-    def __init__(self, file_button_class=FileButton, selection_limit=1, start_path=None, **kwargs):
-        self.file_types = ['.*', ]
+    def __init__(self, file_button_class=FileButton, selection_limit=1, start_path=None, file_types:list=None, **kwargs):
+        self.file_types = file_types if file_types else ['.*', ]
+
         if not start_path:
             start_path = Path('.').resolve()
         self.start_path = start_path
@@ -89,7 +91,7 @@ class FileBrowser(Entity):
 
     def input(self, key):
         if key == 'scroll down':
-            if self.scroll + self.max_buttons < len(self.button_parent.children)-1:
+            if self.scroll + self.max_buttons < len(self.button_parent.children):
                 self.scroll += 1
 
         if key == 'scroll up':
@@ -108,7 +110,7 @@ class FileBrowser(Entity):
 
         self.button_parent.y = value * .025
         self.can_scroll_up_indicator.enabled = value > 0
-        self.can_scroll_down_indicator.enabled = value + self.max_buttons + 1 != len(self.button_parent.children)
+        self.can_scroll_down_indicator.enabled = value + self.max_buttons != len(self.button_parent.children)
 
 
     def path_setter(self, value):
@@ -138,7 +140,7 @@ class FileBrowser(Entity):
 
             else:
                 # print('create new:', i)
-                b = self.file_button_class(parent=self.button_parent, path=f, text_origin=(-.5,0), text=prefix+f.name, y=-i*.025 -.09, load_menu=self, add_to_scene_entities=False)
+                b = self.file_button_class(parent=self.button_parent, path=f, text_origin=(-.5,0), text=prefix+f.name, y=-i*.025 -.09, load_menu=self)
 
         self.scroll = 0
 
@@ -195,6 +197,7 @@ if __name__ == '__main__':
 
     fb.on_submit = on_submit
 
+    Text('Press Tab to open file browser', origin=(0,0), z=1)
     def input(key):
         if key == 'tab':
             fb.enabled = not fb.enabled

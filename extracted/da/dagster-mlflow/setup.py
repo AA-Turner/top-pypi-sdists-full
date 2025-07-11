@@ -30,9 +30,9 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_mlflow_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.13",
+    python_requires=">=3.9,<=3.13.3",
     install_requires=[
-        "dagster==1.11.1",
+        "dagster==1.11.2",
         "mlflow",
         "pandas",
         "protobuf!=5.29.0",  # https://github.com/protocolbuffers/protobuf/issues/19430

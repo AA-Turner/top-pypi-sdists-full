@@ -142,7 +142,12 @@ def get_logger_callable(logger, level="info"):
     else:
         return None
 
-
+def get_caller_info():
+    caller_idx = _find_caller_frame_index()
+    stack = inspect.stack()
+    caller_frame = stack[caller_idx]
+    caller_path = caller_frame.filename
+    return caller_path,caller_frame
 def print_or_log(message, logger=True, level="info"):
     """
     Print or log a message. If logger=True, find the first caller outside this module
@@ -150,10 +155,7 @@ def print_or_log(message, logger=True, level="info"):
     stacklevel that points directly at that same caller.
     """
     # 1) Find the first frame index outside logging_utils (and also outside the logging stdlib).
-    caller_idx = _find_caller_frame_index()
-    stack = inspect.stack()
-    caller_frame = stack[caller_idx]
-    caller_path = caller_frame.filename
+
     # e.g. "/home/joe/project/app/routes.py"
     bpName = os.path.splitext(os.path.basename(caller_path))[0]
     del caller_frame

@@ -1,1 +1,1 @@
-GIT_INFO=" a4a7bdb6 Release 1.16.42"
+GIT_INFO=" de3d42b1 MOB-41350 Urllib3 upgrade"

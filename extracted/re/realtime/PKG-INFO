@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: realtime
-Version: 2.5.3
+Version: 2.6.0
 Summary: 
-Home-page: https://github.com/supabase/realtime-py
 License: MIT
 Author: Joel Lee
 Author-email: joel@joellee.org
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -14,9 +13,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: typing-extensions (>=4.14.0,<5.0.0)
+Requires-Dist: pydantic (>=2.11.7,<3.0.0)
+Requires-Dist: typing-extensions (>=4.14.0)
 Requires-Dist: websockets (>=11,<16)
-Project-URL: Repository, https://github.com/supabase/realtime-py
 Description-Content-Type: text/markdown
 
 <br />

@@ -63,7 +63,7 @@ from opendsm.eemeter.common.exceptions import (
 from opendsm.eemeter.common.warnings import EEMeterWarning
 from opendsm.common.clustering.cluster import cluster_features
 from opendsm.common.adaptive_loss import adaptive_weights
-from opendsm.common.metrics import BaselineMetrics, BaselineMetricsFromDict
+from opendsm.common.metrics import BaselineMetrics, BaselineMetricsFromDict, ReportingMetrics
 from opendsm import __version__
 
 
@@ -101,8 +101,6 @@ class AdaptiveElasticNetRegressor:
 
         num_hours = y.shape[1]
 
-        hour_model = copy(self.base_model)
-
         # fit the base model as an initial guess
         self.base_model.fit(X, y, sample_weight=sample_weight)
 
@@ -113,6 +111,7 @@ class AdaptiveElasticNetRegressor:
 
         hour_fit = [False for _ in range(num_hours)]
         alpha_prior = np.array([2.0 for _ in range(num_hours)])
+        alpha_min = alpha_prior.copy()
         for i in range(settings.max_iter):
             if all(hour_fit):
                 i -= 1
@@ -160,6 +159,7 @@ class AdaptiveElasticNetRegressor:
 
                 # update weights and alpha_prior
                 alpha_prior[hour] = alpha
+                alpha_min[hour] = min(alpha_min[hour], alpha)
 
                 # trim weights to hour size
                 if window_size > 0:
@@ -188,7 +188,7 @@ class AdaptiveElasticNetRegressor:
 
         # save info to base_model
         self.base_model.adaptive_iterations = i
-        self.base_model.adaptive_alpha = alpha_prior
+        self.base_model.adaptive_alpha = alpha_min
         self.base_model.adaptive_weights = weights
            
         return self
@@ -322,6 +322,7 @@ class HourlyModel:
 
         self.is_fitted = False
         self.baseline_metrics = None
+        self.baseline_hour_metrics = None
 
         self.warnings: list[EEMeterWarning] = []
         self.disqualification: list[EEMeterWarning] = []
@@ -428,20 +429,8 @@ class HourlyModel:
             self.warnings.append(model_mismatch_warning)
 
         self._fit(baseline_data)
+        self._check_model_fit()
 
-        if not self._model_fit_is_acceptable():
-            model_fit_warning = EEMeterWarning(
-                qualified_name="eemeter.model_fit_metrics",
-                description="Model disqualified due to poor fit.",
-                data={
-                    "cvrmse_threshold": self.settings.cvrmse_threshold,
-                    "cvrmse_adj": self.baseline_metrics.cvrmse_adj,
-                    "pnrmse_threshold": self.settings.pnrmse_threshold,
-                    "pnrmse_adj": self.baseline_metrics.pnrmse_adj,
-                },
-            )
-            model_fit_warning.warn()
-            self.disqualification.append(model_fit_warning)
         return self
 
     def _fit(self, meter_data):
@@ -459,6 +448,9 @@ class HourlyModel:
         self._model.fit(X_fit, y_fit)
         self.is_fitted = True
 
+        # get model prediction of baseline
+        df_meter = self._predict(meter_data, X=X)
+
         # get number of model parameters
         if self.settings.base_model == _settings.BaseModel.ELASTICNET:
             if self.settings.adaptive_weights.enabled:
@@ -469,17 +461,36 @@ class HourlyModel:
             )
         elif self.settings.base_model == _settings.BaseModel.KERNEL_RIDGE:
             num_parameters = np.count_nonzero(self._model.dual_coef_)
-        
-        # get model prediction of baseline
-        df_meter = self._predict(meter_data, X=X)
 
         # calculate baseline metrics on non-interpolated data
+        # TODO: change interpolated to imputed
         cols = [col for col in df_meter.columns if col.startswith("interpolated_")]
         interpolated = df_meter[cols].any(axis=1)
 
         self.baseline_metrics = BaselineMetrics(
-            df=df_meter.loc[~interpolated], num_model_params=num_parameters
+            df=df_meter.loc[~interpolated], 
+            num_model_params=num_parameters
         )
+
+        # calculate baseline metrics per hour-of-day on non-interpolated data
+        self.baseline_hour_metrics = {}
+        for hour in range(24):
+            # get number of model parameters
+            if self.settings.base_model == _settings.BaseModel.ELASTICNET:
+                num_parameters = np.count_nonzero(self._model.coef_[hour]) 
+                num_parameters += np.count_nonzero(self._model.intercept_[hour])
+
+            elif self.settings.base_model == _settings.BaseModel.KERNEL_RIDGE:
+                num_parameters = np.count_nonzero(self._model.dual_coef_[hour])   
+
+            hour_mask = df_meter.index.hour == hour
+            hour_data = df_meter.loc[hour_mask & ~interpolated]
+
+            self.baseline_hour_metrics[hour] = BaselineMetrics(
+                df=hour_data, 
+                num_model_params=num_parameters
+            )
+
         self.baseline_timezone = meter_data.tz
 
         return self
@@ -570,9 +581,10 @@ class HourlyModel:
         y_predict = _transform_dst(y_predict, dst_indices)
 
         df_eval["predicted"] = y_predict
+        df_eval = self._calculate_predicted_uncertianty(df_eval)
 
         # # remove columns not in original columns and predicted
-        df_eval = df_eval[[*columns, "predicted"]]
+        df_eval = df_eval[[*columns, "predicted", "predicted_unc"]]
 
         # reindex to original datetime index
         df_eval = df_eval.reindex(datetime_original)
@@ -1126,7 +1138,6 @@ class HourlyModel:
 
         return df
 
-
     def _add_temperature_interactions(self, df):
         settings = self.settings.temperature_bin
 
@@ -1237,23 +1248,82 @@ class HourlyModel:
 
         return X, y, fit_mask
 
-    def _model_fit_is_acceptable(self):
+    def _check_model_fit(self):
         cvrmse = self.baseline_metrics.cvrmse_adj
         pnrmse = self.baseline_metrics.pnrmse_adj
 
-        # sufficient is (0 <= cvrmse <= threshold) or (0 <= pnrmse <= threshold)
+        cvrmse_threshold = self.settings.cvrmse_threshold
+        pnrmse_threshold = self.settings.pnrmse_threshold
 
-        if cvrmse is not None:
-            if (0 <= cvrmse) and (cvrmse <= self.settings.cvrmse_threshold):
-                return True
-            
-        if pnrmse is not None:
-            # less than 0 is not possible, but just in case
-            if (0 <= pnrmse) and (pnrmse <= self.settings.pnrmse_threshold):
-                return True
+        def _model_fit_is_acceptable(cvrmse, pnrmse):
+            # sufficient is (0 <= cvrmse <= threshold) or (0 <= pnrmse <= threshold)
+            if cvrmse is not None:
+                if (0 <= cvrmse) and (cvrmse <= cvrmse_threshold):
+                    return True
+                
+            if pnrmse is not None:
+                # less than 0 is not possible, but just in case
+                if (0 <= pnrmse) and (pnrmse <= pnrmse_threshold):
+                    return True
 
-        return False
+            return False
 
+        if not _model_fit_is_acceptable(cvrmse, pnrmse):
+            model_fit_warning = EEMeterWarning(
+                qualified_name="eemeter.model_fit_metrics",
+                description="Model disqualified due to poor fit.",
+                data={
+                    "cvrmse_threshold": cvrmse_threshold,
+                    "cvrmse_adj": cvrmse,
+                    "pnrmse_threshold": pnrmse_threshold,
+                    "pnrmse_adj": pnrmse,
+                },
+            )
+            model_fit_warning.warn()
+            self.disqualification.append(model_fit_warning)
+
+    def _calculate_predicted_uncertianty(self, df_eval):
+        # initialize predicted_unc column with NaN
+        df_eval["predicted_unc"] = np.nan
+
+        cols = [col for col in df_eval.columns if col.startswith("interpolated_")]
+        interpolated = df_eval[cols].any(axis=1)
+
+        if self.baseline_metrics is None:
+            return df_eval
+
+        # calculate uncertainty using self.baseline_metrics
+        reporting_metrics = ReportingMetrics(
+            baseline_metrics=self.baseline_metrics,
+            reporting_df=df_eval[~interpolated],
+            data_frequency="hourly",
+            confidence_level=self.settings.uncertainty_alpha,
+            t_tail=2,
+        )
+
+        df_eval["predicted_unc"] = reporting_metrics.predicted_data_point_unc
+
+        # update uncertainties for each hour if available
+        # if self.baseline_hour_metrics is not None:
+        #     # calculate uncertainty using self.baseline_hour_metrics
+        #     for hour in range(24):
+        #         hour_mask = df_eval.index.hour == hour
+        #         hour_data = df_eval.loc[hour_mask & ~interpolated]
+
+        #         hour_reporting_metrics = ReportingMetrics(
+        #             baseline_metrics=self.baseline_hour_metrics[hour],
+        #             reporting_df=hour_data,
+        #             data_frequency="hourly",
+        #             confidence_level=self.settings.uncertainty_alpha,
+        #             t_tail=2,
+        #         )
+
+        #         data_point_unc = hour_reporting_metrics.predicted_data_point_unc
+
+        #         if data_point_unc is not None:
+        #             df_eval.loc[hour_data.index, "predicted_unc"] = data_point_unc
+
+        return df_eval
 
     def to_dict(self) -> dict:
         """Returns a dictionary of model parameters.

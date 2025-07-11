@@ -1,5 +1,5 @@
-from ursina import Shader
-
+from ursina import color
+from ursina.shader import Shader
 
 camera_vertical_blur_shader = Shader(
 fragment='''

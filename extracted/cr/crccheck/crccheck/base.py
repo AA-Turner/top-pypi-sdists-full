@@ -24,7 +24,7 @@
 """
 import math
 
-REFLECT_BIT_ORDER_TABLE = (
+REFLECT_BIT_ORDER_TABLE = bytes((
     0x00, 0x80, 0x40, 0xC0, 0x20, 0xA0, 0x60, 0xE0,
     0x10, 0x90, 0x50, 0xD0, 0x30, 0xB0, 0x70, 0xF0,
     0x08, 0x88, 0x48, 0xC8, 0x28, 0xA8, 0x68, 0xE8,
@@ -57,7 +57,7 @@ REFLECT_BIT_ORDER_TABLE = (
     0x17, 0x97, 0x57, 0xD7, 0x37, 0xB7, 0x77, 0xF7,
     0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF,
     0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF,
-)
+))
 
 
 def reflectbitorder(width, value):
@@ -85,14 +85,36 @@ class CrccheckBase(object):
     _initvalue = 0x00
     _check_result = None
     _check_data = None
-    _file_chunksize = 512
     _width = 0
 
-    def __init__(self, initvalue=None):
+    def __init__(self, initvalue=None, **kwargs):
         if initvalue is None:
             self._value = self._initvalue
         else:
             self._value = initvalue
+
+    @classmethod
+    def initvalue(cls):
+        """Getter for initvalue."""
+        return cls._initvalue
+
+    @classmethod
+    def check_result(cls):
+        """Getter for check_result."""
+        return cls._check_result
+
+    @classmethod
+    def check_data(cls):
+        """Getter for check_data."""
+        return cls._check_data
+
+    @classmethod
+    def width(cls):
+        return cls._width
+
+    @classmethod
+    def bytewidth(cls):
+        return (cls._width + 7) // 8
 
     def reset(self, value=None):
         """ Reset instance.
@@ -170,7 +192,7 @@ class CrccheckBase(object):
 
     def value(self):
         """Returns current intermediate value.
-           Note that in general final() must be used to get the a final value.
+           Note that in general final() must be used to get the final value.
 
            Return:
                int: current value
@@ -241,3 +263,9 @@ class CrccheckBase(object):
         result = cls.calc(data, **kwargs)
         if result != expectedresult:
             raise CrccheckError("{:s}: expected {:s}, got {:s}".format(cls.__name__, hex(expectedresult), hex(result)))
+
+    def copy(self):
+        """Creates a copy of the Crc/Checksum instance. This can be used to efficiently compute the CRC/checksum of data
+           sharing common initial part."""
+        import copy
+        return copy.deepcopy(self)

@@ -3,6 +3,7 @@
 import os
 import html
 import shlex
+import traceback
 from docutils.core import publish_parts
 from pathlib import Path
 import re
@@ -222,8 +223,31 @@ def view_help(topic="", *args, **kwargs):
                         html_parts.append(r)
                     else:
                         html_parts.append(gw.cast.to_html(r))
+                if not html_parts:
+                    res_dict = gw.results.get_results()
+                    res_html = gw.cast.to_html(res_dict)
+                    return (
+                        "<div class='cli-result'>"
+                        "<i>No result returned. Showing gw.results:</i><hr>"
+                        + res_html + "</div>"
+                    )
                 return "<div class='cli-result'>" + "<hr>".join(html_parts) + "</div>"
             except Exception as ex:
+                if gw.debug_enabled:
+                    tb = traceback.format_exc()
+                    log_tail = ""
+                    try:
+                        log_path = gw.resource("logs", "gway.log")
+                        with open(log_path) as lf:
+                            log_tail = "".join(lf.readlines()[-20:])
+                    except Exception:
+                        log_tail = "(unable to read log)"
+                    return (
+                        "<h2>Command Error</h2>"
+                        f"<pre>{html.escape(str(ex))}</pre>"
+                        f"<pre>{html.escape(tb)}</pre>"
+                        f"<pre>{html.escape(log_tail)}</pre>"
+                    )
                 return f"<pre>{html.escape(str(ex))}</pre>"
         else:
             return "<b>Console commands disabled (not local).</b>"
@@ -314,15 +338,17 @@ def view_help(topic="", *args, **kwargs):
             sections.append(section_html)
 
         multi = f"<div class='help-multi'>{''.join(sections)}</div>"
-        if "Full Code" in str(help_info):
-            multi += highlight_js
-        return f"<h1>{title}</h1>{multi}"
+        page = f"<h1>{title}</h1>{multi}"
+        if "class='python'" in page:
+            page += highlight_js
+        return page
 
     # Not a multi-match result: just render normally
     body = _render_help_section(help_info, use_query_links=True)
-    if "Full Code" in str(help_info):
-        body += highlight_js
-    return f"<h1>{title}</h1>{body}"
+    page = f"<h1>{title}</h1>{body}"
+    if "class='python'" in page:
+        page += highlight_js
+    return page
 
 def _render_help_section(info, use_query_links=False, highlight=False, *args, **kwargs):
     import html
@@ -501,5 +527,36 @@ def view_feedback(*, name=None, email=None, topic=None, message=None, create_iss
             <button type="submit" class="submit">Submit</button>
         </form>
     """
+
+
+def view_debug_info():
+    """Return HTML with debug info about the current request and log tail."""
+    from bottle import request
+    import html as _html
+
+    info = []
+    info.append(f"<b>URL:</b> {_html.escape(request.url or '')}")
+    info.append(f"<b>Method:</b> {_html.escape(request.method or '')}")
+    info.append(f"<b>Version:</b> {_html.escape(gw.version())}")
+    try:
+        commit = gw.release.commit()
+        if commit:
+            info.append(f"<b>Commit:</b> {_html.escape(commit)}")
+    except Exception:
+        pass
+
+    log_tail = ""
+    try:
+        log_path = gw.resource("logs", "gway.log")
+        with open(log_path, "r", encoding="utf-8") as lf:
+            lines = lf.readlines()[-20:]
+            log_tail = "".join(lines)
+    except Exception:
+        log_tail = "(log unavailable)"
+
+    return (
+        "<div class='debug-info'>" + "<br>".join(info) +
+        f"<pre>{_html.escape(log_tail)}</pre></div>"
+    )
 
 

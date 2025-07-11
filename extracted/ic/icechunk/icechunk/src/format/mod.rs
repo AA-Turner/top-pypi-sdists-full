@@ -257,9 +257,9 @@ pub enum IcechunkFormatErrorKind {
     #[error("Invalid Icechunk metadata file")]
     InvalidFlatBuffer(#[from] InvalidFlatbuffer),
     #[error("error during metadata file deserialization")]
-    DeserializationError(#[from] rmp_serde::decode::Error),
+    DeserializationError(#[from] Box<rmp_serde::decode::Error>),
     #[error("error during metadata file serialization")]
-    SerializationError(#[from] rmp_serde::encode::Error),
+    SerializationError(#[from] Box<rmp_serde::encode::Error>),
     #[error("I/O error")]
     IO(#[from] std::io::Error),
     #[error("path error")]
@@ -323,7 +323,7 @@ pub mod format_constants {
                     Ok(FileTypeBin::TransactionLog)
                 }
                 n if n == FileTypeBin::Chunk as u8 => Ok(FileTypeBin::Chunk),
-                n => Err(format!("Bad file type code: {}", n)),
+                n => Err(format!("Bad file type code: {n}")),
             }
         }
     }
@@ -340,7 +340,7 @@ pub mod format_constants {
         fn try_from(value: u8) -> Result<Self, Self::Error> {
             match value {
                 n if n == SpecVersionBin::V0dot1 as u8 => Ok(SpecVersionBin::V0dot1),
-                n => Err(format!("Bad spec version code: {}", n)),
+                n => Err(format!("Bad spec version code: {n}")),
             }
         }
     }
@@ -369,7 +369,7 @@ pub mod format_constants {
                 n if n == CompressionAlgorithmBin::Zstd as u8 => {
                     Ok(CompressionAlgorithmBin::Zstd)
                 }
-                n => Err(format!("Bad cmpression algorithm code: {}", n)),
+                n => Err(format!("Bad cmpression algorithm code: {n}")),
             }
         }
     }

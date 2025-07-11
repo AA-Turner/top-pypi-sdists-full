@@ -6,6 +6,7 @@
 #ifndef SHERPA_ONNX_C_API_CXX_API_H_
 #define SHERPA_ONNX_C_API_CXX_API_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -222,6 +223,14 @@ struct SHERPA_ONNX_API OfflineWhisperModelConfig {
   int32_t tail_paddings = -1;
 };
 
+struct SHERPA_ONNX_API OfflineCanaryModelConfig {
+  std::string encoder;
+  std::string decoder;
+  std::string src_lang;
+  std::string tgt_lang;
+  bool use_pnc = true;
+};
+
 struct SHERPA_ONNX_API OfflineFireRedAsrModelConfig {
   std::string encoder;
   std::string decoder;
@@ -272,6 +281,7 @@ struct SHERPA_ONNX_API OfflineModelConfig {
   OfflineFireRedAsrModelConfig fire_red_asr;
   OfflineDolphinModelConfig dolphin;
   OfflineZipformerCtcModelConfig zipformer_ctc;
+  OfflineCanaryModelConfig canary;
 };
 
 struct SHERPA_ONNX_API OfflineLMConfig {
@@ -333,6 +343,8 @@ class SHERPA_ONNX_API OfflineRecognizer
   void Decode(const OfflineStream *ss, int32_t n) const;
 
   OfflineRecognizerResult GetResult(const OfflineStream *s) const;
+
+  void SetConfig(const OfflineRecognizerConfig &config) const;
 
  private:
   explicit OfflineRecognizer(const SherpaOnnxOfflineRecognizer *p);
@@ -432,6 +444,13 @@ class SHERPA_ONNX_API OfflineTts
                           float speed = 1.0,
                           OfflineTtsCallback callback = nullptr,
                           void *arg = nullptr) const;
+
+  // Like Generate, but return a smart pointer.
+  //
+  // See also https://github.com/k2-fsa/sherpa-onnx/issues/2347
+  std::shared_ptr<GeneratedAudio> Generate2(
+      const std::string &text, int32_t sid = 0, float speed = 1.0,
+      OfflineTtsCallback callback = nullptr, void *arg = nullptr) const;
 
  private:
   explicit OfflineTts(const SherpaOnnxOfflineTts *p);

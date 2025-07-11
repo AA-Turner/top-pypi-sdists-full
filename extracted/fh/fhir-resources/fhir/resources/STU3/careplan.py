@@ -28,7 +28,7 @@ class CarePlan(domainresource.DomainResource):
     __resource_type__ = "CarePlan"
 
     activity: typing.List[fhirtypes.CarePlanActivityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="activity",
         title="Action to occur as part of plan",
         description=(
@@ -42,7 +42,7 @@ class CarePlan(domainresource.DomainResource):
     )
 
     addresses: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addresses",
         title="Health issues this plan addresses",
         description=(
@@ -51,13 +51,14 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Condition"],
         },
     )
 
     author: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="author",
         title="Who is responsible for contents of the plan",
         description=(
@@ -66,6 +67,7 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Patient",
@@ -78,19 +80,20 @@ class CarePlan(domainresource.DomainResource):
     )
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="Fulfills care plan",
         description="A care plan that is fulfilled in whole or in part by this care plan.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["CarePlan"],
         },
     )
 
     careTeam: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="careTeam",
         title="Who's involved in plan?",
         description=(
@@ -105,7 +108,7 @@ class CarePlan(domainresource.DomainResource):
     )
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="Type of plan",
         description=(
@@ -115,11 +118,12 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     context: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="context",
         title="Created in context of",
         description=(
@@ -128,13 +132,14 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Encounter", "EpisodeOfCare"],
         },
     )
 
     definition: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="definition",
         title="Protocol or definition",
         description=(
@@ -143,26 +148,28 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["PlanDefinition", "Questionnaire"],
         },
     )
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Summary of nature of plan",
         description="A description of the scope and nature of the plan.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     goal: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="goal",
         title="Desired outcome of plan",
         description="Describes the intended objective(s) of carrying out the care plan.",
@@ -174,7 +181,7 @@ class CarePlan(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="External Ids for this plan",
         description=(
@@ -185,11 +192,12 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     intent: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="intent",
         title="proposal | plan | order | option",
         description=(
@@ -198,6 +206,7 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -205,11 +214,11 @@ class CarePlan(domainresource.DomainResource):
         },
     )
     intent__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_intent", title="Extension field for ``intent``."
+        default=None, alias="_intent", title="Extension field for ``intent``."
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Comments about the plan",
         description="General notes about the care plan not covered elsewhere.",
@@ -219,7 +228,7 @@ class CarePlan(domainresource.DomainResource):
     )
 
     partOf: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="partOf",
         title="Part of referenced CarePlan",
         description=(
@@ -228,13 +237,14 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["CarePlan"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Time period plan covers",
         description=(
@@ -243,11 +253,12 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     replaces: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="replaces",
         title="CarePlan replaced by this CarePlan",
         description=(
@@ -256,13 +267,14 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["CarePlan"],
         },
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "draft | active | suspended | completed | entered-in-error | cancelled "
@@ -274,6 +286,7 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -289,11 +302,11 @@ class CarePlan(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subject: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="subject",
         title="Who care plan is for",
         description=(
@@ -302,13 +315,14 @@ class CarePlan(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Group"],
         },
     )
 
     supportingInfo: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="supportingInfo",
         title="Information considered as part of plan",
         description=(
@@ -324,23 +338,24 @@ class CarePlan(domainresource.DomainResource):
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Human-friendly name for the CarePlan",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``CarePlan`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``CarePlan`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -373,6 +388,32 @@ class CarePlan(domainresource.DomainResource):
             "note",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``CarePlan`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "definition",
+            "basedOn",
+            "replaces",
+            "partOf",
+            "status",
+            "intent",
+            "category",
+            "title",
+            "description",
+            "subject",
+            "context",
+            "period",
+            "author",
+            "addresses",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -399,7 +440,7 @@ class CarePlanActivity(backboneelement.BackboneElement):
     __resource_type__ = "CarePlanActivity"
 
     detail: fhirtypes.CarePlanActivityDetailType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detail",
         title="In-line definition of activity",
         description=(
@@ -413,7 +454,7 @@ class CarePlanActivity(backboneelement.BackboneElement):
     )
 
     outcomeCodeableConcept: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcomeCodeableConcept",
         title="Results of the activity",
         description=(
@@ -427,7 +468,7 @@ class CarePlanActivity(backboneelement.BackboneElement):
     )
 
     outcomeReference: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcomeReference",
         title="Appointment, Encounter, Procedure, etc.",
         description=(
@@ -445,7 +486,7 @@ class CarePlanActivity(backboneelement.BackboneElement):
     )
 
     progress: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="progress",
         title="Comments about the activity status/progress",
         description="Notes about the adherence/status/progress of the activity.",
@@ -455,7 +496,7 @@ class CarePlanActivity(backboneelement.BackboneElement):
     )
 
     reference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reference",
         title="Activity details defined in specific resource",
         description=(
@@ -482,9 +523,9 @@ class CarePlanActivity(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``CarePlanActivity`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``CarePlanActivity`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -496,6 +537,13 @@ class CarePlanActivity(backboneelement.BackboneElement):
             "reference",
             "detail",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``CarePlanActivity`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class CarePlanActivityDetail(backboneelement.BackboneElement):
@@ -512,7 +560,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     __resource_type__ = "CarePlanActivityDetail"
 
     category: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="diet | drug | encounter | observation | procedure | supply | other",
         description="High-level categorization of the type of activity in a care plan.",
@@ -522,7 +570,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Detail type of activity",
         description=(
@@ -535,7 +583,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     dailyAmount: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dailyAmount",
         title="How to consume/day?",
         description="Identifies the quantity expected to be consumed in a given day.",
@@ -545,7 +593,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     definition: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="definition",
         title="Protocol or definition",
         description=(
@@ -565,7 +613,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Extra info describing activity to perform",
         description=(
@@ -580,11 +628,11 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     goal: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="goal",
         title="Goals this activity relates to",
         description=(
@@ -599,7 +647,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     location: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="Where it should happen",
         description=(
@@ -614,7 +662,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     performer: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="performer",
         title="Who will be responsible?",
         description="Identifies who's expected to be involved in the activity.",
@@ -632,7 +680,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     productCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productCodeableConcept",
         title="What is to be administered/supplied",
         description=(
@@ -648,7 +696,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     productReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productReference",
         title="What is to be administered/supplied",
         description=(
@@ -666,7 +714,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     prohibited: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="prohibited",
         title="Do NOT do",
         description=(
@@ -680,11 +728,11 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
         },
     )
     prohibited__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_prohibited", title="Extension field for ``prohibited``."
+        default=None, alias="_prohibited", title="Extension field for ``prohibited``."
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="How much to administer/supply/consume",
         description=(
@@ -697,7 +745,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     reasonCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonCode",
         title="Why activity should be done or why activity was prohibited",
         description=(
@@ -711,7 +759,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     reasonReference: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonReference",
         title="Condition triggering need for activity",
         description=(
@@ -726,7 +774,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     scheduledPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="scheduledPeriod",
         title="When activity is to occur",
         description=(
@@ -742,7 +790,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     scheduledString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="scheduledString",
         title="When activity is to occur",
         description=(
@@ -757,11 +805,13 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
         },
     )
     scheduledString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_scheduledString", title="Extension field for ``scheduledString``."
+        default=None,
+        alias="_scheduledString",
+        title="Extension field for ``scheduledString``.",
     )
 
     scheduledTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="scheduledTiming",
         title="When activity is to occur",
         description=(
@@ -777,7 +827,7 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "not-started | scheduled | in-progress | on-hold | completed | "
@@ -801,11 +851,11 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     statusReason: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusReason",
         title="Reason for current status",
         description=(
@@ -817,14 +867,16 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
         },
     )
     statusReason__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_statusReason", title="Extension field for ``statusReason``."
+        default=None,
+        alias="_statusReason",
+        title="Extension field for ``statusReason``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``CarePlanActivityDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``CarePlanActivityDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -851,6 +903,13 @@ class CarePlanActivityDetail(backboneelement.BackboneElement):
             "quantity",
             "description",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``CarePlanActivityDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

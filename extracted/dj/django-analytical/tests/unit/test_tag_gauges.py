@@ -19,8 +19,10 @@ class GaugesTagTestCase(TagTestCase):
     """
 
     def test_tag(self):
-        assert self.render_tag('gauges', 'gauges') == """
-    <script type="text/javascript">
+        assert (
+            self.render_tag('gauges', 'gauges')
+            == """
+    <script>
       var _gauges = _gauges || [];
       (function() {
         var t   = document.createElement('script');
@@ -34,10 +36,13 @@ class GaugesTagTestCase(TagTestCase):
       })();
     </script>
 """
+        )
 
     def test_node(self):
-        assert GaugesNode().render(Context()) == """
-    <script type="text/javascript">
+        assert (
+            GaugesNode().render(Context())
+            == """
+    <script>
       var _gauges = _gauges || [];
       (function() {
         var t   = document.createElement('script');
@@ -51,6 +56,7 @@ class GaugesTagTestCase(TagTestCase):
       })();
     </script>
 """
+        )
 
     @override_settings(GAUGES_SITE_ID=None)
     def test_no_account_number(self):

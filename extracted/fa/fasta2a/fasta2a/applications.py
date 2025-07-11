@@ -2,21 +2,21 @@ from __future__ import annotations as _annotations
 
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import FileResponse, Response
 from starlette.routing import Route
 from starlette.types import ExceptionHandler, Lifespan, Receive, Scope, Send
 
 from .broker import Broker
 from .schema import (
+    AgentCapabilities,
     AgentCard,
-    Authentication,
-    Capabilities,
-    Provider,
+    AgentProvider,
     Skill,
     a2a_request_ta,
     a2a_response_ta,
@@ -39,7 +39,7 @@ class FastA2A(Starlette):
         url: str = 'http://localhost:8000',
         version: str = '1.0.0',
         description: str | None = None,
-        provider: Provider | None = None,
+        provider: AgentProvider | None = None,
         skills: list[Skill] | None = None,
         # Starlette
         debug: bool = False,
@@ -59,7 +59,7 @@ class FastA2A(Starlette):
             lifespan=lifespan,
         )
 
-        self.name = name or 'Agent'
+        self.name = name or 'My Agent'
         self.url = url
         self.version = version
         self.description = description
@@ -75,6 +75,7 @@ class FastA2A(Starlette):
         self._agent_card_json_schema: bytes | None = None
         self.router.add_route('/.well-known/agent.json', self._agent_card_endpoint, methods=['HEAD', 'GET', 'OPTIONS'])
         self.router.add_route('/', self._agent_run_endpoint, methods=['POST'])
+        self.router.add_route('/docs', self._docs_endpoint, methods=['GET'])
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope['type'] == 'http' and not self.task_manager.is_running:
@@ -85,20 +86,26 @@ class FastA2A(Starlette):
         if self._agent_card_json_schema is None:
             agent_card = AgentCard(
                 name=self.name,
+                description=self.description or 'An AI agent exposed as an A2A agent.',
                 url=self.url,
                 version=self.version,
+                protocol_version='0.2.5',
                 skills=self.skills,
                 default_input_modes=self.default_input_modes,
                 default_output_modes=self.default_output_modes,
-                capabilities=Capabilities(streaming=False, push_notifications=False, state_transition_history=False),
-                authentication=Authentication(schemes=[]),
+                capabilities=AgentCapabilities(
+                    streaming=False, push_notifications=False, state_transition_history=False
+                ),
             )
-            if self.description is not None:
-                agent_card['description'] = self.description
             if self.provider is not None:
                 agent_card['provider'] = self.provider
             self._agent_card_json_schema = agent_card_ta.dump_json(agent_card, by_alias=True)
         return Response(content=self._agent_card_json_schema, media_type='application/json')
+
+    async def _docs_endpoint(self, request: Request) -> Response:
+        """Serve the documentation interface."""
+        docs_path = Path(__file__).parent / 'static' / 'docs.html'
+        return FileResponse(docs_path, media_type='text/html')
 
     async def _agent_run_endpoint(self, request: Request) -> Response:
         """This is the main endpoint for the A2A server.
@@ -116,8 +123,8 @@ class FastA2A(Starlette):
         data = await request.body()
         a2a_request = a2a_request_ta.validate_json(data)
 
-        if a2a_request['method'] == 'tasks/send':
-            jsonrpc_response = await self.task_manager.send_task(a2a_request)
+        if a2a_request['method'] == 'message/send':
+            jsonrpc_response = await self.task_manager.send_message(a2a_request)
         elif a2a_request['method'] == 'tasks/get':
             jsonrpc_response = await self.task_manager.get_task(a2a_request)
         elif a2a_request['method'] == 'tasks/cancel':

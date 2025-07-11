@@ -1,7 +1,7 @@
 r'''
 # `aws_kendra_data_source`
 
-Refer to the Terraform Registry for docs: [`aws_kendra_data_source`](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source).
+Refer to the Terraform Registry for docs: [`aws_kendra_data_source`](https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KendraDataSource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kendraDataSource.KendraDataSource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source aws_kendra_data_source}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source aws_kendra_data_source}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class KendraDataSource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source aws_kendra_data_source} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source aws_kendra_data_source} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#index_id KendraDataSource#index_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#name KendraDataSource#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#type KendraDataSource#type}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#configuration KendraDataSource#configuration}
-        :param custom_document_enrichment_configuration: custom_document_enrichment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#custom_document_enrichment_configuration KendraDataSource#custom_document_enrichment_configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#description KendraDataSource#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#id KendraDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#language_code KendraDataSource#language_code}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#region KendraDataSource#region}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#schedule KendraDataSource#schedule}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#tags KendraDataSource#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#tags_all KendraDataSource#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#timeouts KendraDataSource#timeouts}
+        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#index_id KendraDataSource#index_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#name KendraDataSource#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#type KendraDataSource#type}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#configuration KendraDataSource#configuration}
+        :param custom_document_enrichment_configuration: custom_document_enrichment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#custom_document_enrichment_configuration KendraDataSource#custom_document_enrichment_configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#description KendraDataSource#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#id KendraDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#language_code KendraDataSource#language_code}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#region KendraDataSource#region}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#schedule KendraDataSource#schedule}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#tags KendraDataSource#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#tags_all KendraDataSource#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#timeouts KendraDataSource#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class KendraDataSource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KendraDataSource to import.
-        :param import_from_id: The id of the existing KendraDataSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KendraDataSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KendraDataSource to import is found.
         '''
         if __debug__:
@@ -162,9 +162,9 @@ class KendraDataSource(
         web_crawler_configuration: typing.Optional[typing.Union["KendraDataSourceConfigurationWebCrawlerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_configuration KendraDataSource#s3_configuration}
-        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#template_configuration KendraDataSource#template_configuration}
-        :param web_crawler_configuration: web_crawler_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#web_crawler_configuration KendraDataSource#web_crawler_configuration}
+        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_configuration KendraDataSource#s3_configuration}
+        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#template_configuration KendraDataSource#template_configuration}
+        :param web_crawler_configuration: web_crawler_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#web_crawler_configuration KendraDataSource#web_crawler_configuration}
         '''
         value = KendraDataSourceConfiguration(
             s3_configuration=s3_configuration,
@@ -184,10 +184,10 @@ class KendraDataSource(
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param inline_configurations: inline_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inline_configurations KendraDataSource#inline_configurations}
-        :param post_extraction_hook_configuration: post_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#post_extraction_hook_configuration KendraDataSource#post_extraction_hook_configuration}
-        :param pre_extraction_hook_configuration: pre_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#pre_extraction_hook_configuration KendraDataSource#pre_extraction_hook_configuration}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
+        :param inline_configurations: inline_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inline_configurations KendraDataSource#inline_configurations}
+        :param post_extraction_hook_configuration: post_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#post_extraction_hook_configuration KendraDataSource#post_extraction_hook_configuration}
+        :param pre_extraction_hook_configuration: pre_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#pre_extraction_hook_configuration KendraDataSource#pre_extraction_hook_configuration}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfiguration(
             inline_configurations=inline_configurations,
@@ -207,9 +207,9 @@ class KendraDataSource(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#create KendraDataSource#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#delete KendraDataSource#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#update KendraDataSource#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#create KendraDataSource#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#delete KendraDataSource#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#update KendraDataSource#update}.
         '''
         value = KendraDataSourceTimeouts(create=create, delete=delete, update=update)
 
@@ -589,20 +589,20 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#index_id KendraDataSource#index_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#name KendraDataSource#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#type KendraDataSource#type}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#configuration KendraDataSource#configuration}
-        :param custom_document_enrichment_configuration: custom_document_enrichment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#custom_document_enrichment_configuration KendraDataSource#custom_document_enrichment_configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#description KendraDataSource#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#id KendraDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#language_code KendraDataSource#language_code}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#region KendraDataSource#region}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#schedule KendraDataSource#schedule}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#tags KendraDataSource#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#tags_all KendraDataSource#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#timeouts KendraDataSource#timeouts}
+        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#index_id KendraDataSource#index_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#name KendraDataSource#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#type KendraDataSource#type}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#configuration KendraDataSource#configuration}
+        :param custom_document_enrichment_configuration: custom_document_enrichment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#custom_document_enrichment_configuration KendraDataSource#custom_document_enrichment_configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#description KendraDataSource#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#id KendraDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#language_code KendraDataSource#language_code}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#region KendraDataSource#region}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#schedule KendraDataSource#schedule}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#tags KendraDataSource#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#tags_all KendraDataSource#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#timeouts KendraDataSource#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -743,21 +743,21 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def index_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#index_id KendraDataSource#index_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#index_id KendraDataSource#index_id}.'''
         result = self._values.get("index_id")
         assert result is not None, "Required property 'index_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#name KendraDataSource#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#name KendraDataSource#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#type KendraDataSource#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#type KendraDataSource#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -766,7 +766,7 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["KendraDataSourceConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#configuration KendraDataSource#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#configuration KendraDataSource#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfiguration"], result)
@@ -777,20 +777,20 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfiguration"]:
         '''custom_document_enrichment_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#custom_document_enrichment_configuration KendraDataSource#custom_document_enrichment_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#custom_document_enrichment_configuration KendraDataSource#custom_document_enrichment_configuration}
         '''
         result = self._values.get("custom_document_enrichment_configuration")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfiguration"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#description KendraDataSource#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#description KendraDataSource#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#id KendraDataSource#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#id KendraDataSource#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -800,7 +800,7 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def language_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#language_code KendraDataSource#language_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#language_code KendraDataSource#language_code}.'''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -808,32 +808,32 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#region KendraDataSource#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#region KendraDataSource#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#schedule KendraDataSource#schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#schedule KendraDataSource#schedule}.'''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#tags KendraDataSource#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#tags KendraDataSource#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#tags_all KendraDataSource#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#tags_all KendraDataSource#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -841,7 +841,7 @@ class KendraDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KendraDataSourceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#timeouts KendraDataSource#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#timeouts KendraDataSource#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KendraDataSourceTimeouts"], result)
@@ -876,9 +876,9 @@ class KendraDataSourceConfiguration:
         web_crawler_configuration: typing.Optional[typing.Union["KendraDataSourceConfigurationWebCrawlerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_configuration KendraDataSource#s3_configuration}
-        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#template_configuration KendraDataSource#template_configuration}
-        :param web_crawler_configuration: web_crawler_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#web_crawler_configuration KendraDataSource#web_crawler_configuration}
+        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_configuration KendraDataSource#s3_configuration}
+        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#template_configuration KendraDataSource#template_configuration}
+        :param web_crawler_configuration: web_crawler_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#web_crawler_configuration KendraDataSource#web_crawler_configuration}
         '''
         if isinstance(s3_configuration, dict):
             s3_configuration = KendraDataSourceConfigurationS3Configuration(**s3_configuration)
@@ -905,7 +905,7 @@ class KendraDataSourceConfiguration:
     ) -> typing.Optional["KendraDataSourceConfigurationS3Configuration"]:
         '''s3_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_configuration KendraDataSource#s3_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_configuration KendraDataSource#s3_configuration}
         '''
         result = self._values.get("s3_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationS3Configuration"], result)
@@ -916,7 +916,7 @@ class KendraDataSourceConfiguration:
     ) -> typing.Optional["KendraDataSourceConfigurationTemplateConfiguration"]:
         '''template_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#template_configuration KendraDataSource#template_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#template_configuration KendraDataSource#template_configuration}
         '''
         result = self._values.get("template_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationTemplateConfiguration"], result)
@@ -927,7 +927,7 @@ class KendraDataSourceConfiguration:
     ) -> typing.Optional["KendraDataSourceConfigurationWebCrawlerConfiguration"]:
         '''web_crawler_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#web_crawler_configuration KendraDataSource#web_crawler_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#web_crawler_configuration KendraDataSource#web_crawler_configuration}
         '''
         result = self._values.get("web_crawler_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationWebCrawlerConfiguration"], result)
@@ -976,12 +976,12 @@ class KendraDataSourceConfigurationOutputReference(
         inclusion_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#bucket_name KendraDataSource#bucket_name}.
-        :param access_control_list_configuration: access_control_list_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#access_control_list_configuration KendraDataSource#access_control_list_configuration}
-        :param documents_metadata_configuration: documents_metadata_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#documents_metadata_configuration KendraDataSource#documents_metadata_configuration}
-        :param exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#exclusion_patterns KendraDataSource#exclusion_patterns}.
-        :param inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inclusion_patterns KendraDataSource#inclusion_patterns}.
-        :param inclusion_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inclusion_prefixes KendraDataSource#inclusion_prefixes}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#bucket_name KendraDataSource#bucket_name}.
+        :param access_control_list_configuration: access_control_list_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#access_control_list_configuration KendraDataSource#access_control_list_configuration}
+        :param documents_metadata_configuration: documents_metadata_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#documents_metadata_configuration KendraDataSource#documents_metadata_configuration}
+        :param exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#exclusion_patterns KendraDataSource#exclusion_patterns}.
+        :param inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inclusion_patterns KendraDataSource#inclusion_patterns}.
+        :param inclusion_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inclusion_prefixes KendraDataSource#inclusion_prefixes}.
         '''
         value = KendraDataSourceConfigurationS3Configuration(
             bucket_name=bucket_name,
@@ -997,7 +997,7 @@ class KendraDataSourceConfigurationOutputReference(
     @jsii.member(jsii_name="putTemplateConfiguration")
     def put_template_configuration(self, *, template: builtins.str) -> None:
         '''
-        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#template KendraDataSource#template}.
+        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#template KendraDataSource#template}.
         '''
         value = KendraDataSourceConfigurationTemplateConfiguration(template=template)
 
@@ -1018,15 +1018,15 @@ class KendraDataSourceConfigurationOutputReference(
         url_inclusion_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param urls: urls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#urls KendraDataSource#urls}
-        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#authentication_configuration KendraDataSource#authentication_configuration}
-        :param crawl_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#crawl_depth KendraDataSource#crawl_depth}.
-        :param max_content_size_per_page_in_mega_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_content_size_per_page_in_mega_bytes KendraDataSource#max_content_size_per_page_in_mega_bytes}.
-        :param max_links_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_links_per_page KendraDataSource#max_links_per_page}.
-        :param max_urls_per_minute_crawl_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_urls_per_minute_crawl_rate KendraDataSource#max_urls_per_minute_crawl_rate}.
-        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#proxy_configuration KendraDataSource#proxy_configuration}
-        :param url_exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#url_exclusion_patterns KendraDataSource#url_exclusion_patterns}.
-        :param url_inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#url_inclusion_patterns KendraDataSource#url_inclusion_patterns}.
+        :param urls: urls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#urls KendraDataSource#urls}
+        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#authentication_configuration KendraDataSource#authentication_configuration}
+        :param crawl_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#crawl_depth KendraDataSource#crawl_depth}.
+        :param max_content_size_per_page_in_mega_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_content_size_per_page_in_mega_bytes KendraDataSource#max_content_size_per_page_in_mega_bytes}.
+        :param max_links_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_links_per_page KendraDataSource#max_links_per_page}.
+        :param max_urls_per_minute_crawl_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_urls_per_minute_crawl_rate KendraDataSource#max_urls_per_minute_crawl_rate}.
+        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#proxy_configuration KendraDataSource#proxy_configuration}
+        :param url_exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#url_exclusion_patterns KendraDataSource#url_exclusion_patterns}.
+        :param url_inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#url_inclusion_patterns KendraDataSource#url_inclusion_patterns}.
         '''
         value = KendraDataSourceConfigurationWebCrawlerConfiguration(
             urls=urls,
@@ -1136,12 +1136,12 @@ class KendraDataSourceConfigurationS3Configuration:
         inclusion_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#bucket_name KendraDataSource#bucket_name}.
-        :param access_control_list_configuration: access_control_list_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#access_control_list_configuration KendraDataSource#access_control_list_configuration}
-        :param documents_metadata_configuration: documents_metadata_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#documents_metadata_configuration KendraDataSource#documents_metadata_configuration}
-        :param exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#exclusion_patterns KendraDataSource#exclusion_patterns}.
-        :param inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inclusion_patterns KendraDataSource#inclusion_patterns}.
-        :param inclusion_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inclusion_prefixes KendraDataSource#inclusion_prefixes}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#bucket_name KendraDataSource#bucket_name}.
+        :param access_control_list_configuration: access_control_list_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#access_control_list_configuration KendraDataSource#access_control_list_configuration}
+        :param documents_metadata_configuration: documents_metadata_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#documents_metadata_configuration KendraDataSource#documents_metadata_configuration}
+        :param exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#exclusion_patterns KendraDataSource#exclusion_patterns}.
+        :param inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inclusion_patterns KendraDataSource#inclusion_patterns}.
+        :param inclusion_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inclusion_prefixes KendraDataSource#inclusion_prefixes}.
         '''
         if isinstance(access_control_list_configuration, dict):
             access_control_list_configuration = KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration(**access_control_list_configuration)
@@ -1171,7 +1171,7 @@ class KendraDataSourceConfigurationS3Configuration:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#bucket_name KendraDataSource#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#bucket_name KendraDataSource#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1182,7 +1182,7 @@ class KendraDataSourceConfigurationS3Configuration:
     ) -> typing.Optional["KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration"]:
         '''access_control_list_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#access_control_list_configuration KendraDataSource#access_control_list_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#access_control_list_configuration KendraDataSource#access_control_list_configuration}
         '''
         result = self._values.get("access_control_list_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration"], result)
@@ -1193,26 +1193,26 @@ class KendraDataSourceConfigurationS3Configuration:
     ) -> typing.Optional["KendraDataSourceConfigurationS3ConfigurationDocumentsMetadataConfiguration"]:
         '''documents_metadata_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#documents_metadata_configuration KendraDataSource#documents_metadata_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#documents_metadata_configuration KendraDataSource#documents_metadata_configuration}
         '''
         result = self._values.get("documents_metadata_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationS3ConfigurationDocumentsMetadataConfiguration"], result)
 
     @builtins.property
     def exclusion_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#exclusion_patterns KendraDataSource#exclusion_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#exclusion_patterns KendraDataSource#exclusion_patterns}.'''
         result = self._values.get("exclusion_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def inclusion_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inclusion_patterns KendraDataSource#inclusion_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inclusion_patterns KendraDataSource#inclusion_patterns}.'''
         result = self._values.get("inclusion_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def inclusion_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inclusion_prefixes KendraDataSource#inclusion_prefixes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inclusion_prefixes KendraDataSource#inclusion_prefixes}.'''
         result = self._values.get("inclusion_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1236,7 +1236,7 @@ class KendraDataSourceConfigurationS3Configuration:
 class KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration:
     def __init__(self, *, key_path: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#key_path KendraDataSource#key_path}.
+        :param key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#key_path KendraDataSource#key_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4979ded08423165f07b4fac0135b7243b37c177ee085c085b0cbd14d951d2a0)
@@ -1247,7 +1247,7 @@ class KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration
 
     @builtins.property
     def key_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#key_path KendraDataSource#key_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#key_path KendraDataSource#key_path}.'''
         result = self._values.get("key_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1330,7 +1330,7 @@ class KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration
 class KendraDataSourceConfigurationS3ConfigurationDocumentsMetadataConfiguration:
     def __init__(self, *, s3_prefix: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_prefix KendraDataSource#s3_prefix}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_prefix KendraDataSource#s3_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__391b8de9e37dc26f022c7ea29fbc52bb9f49e195921d578c1b7e6ff9808ea721)
@@ -1341,7 +1341,7 @@ class KendraDataSourceConfigurationS3ConfigurationDocumentsMetadataConfiguration
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_prefix KendraDataSource#s3_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_prefix KendraDataSource#s3_prefix}.'''
         result = self._values.get("s3_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1443,7 +1443,7 @@ class KendraDataSourceConfigurationS3ConfigurationOutputReference(
         key_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#key_path KendraDataSource#key_path}.
+        :param key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#key_path KendraDataSource#key_path}.
         '''
         value = KendraDataSourceConfigurationS3ConfigurationAccessControlListConfiguration(
             key_path=key_path
@@ -1458,7 +1458,7 @@ class KendraDataSourceConfigurationS3ConfigurationOutputReference(
         s3_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_prefix KendraDataSource#s3_prefix}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_prefix KendraDataSource#s3_prefix}.
         '''
         value = KendraDataSourceConfigurationS3ConfigurationDocumentsMetadataConfiguration(
             s3_prefix=s3_prefix
@@ -1608,7 +1608,7 @@ class KendraDataSourceConfigurationS3ConfigurationOutputReference(
 class KendraDataSourceConfigurationTemplateConfiguration:
     def __init__(self, *, template: builtins.str) -> None:
         '''
-        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#template KendraDataSource#template}.
+        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#template KendraDataSource#template}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b7392cb25fe33a11273e79f1f32764e66f13ebe2825af22e47ed504c91135f6)
@@ -1619,7 +1619,7 @@ class KendraDataSourceConfigurationTemplateConfiguration:
 
     @builtins.property
     def template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#template KendraDataSource#template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#template KendraDataSource#template}.'''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
         return typing.cast(builtins.str, result)
@@ -1721,15 +1721,15 @@ class KendraDataSourceConfigurationWebCrawlerConfiguration:
         url_inclusion_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param urls: urls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#urls KendraDataSource#urls}
-        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#authentication_configuration KendraDataSource#authentication_configuration}
-        :param crawl_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#crawl_depth KendraDataSource#crawl_depth}.
-        :param max_content_size_per_page_in_mega_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_content_size_per_page_in_mega_bytes KendraDataSource#max_content_size_per_page_in_mega_bytes}.
-        :param max_links_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_links_per_page KendraDataSource#max_links_per_page}.
-        :param max_urls_per_minute_crawl_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_urls_per_minute_crawl_rate KendraDataSource#max_urls_per_minute_crawl_rate}.
-        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#proxy_configuration KendraDataSource#proxy_configuration}
-        :param url_exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#url_exclusion_patterns KendraDataSource#url_exclusion_patterns}.
-        :param url_inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#url_inclusion_patterns KendraDataSource#url_inclusion_patterns}.
+        :param urls: urls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#urls KendraDataSource#urls}
+        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#authentication_configuration KendraDataSource#authentication_configuration}
+        :param crawl_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#crawl_depth KendraDataSource#crawl_depth}.
+        :param max_content_size_per_page_in_mega_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_content_size_per_page_in_mega_bytes KendraDataSource#max_content_size_per_page_in_mega_bytes}.
+        :param max_links_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_links_per_page KendraDataSource#max_links_per_page}.
+        :param max_urls_per_minute_crawl_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_urls_per_minute_crawl_rate KendraDataSource#max_urls_per_minute_crawl_rate}.
+        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#proxy_configuration KendraDataSource#proxy_configuration}
+        :param url_exclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#url_exclusion_patterns KendraDataSource#url_exclusion_patterns}.
+        :param url_inclusion_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#url_inclusion_patterns KendraDataSource#url_inclusion_patterns}.
         '''
         if isinstance(urls, dict):
             urls = KendraDataSourceConfigurationWebCrawlerConfigurationUrls(**urls)
@@ -1772,7 +1772,7 @@ class KendraDataSourceConfigurationWebCrawlerConfiguration:
     def urls(self) -> "KendraDataSourceConfigurationWebCrawlerConfigurationUrls":
         '''urls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#urls KendraDataSource#urls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#urls KendraDataSource#urls}
         '''
         result = self._values.get("urls")
         assert result is not None, "Required property 'urls' is missing"
@@ -1784,32 +1784,32 @@ class KendraDataSourceConfigurationWebCrawlerConfiguration:
     ) -> typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfiguration"]:
         '''authentication_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#authentication_configuration KendraDataSource#authentication_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#authentication_configuration KendraDataSource#authentication_configuration}
         '''
         result = self._values.get("authentication_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfiguration"], result)
 
     @builtins.property
     def crawl_depth(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#crawl_depth KendraDataSource#crawl_depth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#crawl_depth KendraDataSource#crawl_depth}.'''
         result = self._values.get("crawl_depth")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_content_size_per_page_in_mega_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_content_size_per_page_in_mega_bytes KendraDataSource#max_content_size_per_page_in_mega_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_content_size_per_page_in_mega_bytes KendraDataSource#max_content_size_per_page_in_mega_bytes}.'''
         result = self._values.get("max_content_size_per_page_in_mega_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_links_per_page(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_links_per_page KendraDataSource#max_links_per_page}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_links_per_page KendraDataSource#max_links_per_page}.'''
         result = self._values.get("max_links_per_page")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_urls_per_minute_crawl_rate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#max_urls_per_minute_crawl_rate KendraDataSource#max_urls_per_minute_crawl_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#max_urls_per_minute_crawl_rate KendraDataSource#max_urls_per_minute_crawl_rate}.'''
         result = self._values.get("max_urls_per_minute_crawl_rate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1819,20 +1819,20 @@ class KendraDataSourceConfigurationWebCrawlerConfiguration:
     ) -> typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationProxyConfiguration"]:
         '''proxy_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#proxy_configuration KendraDataSource#proxy_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#proxy_configuration KendraDataSource#proxy_configuration}
         '''
         result = self._values.get("proxy_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationProxyConfiguration"], result)
 
     @builtins.property
     def url_exclusion_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#url_exclusion_patterns KendraDataSource#url_exclusion_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#url_exclusion_patterns KendraDataSource#url_exclusion_patterns}.'''
         result = self._values.get("url_exclusion_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def url_inclusion_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#url_inclusion_patterns KendraDataSource#url_inclusion_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#url_inclusion_patterns KendraDataSource#url_inclusion_patterns}.'''
         result = self._values.get("url_inclusion_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1860,7 +1860,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigur
         basic_authentication: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigurationBasicAuthentication", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param basic_authentication: basic_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#basic_authentication KendraDataSource#basic_authentication}
+        :param basic_authentication: basic_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#basic_authentication KendraDataSource#basic_authentication}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cdf295e3ad7c3a330ba9f26f891c3505ec1471c7e4e86cca952b9b62139c7e1)
@@ -1875,7 +1875,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigur
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigurationBasicAuthentication"]]]:
         '''basic_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#basic_authentication KendraDataSource#basic_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#basic_authentication KendraDataSource#basic_authentication}
         '''
         result = self._values.get("basic_authentication")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigurationBasicAuthentication"]]], result)
@@ -1906,9 +1906,9 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigur
         port: jsii.Number,
     ) -> None:
         '''
-        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#host KendraDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#port KendraDataSource#port}.
+        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#host KendraDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#port KendraDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1398dc54280b1c95a6e8534f6a1e890e2a03c2d58eebb25eff2cc8f01c19064a)
@@ -1923,21 +1923,21 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigur
 
     @builtins.property
     def credentials(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.'''
         result = self._values.get("credentials")
         assert result is not None, "Required property 'credentials' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#host KendraDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#host KendraDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#port KendraDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#port KendraDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -2238,7 +2238,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationOutputReference(
         basic_authentication: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfigurationBasicAuthentication, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param basic_authentication: basic_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#basic_authentication KendraDataSource#basic_authentication}
+        :param basic_authentication: basic_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#basic_authentication KendraDataSource#basic_authentication}
         '''
         value = KendraDataSourceConfigurationWebCrawlerConfigurationAuthenticationConfiguration(
             basic_authentication=basic_authentication
@@ -2255,9 +2255,9 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationOutputReference(
         credentials: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#host KendraDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#port KendraDataSource#port}.
-        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#host KendraDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#port KendraDataSource#port}.
+        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.
         '''
         value = KendraDataSourceConfigurationWebCrawlerConfigurationProxyConfiguration(
             host=host, port=port, credentials=credentials
@@ -2273,8 +2273,8 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationOutputReference(
         site_maps_configuration: typing.Optional[typing.Union["KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param seed_url_configuration: seed_url_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#seed_url_configuration KendraDataSource#seed_url_configuration}
-        :param site_maps_configuration: site_maps_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#site_maps_configuration KendraDataSource#site_maps_configuration}
+        :param seed_url_configuration: seed_url_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#seed_url_configuration KendraDataSource#seed_url_configuration}
+        :param site_maps_configuration: site_maps_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#site_maps_configuration KendraDataSource#site_maps_configuration}
         '''
         value = KendraDataSourceConfigurationWebCrawlerConfigurationUrls(
             seed_url_configuration=seed_url_configuration,
@@ -2497,9 +2497,9 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationProxyConfiguration:
         credentials: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#host KendraDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#port KendraDataSource#port}.
-        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#host KendraDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#port KendraDataSource#port}.
+        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4a28e475cf043a03e2d33cba36540d1f8de1178d75bb352941bd3f2e414c909)
@@ -2515,21 +2515,21 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationProxyConfiguration:
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#host KendraDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#host KendraDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#port KendraDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#port KendraDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def credentials(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#credentials KendraDataSource#credentials}.'''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2654,8 +2654,8 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrls:
         site_maps_configuration: typing.Optional[typing.Union["KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param seed_url_configuration: seed_url_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#seed_url_configuration KendraDataSource#seed_url_configuration}
-        :param site_maps_configuration: site_maps_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#site_maps_configuration KendraDataSource#site_maps_configuration}
+        :param seed_url_configuration: seed_url_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#seed_url_configuration KendraDataSource#seed_url_configuration}
+        :param site_maps_configuration: site_maps_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#site_maps_configuration KendraDataSource#site_maps_configuration}
         '''
         if isinstance(seed_url_configuration, dict):
             seed_url_configuration = KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfiguration(**seed_url_configuration)
@@ -2677,7 +2677,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrls:
     ) -> typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfiguration"]:
         '''seed_url_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#seed_url_configuration KendraDataSource#seed_url_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#seed_url_configuration KendraDataSource#seed_url_configuration}
         '''
         result = self._values.get("seed_url_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfiguration"], result)
@@ -2688,7 +2688,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrls:
     ) -> typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfiguration"]:
         '''site_maps_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#site_maps_configuration KendraDataSource#site_maps_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#site_maps_configuration KendraDataSource#site_maps_configuration}
         '''
         result = self._values.get("site_maps_configuration")
         return typing.cast(typing.Optional["KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfiguration"], result)
@@ -2733,8 +2733,8 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsOutputReference(
         web_crawler_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param seed_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#seed_urls KendraDataSource#seed_urls}.
-        :param web_crawler_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#web_crawler_mode KendraDataSource#web_crawler_mode}.
+        :param seed_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#seed_urls KendraDataSource#seed_urls}.
+        :param web_crawler_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#web_crawler_mode KendraDataSource#web_crawler_mode}.
         '''
         value = KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfiguration(
             seed_urls=seed_urls, web_crawler_mode=web_crawler_mode
@@ -2749,7 +2749,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsOutputReference(
         site_maps: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param site_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#site_maps KendraDataSource#site_maps}.
+        :param site_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#site_maps KendraDataSource#site_maps}.
         '''
         value = KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfiguration(
             site_maps=site_maps
@@ -2824,8 +2824,8 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfigurati
         web_crawler_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param seed_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#seed_urls KendraDataSource#seed_urls}.
-        :param web_crawler_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#web_crawler_mode KendraDataSource#web_crawler_mode}.
+        :param seed_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#seed_urls KendraDataSource#seed_urls}.
+        :param web_crawler_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#web_crawler_mode KendraDataSource#web_crawler_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__accf063ff811c335d20239a62d744fd1663a7c842370738df337a915011f0df8)
@@ -2839,14 +2839,14 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfigurati
 
     @builtins.property
     def seed_urls(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#seed_urls KendraDataSource#seed_urls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#seed_urls KendraDataSource#seed_urls}.'''
         result = self._values.get("seed_urls")
         assert result is not None, "Required property 'seed_urls' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def web_crawler_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#web_crawler_mode KendraDataSource#web_crawler_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#web_crawler_mode KendraDataSource#web_crawler_mode}.'''
         result = self._values.get("web_crawler_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2946,7 +2946,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSeedUrlConfigurati
 class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfiguration:
     def __init__(self, *, site_maps: typing.Sequence[builtins.str]) -> None:
         '''
-        :param site_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#site_maps KendraDataSource#site_maps}.
+        :param site_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#site_maps KendraDataSource#site_maps}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a500df945e9ea3034a7dc1431d8160c06032e9aef4e5a4c5dd7e0a50a7e2ff89)
@@ -2957,7 +2957,7 @@ class KendraDataSourceConfigurationWebCrawlerConfigurationUrlsSiteMapsConfigurat
 
     @builtins.property
     def site_maps(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#site_maps KendraDataSource#site_maps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#site_maps KendraDataSource#site_maps}.'''
         result = self._values.get("site_maps")
         assert result is not None, "Required property 'site_maps' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3049,10 +3049,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfiguration:
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param inline_configurations: inline_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inline_configurations KendraDataSource#inline_configurations}
-        :param post_extraction_hook_configuration: post_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#post_extraction_hook_configuration KendraDataSource#post_extraction_hook_configuration}
-        :param pre_extraction_hook_configuration: pre_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#pre_extraction_hook_configuration KendraDataSource#pre_extraction_hook_configuration}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
+        :param inline_configurations: inline_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inline_configurations KendraDataSource#inline_configurations}
+        :param post_extraction_hook_configuration: post_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#post_extraction_hook_configuration KendraDataSource#post_extraction_hook_configuration}
+        :param pre_extraction_hook_configuration: pre_extraction_hook_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#pre_extraction_hook_configuration KendraDataSource#pre_extraction_hook_configuration}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.
         '''
         if isinstance(post_extraction_hook_configuration, dict):
             post_extraction_hook_configuration = KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfiguration(**post_extraction_hook_configuration)
@@ -3080,7 +3080,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurations"]]]:
         '''inline_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#inline_configurations KendraDataSource#inline_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#inline_configurations KendraDataSource#inline_configurations}
         '''
         result = self._values.get("inline_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurations"]]], result)
@@ -3091,7 +3091,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfiguration:
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfiguration"]:
         '''post_extraction_hook_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#post_extraction_hook_configuration KendraDataSource#post_extraction_hook_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#post_extraction_hook_configuration KendraDataSource#post_extraction_hook_configuration}
         '''
         result = self._values.get("post_extraction_hook_configuration")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfiguration"], result)
@@ -3102,14 +3102,14 @@ class KendraDataSourceCustomDocumentEnrichmentConfiguration:
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfiguration"]:
         '''pre_extraction_hook_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#pre_extraction_hook_configuration KendraDataSource#pre_extraction_hook_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#pre_extraction_hook_configuration KendraDataSource#pre_extraction_hook_configuration}
         '''
         result = self._values.get("pre_extraction_hook_configuration")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfiguration"], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#role_arn KendraDataSource#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3143,9 +3143,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurations:
         target: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTarget", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition KendraDataSource#condition}
-        :param document_content_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#document_content_deletion KendraDataSource#document_content_deletion}.
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target KendraDataSource#target}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition KendraDataSource#condition}
+        :param document_content_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#document_content_deletion KendraDataSource#document_content_deletion}.
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target KendraDataSource#target}
         '''
         if isinstance(condition, dict):
             condition = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsCondition(**condition)
@@ -3170,7 +3170,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurations:
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition KendraDataSource#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition KendraDataSource#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsCondition"], result)
@@ -3179,7 +3179,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurations:
     def document_content_deletion(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#document_content_deletion KendraDataSource#document_content_deletion}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#document_content_deletion KendraDataSource#document_content_deletion}.'''
         result = self._values.get("document_content_deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3189,7 +3189,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurations:
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTarget"]:
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target KendraDataSource#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target KendraDataSource#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTarget"], result)
@@ -3224,9 +3224,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsC
         condition_on_value: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsConditionConditionOnValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
-        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
+        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         if isinstance(condition_on_value, dict):
             condition_on_value = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsConditionConditionOnValue(**condition_on_value)
@@ -3244,14 +3244,14 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsC
 
     @builtins.property
     def condition_document_attribute_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.'''
         result = self._values.get("condition_document_attribute_key")
         assert result is not None, "Required property 'condition_document_attribute_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
@@ -3262,7 +3262,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsC
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsConditionConditionOnValue"]:
         '''condition_on_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         result = self._values.get("condition_on_value")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsConditionConditionOnValue"], result)
@@ -3299,10 +3299,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsC
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07027ac4ece4958e53744a46668d1f8589ec79f6b3cbec9c62db33e106747364)
@@ -3322,25 +3322,25 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsC
 
     @builtins.property
     def date_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
         result = self._values.get("date_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def long_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
         result = self._values.get("long_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def string_list_value(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
         result = self._values.get("string_list_value")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def string_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3508,10 +3508,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsC
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsConditionConditionOnValue(
             date_value=date_value,
@@ -3720,9 +3720,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsO
         condition_on_value: typing.Optional[typing.Union[KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsConditionConditionOnValue, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
-        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
+        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsCondition(
             condition_document_attribute_key=condition_document_attribute_key,
@@ -3741,9 +3741,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsO
         target_document_attribute_value_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param target_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_key KendraDataSource#target_document_attribute_key}.
-        :param target_document_attribute_value: target_document_attribute_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_value KendraDataSource#target_document_attribute_value}
-        :param target_document_attribute_value_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_value_deletion KendraDataSource#target_document_attribute_value_deletion}.
+        :param target_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_key KendraDataSource#target_document_attribute_key}.
+        :param target_document_attribute_value: target_document_attribute_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_value KendraDataSource#target_document_attribute_value}
+        :param target_document_attribute_value_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_value_deletion KendraDataSource#target_document_attribute_value_deletion}.
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTarget(
             target_document_attribute_key=target_document_attribute_key,
@@ -3853,9 +3853,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
         target_document_attribute_value_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param target_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_key KendraDataSource#target_document_attribute_key}.
-        :param target_document_attribute_value: target_document_attribute_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_value KendraDataSource#target_document_attribute_value}
-        :param target_document_attribute_value_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_value_deletion KendraDataSource#target_document_attribute_value_deletion}.
+        :param target_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_key KendraDataSource#target_document_attribute_key}.
+        :param target_document_attribute_value: target_document_attribute_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_value KendraDataSource#target_document_attribute_value}
+        :param target_document_attribute_value_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_value_deletion KendraDataSource#target_document_attribute_value_deletion}.
         '''
         if isinstance(target_document_attribute_value, dict):
             target_document_attribute_value = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTargetTargetDocumentAttributeValue(**target_document_attribute_value)
@@ -3874,7 +3874,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
 
     @builtins.property
     def target_document_attribute_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_key KendraDataSource#target_document_attribute_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_key KendraDataSource#target_document_attribute_key}.'''
         result = self._values.get("target_document_attribute_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3884,7 +3884,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTargetTargetDocumentAttributeValue"]:
         '''target_document_attribute_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_value KendraDataSource#target_document_attribute_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_value KendraDataSource#target_document_attribute_value}
         '''
         result = self._values.get("target_document_attribute_value")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTargetTargetDocumentAttributeValue"], result)
@@ -3893,7 +3893,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
     def target_document_attribute_value_deletion(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#target_document_attribute_value_deletion KendraDataSource#target_document_attribute_value_deletion}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#target_document_attribute_value_deletion KendraDataSource#target_document_attribute_value_deletion}.'''
         result = self._values.get("target_document_attribute_value_deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3939,10 +3939,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsTargetTargetDocumentAttributeValue(
             date_value=date_value,
@@ -4058,10 +4058,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b1897d9891cc52661cfb8f7bfc9e032d6ff9f2ada84bfd6e2b4b52230231c85)
@@ -4081,25 +4081,25 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationInlineConfigurationsT
 
     @builtins.property
     def date_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
         result = self._values.get("date_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def long_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
         result = self._values.get("long_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def string_list_value(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
         result = self._values.get("string_list_value")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def string_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4279,9 +4279,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationOutputReference(
         invocation_condition: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationCondition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
-        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
+        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfiguration(
             lambda_arn=lambda_arn,
@@ -4300,9 +4300,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationOutputReference(
         invocation_condition: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationCondition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
-        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
+        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfiguration(
             lambda_arn=lambda_arn,
@@ -4423,9 +4423,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
         invocation_condition: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationCondition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
-        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
+        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
         '''
         if isinstance(invocation_condition, dict):
             invocation_condition = KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationCondition(**invocation_condition)
@@ -4443,14 +4443,14 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -4461,7 +4461,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationCondition"]:
         '''invocation_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
         '''
         result = self._values.get("invocation_condition")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationCondition"], result)
@@ -4496,9 +4496,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
         condition_on_value: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationConditionConditionOnValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
-        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
+        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         if isinstance(condition_on_value, dict):
             condition_on_value = KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationConditionConditionOnValue(**condition_on_value)
@@ -4516,14 +4516,14 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
 
     @builtins.property
     def condition_document_attribute_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.'''
         result = self._values.get("condition_document_attribute_key")
         assert result is not None, "Required property 'condition_document_attribute_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
@@ -4534,7 +4534,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationConditionConditionOnValue"]:
         '''condition_on_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         result = self._values.get("condition_on_value")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationConditionConditionOnValue"], result)
@@ -4571,10 +4571,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96ad55b3fc3c1bad9b2741d437121c3836eada48fe3b306866a638f5d5086ffb)
@@ -4594,25 +4594,25 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
 
     @builtins.property
     def date_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
         result = self._values.get("date_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def long_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
         result = self._values.get("long_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def string_list_value(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
         result = self._values.get("string_list_value")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def string_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4780,10 +4780,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationConditionConditionOnValue(
             date_value=date_value,
@@ -4893,9 +4893,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookCon
         condition_on_value: typing.Optional[typing.Union[KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationConditionConditionOnValue, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
-        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
+        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationPostExtractionHookConfigurationInvocationCondition(
             condition_document_attribute_key=condition_document_attribute_key,
@@ -4993,9 +4993,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
         invocation_condition: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationCondition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
-        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.
+        :param invocation_condition: invocation_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
         '''
         if isinstance(invocation_condition, dict):
             invocation_condition = KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationCondition(**invocation_condition)
@@ -5013,14 +5013,14 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#lambda_arn KendraDataSource#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#s3_bucket KendraDataSource#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -5031,7 +5031,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationCondition"]:
         '''invocation_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#invocation_condition KendraDataSource#invocation_condition}
         '''
         result = self._values.get("invocation_condition")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationCondition"], result)
@@ -5066,9 +5066,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
         condition_on_value: typing.Optional[typing.Union["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationConditionConditionOnValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
-        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
+        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         if isinstance(condition_on_value, dict):
             condition_on_value = KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationConditionConditionOnValue(**condition_on_value)
@@ -5086,14 +5086,14 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
 
     @builtins.property
     def condition_document_attribute_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.'''
         result = self._values.get("condition_document_attribute_key")
         assert result is not None, "Required property 'condition_document_attribute_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
@@ -5104,7 +5104,7 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
     ) -> typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationConditionConditionOnValue"]:
         '''condition_on_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         result = self._values.get("condition_on_value")
         return typing.cast(typing.Optional["KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationConditionConditionOnValue"], result)
@@ -5141,10 +5141,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__524e7a2c82f3f35218252ed7acd6ab0aa9f0b23fa3904aabe3de0b3331b69da3)
@@ -5164,25 +5164,25 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
 
     @builtins.property
     def date_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.'''
         result = self._values.get("date_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def long_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.'''
         result = self._values.get("long_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def string_list_value(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.'''
         result = self._values.get("string_list_value")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def string_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.'''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5350,10 +5350,10 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
-        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
-        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
-        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
+        :param date_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#date_value KendraDataSource#date_value}.
+        :param long_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#long_value KendraDataSource#long_value}.
+        :param string_list_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_list_value KendraDataSource#string_list_value}.
+        :param string_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#string_value KendraDataSource#string_value}.
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationConditionConditionOnValue(
             date_value=date_value,
@@ -5463,9 +5463,9 @@ class KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConf
         condition_on_value: typing.Optional[typing.Union[KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationConditionConditionOnValue, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
-        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
+        :param condition_document_attribute_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_document_attribute_key KendraDataSource#condition_document_attribute_key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#operator KendraDataSource#operator}.
+        :param condition_on_value: condition_on_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#condition_on_value KendraDataSource#condition_on_value}
         '''
         value = KendraDataSourceCustomDocumentEnrichmentConfigurationPreExtractionHookConfigurationInvocationCondition(
             condition_document_attribute_key=condition_document_attribute_key,
@@ -5559,9 +5559,9 @@ class KendraDataSourceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#create KendraDataSource#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#delete KendraDataSource#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#update KendraDataSource#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#create KendraDataSource#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#delete KendraDataSource#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#update KendraDataSource#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8bd7541e9304f7d416691eb47d2f0d2c4b06fc1df05b867d39365237770ec34)
@@ -5578,19 +5578,19 @@ class KendraDataSourceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#create KendraDataSource#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#create KendraDataSource#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#delete KendraDataSource#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#delete KendraDataSource#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kendra_data_source#update KendraDataSource#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/kendra_data_source#update KendraDataSource#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -72,8 +72,6 @@ class VirtualChunkContainer:
 
     Attributes
     ----------
-    name: str
-        The name of the virtual chunk container.
     url_prefix: str
         The prefix of urls that will use this containers configuration for reading virtual references.
     store: ObjectStoreConfig
@@ -84,14 +82,12 @@ class VirtualChunkContainer:
     url_prefix: str
     store: ObjectStoreConfig
 
-    def __init__(self, name: str, url_prefix: str, store: AnyObjectStoreConfig):
+    def __init__(self, url_prefix: str, store: AnyObjectStoreConfig):
         """
         Create a new `VirtualChunkContainer` object
 
         Parameters
         ----------
-        name: str
-            The name of the virtual chunk container.
         url_prefix: str
             The prefix of urls that will use this containers configuration for reading virtual references.
         store: ObjectStoreConfig
@@ -421,6 +417,12 @@ class ManifestPreloadCondition:
     def false() -> ManifestPreloadCondition:
         """Create a preload condition that never matches any manifests"""
         ...
+    def __and__(self, other: ManifestPreloadCondition) -> ManifestPreloadCondition:
+        """Create a preload condition that matches if both this condition and `other` match."""
+        ...
+    def __or__(self, other: ManifestPreloadCondition) -> ManifestPreloadCondition:
+        """Create a preload condition that matches if either this condition or `other` match."""
+        ...
 
 class ManifestPreloadConfig:
     """Configuration for how Icechunk manifest preload on session creation"""
@@ -524,6 +526,14 @@ class ManifestSplitCondition:
         """Create a splitting condition that matches any array."""
         ...
 
+    def __or__(self, other: ManifestSplitCondition) -> ManifestSplitCondition:
+        """Create a splitting condition that matches if either this condition or `other` matches"""
+        ...
+
+    def __and__(self, other: ManifestSplitCondition) -> ManifestSplitCondition:
+        """Create a splitting condition that matches if both this condition and `other` match"""
+        ...
+
 class ManifestSplitDimCondition:
     """Conditions for specifying dimensions along which to shard manifests."""
     class Axis:
@@ -541,7 +551,16 @@ class ManifestSplitDimCondition:
 DimSplitSize: TypeAlias = int
 SplitSizes: TypeAlias = tuple[
     tuple[
-        ManifestSplitCondition, tuple[tuple[ManifestSplitDimCondition, DimSplitSize], ...]
+        ManifestSplitCondition,
+        tuple[
+            tuple[
+                ManifestSplitDimCondition.Axis
+                | ManifestSplitDimCondition.DimensionName
+                | ManifestSplitDimCondition.Any,
+                DimSplitSize,
+            ],
+            ...,
+        ],
     ],
     ...,
 ]
@@ -549,6 +568,18 @@ SplitSizes: TypeAlias = tuple[
 class ManifestSplittingConfig:
     """Configuration for manifest splitting."""
 
+    @staticmethod
+    def from_dict(
+        split_sizes: dict[
+            ManifestSplitCondition,
+            dict[
+                ManifestSplitDimCondition.Axis
+                | ManifestSplitDimCondition.DimensionName
+                | ManifestSplitDimCondition.Any,
+                int,
+            ],
+        ],
+    ) -> ManifestSplittingConfig: ...
     def __init__(self, split_sizes: SplitSizes) -> None:
         """Configuration for how Icechunk manifests will be split.
 
@@ -889,6 +920,8 @@ class StorageSettings:
             The configuration for how Icechunk uses its Storage instance.
         """
 
+    @concurrency.setter
+    def concurrency(self, value: StorageConcurrencySettings | None) -> None: ...
     @property
     def retries(self) -> StorageRetriesSettings | None:
         """
@@ -900,35 +933,57 @@ class StorageSettings:
             The configuration for how Icechunk retries failed requests.
         """
 
+    @retries.setter
+    def retries(self, value: StorageRetriesSettings | None) -> None: ...
     @property
     def unsafe_use_conditional_update(self) -> bool | None:
         """True if Icechunk will use conditional PUT operations for updates in the object store"""
         ...
+
+    @unsafe_use_conditional_update.setter
+    def unsafe_use_conditional_update(self, value: bool) -> None: ...
     @property
     def unsafe_use_conditional_create(self) -> bool | None:
         """True if Icechunk will use conditional PUT operations for creation in the object store"""
         ...
+
+    @unsafe_use_conditional_create.setter
+    def unsafe_use_conditional_create(self, value: bool) -> None: ...
     @property
     def unsafe_use_metadata(self) -> bool | None:
         """True if Icechunk will write object metadata in the object store"""
         ...
+
+    @unsafe_use_metadata.setter
+    def unsafe_use_metadata(self, value: bool) -> None: ...
     @property
     def storage_class(self) -> str | None:
         """All objects in object store will use this storage class or the default if None"""
         ...
+
+    @storage_class.setter
+    def storage_class(self, value: str) -> None: ...
     @property
     def metadata_storage_class(self) -> str | None:
         """Metadata objects in object store will use this storage class or self.storage_class if None"""
         ...
+
+    @metadata_storage_class.setter
+    def metadata_storage_class(self, value: str) -> None: ...
     @property
     def chunks_storage_class(self) -> str | None:
         """Chunk objects in object store will use this storage class or self.storage_class if None"""
         ...
 
+    @chunks_storage_class.setter
+    def chunks_storage_class(self, value: str) -> None: ...
     @property
     def minimum_size_for_multipart_upload(self) -> int | None:
         """Use object store's multipart upload for objects larger than this size in bytes"""
         ...
+
+    @minimum_size_for_multipart_upload.setter
+    def minimum_size_for_multipart_upload(self, value: int) -> None: ...
 
 class RepositoryConfig:
     """Configuration for an Icechunk repository"""
@@ -1223,7 +1278,7 @@ class PyRepository:
         storage: Storage,
         *,
         config: RepositoryConfig | None = None,
-        virtual_chunk_credentials: dict[str, AnyCredential] | None = None,
+        authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
     ) -> PyRepository: ...
     @classmethod
     def open(
@@ -1231,7 +1286,7 @@ class PyRepository:
         storage: Storage,
         *,
         config: RepositoryConfig | None = None,
-        virtual_chunk_credentials: dict[str, AnyCredential] | None = None,
+        authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
     ) -> PyRepository: ...
     @classmethod
     def open_or_create(
@@ -1239,7 +1294,7 @@ class PyRepository:
         storage: Storage,
         *,
         config: RepositoryConfig | None = None,
-        virtual_chunk_credentials: dict[str, AnyCredential] | None = None,
+        authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
     ) -> PyRepository: ...
     @staticmethod
     def exists(storage: Storage) -> bool: ...
@@ -1845,7 +1900,8 @@ class ConflictDetector(ConflictSolver):
 class IcechunkError(Exception):
     """Base class for all Icechunk errors"""
 
-    ...
+    @property
+    def message(self) -> str: ...
 
 class ConflictError(Exception):
     """An error that occurs when a conflict is detected"""

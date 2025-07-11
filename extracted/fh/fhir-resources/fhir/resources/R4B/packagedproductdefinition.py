@@ -25,7 +25,7 @@ class PackagedProductDefinition(domainresource.DomainResource):
     __resource_type__ = "PackagedProductDefinition"
 
     characteristic: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="characteristic",
         title=(
             'Allows the key features to be recorded, such as "hospital pack", '
@@ -37,11 +37,12 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     containedItemQuantity: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="containedItemQuantity",
         title=(
             "A total of the complete count of contained items of a particular "
@@ -66,11 +67,12 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     copackagedIndicator: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copackagedIndicator",
         title=(
             "If the drug product is supplied with another item such as a diluent or"
@@ -82,16 +84,17 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     copackagedIndicator__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_copackagedIndicator",
         title="Extension field for ``copackagedIndicator``.",
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title=(
             "Textual description. Note that this is not the name of the package or "
@@ -100,14 +103,15 @@ class PackagedProductDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="A unique identifier for this package as whole",
         description=(
@@ -117,11 +121,12 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     legalStatusOfSupply: typing.List[fhirtypes.PackagedProductDefinitionLegalStatusOfSupplyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="legalStatusOfSupply",
         title=(
             "The legal status of supply of the packaged item as classified by the "
@@ -130,11 +135,12 @@ class PackagedProductDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     manufacturer: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manufacturer",
         title=(
             "Manufacturer of this package type (multiple means these are all "
@@ -146,13 +152,14 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     marketingStatus: typing.List[fhirtypes.MarketingStatusType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="marketingStatus",
         title=(
             "Allows specifying that an item is on the market for sale, or that it "
@@ -161,11 +168,12 @@ class PackagedProductDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title=(
             "A name for this package. Typically as listed in a drug formulary, "
@@ -177,14 +185,15 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     package: fhirtypes.PackagedProductDefinitionPackageType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="package",
         title=(
             "A packaging item, as a container for medically related items, possibly"
@@ -198,23 +207,25 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     packageFor: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="packageFor",
         title="The product that this is a pack for",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["MedicinalProductDefinition"],
         },
     )
 
     status: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "The status within the lifecycle of this item. High level - not "
@@ -228,24 +239,26 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     statusDate: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusDate",
         title="The date at which the given status became applicable",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     statusDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_statusDate", title="Extension field for ``statusDate``."
+        default=None, alias="_statusDate", title="Extension field for ``statusDate``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "A high level category e.g. medicinal product, raw material, shipping "
@@ -257,14 +270,15 @@ class PackagedProductDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PackagedProductDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PackagedProductDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -275,6 +289,31 @@ class PackagedProductDefinition(domainresource.DomainResource):
             "contained",
             "extension",
             "modifierExtension",
+            "identifier",
+            "name",
+            "type",
+            "packageFor",
+            "status",
+            "statusDate",
+            "containedItemQuantity",
+            "description",
+            "legalStatusOfSupply",
+            "marketingStatus",
+            "characteristic",
+            "copackagedIndicator",
+            "manufacturer",
+            "package",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PackagedProductDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "identifier",
             "name",
             "type",
@@ -304,7 +343,7 @@ class PackagedProductDefinitionLegalStatusOfSupply(backboneelement.BackboneEleme
     __resource_type__ = "PackagedProductDefinitionLegalStatusOfSupply"
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title=(
             "The actual status of supply. In what situation this package type may "
@@ -316,11 +355,12 @@ class PackagedProductDefinitionLegalStatusOfSupply(backboneelement.BackboneEleme
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     jurisdiction: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="The place where the legal status of supply applies",
         description=(
@@ -329,16 +369,24 @@ class PackagedProductDefinitionLegalStatusOfSupply(backboneelement.BackboneEleme
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PackagedProductDefinitionLegalStatusOfSupply`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PackagedProductDefinitionLegalStatusOfSupply`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "code", "jurisdiction"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PackagedProductDefinitionLegalStatusOfSupply`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "code", "jurisdiction"]
 
 
 class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
@@ -356,7 +404,7 @@ class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
     __resource_type__ = "PackagedProductDefinitionPackage"
 
     alternateMaterial: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="alternateMaterial",
         title=(
             "A possible alternate material for this part of the packaging, that is "
@@ -369,21 +417,23 @@ class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     containedItem: typing.List[fhirtypes.PackagedProductDefinitionPackageContainedItemType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="containedItem",
         title="The item(s) within the packaging",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title=(
             "An identifier that is specific to this particular part of the "
@@ -395,11 +445,12 @@ class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     manufacturer: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manufacturer",
         title=(
             "Manufacturer of this package Item (multiple means these are all "
@@ -411,23 +462,25 @@ class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     material: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="material",
         title="Material type of the package item",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     package: typing.List[fhirtypes.PackagedProductDefinitionPackageType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="package",
         title=(
             "Allows containers (and parts of containers) within containers, still a"
@@ -440,21 +493,23 @@ class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     property: typing.List[fhirtypes.PackagedProductDefinitionPackagePropertyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="property",
         title="General characteristics of this item",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     quantity: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title=(
             "The quantity of this level of packaging in the package that contains "
@@ -466,41 +521,63 @@ class PackagedProductDefinitionPackage(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     quantity__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_quantity", title="Extension field for ``quantity``."
+        default=None, alias="_quantity", title="Extension field for ``quantity``."
     )
 
     shelfLifeStorage: typing.List[fhirtypes.PackagedProductDefinitionPackageShelfLifeStorageType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="shelfLifeStorage",
         title="Shelf Life and storage information",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="The physical type of the container of the items",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PackagedProductDefinitionPackage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PackagedProductDefinitionPackage`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "identifier",
+            "type",
+            "quantity",
+            "material",
+            "alternateMaterial",
+            "shelfLifeStorage",
+            "manufacturer",
+            "property",
+            "containedItem",
+            "package",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PackagedProductDefinitionPackage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "identifier",
             "type",
@@ -526,17 +603,18 @@ class PackagedProductDefinitionPackageContainedItem(backboneelement.BackboneElem
     __resource_type__ = "PackagedProductDefinitionPackageContainedItem"
 
     amount: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title="The number of this type of item within this packaging",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     item: fhirtypes.CodeableReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="item",
         title=(
             "The actual item(s) of medication, as manufactured, or a device, or "
@@ -555,6 +633,7 @@ class PackagedProductDefinitionPackageContainedItem(backboneelement.BackboneElem
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "ManufacturedItemDefinition",
@@ -568,11 +647,18 @@ class PackagedProductDefinitionPackageContainedItem(backboneelement.BackboneElem
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PackagedProductDefinitionPackageContainedItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PackagedProductDefinitionPackageContainedItem`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "item", "amount"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PackagedProductDefinitionPackageContainedItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "item", "amount"]
 
 
 class PackagedProductDefinitionPackageProperty(backboneelement.BackboneElement):
@@ -586,22 +672,24 @@ class PackagedProductDefinitionPackageProperty(backboneelement.BackboneElement):
     __resource_type__ = "PackagedProductDefinitionPackageProperty"
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="A code expressing the type of characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     valueAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueAttachment",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -609,28 +697,32 @@ class PackagedProductDefinitionPackageProperty(backboneelement.BackboneElement):
     )
 
     valueBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBoolean",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
         },
     )
     valueBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueBoolean", title="Extension field for ``valueBoolean``."
+        default=None,
+        alias="_valueBoolean",
+        title="Extension field for ``valueBoolean``.",
     )
 
     valueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCodeableConcept",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -638,28 +730,30 @@ class PackagedProductDefinitionPackageProperty(backboneelement.BackboneElement):
     )
 
     valueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDate",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
         },
     )
     valueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDate", title="Extension field for ``valueDate``."
+        default=None, alias="_valueDate", title="Extension field for ``valueDate``."
     )
 
     valueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -668,13 +762,28 @@ class PackagedProductDefinitionPackageProperty(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PackagedProductDefinitionPackageProperty`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PackagedProductDefinitionPackageProperty`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "type",
+            "valueCodeableConcept",
+            "valueQuantity",
+            "valueDate",
+            "valueBoolean",
+            "valueAttachment",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PackagedProductDefinitionPackageProperty`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "type",
             "valueCodeableConcept",
@@ -720,7 +829,7 @@ class PackagedProductDefinitionPackageShelfLifeStorage(backboneelement.BackboneE
     __resource_type__ = "PackagedProductDefinitionPackageShelfLifeStorage"
 
     periodDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="periodDuration",
         title=(
             "The shelf life time period can be specified using a numerical value "
@@ -732,6 +841,7 @@ class PackagedProductDefinitionPackageShelfLifeStorage(backboneelement.BackboneE
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e period[x]
             "one_of_many": "period",
             "one_of_many_required": False,
@@ -739,7 +849,7 @@ class PackagedProductDefinitionPackageShelfLifeStorage(backboneelement.BackboneE
     )
 
     periodString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="periodString",
         title=(
             "The shelf life time period can be specified using a numerical value "
@@ -751,17 +861,20 @@ class PackagedProductDefinitionPackageShelfLifeStorage(backboneelement.BackboneE
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e period[x]
             "one_of_many": "period",
             "one_of_many_required": False,
         },
     )
     periodString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_periodString", title="Extension field for ``periodString``."
+        default=None,
+        alias="_periodString",
+        title="Extension field for ``periodString``.",
     )
 
     specialPrecautionsForStorage: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialPrecautionsForStorage",
         title=(
             "Special precautions for storage, if any, can be specified using an "
@@ -771,11 +884,12 @@ class PackagedProductDefinitionPackageShelfLifeStorage(backboneelement.BackboneE
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "This describes the shelf life, taking into account various scenarios "
@@ -788,18 +902,32 @@ class PackagedProductDefinitionPackageShelfLifeStorage(backboneelement.BackboneE
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PackagedProductDefinitionPackageShelfLifeStorage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PackagedProductDefinitionPackageShelfLifeStorage`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "type",
+            "periodDuration",
+            "periodString",
+            "specialPrecautionsForStorage",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PackagedProductDefinitionPackageShelfLifeStorage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "type",
             "periodDuration",

@@ -27,7 +27,7 @@ class DeviceDefinition(domainresource.DomainResource):
     __resource_type__ = "DeviceDefinition"
 
     capability: typing.List[fhirtypes.DeviceDefinitionCapabilityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="capability",
         title="Device capabilities",
         description=None,
@@ -37,7 +37,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     contact: typing.List[fhirtypes.ContactPointType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Details for human/organization for support",
         description=(
@@ -50,7 +50,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     deviceName: typing.List[fhirtypes.DeviceDefinitionDeviceNameType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="deviceName",
         title="A name given to the device to identify it",
         description=None,
@@ -60,7 +60,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Instance identifier",
         description=(
@@ -73,7 +73,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     languageCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="languageCode",
         title=(
             "Language code for the human-readable text strings produced by the "
@@ -86,7 +86,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     manufacturerReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manufacturerReference",
         title="Name of device manufacturer",
         description="A name of the manufacturer.",
@@ -101,7 +101,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     manufacturerString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manufacturerString",
         title="Name of device manufacturer",
         description="A name of the manufacturer.",
@@ -113,13 +113,13 @@ class DeviceDefinition(domainresource.DomainResource):
         },
     )
     manufacturerString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_manufacturerString",
         title="Extension field for ``manufacturerString``.",
     )
 
     material: typing.List[fhirtypes.DeviceDefinitionMaterialType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="material",
         title="A substance used to create the material(s) of which the device is made",
         description=None,
@@ -129,7 +129,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     modelNumber: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="modelNumber",
         title="The model number for the device",
         description=None,
@@ -138,11 +138,11 @@ class DeviceDefinition(domainresource.DomainResource):
         },
     )
     modelNumber__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_modelNumber", title="Extension field for ``modelNumber``."
+        default=None, alias="_modelNumber", title="Extension field for ``modelNumber``."
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Device notes and comments",
         description=(
@@ -155,7 +155,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     onlineInformation: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="onlineInformation",
         title="Access to on-line information",
         description="Access to on-line information about the device.",
@@ -164,13 +164,13 @@ class DeviceDefinition(domainresource.DomainResource):
         },
     )
     onlineInformation__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_onlineInformation",
         title="Extension field for ``onlineInformation``.",
     )
 
     owner: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="owner",
         title="Organization responsible for device",
         description=(
@@ -185,19 +185,20 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     parentDevice: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="parentDevice",
         title="The parent device it can be part of",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["DeviceDefinition"],
         },
     )
 
     physicalCharacteristics: fhirtypes.ProdCharacteristicType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="physicalCharacteristics",
         title="Dimensions, color etc.",
         description="Dimensions, color etc.",
@@ -207,7 +208,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     property: typing.List[fhirtypes.DeviceDefinitionPropertyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="property",
         title=(
             "The actual configuration settings of a device as it actually operates,"
@@ -220,7 +221,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title=(
             "The quantity of the device present in the packaging (e.g. the number "
@@ -234,17 +235,18 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     safety: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="safety",
         title="Safety characteristics of the device",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     shelfLifeStorage: typing.List[fhirtypes.ProductShelfLifeType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="shelfLifeStorage",
         title="Shelf Life and storage information",
         description=None,
@@ -254,7 +256,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     specialization: typing.List[fhirtypes.DeviceDefinitionSpecializationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialization",
         title=(
             "The capabilities supported on a  device, the standards to which the "
@@ -268,7 +270,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="What kind of device or device system this is",
         description=None,
@@ -278,7 +280,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     udiDeviceIdentifier: typing.List[fhirtypes.DeviceDefinitionUdiDeviceIdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="udiDeviceIdentifier",
         title="Unique Device Identifier (UDI) Barcode string",
         description=(
@@ -293,7 +295,7 @@ class DeviceDefinition(domainresource.DomainResource):
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title="Network address to contact device",
         description="A network address on which the device may be contacted directly.",
@@ -302,11 +304,11 @@ class DeviceDefinition(domainresource.DomainResource):
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     version: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Available versions",
         description="The available versions of the device, e.g., software versions.",
@@ -315,14 +317,14 @@ class DeviceDefinition(domainresource.DomainResource):
         },
     )
     version__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -358,6 +360,13 @@ class DeviceDefinition(domainresource.DomainResource):
             "material",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["id", "meta", "implicitRules", "safety", "parentDevice"]
+
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
         A few elements have a choice of more than one data type for their content.
@@ -388,7 +397,7 @@ class DeviceDefinitionCapability(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDefinitionCapability"
 
     description: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Description of capability",
         description=None,
@@ -398,7 +407,7 @@ class DeviceDefinitionCapability(backboneelement.BackboneElement):
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Type of capability",
         description=None,
@@ -409,11 +418,18 @@ class DeviceDefinitionCapability(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinitionCapability`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinitionCapability`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "description"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinitionCapability`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class DeviceDefinitionDeviceName(backboneelement.BackboneElement):
@@ -427,7 +443,7 @@ class DeviceDefinitionDeviceName(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDefinitionDeviceName"
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="The name of the device",
         description=None,
@@ -437,11 +453,11 @@ class DeviceDefinitionDeviceName(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "udi-label-name | user-friendly-name | patient-reported-name | "
@@ -467,16 +483,23 @@ class DeviceDefinitionDeviceName(backboneelement.BackboneElement):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinitionDeviceName`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinitionDeviceName`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "name", "type"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinitionDeviceName`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -501,7 +524,7 @@ class DeviceDefinitionMaterial(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDefinitionMaterial"
 
     allergenicIndicator: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="allergenicIndicator",
         title="Whether the substance is a known or suspected allergen",
         description=None,
@@ -510,13 +533,13 @@ class DeviceDefinitionMaterial(backboneelement.BackboneElement):
         },
     )
     allergenicIndicator__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_allergenicIndicator",
         title="Extension field for ``allergenicIndicator``.",
     )
 
     alternate: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="alternate",
         title="Indicates an alternative material of the device",
         description=None,
@@ -525,11 +548,11 @@ class DeviceDefinitionMaterial(backboneelement.BackboneElement):
         },
     )
     alternate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_alternate", title="Extension field for ``alternate``."
+        default=None, alias="_alternate", title="Extension field for ``alternate``."
     )
 
     substance: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="substance",
         title="The substance",
         description=None,
@@ -540,9 +563,9 @@ class DeviceDefinitionMaterial(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinitionMaterial`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinitionMaterial`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -552,6 +575,13 @@ class DeviceDefinitionMaterial(backboneelement.BackboneElement):
             "alternate",
             "allergenicIndicator",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinitionMaterial`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class DeviceDefinitionProperty(backboneelement.BackboneElement):
@@ -566,7 +596,7 @@ class DeviceDefinitionProperty(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDefinitionProperty"
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title=(
             "Code that specifies the property DeviceDefinitionPropetyCode "
@@ -579,7 +609,7 @@ class DeviceDefinitionProperty(backboneelement.BackboneElement):
     )
 
     valueCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCode",
         title="Property value as a code, e.g., NTP4 (synced to NTP)",
         description=None,
@@ -589,7 +619,7 @@ class DeviceDefinitionProperty(backboneelement.BackboneElement):
     )
 
     valueQuantity: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="Property value as a quantity",
         description=None,
@@ -600,9 +630,9 @@ class DeviceDefinitionProperty(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinitionProperty`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinitionProperty`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -612,6 +642,13 @@ class DeviceDefinitionProperty(backboneelement.BackboneElement):
             "valueQuantity",
             "valueCode",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinitionProperty`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class DeviceDefinitionSpecialization(backboneelement.BackboneElement):
@@ -626,7 +663,7 @@ class DeviceDefinitionSpecialization(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDefinitionSpecialization"
 
     systemType: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="systemType",
         title="The standard that is used to operate and communicate",
         description=None,
@@ -636,11 +673,11 @@ class DeviceDefinitionSpecialization(backboneelement.BackboneElement):
         },
     )
     systemType__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_systemType", title="Extension field for ``systemType``."
+        default=None, alias="_systemType", title="Extension field for ``systemType``."
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="The version of the standard that is used to operate and communicate",
         description=None,
@@ -649,16 +686,23 @@ class DeviceDefinitionSpecialization(backboneelement.BackboneElement):
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinitionSpecialization`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinitionSpecialization`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "systemType", "version"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinitionSpecialization`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -687,7 +731,7 @@ class DeviceDefinitionUdiDeviceIdentifier(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDefinitionUdiDeviceIdentifier"
 
     deviceIdentifier: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="deviceIdentifier",
         title=(
             "The identifier that is to be associated with every Device that "
@@ -701,13 +745,13 @@ class DeviceDefinitionUdiDeviceIdentifier(backboneelement.BackboneElement):
         },
     )
     deviceIdentifier__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_deviceIdentifier",
         title="Extension field for ``deviceIdentifier``.",
     )
 
     issuer: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="issuer",
         title="The organization that assigns the identifier algorithm",
         description=None,
@@ -717,11 +761,11 @@ class DeviceDefinitionUdiDeviceIdentifier(backboneelement.BackboneElement):
         },
     )
     issuer__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_issuer", title="Extension field for ``issuer``."
+        default=None, alias="_issuer", title="Extension field for ``issuer``."
     )
 
     jurisdiction: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="The jurisdiction to which the deviceIdentifier applies",
         description=None,
@@ -731,14 +775,16 @@ class DeviceDefinitionUdiDeviceIdentifier(backboneelement.BackboneElement):
         },
     )
     jurisdiction__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_jurisdiction", title="Extension field for ``jurisdiction``."
+        default=None,
+        alias="_jurisdiction",
+        title="Extension field for ``jurisdiction``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDefinitionUdiDeviceIdentifier`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDefinitionUdiDeviceIdentifier`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -748,6 +794,13 @@ class DeviceDefinitionUdiDeviceIdentifier(backboneelement.BackboneElement):
             "issuer",
             "jurisdiction",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDefinitionUdiDeviceIdentifier`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

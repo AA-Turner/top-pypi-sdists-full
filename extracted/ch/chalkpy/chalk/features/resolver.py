@@ -11,6 +11,7 @@ import dataclasses
 import datetime as datetime_module
 import difflib
 import hashlib
+import importlib
 import inspect
 import json
 import math
@@ -42,6 +43,8 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
+    Set,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -53,6 +56,8 @@ import google.protobuf.message
 import pyarrow
 import pyarrow as pa
 import requests
+from google.protobuf.descriptor import Descriptor
+from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from typing_extensions import ParamSpec, TypeAlias, final, get_args, get_origin
 
 from chalk._lsp.error_builder import ResolverErrorBuilder, get_resolver_error_builder
@@ -71,7 +76,7 @@ from chalk.features.pseudofeatures import CHALK_TS_FEATURE, PSEUDONAMESPACE
 from chalk.features.tag import Environments, Tags
 from chalk.sink import SinkIntegrationProtocol
 from chalk.state import StateWrapper
-from chalk.streams import StreamSource, get_name_with_duration
+from chalk.streams import KafkaSource, StreamSource, get_name_with_duration
 from chalk.streams.types import (
     StreamResolverParam,
     StreamResolverParamKeyedState,
@@ -82,7 +87,7 @@ from chalk.streams.types import (
 from chalk.utils import MachineType, notebook
 from chalk.utils.annotation_parsing import ResolverAnnotationParser
 from chalk.utils.cached_type_hints import cached_get_type_hints
-from chalk.utils.collections import ensure_tuple
+from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
 from chalk.utils.gas import GasLimit, OutOfGasError
 from chalk.utils.import_utils import check_if_subpackage
@@ -273,6 +278,33 @@ class FunctionCapturedGlobalEnum(FunctionCapturedGlobal):
 @dataclasses.dataclass(frozen=True)
 class FunctionCapturedGlobalModule(FunctionCapturedGlobal):
     name: str
+
+
+@dataclasses.dataclass(frozen=True)
+class FunctionCapturedGlobalProtobufMessageClass(FunctionCapturedGlobal):
+    """A protobuf message class for intermediate namespace access"""
+
+    full_qualified_name: str  # e.g., "broadcast_pb2.AllocationBroadcast"
+    enum_names: FrozenOrderedSet[str]  # e.g., {"NotificationStatus", "Priority"}
+
+
+@dataclasses.dataclass(frozen=True)
+class FunctionCapturedGlobalProtobufEnum(FunctionCapturedGlobal):
+    """A protobuf enum class with full disambiguation path"""
+
+    full_qualified_name: str  # e.g., "broadcast_pb2.AllocationBroadcast.NotificationStatus"
+    value_to_name_map: Mapping[int, str]  # e.g., {0: "STATUS_UNKNOWN", 1: "STATUS_PENDING"}
+
+
+@dataclasses.dataclass(frozen=True)
+class FunctionCapturedGlobalCallableProtobufDeserializerInstance(FunctionCapturedGlobal):
+    """A callable instance (object with __call__ method) referenced from the global scope"""
+
+    name: str
+    module: str | None
+    instance_type: str  # e.g., "ProtobufDeserializer"
+    call_signature: str  # Function signature identifier for lookup
+    descriptor: Descriptor | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1476,6 +1508,64 @@ def parse_helper_function(
     )
 
 
+def _extract_protobuf_enums_directly(mod: ModuleType, module_name: str) -> Dict[str, FunctionCapturedGlobal]:
+    """Extract protobuf enums and create intermediate message class globals with full qualified names"""
+    all_globals: Dict[str, FunctionCapturedGlobal] = {}
+
+    try:
+        # Iterate through all attributes in the module
+        for attr_name in dir(mod):
+            attr_value = getattr(mod, attr_name)
+
+            # Check if this is a protobuf message class
+            if (
+                hasattr(attr_value, "DESCRIPTOR")
+                and hasattr(attr_value.DESCRIPTOR, "enum_types")
+                and not attr_name.startswith("_")
+            ):
+                descriptor = attr_value.DESCRIPTOR
+                enum_names_for_message: Set[str] = set()
+
+                # Extract enum types directly under this message
+                for enum_type in descriptor.enum_types:
+                    enum_names_for_message.add(enum_type.name)
+                    value_to_name_map: Dict[int, str] = {}
+                    for enum_value in enum_type.values:
+                        value_to_name_map[enum_value.number] = enum_value.name
+
+                    # Create full qualified name for enum
+                    enum_full_name = f"{module_name}.{attr_name}.{enum_type.name}"
+                    all_globals[enum_full_name] = FunctionCapturedGlobalProtobufEnum(
+                        full_qualified_name=enum_full_name, value_to_name_map=value_to_name_map
+                    )
+
+                # Extract enum types from nested types
+                for nested_type in descriptor.nested_types:
+                    for enum_type in nested_type.enum_types:
+                        enum_names_for_message.add(f"{nested_type.name}.{enum_type.name}")
+                        value_to_name_map: Dict[int, str] = {}
+                        for enum_value in enum_type.values:
+                            value_to_name_map[enum_value.number] = enum_value.name
+
+                        # Create full qualified name for nested enum
+                        enum_full_name = f"{module_name}.{attr_name}.{nested_type.name}.{enum_type.name}"
+                        all_globals[enum_full_name] = FunctionCapturedGlobalProtobufEnum(
+                            full_qualified_name=enum_full_name, value_to_name_map=value_to_name_map
+                        )
+
+                # Create intermediate message class global if it has enums
+                if enum_names_for_message:
+                    message_class_name = f"{module_name}.{attr_name}"
+                    all_globals[message_class_name] = FunctionCapturedGlobalProtobufMessageClass(
+                        full_qualified_name=message_class_name,
+                        enum_names=FrozenOrderedSet(sorted(enum_names_for_message)),
+                    )
+    except Exception:
+        return {}
+
+    return all_globals
+
+
 def parse_common_module(
     mod: ModuleType | Any,
 ) -> FunctionCapturedGlobalModule:
@@ -1602,6 +1692,50 @@ def capture_global(
         except:
             pass
 
+    # If global_value is a global value in its module, capture it as a global.
+    if hasattr(global_value, "__name__") and hasattr(global_value, "__module__"):
+        mod = importlib.import_module(global_value.__module__)
+        if hasattr(mod, global_value.__name__) and getattr(mod, global_value.__name__) is global_value:
+            return FunctionCapturedGlobalModuleMember(
+                module_name=global_value.__module__,
+                qualname=global_value.__name__,
+            )
+
+    if isinstance(global_value, KafkaSource):
+        return FunctionCapturedGlobalVariable(name=global_var, module=module_name)
+
+    # Check if the global value is a callable instance (like ProtobufDeserializer)
+    if (
+        hasattr(global_value, "__call__")
+        and not inspect.isfunction(global_value)
+        and not inspect.isclass(global_value)
+        and not inspect.isbuiltin(global_value)
+    ):
+        try:
+            instance_type = type(global_value).__name__
+            # Generate a call signature identifier for the callable instance
+            call_signature = f"{instance_type}.__call__"
+
+            # For known callable instances like ProtobufDeserializer, create a specialized capture
+            if instance_type in ("ProtobufDeserializer",) and module_name:
+                module = importlib.import_module(module_name)
+                deserializer = getattr(module, global_var, None)
+                if deserializer is None:
+                    return None
+                if hasattr(deserializer, "_msg_class"):
+                    message_class: GeneratedProtocolMessageType = getattr(deserializer, "_msg_class")
+                    if hasattr(message_class, "DESCRIPTOR"):
+                        return FunctionCapturedGlobalCallableProtobufDeserializerInstance(
+                            name=global_var,
+                            module=module_name,
+                            instance_type=instance_type,
+                            call_signature=call_signature,
+                            descriptor=getattr(message_class, "DESCRIPTOR"),
+                        )
+            return None
+        except:
+            pass
+
     if isinstance(global_value, (str, int, float, bool, list, set)):
         return FunctionCapturedGlobalVariable(
             name=global_var,
@@ -1704,20 +1838,47 @@ def parse_extract_function_object_captured_globals(
     function_captured_globals: dict[str, FunctionCapturedGlobal] | None = {}
     fn_closure_vars = get_closure_vars_including_comprehensions(fn)
     function_module = inspect.getmodule(fn)
-    module_name = function_module.__name__ if function_module is not None else None
 
+    # Look for any protobuf modules in the entire global namespace
+    function_globals = getattr(fn, "__globals__", {})
+    global_pb2_modules: List[Tuple[str, Any]] = []
+    for name, value in function_globals.items():
+        if isinstance(value, ModuleType) and name.endswith("_pb2"):
+            global_pb2_modules.append((name, value))
+
+    module_name = function_module.__name__ if function_module is not None else None
     for builtin_var in fn_closure_vars.builtins:
         function_captured_globals[builtin_var] = FunctionCapturedGlobalBuiltin(builtin_name=builtin_var)
 
     for global_var, global_value in fn_closure_vars.globals.items():
-        captured = capture_global(
-            module_name=module_name,
-            global_var=global_var,
-            global_value=global_value,
-            gas=gas,
-        )
-        if captured is not None:
-            function_captured_globals[global_var] = captured
+        # Special handling for protobuf modules - extract enums directly. We need to handle this separartely because there may be multiple globals to capture
+        if isinstance(global_value, ModuleType) and global_value.__name__.endswith("_pb2"):
+            # First, capture the base module itself
+            function_captured_globals[global_var] = FunctionCapturedGlobalModule(name=global_var)
+
+            # Then, extract and capture enum globals
+            enum_globals = _extract_protobuf_enums_directly(global_value, global_var)
+            function_captured_globals.update(enum_globals)
+        else:
+            captured = capture_global(
+                module_name=module_name,
+                global_var=global_var,
+                global_value=global_value,
+                gas=gas,
+            )
+            if captured is not None:
+                function_captured_globals[global_var] = captured
+
+    # Process any protobuf modules found in function's global namespace that weren't in closure vars
+    if global_pb2_modules:
+        for module_name, module_obj in global_pb2_modules:
+            if module_name not in function_captured_globals:
+                # First, capture the base module itself
+                function_captured_globals[module_name] = FunctionCapturedGlobalModule(name=module_name)
+
+                # Then, extract and capture enum globals
+                enum_globals = _extract_protobuf_enums_directly(module_obj, module_name)
+                function_captured_globals.update(enum_globals)
 
     if not function_captured_globals:
         function_captured_globals = None

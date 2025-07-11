@@ -31,7 +31,7 @@ class ResearchStudy(domainresource.DomainResource):
     __resource_type__ = "ResearchStudy"
 
     arm: typing.List[fhirtypes.ResearchStudyArmType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="arm",
         title="Defined path through the study for a subject",
         description=(
@@ -45,7 +45,7 @@ class ResearchStudy(domainresource.DomainResource):
     )
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="Classifications for the study",
         description=(
@@ -55,11 +55,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     condition: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="condition",
         title="Condition being studied",
         description=(
@@ -70,11 +71,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for the study",
         description=(
@@ -83,11 +85,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="What this is study doing",
         description="A full description of how the study is being conducted.",
@@ -96,11 +99,11 @@ class ResearchStudy(domainresource.DomainResource):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     enrollment: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="enrollment",
         title="Inclusion & exclusion criteria",
         description=(
@@ -110,13 +113,14 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Group"],
         },
     )
 
     focus: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="focus",
         title="Drugs, devices, etc. under study",
         description=(
@@ -126,11 +130,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business Identifier for study",
         description=(
@@ -139,21 +144,23 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     keyword: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="keyword",
         title="Used to search for the study",
         description="Key terms to aid in searching for or filtering the study.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     location: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="Geographic region(s) for study",
         description=(
@@ -162,11 +169,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Comments made about the study",
         description=(
@@ -179,7 +187,7 @@ class ResearchStudy(domainresource.DomainResource):
     )
 
     objective: typing.List[fhirtypes.ResearchStudyObjectiveType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="objective",
         title="A goal for the study",
         description=(
@@ -193,7 +201,7 @@ class ResearchStudy(domainresource.DomainResource):
     )
 
     partOf: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="partOf",
         title="Part of larger study",
         description=(
@@ -202,13 +210,14 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ResearchStudy"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="When the study began and ended",
         description=(
@@ -217,11 +226,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     phase: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="phase",
         title=(
             "n-a | early-phase-1 | phase-1 | phase-1-phase-2 | phase-2 | "
@@ -233,11 +243,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     primaryPurposeType: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="primaryPurposeType",
         title=(
             "treatment | prevention | diagnostic | supportive-care | screening | "
@@ -249,11 +260,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     principalInvestigator: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="principalInvestigator",
         title="Researcher who oversees multiple aspects of the study",
         description=(
@@ -264,13 +276,14 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Practitioner", "PractitionerRole"],
         },
     )
 
     protocol: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="protocol",
         title="Steps followed in executing study",
         description=(
@@ -279,13 +292,14 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["PlanDefinition"],
         },
     )
 
     reasonStopped: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonStopped",
         title=(
             "accrual-goal-met | closed-due-to-toxicity | closed-due-to-lack-of-"
@@ -297,11 +311,12 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     relatedArtifact: typing.List[fhirtypes.RelatedArtifactType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="relatedArtifact",
         title="References and dependencies",
         description="Citations, references and other related documents.",
@@ -311,19 +326,20 @@ class ResearchStudy(domainresource.DomainResource):
     )
 
     site: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="site",
         title="Facility where study activities are conducted",
         description="A facility in which study activities are conducted.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Location"],
         },
     )
 
     sponsor: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sponsor",
         title="Organization that initiates and is legally responsible for the study",
         description=(
@@ -332,13 +348,14 @@ class ResearchStudy(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "active | administratively-completed | approved | closed-to-accrual | "
@@ -349,6 +366,7 @@ class ResearchStudy(domainresource.DomainResource):
         description="The current state of the study.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -368,27 +386,28 @@ class ResearchStudy(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Name for this study",
         description="A short, descriptive user-friendly label for the study.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ResearchStudy`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ResearchStudy`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -425,6 +444,36 @@ class ResearchStudy(domainresource.DomainResource):
             "objective",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ResearchStudy`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "title",
+            "protocol",
+            "partOf",
+            "status",
+            "primaryPurposeType",
+            "phase",
+            "category",
+            "focus",
+            "condition",
+            "contact",
+            "keyword",
+            "location",
+            "enrollment",
+            "period",
+            "sponsor",
+            "principalInvestigator",
+            "site",
+            "reasonStopped",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -451,7 +500,7 @@ class ResearchStudyArm(backboneelement.BackboneElement):
     __resource_type__ = "ResearchStudyArm"
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Short explanation of study path",
         description=(
@@ -463,11 +512,11 @@ class ResearchStudyArm(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Label for study arm",
         description="Unique, human-readable label for this arm of the study.",
@@ -477,11 +526,11 @@ class ResearchStudyArm(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Categorization of study arm",
         description=(
@@ -495,11 +544,18 @@ class ResearchStudyArm(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ResearchStudyArm`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ResearchStudyArm`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "name", "type", "description"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ResearchStudyArm`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -526,7 +582,7 @@ class ResearchStudyObjective(backboneelement.BackboneElement):
     __resource_type__ = "ResearchStudyObjective"
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Label for the objective",
         description="Unique, human-readable label for this objective of the study.",
@@ -535,11 +591,11 @@ class ResearchStudyObjective(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="primary | secondary | exploratory",
         description="The kind of study objective.",
@@ -550,8 +606,15 @@ class ResearchStudyObjective(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ResearchStudyObjective`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ResearchStudyObjective`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "name", "type"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ResearchStudyObjective`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

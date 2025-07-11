@@ -24,7 +24,7 @@ class Integer64(primitivetype.PrimitiveType):
     __resource_type__ = "integer64"
 
     value: fhirtypes.Integer64Type | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="Primitive value for integer64",
         description="Primitive value for integer64",
@@ -33,13 +33,20 @@ class Integer64(primitivetype.PrimitiveType):
         },
     )
     value__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Integer64`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Integer64`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Integer64`` according to specification,
+        with preserving the original sequence order.
+        """
+        return []

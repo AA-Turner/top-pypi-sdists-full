@@ -1,16 +1,26 @@
 import pytest
 
-import outlines
 import transformers
-from transformers import LogitsProcessorList
+from PIL import Image as PILImage
+from transformers import AutoTokenizer, LogitsProcessorList
 
+import outlines
+from outlines.inputs import Chat, Image, Video
 from outlines.models.transformers import TransformersMultiModalTypeAdapter
 from outlines.processors.structured import RegexLogitsProcessor
 
 
+MODEL_NAME = "erwanf/gpt2-mini"
+
+
 @pytest.fixture
 def adapter():
-    return TransformersMultiModalTypeAdapter()
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    type_adapter = TransformersMultiModalTypeAdapter(tokenizer=tokenizer)
+    chat_template = '{% for message in messages %}{{ message.role }}: {{ message.content }}{% endfor %}'
+    type_adapter.tokenizer.chat_template = chat_template
+
+    return type_adapter
 
 
 @pytest.fixture
@@ -26,14 +36,49 @@ def logits_processor():
     )
 
 
-def test_transformers_multimodal_type_adapter_format_input(adapter):
-    with pytest.raises(NotImplementedError):
+@pytest.fixture
+def image():
+    width, height = 1, 1
+    white_background = (255, 255, 255)
+    image = PILImage.new("RGB", (width, height), white_background)
+    image.format = "PNG"
+
+    return image
+
+
+def test_transformers_multimodal_type_adapter_format_input(adapter, image):
+    with pytest.raises(TypeError):
         adapter.format_input("hello")
 
     with pytest.raises(ValueError):
-        adapter.format_input({"foo": "bar"})
+        with pytest.deprecated_call():
+            adapter.format_input({"foo": "bar"})
 
-    assert adapter.format_input({"text": "foo"}) == {"text": "foo"}
+    with pytest.raises(ValueError, match="All assets must be of the same type"):
+        adapter.format_input(["foo", Image(image), Video("")])
+
+    class MockAsset:
+        pass
+
+    with pytest.raises(ValueError, match="Unsupported asset type"):
+        adapter.format_input(["foo", MockAsset()])
+
+    image_asset = Image(image)
+    assert adapter.format_input(["foo", image_asset]) == {
+        "text": "foo",
+        "images": [image_asset.image],
+    }
+
+    chat_prompt = Chat(messages=[
+        {"role": "system", "content": "foo"},
+        {"role": "user", "content": ["bar", image_asset]},
+    ])
+    result = adapter.format_input(chat_prompt)
+    assert isinstance(result, dict)
+    assert isinstance(result["text"], str)
+    assert isinstance(result["images"], list)
+    assert len(result["images"]) == 1
+    assert result["images"][0] == image_asset.image
 
 
 def test_transformers_multimodal_type_adapter_format_output_type(

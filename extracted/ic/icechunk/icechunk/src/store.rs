@@ -77,9 +77,9 @@ pub enum StoreErrorKind {
     #[error("bad metadata")]
     BadMetadata(#[from] serde_json::Error),
     #[error("deserialization error")]
-    DeserializationError(#[from] rmp_serde::decode::Error),
+    DeserializationError(#[from] Box<rmp_serde::decode::Error>),
     #[error("serialization error")]
-    SerializationError(#[from] rmp_serde::encode::Error),
+    SerializationError(#[from] Box<rmp_serde::encode::Error>),
     #[error("store method `{0}` is not implemented by Icechunk")]
     Unimplemented(&'static str),
     #[error("bad key prefix: `{0}`")]
@@ -160,7 +160,8 @@ impl Store {
 
     #[instrument(skip_all)]
     pub fn from_bytes(bytes: Bytes) -> StoreResult<Self> {
-        let session: Session = rmp_serde::from_slice(&bytes).map_err(StoreError::from)?;
+        let session: Session =
+            rmp_serde::from_slice(&bytes).map_err(Box::new).map_err(StoreError::from)?;
         let conc = session.config().get_partial_values_concurrency();
         Ok(Self::from_session_and_config(Arc::new(RwLock::new(session)), conc))
     }
@@ -168,7 +169,9 @@ impl Store {
     #[instrument(skip_all)]
     pub async fn as_bytes(&self) -> StoreResult<Bytes> {
         let session = self.session.write().await;
-        let bytes = rmp_serde::to_vec(session.deref()).map_err(StoreError::from)?;
+        let bytes = rmp_serde::to_vec(session.deref())
+            .map_err(Box::new)
+            .map_err(StoreError::from)?;
         Ok(Bytes::from(bytes))
     }
 
@@ -390,7 +393,7 @@ impl Store {
                 Ok(())
             }
             Key::Metadata { .. } | Key::ZarrV2(_) => Err(StoreErrorKind::NotAllowed(
-                format!("use .set to modify metadata for key {}", key),
+                format!("use .set to modify metadata for key {key}"),
             )
             .into()),
         }
@@ -441,7 +444,7 @@ impl Store {
         }
         let prefix = prefix.trim_start_matches("/").trim_end_matches("/");
         // TODO: Handling preceding "/" is ugly!
-        let path = format!("/{}", prefix)
+        let path = format!("/{prefix}")
             .try_into()
             .map_err(|_| StoreErrorKind::BadKeyPrefix(prefix.to_owned()))?;
 
@@ -581,7 +584,7 @@ impl Store {
     ) -> StoreResult<impl Stream<Item = StoreResult<ListDirItem>> + Send + use<>> {
         let prefix = prefix.trim_end_matches("/");
         let absolute_prefix =
-            if !prefix.starts_with("/") { &format!("/{}", prefix) } else { prefix };
+            if !prefix.starts_with("/") { &format!("/{prefix}") } else { prefix };
 
         let path = Path::try_from(absolute_prefix)?;
         let session = Arc::clone(&self.session).read_owned().await;
@@ -1193,19 +1196,19 @@ mod tests {
 
     async fn add_group(store: &Store, path: &str) -> StoreResult<()> {
         let bytes = Bytes::copy_from_slice(br#"{"zarr_format":3, "node_type":"group"}"#);
-        store.set(&format!("{}/zarr.json", path), bytes).await?;
+        store.set(&format!("{path}/zarr.json"), bytes).await?;
         Ok(())
     }
 
     async fn add_array_and_chunk(store: &Store, path: &str) -> StoreResult<()> {
         let zarr_meta = Bytes::copy_from_slice(br#"{"zarr_format":3,"node_type":"array","attributes":{"foo":42},"shape":[2,2,2],"data_type":"int32","chunk_grid":{"name":"regular","configuration":{"chunk_shape":[1,1,1]}},"chunk_key_encoding":{"name":"default","configuration":{"separator":"/"}},"fill_value":0,"codecs":[{"name":"mycodec","configuration":{"foo":42}}],"storage_transformers":[{"name":"mytransformer","configuration":{"bar":43}}],"dimension_names":["x","y","t"]}"#);
-        store.set(&format!("{}/zarr.json", path), zarr_meta.clone()).await?;
+        store.set(&format!("{path}/zarr.json"), zarr_meta.clone()).await?;
 
         let data = Bytes::copy_from_slice(b"hello");
-        store.set(&format!("{}/c/0/1/0", path), data).await?;
+        store.set(&format!("{path}/c/0/1/0"), data).await?;
 
         let data = Bytes::copy_from_slice(b"hello");
-        store.set(&format!("{}/c/1/1/0", path), data).await?;
+        store.set(&format!("{path}/c/1/1/0"), data).await?;
 
         Ok(())
     }

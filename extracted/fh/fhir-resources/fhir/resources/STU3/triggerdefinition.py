@@ -26,69 +26,76 @@ class TriggerDefinition(element.Element):
     __resource_type__ = "TriggerDefinition"
 
     eventData: fhirtypes.DataRequirementType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventData",
         title="Triggering data of the event",
         description="The triggering data of the event (if this is a data trigger).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     eventName: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventName",
         title="Triggering event name",
         description="The name of the event (if this is a named-event trigger).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     eventName__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_eventName", title="Extension field for ``eventName``."
+        default=None, alias="_eventName", title="Extension field for ``eventName``."
     )
 
     eventTimingDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventTimingDate",
         title="Timing of the event",
         description="The timing of the event (if this is a period trigger).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e eventTiming[x]
             "one_of_many": "eventTiming",
             "one_of_many_required": False,
         },
     )
     eventTimingDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_eventTimingDate", title="Extension field for ``eventTimingDate``."
+        default=None,
+        alias="_eventTimingDate",
+        title="Extension field for ``eventTimingDate``.",
     )
 
     eventTimingDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventTimingDateTime",
         title="Timing of the event",
         description="The timing of the event (if this is a period trigger).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e eventTiming[x]
             "one_of_many": "eventTiming",
             "one_of_many_required": False,
         },
     )
     eventTimingDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_eventTimingDateTime",
         title="Extension field for ``eventTimingDateTime``.",
     )
 
     eventTimingReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventTimingReference",
         title="Timing of the event",
         description="The timing of the event (if this is a period trigger).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e eventTiming[x]
             "one_of_many": "eventTiming",
             "one_of_many_required": False,
@@ -98,12 +105,13 @@ class TriggerDefinition(element.Element):
     )
 
     eventTimingTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventTimingTiming",
         title="Timing of the event",
         description="The timing of the event (if this is a period trigger).",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e eventTiming[x]
             "one_of_many": "eventTiming",
             "one_of_many_required": False,
@@ -111,7 +119,7 @@ class TriggerDefinition(element.Element):
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "named-event | periodic | data-added | data-modified | data-removed | "
@@ -120,6 +128,7 @@ class TriggerDefinition(element.Element):
         description="The type of triggering event.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -135,18 +144,33 @@ class TriggerDefinition(element.Element):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``TriggerDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``TriggerDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "type",
+            "eventName",
+            "eventTimingTiming",
+            "eventTimingReference",
+            "eventTimingDate",
+            "eventTimingDateTime",
+            "eventData",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``TriggerDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "type",
             "eventName",
             "eventTimingTiming",

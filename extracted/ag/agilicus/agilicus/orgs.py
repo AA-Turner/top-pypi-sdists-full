@@ -24,6 +24,8 @@ from . import get_many_entries
 from .input_helpers import strip_none
 from . import pop_utils
 
+from .licensing.licenses import apply_constraint_and_vars
+
 
 def get_org_by_dictionary(ctx, org_id):
     if org_id:
@@ -312,15 +314,31 @@ def get_system_options(ctx, org_id=None):
         org_id = context.get_org_id(ctx, token)
 
     apiclient = context.get_apiclient_from_ctx(ctx)
-    return apiclient.org_api.get_system_options(org_id).to_dict()
+    return apiclient.org_api.get_system_options(org_id)
 
 
-def replace_system_options(ctx, org_id, allowed_domains):
+def replace_system_options(
+    ctx,
+    org_id,
+    allowed_domains,
+    license_constraints,
+    constraint_vars,
+    replace_constraints,
+    replace_vars,
+):
     apiclient = context.get_apiclient(ctx)
     system_options = get_system_options(ctx, org_id)
 
     if allowed_domains is not None:
-        system_options["allowed_domains"] = allowed_domains
+        system_options.allowed_domains = allowed_domains
+
+    apply_constraint_and_vars(
+        system_options,
+        license_constraints,
+        constraint_vars,
+        replace_constraints,
+        replace_vars,
+    )
 
     return apiclient.org_api.replace_system_options(
         org_id=org_id, organisation_system_options=system_options

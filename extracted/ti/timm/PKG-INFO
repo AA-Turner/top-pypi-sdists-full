@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: timm
-Version: 1.0.16
+Version: 1.0.17
 Summary: PyTorch Image Models
 Keywords: pytorch,image-classification
 Author-Email: Ross Wightman <ross@huggingface.co>
@@ -43,6 +43,37 @@ Description-Content-Type: text/markdown
 - [Citing](#citing)
 
 ## What's New
+
+## July 7, 2025
+* MobileNet-v5 backbone tweaks for improved Google Gemma 3n behaviour (to pair with updated official weights)
+  * Add stem bias (zero'd in updated weights, compat break with old weights)
+  * GELU -> GELU (tanh approx). A minor change to be closer to JAX
+* Add two arguments to layer-decay support, a min scale clamp and 'no optimization' scale threshold
+* Add 'Fp32' LayerNorm, RMSNorm, SimpleNorm variants that can be enabled to force computation of norm in float32
+* Some typing, argument cleanup for norm, norm+act layers done with above
+* Support Naver ROPE-ViT (https://github.com/naver-ai/rope-vit) in `eva.py`, add RotaryEmbeddingMixed module for mixed mode, weights on HuggingFace Hub
+
+|model                                             |img_size|top1  |top5  |param_count|
+|--------------------------------------------------|--------|------|------|-----------|
+|vit_large_patch16_rope_mixed_ape_224.naver_in1k  |224     |84.84 |97.122|304.4      |
+|vit_large_patch16_rope_mixed_224.naver_in1k      |224     |84.828|97.116|304.2      |
+|vit_large_patch16_rope_ape_224.naver_in1k        |224     |84.65 |97.154|304.37     |
+|vit_large_patch16_rope_224.naver_in1k            |224     |84.648|97.122|304.17     |
+|vit_base_patch16_rope_mixed_ape_224.naver_in1k   |224     |83.894|96.754|86.59      |
+|vit_base_patch16_rope_mixed_224.naver_in1k       |224     |83.804|96.712|86.44      |
+|vit_base_patch16_rope_ape_224.naver_in1k         |224     |83.782|96.61 |86.59      |
+|vit_base_patch16_rope_224.naver_in1k             |224     |83.718|96.672|86.43      |
+|vit_small_patch16_rope_224.naver_in1k            |224     |81.23 |95.022|21.98      |
+|vit_small_patch16_rope_mixed_224.naver_in1k      |224     |81.216|95.022|21.99      |
+|vit_small_patch16_rope_ape_224.naver_in1k        |224     |81.004|95.016|22.06      |
+|vit_small_patch16_rope_mixed_ape_224.naver_in1k  |224     |80.986|94.976|22.06      |
+* Some cleanup of ROPE modules, helpers, and FX tracing leaf registration
+* Preparing version 1.0.17 release
+
+## June 26, 2025
+* MobileNetV5 backbone (w/ encoder only variant) for [Gemma 3n](https://ai.google.dev/gemma/docs/gemma-3n#parameters) image encoder
+* Version 1.0.16 released
+
 ## June 23, 2025
 * Add F.grid_sample based 2D and factorized pos embed resize to NaFlexViT. Faster when lots of different sizes (based on example by https://github.com/stas-sl).
 * Further speed up patch embed resample by replacing vmap with matmul (based on snippet by https://github.com/stas-sl).
@@ -138,7 +169,7 @@ Description-Content-Type: text/markdown
 * Allow override of `cache_dir` arg for model creation
 * Pass through `trust_remote_code` for HF datasets wrapper
 * `inception_next_atto` model added by creator
-* Adan optimizer caution, and Lamb decoupled weighgt decay options
+* Adan optimizer caution, and Lamb decoupled weight decay options
 * Some feature_info metadata fixed by https://github.com/brianhou0208
 * All OpenCLIP and JAX (CLIP, SigLIP, Pali, etc) model weights that used load time remapping were given their own HF Hub instances so that they work with `hf-hub:` based loading, and thus will work with new Transformers `TimmWrapperModel`
 
@@ -302,7 +333,7 @@ Add a set of new very well trained ResNet & ResNet-V2 18/34 (basic block) weight
 * Other misc fixes
 
 ### June 24, 2024
-* 3 more MobileNetV4 hyrid weights with different MQA weight init scheme
+* 3 more MobileNetV4 hybrid weights with different MQA weight init scheme
 
 | model                                                                                            |top1  |top1_err|top5  |top5_err|param_count|img_size|
 |--------------------------------------------------------------------------------------------------|------|--------|------|--------|-----------|--------|
@@ -345,7 +376,7 @@ Add a set of new very well trained ResNet & ResNet-V2 18/34 (basic block) weight
 ### May 14, 2024
 * Support loading PaliGemma jax weights into SigLIP ViT models with average pooling.
 * Add Hiera models from Meta (https://github.com/facebookresearch/hiera).
-* Add `normalize=` flag for transforms, return non-normalized torch.Tensor with original dytpe (for `chug`)
+* Add `normalize=` flag for transforms, return non-normalized torch.Tensor with original dtype (for `chug`)
 * Version 1.0.3 release
 
 ### May 11, 2024
@@ -535,6 +566,7 @@ All model architecture families include variants with pretrained weights. There 
 * Res2Net - https://arxiv.org/abs/1904.01169
 * ResNeSt - https://arxiv.org/abs/2004.08955
 * ReXNet - https://arxiv.org/abs/2007.00992
+* ROPE-ViT - https://arxiv.org/abs/2403.13298
 * SelecSLS - https://arxiv.org/abs/1907.00837
 * Selective Kernel Networks - https://arxiv.org/abs/1903.06586
 * Sequencer2D - https://arxiv.org/abs/2205.01972

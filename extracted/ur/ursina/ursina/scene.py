@@ -7,11 +7,12 @@ class Scene(NodePath):
     def __init__(self):
         super().__init__('scene')
         self.entities = []
+        self._entities_marked_for_removal = []
         self.collidables = set()
         self._children = []
 
 
-    def set_up(self):
+    def _set_up(self):
         self.reparent_to(render)
         self.fog = Fog('fog')
         self.setFog(self.fog)
@@ -20,8 +21,7 @@ class Scene(NodePath):
 
 
     def clear(self):
-        from ursina.ursinastuff import destroy
-        from ursina import application
+        from ursina import application, destroy
 
         to_destroy = [e for e in self.entities if not e.eternal]
         to_keep = [e for e in self.entities if e.eternal]
@@ -41,10 +41,10 @@ class Scene(NodePath):
 
     @property
     def fog_color(self):
-        return self.fog.getColor()
-
+        return self._fog_color
     @fog_color.setter
     def fog_color(self, value):
+        self._fog_color = value
         self.fog.setColor(value)
 
 

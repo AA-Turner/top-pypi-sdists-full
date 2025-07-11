@@ -24,7 +24,7 @@ class Attachment(element.Element):
     __resource_type__ = "Attachment"
 
     contentType: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentType",
         title="Mime type of the content, with charset etc.",
         description=(
@@ -34,27 +34,29 @@ class Attachment(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     contentType__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_contentType", title="Extension field for ``contentType``."
+        default=None, alias="_contentType", title="Extension field for ``contentType``."
     )
 
     creation: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="creation",
         title="Date attachment was first created",
         description="The date that the attachment was first created.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     creation__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_creation", title="Extension field for ``creation``."
+        default=None, alias="_creation", title="Extension field for ``creation``."
     )
 
     data: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="data",
         title="Data inline, base64ed",
         description=(
@@ -66,24 +68,25 @@ class Attachment(element.Element):
         },
     )
     data__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_data", title="Extension field for ``data``."
+        default=None, alias="_data", title="Extension field for ``data``."
     )
 
     hash: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="hash",
         title="Hash of the data (sha-1, base64ed)",
         description="The calculated hash of the data using SHA-1. Represented using base64.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     hash__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_hash", title="Extension field for ``hash``."
+        default=None, alias="_hash", title="Extension field for ``hash``."
     )
 
     language: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Human language of the content (BCP-47)",
         description=(
@@ -92,14 +95,15 @@ class Attachment(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     language__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_language", title="Extension field for ``language``."
+        default=None, alias="_language", title="Extension field for ``language``."
     )
 
     size: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="size",
         title="Number of bytes of content (if url provided)",
         description=(
@@ -108,43 +112,46 @@ class Attachment(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     size__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_size", title="Extension field for ``size``."
+        default=None, alias="_size", title="Extension field for ``size``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Label to display in place of the data",
         description="A label or set of text to display in place of the data.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     url: fhirtypes.UrlType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title="Uri where the data can be found",
         description="A location where the data can be accessed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Attachment`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Attachment`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -158,3 +165,10 @@ class Attachment(element.Element):
             "title",
             "creation",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Attachment`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["contentType", "language", "url", "size", "hash", "title", "creation"]

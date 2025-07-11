@@ -1,22 +1,34 @@
-from ursina import application
+from ursina import application  # noqa: I001
 from ursina.entity import Entity
 from ursina import curve
 from ursina.ursinastuff import invoke
-from ursina.ursinastuff import destroy as _destroy
-from ursina.string_utilities import print_info, print_warning
+from ursina.destroy import destroy as _destroy
+from ursina.string_utilities import print_warning
+from ursina.scripts.property_generator import generate_properties_for_class
+from pathlib import Path
 
 from panda3d.core import Filename
 
-from ursina.scripts.property_generator import generate_properties_for_class
+from ursina.ursinastuff import DotDict
+audio_groups = DotDict(
+    music =     DotDict(volume_multiplier=1),
+    ambient =   DotDict(volume_multiplier=1),
+    sfx =       DotDict(volume_multiplier=1),
+    dialogue =  DotDict(volume_multiplier=1),
+)
+
+audio_clip_cache = dict()
+
 @generate_properties_for_class()
 class Audio(Entity):
 
-    volume_multiplier = .5  #
+    volume_multiplier = .5  # master volume
 
-    def __init__(self, sound_file_name='', volume=1, pitch=1, balance=0, loop=False, loops=1, autoplay=True, auto_destroy=False, **kwargs):
+    def __init__(self, sound_file_name='', volume=1, pitch=1, balance=0, loop=False, loops=1, autoplay=True, auto_destroy=False, group='sfx', **kwargs):
         super().__init__(**kwargs)
         # printvar(sound_file_name)
         self.clip = sound_file_name
+        self.group = group
         if not self.clip:
             print_warning('missing audio clip:', sound_file_name)
             return
@@ -30,6 +42,7 @@ class Audio(Entity):
         self.autoplay = autoplay
         self.auto_destroy = auto_destroy
 
+
         if self.autoplay:
             self.play()
 
@@ -38,37 +51,50 @@ class Audio(Entity):
 
 
     def volume_setter(self, value):
+        if not self._clip:  return
         self._volume = value
-        self._clip.setVolume(value * Audio.volume_multiplier)
+        group_volume_multiplier = audio_groups[self.group].volume_multiplier if self.group else 1
+        self._clip.setVolume(value * Audio.volume_multiplier * group_volume_multiplier)
 
     def pitch_setter(self, value):
+        if not self._clip:  return
         self._pitch = value
         self._clip.setPlayRate(value)
 
     def loop_setter(self, value):
+        if not self._clip:  return
         self._loop = value
         self._clip.setLoop(value)
 
     def loops_setter(self, value):
+        if not self._clip:  return
         self._loops = value
         self._clip.setLoopCount(value)
 
 
     def clip_setter(self, value):
+        # if value in audio_clip_cache:
+        #     self._clip = copy(audio_clip_cache[value])
+        #     return
+
+        if isinstance(value, Path):
+            self._clip = loader.loadSfx(Filename.fromOsSpecific(str(value.resolve())))  # type: ignore
+            return
+
         if isinstance(value, str):
             self.name = value
 
             if '.' in value:
                 file_types = ('',)
             else:
-                file_types = ('.ogg', '.wav')
+                file_types = ('.ogg', '.wav', '.mp3')
 
             for folder in (application.asset_folder, application.internal_audio_folder):
                 for suffix in file_types:
                     for f in folder.glob(f'**/{value}{suffix}'):
-                        p = str(f.resolve())
-                        p = Filename.fromOsSpecific(p)
-                        self._clip = loader.loadSfx(p)  # type: ignore
+                        self.path = str(f.resolve())
+                        self._clip = loader.loadSfx(Filename.fromOsSpecific(self.path))  # type: ignore
+                        audio_clip_cache[value] = self._clip
                         # print('...loaded audio clip:', p, self._clip)
                         return
 
@@ -104,6 +130,9 @@ class Audio(Entity):
 
 
     def play(self, start=0):
+        if application.paused and not self.ignore_paused:
+            return
+
         if self.clip:
             # print('play from:', start, self.clip)
             self.time = start
@@ -134,32 +163,31 @@ class Audio(Entity):
         if destroy:
             _destroy(self)
 
-    def fade(self, value, duration=.5, delay=0, curve=curve.in_expo, resolution=None, interrupt=True):
-        self.animate('volume', value=value, duration=duration, delay=delay, curve=curve, resolution=resolution, interrupt=interrupt)
+    def fade(self, value, duration=.5, delay=0, curve=curve.in_expo, resolution=None, interrupt=True, ignore_paused=True):
+        self.animate('volume', value=value, duration=duration, delay=delay, curve=curve, resolution=resolution, interrupt=interrupt, ignore_paused=ignore_paused)
 
-    def fade_in(self, value=1, duration=.5, delay=0, curve=curve.in_expo, resolution=None, interrupt='finish',
-                destroy_on_ended=False):
+    def fade_in(self, value=1, duration=.5, delay=0, curve=curve.in_expo, resolution=None, interrupt='finish', destroy_on_ended=False, ignore_paused=True):
         if duration+delay <= 0:
             self.volume = value
         else:
-            self.animate('volume', value, duration=duration, delay=delay, curve=curve, resolution=resolution, interrupt=interrupt)
+            self.animate('volume', value, duration=duration, delay=delay, curve=curve, resolution=resolution, interrupt=interrupt, ignore_paused=ignore_paused)
         if destroy_on_ended:
             _destroy(self, delay=delay+duration + .01)
 
-    def fade_out(self, value=0, duration=.5, delay=0, curve=curve.in_expo, resolution=None, interrupt='finish',
-                 destroy_on_ended=True):
+    def fade_out(self, value=0, duration=.5, delay=0, curve=curve.in_expo, resolution=None, interrupt='finish', destroy_on_ended=True, ignore_paused=True):
 
         if duration+delay <= 0:
             self.volume = value
         else:
-            self.animate('volume', value, duration=duration, delay=delay, curve=curve, resolution=resolution, interrupt=interrupt)
+            self.animate('volume', value, duration=duration, delay=delay, curve=curve, resolution=resolution, interrupt=interrupt, ignore_paused=ignore_paused)
         if destroy_on_ended:
             _destroy(self, delay=delay+duration + .05)
 
 
 if __name__ == '__main__':
-    from ursina import Ursina
     import random
+
+    from ursina import Ursina
 
     app = Ursina()
     a = Audio('sine', loop=True, autoplay=True)
@@ -187,5 +215,7 @@ if __name__ == '__main__':
     #
     # def update():
     #     print(a.time)
+
+
 
     app.run()

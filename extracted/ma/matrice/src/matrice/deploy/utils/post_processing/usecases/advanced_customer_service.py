@@ -31,23 +31,28 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
         customer_areas: Dict of area_name -> polygon (list of [x, y]).
         staff_areas: Dict of area_name -> polygon (list of [x, y]).
     """
-    # First, collect all person detections and their centers
-    staff_ids = set()
+    # Track staff by track_id so staff status persists even if they enter customer area
+    staff_track_ids = set()
+    # First pass: assign staff and remember their track_ids
     for det in detections:
         if det.get('category') == 'person':
             bbox = det.get('bbox', det.get('bounding_box', None))
             if bbox and len(bbox) == 4:
                 center = get_bbox_center(bbox)
-                # If in any staff area, mark as staff
                 for polygon in staff_areas.values():
                     if point_in_polygon(center, polygon):
                         det['category'] = 'staff'
-                        staff_ids.add(id(det))
+                        if 'track_id' in det:
+                            staff_track_ids.add(det['track_id'])
                         break
-    # All other person detections are customers
+        elif det.get('category') == 'staff' and 'track_id' in det:
+            staff_track_ids.add(det['track_id'])
+    # Second pass: assign customer only if not a known staff track_id
     for det in detections:
-        if det.get('category') == 'person' and id(det) not in staff_ids:
+        if det.get('category') == 'person' and det.get('track_id') not in staff_track_ids:
             det['category'] = 'customer'
+        elif det.get('category') == 'person' and det.get('track_id') in staff_track_ids:
+            det['category'] = 'staff'
 
 class AdvancedCustomerServiceUseCase(BaseProcessor):
     # --- Chunk tracking for per-chunk analytics ---
@@ -247,7 +252,8 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "customer_categories": ["customer", "person"],
             "service_proximity_threshold": 100.0,
             "max_service_time": 1800.0,
-            "buffer_time": 2.0
+            "buffer_time": 2.0,
+            "stream_info": {},  
         }
         defaults.update(overrides)
         return CustomerServiceConfig(**defaults)
@@ -598,7 +604,12 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
 
         customer_center = customer_journey['positions'][-1]['center']
 
-        # Find nearest staff
+        # Check if customer is inside any service area
+        for area_name, polygon in self.service_areas.items():
+            if point_in_polygon(customer_center, polygon):
+                return True
+
+        # If not inside service area, check proximity to staff
         nearest_staff = self._find_nearest_staff(customer_center)
         if nearest_staff:
             staff_id, distance = nearest_staff
@@ -643,6 +654,14 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
     
     def _compile_analytics_results(self, current_time: float) -> Dict[str, Any]:
         """Compile comprehensive analytics results."""
+        # --- Previous approach (commented out): ---
+        # real_time_occupancy = {
+        #     "customer_areas": self.customer_occupancy,
+        #     "staff_areas": self.staff_occupancy,
+        #     "service_areas": self.service_occupancy
+        # }
+
+        # --- New approach: Only keep the last detection per track_id per area ---
         def get_latest_per_track(area_dict):
             latest = {}
             for area_name, occupants in area_dict.items():
@@ -662,6 +681,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "service_areas": get_latest_per_track(self.service_occupancy)
         }
 
+
         # --- Service times output: flatten to a list for JSON output (per-customer) ---
         service_times_output = []
         for customer_id, records in self.service_times.items():
@@ -669,95 +689,15 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 entry = rec.copy()
                 service_times_output.append(entry)
 
-        # --- tracking_stats output for agg_summary compatibility ---
-        # Compose a summary and insights similar to people_counting.py, with stream_info and chunk/frame context
-        summary = self._generate_summary({
-            "customer_queue_analytics": self._get_customer_queue_results(),
-            "staff_management_analytics": self._get_staff_management_results()
-        }, [])
-        insights = self._generate_insights({
-            "customer_queue_analytics": self._get_customer_queue_results(),
-            "staff_management_analytics": self._get_staff_management_results(),
-            "business_metrics": self._calculate_analytics(current_time),
-            "customer_journey_analytics": self._get_customer_journey_results()
-        }, self.create_default_config())
-        metrics = self._calculate_analytics(current_time)
-        predictions = []
-        if hasattr(self, 'last_predictions'):
-            predictions = self.last_predictions
-
-        # --- Streaming context ---
-        stream_info = getattr(self, 'stream_info', None)
-        if not stream_info:
-            # Try to get from config if present
-            stream_info = getattr(self, 'config', None)
-            if stream_info and hasattr(stream_info, 'stream_info'):
-                stream_info = stream_info.stream_info
-            else:
-                stream_info = {}
-
-        # Per-chunk/frame context (example: chunk index, frame index, time range)
-        chunk_index = stream_info.get('chunk_index') if isinstance(stream_info, dict) else None
-        frame_index = stream_info.get('frame_index') if isinstance(stream_info, dict) else None
-        stream_key = stream_info.get('stream_key') if isinstance(stream_info, dict) else getattr(self, 'stream_key', None)
-        chunk_time_range = stream_info.get('chunk_time_range') if isinstance(stream_info, dict) else None
-
-        # Compose human_text with streaming context
-        human_text_lines = []
-        if stream_key:
-            human_text_lines.append(f"Stream: {stream_key}")
-        if chunk_index is not None:
-            human_text_lines.append(f"Chunk: {chunk_index}")
-        if frame_index is not None:
-            human_text_lines.append(f"Frame: {frame_index}")
-        if chunk_time_range:
-            human_text_lines.append(f"Chunk time: {chunk_time_range}")
-        human_text_lines.append(summary)
-        if insights:
-            human_text_lines.extend(insights)
-        human_text = "\n".join(human_text_lines)
-
-        tracking_stats = []
-        tracking_stats.append({
-            "tracking_start_time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(current_time)),
-            "all_results_for_tracking": {
-                "status": "success",
-                "processing_time": 0,  # Not tracked here
-                "usecase": self.name,
-                "category": self.category,
-                "summary": summary,
-                "insights": insights,
-                "metrics": metrics,
-                "predictions": predictions,
-                "processed_data": {
-                    "customer_queue_analytics": self._get_customer_queue_results(),
-                    "staff_management_analytics": self._get_staff_management_results(),
-                    "service_area_analytics": self._get_service_area_results(),
-                    "customer_journey_analytics": self._get_customer_journey_results(),
-                    "business_metrics": metrics,
-                    "real_time_occupancy": real_time_occupancy,
-                    "service_times": service_times_output,
-                    "processing_timestamp": current_time
-                },
-                "stream_info": stream_info,
-                "chunk_index": chunk_index,
-                "frame_index": frame_index,
-                "chunk_time_range": chunk_time_range,
-                "stream_key": stream_key
-            },
-            "human_text": human_text
-        })
-
         return {
             "customer_queue_analytics": self._get_customer_queue_results(),
             "staff_management_analytics": self._get_staff_management_results(),
             "service_area_analytics": self._get_service_area_results(),
             "customer_journey_analytics": self._get_customer_journey_results(),
-            "business_metrics": metrics,
+            "business_metrics": self._calculate_analytics(current_time),
             "real_time_occupancy": real_time_occupancy,
             "service_times": service_times_output,
-            "processing_timestamp": current_time,
-            "tracking_stats": tracking_stats
+            "processing_timestamp": current_time
         }
     
     def _get_customer_queue_results(self) -> Dict[str, Any]:
@@ -772,8 +712,8 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         customers_queuing = 0
         customers_being_served = 0
         customers_completed = 0
-        wait_times_completed = []  # completed customers' wait times
-        wait_times_ongoing = []    # current customers still in queue
+        wait_times_completed = []  # completed customers' wait times (list of dict)
+        wait_times_ongoing = []    # current customers still in queue (list of dict)
         chunk_ids = getattr(self, '_chunk_customer_ids', set())
         now = time.time()
         for track_id in chunk_ids:
@@ -784,70 +724,71 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 customers_queuing += 1
                 # Ongoing: time since queue_start_time
                 if journey['queue_start_time']:
-                    wait_times_ongoing.append(now - journey['queue_start_time'])
+                    wait_times_ongoing.append({"track_id": track_id, "wait_time": now - journey['queue_start_time']})
             elif journey['state'] == self.JOURNEY_STATES['BEING_SERVED']:
                 customers_being_served += 1
             elif journey['state'] == self.JOURNEY_STATES['COMPLETED']:
                 customers_completed += 1
                 if journey['total_wait_time'] > 0:
-                    wait_times_completed.append(journey['total_wait_time'])
+                    wait_times_completed.append({"track_id": track_id, "wait_time": journey['total_wait_time']})
 
         # Calculate average_wait_time: (sum of completed + ongoing) / total
-        total_waits = wait_times_completed + wait_times_ongoing
+        total_waits = [w['wait_time'] for w in wait_times_completed] + [w['wait_time'] for w in wait_times_ongoing]
         n_total = customers_completed + customers_queuing
         average_wait_time = sum(total_waits) / n_total if n_total > 0 else 0.0
 
-        # Optionally, output all wait times for debugging/analytics
         queue_analytics = {
             "active_customers": active_customers,
             "customers_queuing": customers_queuing,
             "customers_being_served": customers_being_served,
             "customers_completed": customers_completed,
             "average_wait_time": average_wait_time,
-            "queue_lengths_by_area": queue_lengths_by_area,
-            "wait_times_completed": wait_times_completed,
-            "wait_times_ongoing": wait_times_ongoing
+            "queue_lengths_by_area": queue_lengths_by_area
         }
         return queue_analytics
     
     def _get_staff_management_results(self) -> Dict[str, Any]:
         """Get staff management analytics."""
-        # Previous (non-persistent) logic:
-        # staff_analytics = {
-        #     "total_staff": sum(len(staff_list) for staff_list in self.staff_occupancy.values()),
-        #     "staff_distribution": {area_name: len(staff_list) ...}
-        # }
-        # Persistent unique logic:
         staff_analytics = {
             "total_staff": len(self.global_staff_ids),
             "staff_distribution": {area_name: len(self.global_staff_ids_by_area[area_name]) for area_name in self.staff_areas},
-            "staff_efficiency": {},
-            "staff_utilization": 0.0
+            "staff_utilization": 0.0,
+            "active_staff": 0
         }
-        
-        # Calculate staff efficiency
+
+        # Calculate staff efficiency (do not include in output, but keep for internal use)
         total_services = sum(self.staff_service_count.values())
-        active_staff = len(self.staff_service_count)
-        
-        for staff_id, service_count in self.staff_service_count.items():
-            staff_analytics["staff_efficiency"][staff_id] = {
-                "services_handled": service_count,
-                "efficiency_score": service_count / max(total_services, 1)
-            }
-        
+        # Improved logic: active_staff = all staff present in the chunk (not just those with services handled)
+        chunk_staff_ids = set()
+        for area_staff in self.staff_occupancy.values():
+            for staff in area_staff:
+                tid = staff.get('track_id')
+                if tid is not None:
+                    chunk_staff_ids.add(tid)
+        staff_analytics["active_staff"] = len(chunk_staff_ids)
+
         # Calculate overall utilization
         total_staff_count = staff_analytics["total_staff"]
         if total_staff_count > 0:
-            staff_analytics["staff_utilization"] = active_staff / total_staff_count
-        
+            staff_analytics["staff_utilization"] = len(chunk_staff_ids) / total_staff_count
+
+        # Internal: staff_efficiency (not shown in output)
+        staff_efficiency = {}
+        for staff_id in self.global_staff_ids:
+            service_count = self.staff_service_count.get(staff_id, 0)
+            staff_efficiency[staff_id] = {
+                "services_handled": service_count,
+                "efficiency_score": service_count / max(total_services, 1) if total_services > 0 else 0.0
+            }
+        self._internal_staff_efficiency = staff_efficiency
+
         return staff_analytics
     
     def _get_service_area_results(self) -> Dict[str, Any]:
         """Get service area analytics (dynamic: polygon inclusion and proximity)."""
         service_analytics = {
             "service_areas_status": {},
-            "total_active_services": 0,
-            "service_efficiency": {}
+            "total_active_services": 0
         }
 
         service_proximity_threshold = getattr(self, '_service_proximity_threshold', 100.0)
@@ -859,6 +800,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         all_staff = []
         for area_list in self.staff_occupancy.values():
             all_staff.extend(area_list)
+
 
         for area_name, polygon in self.service_areas.items():
             customers_in_area = set()
@@ -893,7 +835,9 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
 
             service_analytics["service_areas_status"][area_name] = {
                 "customers": len(customers_in_area),
+                "customer_ids": list(customers_in_area),
                 "staff": len(staff_in_area),
+                "staff_ids": list(staff_in_area),
                 "service_ratio": len(customers_in_area) / max(len(staff_in_area), 1),
                 "status": "active" if len(staff_in_area) > 0 else "inactive",
                 "service_proximity_threshold": service_proximity_threshold
@@ -1104,76 +1048,92 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
     
     def _generate_summary(self, analytics_results: Dict, alerts: List) -> str:
         """Generate human-readable summary."""
+        # Beautiful, tabbed, non-technical summary for all major analytics sections
         queue_analytics = analytics_results.get("customer_queue_analytics", {})
         staff_analytics = analytics_results.get("staff_management_analytics", {})
-        
-        active_customers = queue_analytics.get("active_customers", 0)
-        total_staff = staff_analytics.get("total_staff", 0)
-        
-        if active_customers == 0 and total_staff == 0:
-            return "No activity detected in service areas"
-        
-        summary_parts = []
-        
-        if active_customers > 0:
-            summary_parts.append(f"{active_customers} active customers")
-            
-            customers_queuing = queue_analytics.get("customers_queuing", 0)
-            customers_being_served = queue_analytics.get("customers_being_served", 0)
-            
-            if customers_queuing > 0:
-                summary_parts.append(f"{customers_queuing} queuing")
-            
-            if customers_being_served > 0:
-                summary_parts.append(f"{customers_being_served} being served")
-        
-        if total_staff > 0:
-            summary_parts.append(f"{total_staff} staff deployed")
-        
-        summary = "Advanced customer service: " + ", ".join(summary_parts)
-        
+        service_analytics = analytics_results.get("service_area_analytics", {})
+        journey_analytics = analytics_results.get("customer_journey_analytics", {})
+        business_metrics = analytics_results.get("business_metrics", {})
+        service_times = analytics_results.get("service_times", [])
+        occupancy = analytics_results.get("real_time_occupancy", {})
+
+        def tabbed_section(title, dct, omit_keys=None):
+            if not dct:
+                return f"{title}: None"
+            omit_keys = omit_keys or set()
+            lines = [f"{title}:"]
+            for k, v in dct.items():
+                if k in omit_keys:
+                    continue
+                if isinstance(v, dict):
+                    lines.append(f"\t{k}:")
+                    for sk, sv in v.items():
+                        lines.append(f"\t\t{sk}: {sv}")
+                elif isinstance(v, list):
+                    lines.append(f"\t{k}: [{len(v)} items]")
+                else:
+                    lines.append(f"\t{k}: {v}")
+            return "\n".join(lines)
+
+        def tabbed_list_section(title, lst):
+            if not lst:
+                return f"{title}: None"
+            lines = [f"{title}:"]
+            for i, item in enumerate(lst):
+                lines.append(f"\t{i+1}. {item}")
+            return "\n".join(lines)
+
+        summary = []
+        summary.append(tabbed_section("customer_queue_analytics", queue_analytics, omit_keys={"wait_times_completed", "wait_times_ongoing"}))
+        summary.append(tabbed_section("staff_management_analytics", staff_analytics, omit_keys={"staff_efficiency"}))
+        summary.append(tabbed_section("service_area_analytics", service_analytics))
+        summary.append(tabbed_section("customer_journey_analytics", journey_analytics))
+        summary.append(tabbed_section("business_metrics", business_metrics))
+        summary.append(tabbed_section("service_times", {"service_times": service_times}))
+        summary.append(tabbed_section("real_time_occupancy", occupancy))
+
         if alerts:
             critical_alerts = sum(1 for alert in alerts if alert.get("severity") == "critical")
             if critical_alerts > 0:
-                summary += f" with {critical_alerts} critical alert(s)"
+                summary.append(f"ALERTS: {critical_alerts} critical alert(s)")
             else:
-                summary += f" with {len(alerts)} alert(s)"
-        
-        return summary
+                summary.append(f"ALERTS: {len(alerts)} alert(s)")
+
+        return "\n".join(summary)
     
-    def _extract_predictions(self, data: Any) -> List[Dict[str, Any]]:
-        """Extract predictions from processed data for API compatibility."""
-        predictions = []
-        
+    def _extract_predictions(self, data: Any) -> Dict[str, List[Dict[str, Any]]]:
+        """Extract predictions from processed data for API compatibility, grouped by frame number if available."""
+        predictions = {}
         try:
-            if isinstance(data, list):
-                # Detection format
+            if isinstance(data, dict):
+                # Frame-based or tracking format
+                for frame_id, items in data.items():
+                    if not isinstance(items, list):
+                        continue
+                    frame_preds = []
+                    for item in items:
+                        if isinstance(item, dict):
+                            pred = {
+                                "category": item.get("category", item.get("class", "unknown")),
+                                "confidence": item.get("confidence", item.get("score", 0.0)),
+                                "bounding_box": item.get("bounding_box", item.get("bbox", {})),
+                                "track_id": item.get("track_id")
+                            }
+                            frame_preds.append(pred)
+                    if frame_preds:
+                        predictions[str(frame_id)] = frame_preds
+            elif isinstance(data, list):
+                # If not frame-based, put all predictions under a generic key
+                predictions["0"] = []
                 for item in data:
                     if isinstance(item, dict):
-                        prediction = {
+                        pred = {
                             "category": item.get("category", item.get("class", "unknown")),
                             "confidence": item.get("confidence", item.get("score", 0.0)),
                             "bounding_box": item.get("bounding_box", item.get("bbox", {})),
                             "track_id": item.get("track_id")
                         }
-                        predictions.append(prediction)
-            
-            elif isinstance(data, dict):
-                # Frame-based or tracking format
-                for frame_id, items in data.items():
-                    if isinstance(items, list):
-                        for item in items:
-                            if isinstance(item, dict):
-                                prediction = {
-                                    "frame_id": frame_id,
-                                    "category": item.get("category", item.get("class", "unknown")),
-                                    "confidence": item.get("confidence", item.get("score", 0.0)),
-                                    "bounding_box": item.get("bounding_box", item.get("bbox", {})),
-                                    "track_id": item.get("track_id")
-                                }
-                                predictions.append(prediction)
-        
+                        predictions["0"].append(pred)
         except Exception as e:
             self.logger.warning(f"Failed to extract predictions: {str(e)}")
-        
         return predictions

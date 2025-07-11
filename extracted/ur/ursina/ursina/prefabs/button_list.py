@@ -1,4 +1,4 @@
-from ursina import Entity, Text, camera, Button, color, mouse, Sequence, Vec3
+from ursina import Entity, Text, camera, Button, color, mouse, Vec3
 from math import floor
 
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     for i in range(6, 20):
         button_dict[f'button {i}'] = Func(print, i)
 
-    bl = ButtonList(button_dict, font='VeraMono.ttf', button_height=1.5, popup=0, clear_selected_on_enable=False)
+    bl = ButtonList(button_dict, font=Text.default_monospace_font, button_height=1.5, popup=0, clear_selected_on_enable=False)
     def input(key):
         if key == 'space':
             bl.button_dict = {

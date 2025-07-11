@@ -6,7 +6,10 @@ containing::
     from documenteer.conf.guide import *
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+import warnings
+from typing import Any
+
+from sphinx.deprecation import RemovedInNextVersionWarning
 
 from documenteer.conf import (
     DocumenteerConfig,
@@ -81,6 +84,7 @@ __all__ = [
     "html_static_path",
     "html_css_files",
     "html_show_sourcelink",
+    "favicons",
     # API
     "automodapi_toctreedirnm",
     "always_document_param_types",
@@ -101,6 +105,7 @@ __all__ = [
     "napoleon_attr_annotations",
     # MYST
     "myst_enable_extensions",
+    "myst_fence_as_directive",
     # MERMAID
     "mermaid_output_format",
     # OPENGRAPH
@@ -111,12 +116,20 @@ __all__ = [
     "documenteer_openapi_generator",
     "documenteer_openapi_path",
     "redoc",
-    "redoc_uri",
+    "redoc_version",
     # Sphinx jinja
     "jinja_contexts",
     # Sphinx rediraffe
     "rediraffe_redirects",
 ]
+
+# Suppress warnings about deprecated features in future Sphinx versions.
+# This is noise for users because Documenteer itself constrains the Sphinx
+# version.
+warnings.filterwarnings(
+    "ignore",
+    category=RemovedInNextVersionWarning,
+)
 
 _conf = DocumenteerConfig.find_and_load()
 
@@ -139,18 +152,19 @@ extensions = [
     "sphinx.ext.ifconfig",
     "sphinx_prompt",
     "sphinx_jinja",
-    "sphinxcontrib.redoc",
     "sphinxcontrib.youtube",
     "sphinxext.rediraffe",
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
+    "sphinx_favicon",
     "documenteer.ext.jira",
     "documenteer.ext.lsstdocushare",
     "documenteer.ext.mockcoderefs",
     "documenteer.ext.remotecodeblock",
     "documenteer.ext.openapi",
+    "documenteer.ext.redoc",
 ]
 _conf.append_extensions(extensions)
 
@@ -162,7 +176,7 @@ project = _conf.project
 
 author = "Rubin Observatory"
 
-copyright = _conf.copyright
+copyright = _conf.copyright  # noqa: A001
 
 version = _conf.version
 release = version
@@ -201,10 +215,52 @@ default_role = "py:obj"
 nitpicky = _conf.nitpicky
 
 # Warnings to ignore
-nitpick_ignore: List[Tuple[str, str]] = []
+nitpick_ignore: list[tuple[str, str]] = [
+    # Ignore missing cross-references for modules that don't provide
+    # intersphinx.  The documentation itself should use double-quotes instead
+    # of single-quotes to not generate a reference, but automatic references
+    # are generated from the type signatures and can't be avoided.
+    ("py:class", "fastapi.applications.FastAPI"),
+    ("py:class", "fastapi.datastructures.DefaultPlaceholder"),
+    ("py:class", "fastapi.exceptions.HTTPException"),
+    ("py:class", "fastapi.params.Depends"),
+    ("py:class", "fastapi.routing.APIRoute"),
+    ("py:class", "httpx.AsyncClient"),
+    ("py:exc", "fastapi.HTTPException"),
+    ("py:exc", "fastapi.exceptions.RequestValidationError"),
+    ("py:exc", "httpx.HTTPError"),
+    ("py:obj", "ConfigDict"),
+    ("py:obj", "fastapi.routing.APIRoute"),
+    ("py:class", "kubernetes_asyncio.client.api_client.ApiClient"),
+    ("py:class", "pydantic.main.BaseModel"),
+    ("py:class", "pydantic.networks.AnyHttpUrl"),
+    ("py:class", "pydantic.networks.IPvAnyNetwork"),
+    ("py:class", "pydantic.types.SecretStr"),
+    ("py:class", "pydantic.utils.Representation"),
+    ("py:class", "pydantic_core._pydantic_core.Url"),
+    ("py:class", "pydantic_core._pydantic_core.ValidationError"),
+    ("py:class", "pydantic_settings.main.BaseSettings"),
+    ("py:class", "pydantic_settings.sources.CliSettingsSource"),
+    ("py:obj", "safir.pydantic.validate_exactly_one_of.<locals>.validator"),
+    ("py:class", "starlette.datastructures.URL"),
+    ("py:class", "starlette.middleware.base.BaseHTTPMiddleware"),
+    ("py:class", "starlette.requests.Request"),
+    ("py:class", "starlette.responses.Response"),
+    ("py:class", "starlette.routing.Route"),
+    ("py:class", "starlette.routing.BaseRoute"),
+    ("py:exc", "starlette.exceptions.HTTPException"),
+    # asyncio.Lock is documented, and that's what all the code references, but
+    # the combination of Sphinx extensions we're using confuse themselves and
+    # there doesn't seem to be any way to fix this.
+    ("py:class", "asyncio.locks.Lock"),
+]
 _conf.append_nitpick_ignore(nitpick_ignore)
 
-nitpick_ignore_regex: List[Tuple[str, str]] = []
+nitpick_ignore_regex: list[tuple[str, str]] = [
+    ("py:class", r"kubernetes_asyncio\.client\.models\..*"),
+    # Bug in autodoc_pydantic.
+    ("py:obj", r".*\.all fields"),
+]
 _conf.append_nitpick_ignore_regex(nitpick_ignore_regex)
 
 # A list of paths that contain extra templates (or templates that overwrite
@@ -218,9 +274,7 @@ rst_epilog = _conf.rst_epilog
 # #INTER Intersphinx configuration
 # ============================================================================
 
-# Example entry:
-#   "python": ("https://docs.python.org/3/", None),
-intersphinx_mapping: Dict[str, Tuple[str, Union[str, None]]] = {}
+intersphinx_mapping: dict[str, tuple[str, str | None]] = {}
 _conf.extend_intersphinx_mapping(intersphinx_mapping)
 
 intersphinx_timeout = 10.0  # seconds
@@ -249,7 +303,7 @@ linkcheck_timeout = 15
 html_theme = "pydata_sphinx_theme"
 
 # Context available to Jinja templates
-html_context: Dict[str, Any] = {}
+html_context: dict[str, Any] = {}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -263,20 +317,13 @@ html_theme_options = {
         "image_dark": "rubin-titlebar-imagotype-dark.svg",
         "text": project,
     },
-    "favicons": [
-        {
-            "rel": "icon",
-            "sizes": "32x32",
-            "href": "rubin-favicon-transparent-32px.png",
-        },
-        {"rel": "icon", "href": "rubin-favicon.svg"},
-    ],
-    "pygment_light_style": "xcode",
-    "pygment_dark_style": "github-dark",
+    "pygments_light_style": "xcode",
+    "pygments_dark_style": "github-dark",
 }
 
 if _conf.github_url:
-    assert isinstance(html_theme_options["icon_links"], list)
+    if not isinstance(html_theme_options["icon_links"], list):
+        raise TypeError("icon_links must be a list")
     html_theme_options["icon_links"].append(
         {
             "name": "GitHub",
@@ -286,13 +333,28 @@ if _conf.github_url:
         }
     )
 
+favicons = [
+    {
+        "href": "rubin-favicon-transparent-32px.png",
+        "rel": "icon",
+        "sizes": "32x32",
+        "type": "image/png",
+    },
+    {
+        "href": "rubin-favicon.svg",
+        "rel": "icon",
+        "type": "image/svg+xml",
+    },
+]
+
+
 # Configure the "Edit this page" link
 _conf.set_edit_on_github(html_theme_options, html_context)
 
 # Specifies templates to put in the primary (left) sidebars of
 # specific pages (by their docname or pattern). An empty list results in the
 # sidebar being dropped altogether.
-html_sidebars: Dict[str, List[str]] = {"index": [], "changelog": []}
+html_sidebars: dict[str, list[str]] = {"index": [], "changelog": []}
 _conf.disable_primary_sidebars(html_sidebars)
 
 # The name for this set of Sphinx documents.  If None, it defaults to
@@ -309,7 +371,7 @@ html_baseurl = _conf.base_url
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path: List[str] = [
+html_static_path: list[str] = [
     get_asset_path("rubin-titlebar-imagotype-dark.svg"),
     get_asset_path("rubin-titlebar-imagotype-light.svg"),
     get_asset_path("rubin-favicon-transparent-32px.png"),
@@ -347,7 +409,7 @@ napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_rtype = True
 napoleon_preprocess_types = False
-napoleon_type_aliases = None
+napoleon_type_aliases: dict[str, str] | None = None
 napoleon_attr_annotations = True
 
 # ============================================================================
@@ -397,6 +459,9 @@ myst_enable_extensions = [
 # Mermaid CLI installation
 mermaid_output_format = "raw"
 
+# Code fences that can be interpreted as directives
+myst_fence_as_directive = ["mermaid"]
+
 # ============================================================================
 # #OPENGRAPH OpenGraph diagram support
 # https://github.com/wpilibsuite/sphinxext-opengraph
@@ -409,39 +474,40 @@ ogp_use_first_image = True
 
 # ============================================================================
 # #OPEN OpenAPI/Redoc support
-# https://sphinxcontrib-redoc.readthedocs.io/en/stable/
 # documenteer.ext.openapi
+# documenteer.ext.redoc
 # ============================================================================
+
+redoc_version = "v2.5.0"
 
 if _conf.conf.project.openapi is not None:
     if _conf.conf.project.openapi.generator is not None:
-        documenteer_openapi_generator: Optional[Dict[str, Any]] = {
+        documenteer_openapi_generator: dict[str, Any] | None = {
             "func": _conf.conf.project.openapi.generator.function,
             "args": _conf.conf.project.openapi.generator.positional_args,
             "kwargs": _conf.conf.project.openapi.generator.keyword_args,
         }
     else:
         documenteer_openapi_generator = None
-    documenteer_openapi_path: Optional[str] = (
+    documenteer_openapi_path: str | None = (
         _conf.conf.project.openapi.openapi_path
     )
-    redoc: Optional[List[Any]] = [
+    html_static_path.append(_conf.conf.project.openapi.openapi_path)
+    redoc: list[Any] | None = [
         {
             "name": "REST API",
             "page": _conf.conf.project.openapi.doc_path,
-            "spec": _conf.conf.project.openapi.openapi_path,
-            "embed": True,
-            "opts": {"hide-hostname": True},
+            "spec_path": _conf.conf.project.openapi.openapi_path,
+            "opts": {
+                "hide-hostname": True,
+                "path-in-middle-panel": True,
+            },
         }
     ]
-    redoc_uri: Optional[str] = (
-        "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
-    )
 else:
     documenteer_openapi_generator = None
     documenteer_openapi_path = None
     redoc = []
-    redoc_uri = None
 
 # ============================================================================
 # #JINJA Sphinx Jinja support

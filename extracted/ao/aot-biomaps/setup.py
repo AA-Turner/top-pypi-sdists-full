@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='AOT_biomaps',
-    version='2.8.3',
+    version='2.8.4',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -11,7 +11,7 @@ setup(
         'pyyaml',
         'numba',
         'tqdm',
-        'GPUtil',
+        'nvidia-ml-py3',
         'scikit-image',
         'scikit-learn',
         'pandas',
@@ -21,7 +21,6 @@ setup(
         ],
         'gpu': [
             'cupy',
-            'nvidia-ml-py3',
             'torch',
         ],
     },

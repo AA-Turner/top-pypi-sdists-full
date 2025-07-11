@@ -26,20 +26,21 @@ class ContactDetail(element.Element):
     __resource_type__ = "ContactDetail"
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name of an individual to contact",
         description="The name of an individual to contact.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     telecom: typing.List[fhirtypes.ContactPointType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="telecom",
         title="Contact details for individual or organization",
         description=(
@@ -48,13 +49,21 @@ class ContactDetail(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ContactDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ContactDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "name", "telecom"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ContactDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["name", "telecom"]

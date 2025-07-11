@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm>=8"]
+requires = ["setuptools>=77.0.3", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -53,6 +53,3 @@ Repository = "https://github.com/PX4/pyulog"
 test = ['pytest', 'ddt']
 
 [tool.setuptools_scm]
-
-[tool.setuptools.packages]
-find = {}

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "orderly-set"
+version = "5.5.0"
+authors = [
+    {name = "Seperman", email = "sep@zepworks.com"},
+]
+description = "Orderly set"
+readme = "README.md"
+license = {file = "MIT-LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License"
+]
+
+[project.optional-dependencies]
+coverage = [
+  "coverage~=7.6.0"
+]
+dev = [
+  "bump2version~=1.0.0",
+  "ipdb~=0.13.0",
+]
+static = [
+  "flake8~=7.1.0",
+  "flake8-pyproject~=1.2.3",
+]
+test = [
+  "pytest~=8.3.0",
+  "pytest-benchmark~=5.1.0",
+  "pytest-cov~=6.0.0",
+  "python-dotenv~=1.0.0",
+]
+optimize = [
+  "orjson",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/seperman/orderly-set"
+Download = "https://github.com/seperman/orderly-set/tarball/master"
+
+[tool.flit.module]
+name = "orderly_set"

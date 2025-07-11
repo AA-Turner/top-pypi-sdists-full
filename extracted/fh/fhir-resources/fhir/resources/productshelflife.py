@@ -26,7 +26,7 @@ class ProductShelfLife(backbonetype.BackboneType):
     __resource_type__ = "ProductShelfLife"
 
     periodDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="periodDuration",
         title=(
             "The shelf life time period can be specified using a numerical value "
@@ -38,6 +38,7 @@ class ProductShelfLife(backbonetype.BackboneType):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e period[x]
             "one_of_many": "period",
             "one_of_many_required": False,
@@ -45,7 +46,7 @@ class ProductShelfLife(backbonetype.BackboneType):
     )
 
     periodString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="periodString",
         title=(
             "The shelf life time period can be specified using a numerical value "
@@ -57,17 +58,20 @@ class ProductShelfLife(backbonetype.BackboneType):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e period[x]
             "one_of_many": "period",
             "one_of_many_required": False,
         },
     )
     periodString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_periodString", title="Extension field for ``periodString``."
+        default=None,
+        alias="_periodString",
+        title="Extension field for ``periodString``.",
     )
 
     specialPrecautionsForStorage: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialPrecautionsForStorage",
         title=(
             "Special precautions for storage, if any, can be specified using an "
@@ -77,11 +81,12 @@ class ProductShelfLife(backbonetype.BackboneType):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "This describes the shelf life, taking into account various scenarios "
@@ -94,18 +99,32 @@ class ProductShelfLife(backbonetype.BackboneType):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ProductShelfLife`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ProductShelfLife`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "type",
+            "periodDuration",
+            "periodString",
+            "specialPrecautionsForStorage",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ProductShelfLife`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "type",
             "periodDuration",

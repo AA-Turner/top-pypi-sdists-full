@@ -572,6 +572,7 @@ class Projects:
         dataset_name,
         file_path,
         dataset_type,
+        project_type="detection",
         input_type="image",
         bucket_alias="",
         compute_alias="",
@@ -614,6 +615,7 @@ class Projects:
         >>> print(f"Dataset created: {dataset}")
         """
         return self._create_dataset(
+            project_type=project_type,
             dataset_name=dataset_name,
             dataset_type=dataset_type,
             input_type=input_type,
@@ -631,6 +633,7 @@ class Projects:
         source_url,
         cloud_provider,
         dataset_type,
+        project_type="detection",
         input_type="image",
         bucket_alias="",
         compute_alias="",
@@ -676,6 +679,7 @@ class Projects:
         >>> print(f"Dataset created: {dataset}")
         """
         return self._create_dataset(
+            project_type,
             dataset_name=dataset_name,
             dataset_type=dataset_type,
             input_type=input_type,

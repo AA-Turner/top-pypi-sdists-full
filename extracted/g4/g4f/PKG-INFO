@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 0.5.6.3
+Version: 0.5.6.4
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -42,6 +42,7 @@ Requires-Dist: pywebview; extra == "all"
 Requires-Dist: plyer; extra == "all"
 Requires-Dist: setuptools; extra == "all"
 Requires-Dist: markitdown[all]; extra == "all"
+Requires-Dist: python-dotenv; extra == "all"
 Provides-Extra: slim
 Requires-Dist: curl_cffi>=0.6.2; extra == "slim"
 Requires-Dist: certifi; extra == "slim"
@@ -57,6 +58,7 @@ Requires-Dist: uvicorn; extra == "slim"
 Requires-Dist: python-multipart; extra == "slim"
 Requires-Dist: a2wsgi; extra == "slim"
 Requires-Dist: markitdown[all]; extra == "slim"
+Requires-Dist: python-dotenv; extra == "slim"
 Provides-Extra: image
 Requires-Dist: pillow; extra == "image"
 Requires-Dist: cairosvg; extra == "image"

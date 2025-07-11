@@ -1,6 +1,6 @@
-from ursina import *
+from ursina.shader import Shader
 
-normals_shader = Shader(name='normals_shader',language=Shader.GLSL, 
+normals_shader = Shader(name='normals_shader',language=Shader.GLSL,
 vertex = '''
 #version 140
 uniform mat4 p3d_ModelViewProjectionMatrix;
@@ -36,7 +36,7 @@ geometry='',
 
 if __name__ == '__main__':
     from ursina import *
-    from ursina.prefabs.primitives import *
+    from ursina.prefabs.primitives import AzureSphere, GrayPlane, WhiteCube
     app = Ursina()
     window.color=color.black
 

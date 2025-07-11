@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mistralai
-Version: 1.9.1
+Version: 1.9.2
 Summary: Python Client SDK for the Mistral AI API.
 Author: Mistral
 Requires-Python: >=3.9
@@ -495,6 +495,33 @@ The documentation for the GCP SDK is available [here](https://github.com/mistral
 * [append_stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#append_stream) - Append new entries to an existing conversation.
 * [restart_stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#restart_stream) - Restart a conversation starting from a given entry.
 
+#### [beta.libraries](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md)
+
+* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#list) - List all libraries you have access to.
+* [create](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#create) - Create a new Library.
+* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#get) - Detailed information about a specific Library.
+* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#delete) - Delete a library and all of it's document.
+* [update](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#update) - Update a library.
+
+#### [beta.libraries.accesses](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md)
+
+* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md#list) - List all of the access to this library.
+* [update_or_create](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md#update_or_create) - Create or update an access level.
+* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md#delete) - Delete an access level.
+
+#### [beta.libraries.documents](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md)
+
+* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#list) - List document in a given library.
+* [upload](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#upload) - Upload a new document.
+* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#get) - Retrieve the metadata of a specific document.
+* [update](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#update) - Update the metadata of a specific document.
+* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#delete) - Delete a document.
+* [text_content](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#text_content) - Retrieve the text content of a specific document.
+* [status](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#status) - Retrieve the processing status of a specific document.
+* [get_signed_url](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#get_signed_url) - Retrieve the signed URL of a specific document.
+* [extracted_text_signed_url](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#extracted_text_signed_url) - Retrieve the signed URL of text extracted from a given document.
+* [reprocess](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#reprocess) - Reprocess a document.
+
 ### [chat](https://github.com/mistralai/client-python/blob/master/docs/sdks/chat/README.md)
 
 * [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/chat/README.md#complete) - Chat Completion
@@ -614,7 +641,7 @@ with Mistral(
     api_key=os.getenv("MISTRAL_API_KEY", ""),
 ) as mistral:
 
-    res = mistral.files.upload(file={
+    res = mistral.beta.libraries.documents.upload(library_id="a02150d9-5ee0-4877-b62c-28b1fcdf3b76", file={
         "file_name": "example.file",
         "content": open("example.file", "rb"),
     })

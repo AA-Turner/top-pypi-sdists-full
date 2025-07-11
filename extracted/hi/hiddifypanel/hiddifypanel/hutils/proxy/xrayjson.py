@@ -37,7 +37,8 @@ def configs_as_json(domains: list[Domain], user: User, expire_days: int, remarks
 
     if not user.is_active:
         # region show status (active/disable)
-        tag = '✖ ' + (hutils.encode.url_encode('بسته شما به پایان رسید') if hconfig(ConfigEnum.lang) == 'fa' else 'Package Ended')
+        tag = '✖ ' + (hutils.encode.url_encode('بسته شما به پایان رسید')
+                      if hconfig(ConfigEnum.lang) == 'fa' else 'Package Ended')
         # add user status
         all_configs.append(
             null_config(tag)
@@ -50,7 +51,7 @@ def configs_as_json(domains: list[Domain], user: User, expire_days: int, remarks
         unsupported_transport = {}
         if g.user_agent.get('is_v2rayng'):
             # TODO: ensure which protocols are not supported in v2rayng
-            unsupported_protos = { ProxyProto.hysteria, ProxyProto.hysteria2,
+            unsupported_protos = {ProxyProto.hysteria, ProxyProto.hysteria2,
                                   ProxyProto.tuic, ProxyProto.ssr, ProxyProto.ssh}
             if not hutils.flask.is_client_version(hutils.flask.ClientVersion.v2ryang, 1, 8, 18):
                 unsupported_transport = {ProxyTransport.httpupgrade}
@@ -67,7 +68,8 @@ def configs_as_json(domains: list[Domain], user: User, expire_days: int, remarks
             outbound = to_xray(proxy)
             outbounds.append(outbound)
 
-        base_config = json.loads(render_template('base_xray_config.json.j2', remarks=remarks))
+        base_config = json.loads(render_template(
+            'base_xray_config.json.j2', remarks=remarks))
         if len(outbounds) > 1:
             for out in outbounds:
                 base = copy.deepcopy(base_config)
@@ -100,6 +102,7 @@ def to_xray(proxy: dict) -> dict:
         #     # 'concurrency': -1
         # }
     }
+
     outbound['protocol'] = 'shadowsocks' if outbound['protocol'] == 'ss' else outbound['protocol']
     # add multiplex to outbound
     add_multiplex(outbound, proxy)
@@ -158,7 +161,7 @@ def add_vless_settings(base: dict, proxy: dict):
                     'id': proxy['uuid'],
                     'encryption': 'none',
                     # 'security': 'auto',
-                    'flow': 'xtls-rprx-vision' if (proxy['transport'] == ProxyTransport.XTLS or base['streamSettings']['security'] == 'reality') else '',
+                    'flow': proxy.get('flow',''),
                     'level': OUTBOUND_LEVEL
                 }
             ]
@@ -212,14 +215,17 @@ def add_shadowsocks_settings(base: dict, proxy: dict):
 
 # region stream settings
 
-def add_stream_settings(base: dict, proxy: dict):
-    ss = base['streamSettings']
+def _add_security(base_dict, proxy, tls_info=None):
+    if not tls_info:
+        tls_info = proxy
+
+    ss = base_dict
     ss['security'] = 'none'  # default
 
     # security
-    if proxy['l3'] == ProxyL3.reality:
+    if 'reality' in tls_info['mode']:
         ss['security'] = 'reality'
-    elif proxy['l3'] in [ProxyL3.tls, ProxyL3.tls_h2, ProxyL3.tls_h2_h1, ProxyL3.h3_quic]:
+    elif proxy['l3'] in [ProxyL3.tls, ProxyL3.tls_h2, ProxyL3.tls_h2_h1, ProxyL3.h3_quic, ProxyL3.reality]:
         ss['security'] = 'tls'
 
     # network and transport settings
@@ -227,15 +233,14 @@ def add_stream_settings(base: dict, proxy: dict):
     # ss['security'] == 'tls' or 'xtls' -----> ss['security'] in ['tls','xtls']
     # TODO: FIX THE CONDITION AND TEST CONFIGS ON THE CLIENT SIDE
     if ss['security'] == 'reality':
-        ss['network'] = proxy['transport']
-        add_reality_stream(ss, proxy)
+        # ss['network'] = proxy['transport']
+        add_reality_stream(ss, proxy, tls_info)
     elif ss['security'] in ['tls', "xtls"] and proxy['proto'] != ProxyProto.ss:
-
         ss['tlsSettings'] = {
-            'serverName': proxy['sni'],
-            'allowInsecure': proxy['allow_insecure'],
+            'serverName': tls_info['sni'],
+            'allowInsecure': tls_info['allow_insecure'],
             'fingerprint': proxy['fingerprint'],
-            'alpn': [proxy['alpn']],
+            'alpn': [tls_info['alpn']],
             # 'minVersion': '1.2',
             # 'disableSystemRoot': '',
             # 'enableSessionResumption': '',
@@ -246,6 +251,11 @@ def add_stream_settings(base: dict, proxy: dict):
             # 'rejectUnknownSni': '', # default is false
         }
 
+
+def add_stream_settings(base: dict, proxy: dict):
+    ss = base['streamSettings']
+
+    _add_security(ss, proxy, proxy)
     if proxy['l3'] == ProxyL3.kcp:
         ss['network'] = 'kcp'
         add_kcp_stream(ss, proxy)
@@ -267,6 +277,7 @@ def add_stream_settings(base: dict, proxy: dict):
         add_httpupgrade_stream(ss, proxy)
     if proxy['transport'] == ProxyTransport.xhttp:
         ss['network'] = proxy['transport']
+        ss['transport'] = "xhttp"
         add_xhttp_stream(ss, proxy)
     if proxy['transport'] == 'ws':
         ss['network'] = proxy['transport']
@@ -285,11 +296,20 @@ def add_tcp_stream(ss: dict, proxy: dict):
             'header': {
                 'type': 'http',
                 'request': {
-                    'path': [proxy['path']]
+                    'path': [proxy['path']],
+                    'method': 'GET',
+                    "headers": {
+                        "Host": proxy.get('host'),
+                        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36",
+                        "Accept-Encoding": "gzip, deflate",
+                        "Connection": "keep-alive",
+                        "Pragma": "no-cache"
+                    },
+
                 }
             }
-            # 'acceptProxyProtocol': False
         }
+        # ss['tcpSettings']['header']['request']['headers']
     else:
         ss['tcpSettings'] = {
             'header': {
@@ -324,8 +344,10 @@ def add_ws_stream(ss: dict, proxy: dict):
 
 def add_grpc_stream(ss: dict, proxy: dict):
     ss['grpcSettings'] = {
-        'serviceName': proxy['path'],  # proxy['path'] is equal toproxy['grpc_service_name']
-        'idle_timeout': 115,  # by default, the health check is not enabled. may solve some "connection drop" issues
+        # proxy['path'] is equal toproxy['grpc_service_name']
+        'serviceName': proxy['path'],
+        # by default, the health check is not enabled. may solve some "connection drop" issues
+        'idle_timeout': 115,
         'health_check_timeout': 20,  # default is 20
         # 'initial_windows_size': 0,  # 0 means disabled. greater than 65535 means Dynamic Window mechanism will be disabled
         # 'permit_without_stream': False, # health check performed when there are no sub-connections
@@ -342,13 +364,39 @@ def add_httpupgrade_stream(ss: dict, proxy: dict):
 
 
 def add_xhttp_stream(ss: dict, proxy: dict):
+    if ss['transport'] == "xhttp" and g.user_agent.get(hutils.flask.ClientVersion.hiddify_next) and not hutils.flask.is_client_version(hutils.flask.ClientVersion.hiddify_next, 3, 0, 0):
+        ss['transport'] = "splithttp"
+        ss['splithttpSettings'] = {
+            'path': proxy['path'],
+            'host': proxy['host'],
+            "headers": proxy['params'].get('headers', {})
+        }
+    else:
+        _add_xhttp_details(ss, proxy)
+
+        
+
+
+def _add_xhttp_details(ss: dict, proxy: dict):
+    ss['network'] = "xhttp"
     ss['xhttpSettings'] = {
         'path': proxy['path'],
         'host': proxy['host'],
-        "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        'mode':proxy['xhttp_mode'],
+        "extra": {
+            "headers": proxy['params'].get('headers', {})
         }
     }
+    if proxy.get("download"):
+        
+        dlsettings = {
+            "address":proxy['download'].get("server"),
+            "port":proxy['port']
+        }
+        _add_xhttp_details(dlsettings, proxy['download'])
+        _add_security(dlsettings, proxy, proxy['download'])
+        
+        ss['xhttpSettings']['extra']['downloadSettings']=dlsettings
 
 
 def add_kcp_stream(ss: dict, proxy: dict):
@@ -383,12 +431,12 @@ def add_quic_stream(ss: dict, proxy: dict):
     }
 
 
-def add_reality_stream(ss: dict, proxy: dict):
+def add_reality_stream(ss: dict, proxy: dict, domain_info: dict):
     ss['realitySettings'] = {
-        'serverName': proxy['sni'],
+        'serverName': domain_info['sni'],
         'fingerprint': proxy['fingerprint'],
-        'shortId': proxy['reality_short_id'],
-        'publicKey': proxy['reality_pbk'],
+        'shortId': domain_info['reality_short_id'],
+        'publicKey': domain_info['reality_pbk'],
         'show': False,
     }
 
@@ -400,7 +448,8 @@ def add_tls_fragmentation_stream_settings(base: dict, proxy: dict):
             base['streamSettings']['sockopt'] = {
                 'dialerProxy': 'fragment',
                 'tcpKeepAliveIdle': 100,
-                'tcpNoDelay': True,  # recommended to be enabled with "tcpMptcp": true.
+                # recommended to be enabled with "tcpMptcp": true.
+                'tcpNoDelay': True,
                 "mark": 255
                 # 'tcpFastOpen': True, # the system default setting be used.
                 # 'tcpKeepAliveInterval': 0, # 0 means default GO lang settings, -1 means not enable
@@ -425,6 +474,7 @@ def add_multiplex(base: dict, proxy: dict):
 
 
 def null_config(tag: str) -> dict:
-    base_config = json.loads(render_template('base_xray_config.json.j2', remarks=tag))
+    base_config = json.loads(render_template(
+        'base_xray_config.json.j2', remarks=tag))
     base_config['outbounds'][0]["protocol"] = "blackhole"
     return base_config

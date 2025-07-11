@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.11.1
+Version: 1.11.2
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -24,11 +24,12 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<3.13
+Requires-Python: >=3.9,<=3.13.3
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click<8.2,>=5.0
@@ -59,8 +60,8 @@ Requires-Dist: universal_pathlib; python_version < "3.12"
 Requires-Dist: universal_pathlib>=0.2.0; python_version >= "3.12"
 Requires-Dist: rich
 Requires-Dist: filelock
-Requires-Dist: dagster-pipes==1.11.1
-Requires-Dist: dagster-shared==1.11.1
+Requires-Dist: dagster-pipes==1.11.2
+Requires-Dist: dagster-shared==1.11.2
 Requires-Dist: antlr4-python3-runtime
 Provides-Extra: docker
 Requires-Dist: docker; extra == "docker"
@@ -198,7 +199,7 @@ Dagster is built to be used at every stage of the data development lifecycle - l
 
 If you're new to Dagster, we recommend checking out the [docs](https://docs.dagster.io) or following the hands-on [tutorial](https://docs.dagster.io/etl-pipeline-tutorial/).
 
-Dagster is available on PyPI and officially supports Python 3.9 through Python 3.12.
+Dagster is available on PyPI and officially supports Python 3.9 through Python 3.13.
 
 ```bash
 pip install dagster dagster-webserver

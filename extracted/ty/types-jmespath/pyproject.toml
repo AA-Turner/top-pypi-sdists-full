@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-jmespath"
-version = "1.0.2.20250529"
+version = "1.0.2.20250711"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for jmespath"
@@ -30,11 +30,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
+mypy 1.16.1,
+pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`c30f63140c4c81124e44baaf997b67f88e8febb4`](https://github.com/python/typeshed/commit/c30f63140c4c81124e44baaf997b67f88e8febb4).
+[`df3b5f3cdd7736079ad3124db244e4553625590c`](https://github.com/python/typeshed/commit/df3b5f3cdd7736079ad3124db244e4553625590c).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

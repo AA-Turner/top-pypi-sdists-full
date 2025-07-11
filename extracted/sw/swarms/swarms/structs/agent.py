@@ -86,7 +86,6 @@ from swarms.utils.index import (
 )
 from swarms.schemas.conversation_schema import ConversationSchema
 from swarms.utils.output_types import OutputType
-from swarms.utils.retry_func import retry_function
 
 
 def stop_when_repeats(response: str) -> bool:
@@ -605,7 +604,8 @@ class Agent:
 
         # Run sequential operations after all concurrent tasks are done
         # self.agent_output = self.agent_output_model()
-        log_agent_data(self.to_dict())
+        if self.autosave is True:
+            log_agent_data(self.to_dict())
 
         if exists(self.tools):
             self.tool_handling()
@@ -1147,9 +1147,8 @@ class Agent:
 
                     except Exception as e:
 
-                        log_agent_data(self.to_dict())
-
                         if self.autosave is True:
+                            log_agent_data(self.to_dict())
                             self.save()
 
                         logger.error(
@@ -1159,9 +1158,9 @@ class Agent:
 
                 if not success:
 
-                    log_agent_data(self.to_dict())
 
                     if self.autosave is True:
+                        log_agent_data(self.to_dict())
                         self.save()
 
                     logger.error(
@@ -1220,7 +1219,6 @@ class Agent:
 
                 self.save()
 
-            log_agent_data(self.to_dict())
 
             # Output formatting based on output_type
             return history_output_formatter(
@@ -1420,10 +1418,9 @@ class Agent:
     def __handle_run_error(self, error: any):
         import traceback
 
-        log_agent_data(self.to_dict())
-
         if self.autosave is True:
             self.save()
+            log_agent_data(self.to_dict())
 
         # Get detailed error information
         error_type = type(error).__name__

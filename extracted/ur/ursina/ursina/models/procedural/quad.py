@@ -1,90 +1,96 @@
+from copy import deepcopy
+
 from ursina import *
 
-cached_quads = {}
-def Quad(radius=.1, segments=8, aspect=1, scale=(1,1), mode='ngon', thickness=1):
 
-    if radius == 0 and aspect==1 and scale == (1,1) and mode == 'ngon':
-        return Mesh(
-            vertices=[Vec3(-0.5, -0.5, 0.0), Vec3(0.5, -0.5, 0.0), Vec3(0.5, 0.5, 0.0), Vec3(-0.5, 0.5, 0.0)],
-            triangles=[(0,1,2,3), ],
-            uvs=[Vec2(0,0), Vec2(1,0), Vec2(1,1), Vec2(0,1)],
-            mode='triangle'
+class Quad(Mesh):
+    _cache = {}
+    _corner_maker = None
+    _point_placer = None
+
+    def __new__(cls, radius=.1, segments=8, aspect=1, scale=(1,1), mode='ngon', thickness=1):
+        # special case: plain quad
+        if radius == 0 and aspect == 1 and scale == (1, 1) and mode == 'ngon':
+            return Mesh(
+                vertices=[
+                    Vec3(-0.5, -0.5, 0.0), Vec3(0.5, -0.5, 0.0),
+                    Vec3(0.5, 0.5, 0.0), Vec3(-0.5, 0.5, 0.0)
+                ],
+                triangles=[(0, 1, 2, 3)],
+                uvs=[Vec2(0, 0), Vec2(1, 0), Vec2(1, 1), Vec2(0, 1)],
+                mode='triangle'
             )
-    # copy a cached quad if a QuadMesh with the same settings have been created before
-    quad_identifier = f'QuadMesh({radius}, {segments}, {aspect}, {scale}, {mode}, {thickness})'
-    if quad_identifier in cached_quads and cached_quads[quad_identifier]:
-        # print('load cached')
-        return deepcopy(cached_quads[quad_identifier])
 
-    return QuadMesh(radius, segments, aspect, scale, mode, thickness)
-
-
-class QuadMesh(Mesh):
-    corner_maker = None
-    point_placer = None
+        key = (radius, segments, aspect, scale, mode, thickness)
+        if key in cls._cache:
+            try:
+                return deepcopy(cls._cache[key])
+            except:     # deepcopy can fail if the model has been destroyed
+                pass
+        instance = super().__new__(cls)
+        cls._cache[key] = instance
+        return instance
 
     def __init__(self, radius=.1, segments=8, aspect=1, scale=(1,1), mode='ngon', thickness=1):
-        if not QuadMesh.corner_maker: QuadMesh.corner_maker = Entity(eternal=True, add_to_scene_entities=False)
-        if not QuadMesh.point_placer: QuadMesh.point_placer = Entity(parent=QuadMesh.corner_maker, x=-radius, eternal=True, add_to_scene_entities=False)
+        if hasattr(self, '_initialized'):
+            return
+        self._initialized = True
 
+        if not Quad._corner_maker:
+            Quad._corner_maker = Entity(eternal=True, add_to_scene_entities=False)
+        if not Quad._point_placer:
+            Quad._point_placer = Entity(parent=Quad._corner_maker, x=-radius, eternal=True, add_to_scene_entities=False)
 
         super().__init__()
-        self.vertices = [Vec3(0,0,0), Vec3(1,0,0), Vec3(1,1,0), Vec3(0,1,0)]
         self.radius = radius
         self.mode = mode
         self.thickness = thickness
 
-        _segments = segments
-        _segments += 1
-        if _segments > 1:
-            new_verts = list()
-            QuadMesh.corner_maker.rotation_z = 0
-            QuadMesh.corner_maker.position = Vec3(0,0,0)
-            QuadMesh.corner_maker.rotation_z -= 90/_segments/2
-            QuadMesh.point_placer.position = Vec3(-radius,0,0)
+        self.vertices = [Vec3(0, 0, 0), Vec3(1, 0, 0), Vec3(1, 1, 0), Vec3(0, 1, 0)]
 
-            corner_corrections = (Vec3(radius,radius,0), Vec3(-radius,radius,0), Vec3(-radius,-radius,0), Vec3(radius,-radius,0))
-            for j in range(4):  # 4 corners
-                QuadMesh.corner_maker.position = self.vertices[j] + corner_corrections[j]
+        _segments = segments + 1
+        if _segments > 1:
+            new_verts = []
+            Quad._corner_maker.rotation_z = -90 / _segments / 2
+            Quad._corner_maker.position = Vec3(0, 0, 0)
+            Quad._point_placer.position = Vec3(-radius, 0, 0)
+
+            corrections = [Vec3(radius, radius, 0), Vec3(-radius, radius, 0),
+                           Vec3(-radius, -radius, 0), Vec3(radius, -radius, 0)]
+
+            for j in range(4):
+                Quad._corner_maker.position = self.vertices[j] + corrections[j]
                 for i in range(_segments):
-                    new_verts.append(QuadMesh.point_placer.world_position)
-                    QuadMesh.corner_maker.rotation_z -= 90/_segments
+                    new_verts.append(Quad._point_placer.world_position)
+                    Quad._corner_maker.rotation_z -= 90 / _segments
 
             self.vertices = new_verts
 
+        self.uvs = [Vec2(v[0], v[1]) for v in self.vertices]
 
-        self.uvs = list()
-        for v in self.vertices:
-            self.uvs.append((v[0], v[1]))
-
-        # scale corners horizontally with aspect
+        # aspect correction
         for v in self.vertices:
             if v[0] < .5:
                 v[0] /= aspect
             else:
-                v[0] = lerp(v[0], 1, 1-(1/aspect))
+                v[0] = lerp(v[0], 1, 1 - (1 / aspect))
 
-        # move edges out to keep nice corners
+        # scale correction
         for v in self.vertices:
             if v[0] > .5:
-                v[0] += (scale[0]-1)
+                v[0] += (scale[0] - 1)
             if v[1] > .5:
-                v[1] += (scale[1]-1)
-
+                v[1] += (scale[1] - 1)
 
         # center mesh
         offset = sum(self.vertices) / len(self.vertices)
-        self.vertices = [(v[0]-offset[0], v[1]-offset[1], v[2]-offset[2]) for v in self.vertices]
+        self.vertices = [(v[0] - offset[0], v[1] - offset[1], v[2] - offset[2]) for v in self.vertices]
 
-
-        # make the line connect back to start
         if mode == 'line':
             self.vertices.append(self.vertices[0])
 
+        self.normals = [Vec3.back for _ in self.vertices]
         self.generate()
-        cached_quads[f'QuadMesh({radius}, {segments}, {aspect}, {scale}, {mode}, {thickness})'] = self
-
-
 
 
 if __name__ == '__main__':

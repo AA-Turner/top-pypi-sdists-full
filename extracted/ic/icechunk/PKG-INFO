@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icechunk
-Version: 0.2.18
+Version: 1.0.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -24,6 +24,8 @@ Requires-Dist: hypothesis ; extra == 'test'
 Requires-Dist: pandas-stubs ; extra == 'test'
 Requires-Dist: boto3-stubs[s3] ; extra == 'test'
 Requires-Dist: termcolor ; extra == 'test'
+Requires-Dist: pooch ; extra == 'test'
+Requires-Dist: netcdf4 ; extra == 'test'
 Requires-Dist: pytest-benchmark[histogram] ; extra == 'benchmark'
 Requires-Dist: pytest-xdist ; extra == 'benchmark'
 Requires-Dist: s3fs ; extra == 'benchmark'
@@ -88,6 +90,9 @@ Project-URL: Source Code, https://github.com/earth-mover/icechunk
 <a href="https://github.com/earth-mover/icechunk" target="_blank"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/earth-mover/icechunk?style=for-the-badge&logo=github"></a>
 <a href="https://join.slack.com/t/earthmover-community/shared_invite/zt-2cwje92ir-xU3CfdG8BI~4CJOJy~sceQ" target="_blank"><img alt="Earthmover Community Slack" src="https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white" /></a>
 
+---
+> [!TIP]
+> **Icechunk 1.0 is released!** Better API, more performance and stability
 ---
 
 Icechunk is an open-source (Apache 2.0), transactional storage engine for tensor / ND-array data designed for use on cloud object storage.

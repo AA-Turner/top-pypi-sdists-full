@@ -5,19 +5,19 @@ from dataclasses import dataclass
 from enum import Enum, EnumMeta
 from typing import Literal
 
-from PIL import Image
+from PIL import Image as PILImage
 from genson import SchemaBuilder
 from google.genai import types
 from pydantic import BaseModel
 
 from outlines import cfg, json_schema, regex
+from outlines.inputs import Chat, Image
 from outlines.models.gemini import GeminiTypeAdapter
-from outlines.templates import Vision
 
 if sys.version_info >= (3, 12):
-    from typing import TypedDict, is_typeddict
+    from typing import TypedDict
 else:
-    from typing_extensions import TypedDict, is_typeddict
+    from typing_extensions import TypedDict
 
 
 @pytest.fixture
@@ -37,13 +37,13 @@ def schema():
 def image():
     width, height = 1, 1
     white_background = (255, 255, 255)
-    image = Image.new("RGB", (width, height), white_background)
+    image = PILImage.new("RGB", (width, height), white_background)
 
     # Save to an in-memory bytes buffer and read as png
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     buffer.seek(0)
-    image = Image.open(buffer)
+    image = PILImage.open(buffer)
 
     return image
 
@@ -56,20 +56,61 @@ def adapter():
 def test_gemini_type_adapter_input_text(adapter):
     message = "prompt"
     result = adapter.format_input(message)
-    assert result == {"contents": [message]}
+    assert result == {"contents": [{"text": message}]}
 
 
 def test_gemini_type_adapter_input_vision(adapter, image):
-    input_message = Vision("hello", image)
+    image_input = Image(image)
+    text_input = "hello"
+    result = adapter.format_input([text_input, image_input])
+    assert result == {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": text_input},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": image_input.image_str,
+                        },
+                    },
+                ],
+            },
+        ]
+    }
+
+
+def test_gemini_type_adapter_input_chat(adapter, image):
+    image_input = Image(image)
+    input_message = Chat(messages=[
+        {"role": "assistant", "content": "How can I help you today?"},
+        {"role": "user", "content": [
+            "What does this logo represent?",
+            image_input,
+        ]},
+    ])
     result = adapter.format_input(input_message)
-    image_part = types.Part.from_bytes(
-        data=input_message.image_str,
-        mime_type=input_message.image_format
-    ),
-    assert result == {"contents": [input_message.prompt, image_part]}
+    assert result == {
+        "contents": [
+            {"role": "model", "parts": [{"text": "How can I help you today?"}]},
+            {
+                "role": "user",
+                "parts": [
+                    {"text": "What does this logo represent?"},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": image_input.image_str,
+                        },
+                    },
+                ],
+            },
+        ]
+    }
 
 
-def test_dottxt_type_adapter_input_invalid(adapter):
+def test_gemini_type_adapter_input_invalid(adapter):
     @dataclass
     class Audio:
         file: str

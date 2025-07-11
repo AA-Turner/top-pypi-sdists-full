@@ -28,33 +28,35 @@ class BodyStructure(domainresource.DomainResource):
     __resource_type__ = "BodyStructure"
 
     active: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="active",
         title="Whether this record is in active use",
         description="Whether this body site is in active use.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     active__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_active", title="Extension field for ``active``."
+        default=None, alias="_active", title="Extension field for ``active``."
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Text description",
         description="A summary, characterization or explanation of the body structure.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     excludedStructure: typing.List[fhirtypes.BodyStructureIncludedStructureType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="excludedStructure",
         title="Excluded anatomic locations(s)",
         description=(
@@ -67,17 +69,18 @@ class BodyStructure(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Bodystructure identifier",
         description="Identifier for this instance of the anatomical structure.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     image: typing.List[fhirtypes.AttachmentType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="image",
         title="Attached images",
         description="Image or images used to identify a location.",
@@ -87,7 +90,7 @@ class BodyStructure(domainresource.DomainResource):
     )
 
     includedStructure: typing.List[fhirtypes.BodyStructureIncludedStructureType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="includedStructure",
         title="Included anatomic location(s)",
         description=(
@@ -100,7 +103,7 @@ class BodyStructure(domainresource.DomainResource):
     )
 
     morphology: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="morphology",
         title="Kind of Structure",
         description=(
@@ -110,16 +113,18 @@ class BodyStructure(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     patient: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="patient",
         title="Who this is about",
         description="The person to which the body site belongs.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient"],
         },
@@ -127,9 +132,9 @@ class BodyStructure(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``BodyStructure`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``BodyStructure`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -150,6 +155,23 @@ class BodyStructure(domainresource.DomainResource):
             "patient",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``BodyStructure`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "identifier",
+            "active",
+            "morphology",
+            "description",
+            "patient",
+        ]
+
 
 class BodyStructureIncludedStructure(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -164,7 +186,7 @@ class BodyStructureIncludedStructure(backboneelement.BackboneElement):
     __resource_type__ = "BodyStructureIncludedStructure"
 
     bodyLandmarkOrientation: typing.List[fhirtypes.BodyStructureIncludedStructureBodyLandmarkOrientationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="bodyLandmarkOrientation",
         title="Landmark relative location",
         description=(
@@ -177,7 +199,7 @@ class BodyStructureIncludedStructure(backboneelement.BackboneElement):
     )
 
     laterality: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="laterality",
         title="Code that represents the included structure laterality",
         description=None,
@@ -187,7 +209,7 @@ class BodyStructureIncludedStructure(backboneelement.BackboneElement):
     )
 
     qualifier: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="qualifier",
         title="Code that represents the included structure qualifier",
         description=None,
@@ -197,7 +219,7 @@ class BodyStructureIncludedStructure(backboneelement.BackboneElement):
     )
 
     spatialReference: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="spatialReference",
         title="Cartesian reference for structure",
         description="XY or XYZ-coordinate orientation for structure.",
@@ -209,20 +231,21 @@ class BodyStructureIncludedStructure(backboneelement.BackboneElement):
     )
 
     structure: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="structure",
         title="Code that represents the included structure",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``BodyStructureIncludedStructure`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``BodyStructureIncludedStructure`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -234,6 +257,13 @@ class BodyStructureIncludedStructure(backboneelement.BackboneElement):
             "spatialReference",
             "qualifier",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``BodyStructureIncludedStructure`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "structure"]
 
 
 class BodyStructureIncludedStructureBodyLandmarkOrientation(
@@ -251,7 +281,7 @@ class BodyStructureIncludedStructureBodyLandmarkOrientation(
     __resource_type__ = "BodyStructureIncludedStructureBodyLandmarkOrientation"
 
     clockFacePosition: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="clockFacePosition",
         title="Clockface orientation",
         description=(
@@ -264,7 +294,7 @@ class BodyStructureIncludedStructureBodyLandmarkOrientation(
     )
 
     distanceFromLandmark: typing.List[fhirtypes.BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmarkType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="distanceFromLandmark",
         title="Landmark relative location",
         description=(
@@ -277,7 +307,7 @@ class BodyStructureIncludedStructureBodyLandmarkOrientation(
     )
 
     landmarkDescription: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="landmarkDescription",
         title="Body ]andmark description",
         description=(
@@ -290,7 +320,7 @@ class BodyStructureIncludedStructureBodyLandmarkOrientation(
     )
 
     surfaceOrientation: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="surfaceOrientation",
         title="Relative landmark surface orientation",
         description="The surface area a body location is in relation to a landmark.",
@@ -301,9 +331,9 @@ class BodyStructureIncludedStructureBodyLandmarkOrientation(
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``BodyStructureIncludedStructureBodyLandmarkOrientation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``BodyStructureIncludedStructureBodyLandmarkOrientation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -314,6 +344,13 @@ class BodyStructureIncludedStructureBodyLandmarkOrientation(
             "distanceFromLandmark",
             "surfaceOrientation",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``BodyStructureIncludedStructureBodyLandmarkOrientation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark(
@@ -333,7 +370,7 @@ class BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark(
     )
 
     device: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="device",
         title="Measurement device",
         description="An instrument, tool, analyzer, etc. used in the measurement.",
@@ -345,7 +382,7 @@ class BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark(
     )
 
     value: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="Measured distance from body landmark",
         description="The measured distance (e.g., in cm) from a body landmark.",
@@ -356,8 +393,15 @@ class BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark(
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "device", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``BodyStructureIncludedStructureBodyLandmarkOrientationDistanceFromLandmark`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

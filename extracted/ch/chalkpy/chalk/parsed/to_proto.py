@@ -82,7 +82,10 @@ from chalk.utils import paths
 from chalk.utils.collections import get_unique_item, unwrap_annotated_if_needed
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
 from chalk.utils.json import TJSON
+from chalk.utils.log_with_context import get_logger
 from chalk.utils.source_parsing import should_skip_source_code_parsing
+
+_logger = get_logger(__name__)
 
 _CHALK_ANON_SQL_SOURCE_PREFIX = "__chalk_anon_sql_source_"
 _CHALK_ANON_STREAM_SOURCE_PREFIX = "__chalk_anon_stream_source_"
@@ -831,7 +834,8 @@ class ToProtoConverter:
 
     @classmethod
     def convert_rich_type_info(cls, f: Feature) -> pb.FeatureRichTypeInfo:
-        typ = f.typ.parsed_annotation
+        typ = f.converter.rich_type
+        typ = unwrap_annotated_if_needed(typ)
 
         proto_rich_type: pb.FeatureRichType | None = None
         try:
@@ -840,7 +844,7 @@ class ToProtoConverter:
                 class_type=ToProtoConverter._serialized_rich_type_to_proto(serialized_rich_type)
             )
         except:
-            pass
+            _logger.warning(f"Failed to convert rich type for feature {f}")
         return pb.FeatureRichTypeInfo(
             rich_type_is_same_as_primitive_type=not f.converter.has_nontrivial_rich_type(),
             encoder=None,  # TODO ENCODER,

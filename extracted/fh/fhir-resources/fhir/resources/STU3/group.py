@@ -29,7 +29,7 @@ class Group(domainresource.DomainResource):
     __resource_type__ = "Group"
 
     active: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="active",
         title="Whether this group's record is in active use",
         description=(
@@ -38,14 +38,15 @@ class Group(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     active__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_active", title="Extension field for ``active``."
+        default=None, alias="_active", title="Extension field for ``active``."
     )
 
     actual: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actual",
         title="Descriptive or actual",
         description=(
@@ -55,15 +56,16 @@ class Group(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     actual__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_actual", title="Extension field for ``actual``."
+        default=None, alias="_actual", title="Extension field for ``actual``."
     )
 
     characteristic: typing.List[fhirtypes.GroupCharacteristicType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="characteristic",
         title="Trait of group members",
         description="Identifies the traits shared by members of the group.",
@@ -73,7 +75,7 @@ class Group(domainresource.DomainResource):
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Kind of Group members",
         description=(
@@ -82,21 +84,23 @@ class Group(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Unique id",
         description="A unique business identifier for this group.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     member: typing.List[fhirtypes.GroupMemberType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="member",
         title="Who or what is in group",
         description="Identifies the resource instances that are members of the group.",
@@ -106,7 +110,7 @@ class Group(domainresource.DomainResource):
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Label for Group",
         description=(
@@ -115,14 +119,15 @@ class Group(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     quantity: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="Number of members",
         description=(
@@ -130,14 +135,15 @@ class Group(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     quantity__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_quantity", title="Extension field for ``quantity``."
+        default=None, alias="_quantity", title="Extension field for ``quantity``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="person | animal | practitioner | device | medication | substance",
         description=(
@@ -146,6 +152,7 @@ class Group(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -160,14 +167,14 @@ class Group(domainresource.DomainResource):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Group`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Group`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -187,6 +194,24 @@ class Group(domainresource.DomainResource):
             "quantity",
             "characteristic",
             "member",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Group`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "active",
+            "type",
+            "actual",
+            "code",
+            "name",
+            "quantity",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -213,7 +238,7 @@ class GroupCharacteristic(backboneelement.BackboneElement):
     __resource_type__ = "GroupCharacteristic"
 
     code: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="code",
         title="Kind of characteristic",
         description="A code that identifies the kind of trait being asserted.",
@@ -223,7 +248,7 @@ class GroupCharacteristic(backboneelement.BackboneElement):
     )
 
     exclude: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="exclude",
         title="Group includes or excludes",
         description=(
@@ -236,11 +261,11 @@ class GroupCharacteristic(backboneelement.BackboneElement):
         },
     )
     exclude__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_exclude", title="Extension field for ``exclude``."
+        default=None, alias="_exclude", title="Extension field for ``exclude``."
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Period over which characteristic is tested",
         description=(
@@ -253,7 +278,7 @@ class GroupCharacteristic(backboneelement.BackboneElement):
     )
 
     valueBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBoolean",
         title="Value held by characteristic",
         description=(
@@ -268,11 +293,13 @@ class GroupCharacteristic(backboneelement.BackboneElement):
         },
     )
     valueBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueBoolean", title="Extension field for ``valueBoolean``."
+        default=None,
+        alias="_valueBoolean",
+        title="Extension field for ``valueBoolean``.",
     )
 
     valueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCodeableConcept",
         title="Value held by characteristic",
         description=(
@@ -288,7 +315,7 @@ class GroupCharacteristic(backboneelement.BackboneElement):
     )
 
     valueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="Value held by characteristic",
         description=(
@@ -304,7 +331,7 @@ class GroupCharacteristic(backboneelement.BackboneElement):
     )
 
     valueRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueRange",
         title="Value held by characteristic",
         description=(
@@ -321,9 +348,9 @@ class GroupCharacteristic(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``GroupCharacteristic`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``GroupCharacteristic`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -337,6 +364,13 @@ class GroupCharacteristic(backboneelement.BackboneElement):
             "exclude",
             "period",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``GroupCharacteristic`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -385,7 +419,7 @@ class GroupMember(backboneelement.BackboneElement):
     __resource_type__ = "GroupMember"
 
     entity: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="entity",
         title="Reference to the group member",
         description=(
@@ -406,7 +440,7 @@ class GroupMember(backboneelement.BackboneElement):
     )
 
     inactive: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="inactive",
         title="If member is no longer in group",
         description=(
@@ -418,11 +452,11 @@ class GroupMember(backboneelement.BackboneElement):
         },
     )
     inactive__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_inactive", title="Extension field for ``inactive``."
+        default=None, alias="_inactive", title="Extension field for ``inactive``."
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Period member belonged to the group",
         description="The period that the member was in the group, if known.",
@@ -433,8 +467,15 @@ class GroupMember(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``GroupMember`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``GroupMember`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "entity", "period", "inactive"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``GroupMember`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

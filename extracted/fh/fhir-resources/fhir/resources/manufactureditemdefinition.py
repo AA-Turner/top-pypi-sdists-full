@@ -26,7 +26,7 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
     __resource_type__ = "ManufacturedItemDefinition"
 
     component: typing.List[fhirtypes.ManufacturedItemDefinitionComponentType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="component",
         title=(
             "Physical parts of the manufactured item, that it is intrisically made "
@@ -36,21 +36,23 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Unique identifier",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     ingredient: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="ingredient",
         title=(
             "The ingredients of this manufactured item. Only needed if these are "
@@ -63,11 +65,12 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     manufacturedDoseForm: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="manufacturedDoseForm",
         title="Dose form as manufactured (before any necessary transformation)",
         description=(
@@ -76,23 +79,25 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     manufacturer: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manufacturer",
         title="Manufacturer of the item, one of several possible",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     marketingStatus: typing.List[fhirtypes.MarketingStatusType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="marketingStatus",
         title=(
             "Allows specifying that an item is on the market for sale, or that it "
@@ -101,34 +106,37 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="A descriptive name applied to this item",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     property: typing.List[fhirtypes.ManufacturedItemDefinitionPropertyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="property",
         title="General characteristics of this item",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | active | retired | unknown",
         description=(
@@ -137,6 +145,7 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -144,11 +153,11 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     unitOfPresentation: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="unitOfPresentation",
         title="The \u201creal-world\u201d units in which the quantity of the item is described",
         description=(
@@ -157,14 +166,15 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ManufacturedItemDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ManufacturedItemDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -174,6 +184,28 @@ class ManufacturedItemDefinition(domainresource.DomainResource):
             "text",
             "contained",
             "extension",
+            "modifierExtension",
+            "identifier",
+            "status",
+            "name",
+            "manufacturedDoseForm",
+            "unitOfPresentation",
+            "manufacturer",
+            "marketingStatus",
+            "ingredient",
+            "property",
+            "component",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ManufacturedItemDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "modifierExtension",
             "identifier",
             "status",
@@ -211,7 +243,7 @@ class ManufacturedItemDefinitionComponent(backboneelement.BackboneElement):
     __resource_type__ = "ManufacturedItemDefinitionComponent"
 
     amount: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title=(
             "The measurable amount of total quantity of all substances in the "
@@ -220,21 +252,23 @@ class ManufacturedItemDefinitionComponent(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     component: typing.List[fhirtypes.ManufacturedItemDefinitionComponentType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="component",
         title="A component that this component contains or is made from",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     constituent: typing.List[fhirtypes.ManufacturedItemDefinitionComponentConstituentType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="constituent",
         title=(
             "A reference to a constituent of the manufactured item as a whole, "
@@ -246,11 +280,12 @@ class ManufacturedItemDefinitionComponent(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     function: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="function",
         title=(
             "The function of this component within the item e.g. delivers active "
@@ -259,38 +294,56 @@ class ManufacturedItemDefinitionComponent(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     property: typing.List[fhirtypes.ManufacturedItemDefinitionPropertyType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="property",
         title="General characteristics of this component",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Defining type of the component e.g. shell, layer, ink",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ManufacturedItemDefinitionComponent`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ManufacturedItemDefinitionComponent`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "type",
+            "function",
+            "amount",
+            "constituent",
+            "property",
+            "component",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ManufacturedItemDefinitionComponent`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "type",
             "function",
@@ -315,7 +368,7 @@ class ManufacturedItemDefinitionComponentConstituent(backboneelement.BackboneEle
     __resource_type__ = "ManufacturedItemDefinitionComponentConstituent"
 
     amount: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title=(
             "The measurable amount of the substance, expressable in different ways "
@@ -324,33 +377,36 @@ class ManufacturedItemDefinitionComponentConstituent(backboneelement.BackboneEle
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     function: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="function",
         title="The function of this constituent within the component e.g. binder",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     hasIngredient: typing.List[fhirtypes.CodeableReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="hasIngredient",
         title="The ingredient that is the constituent of the given component",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Ingredient"],
         },
     )
 
     location: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title=(
             "The physical location of the constituent/ingredient within the "
@@ -364,14 +420,15 @@ class ManufacturedItemDefinitionComponentConstituent(backboneelement.BackboneEle
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ManufacturedItemDefinitionComponentConstituent`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ManufacturedItemDefinitionComponentConstituent`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -382,6 +439,13 @@ class ManufacturedItemDefinitionComponentConstituent(backboneelement.BackboneEle
             "function",
             "hasIngredient",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ManufacturedItemDefinitionComponentConstituent`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "amount", "location", "function", "hasIngredient"]
 
 
 class ManufacturedItemDefinitionProperty(backboneelement.BackboneElement):
@@ -395,22 +459,24 @@ class ManufacturedItemDefinitionProperty(backboneelement.BackboneElement):
     __resource_type__ = "ManufacturedItemDefinitionProperty"
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="A code expressing the type of characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     valueAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueAttachment",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -418,28 +484,32 @@ class ManufacturedItemDefinitionProperty(backboneelement.BackboneElement):
     )
 
     valueBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBoolean",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
         },
     )
     valueBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueBoolean", title="Extension field for ``valueBoolean``."
+        default=None,
+        alias="_valueBoolean",
+        title="Extension field for ``valueBoolean``.",
     )
 
     valueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCodeableConcept",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -447,44 +517,49 @@ class ManufacturedItemDefinitionProperty(backboneelement.BackboneElement):
     )
 
     valueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDate",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
         },
     )
     valueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDate", title="Extension field for ``valueDate``."
+        default=None, alias="_valueDate", title="Extension field for ``valueDate``."
     )
 
     valueMarkdown: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueMarkdown",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
         },
     )
     valueMarkdown__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueMarkdown", title="Extension field for ``valueMarkdown``."
+        default=None,
+        alias="_valueMarkdown",
+        title="Extension field for ``valueMarkdown``.",
     )
 
     valueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -492,12 +567,13 @@ class ManufacturedItemDefinitionProperty(backboneelement.BackboneElement):
     )
 
     valueReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueReference",
         title="A value for the characteristic",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": False,
@@ -508,13 +584,30 @@ class ManufacturedItemDefinitionProperty(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ManufacturedItemDefinitionProperty`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ManufacturedItemDefinitionProperty`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "type",
+            "valueCodeableConcept",
+            "valueQuantity",
+            "valueDate",
+            "valueBoolean",
+            "valueMarkdown",
+            "valueAttachment",
+            "valueReference",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ManufacturedItemDefinitionProperty`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "type",
             "valueCodeableConcept",

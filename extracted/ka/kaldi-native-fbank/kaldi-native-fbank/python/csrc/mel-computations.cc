@@ -23,6 +23,8 @@
 #include "kaldi-native-fbank/csrc/mel-computations.h"
 #include "kaldi-native-fbank/python/csrc/utils.h"
 
+#define C_CONTIGUOUS py::detail::npy_api::constants::NPY_ARRAY_C_CONTIGUOUS_
+
 namespace knf {
 
 static void PybindMelBanksOptions(py::module &m) {  // NOLINT
@@ -38,6 +40,8 @@ static void PybindMelBanksOptions(py::module &m) {  // NOLINT
       .def_readwrite("htk_mode", &PyClass::htk_mode)
       .def_readwrite("is_librosa", &PyClass::is_librosa)
       .def_readwrite("norm", &PyClass::norm)
+      .def_readwrite("use_slaney_mel_scale", &PyClass::use_slaney_mel_scale)
+      .def_readwrite("floor_to_int_bin", &PyClass::floor_to_int_bin)
       .def("__str__",
            [](const PyClass &self) -> std::string { return self.ToString(); })
       .def("as_dict",
@@ -55,6 +59,50 @@ static void PybindMelBanksOptions(py::module &m) {  // NOLINT
 
 void PybindMelComputations(py::module &m) {  // NOLINT
   PybindMelBanksOptions(m);
+  using PyClass = MelBanks;
+  py::class_<PyClass>(m, "MelBanks")
+      .def(py::init<const MelBanksOptions &, const FrameExtractionOptions &,
+                    float>(),
+           py::arg("opts") = MelBanksOptions{},
+           py::arg("frame_opts") = FrameExtractionOptions{},
+           py::arg("vtln_warp_factor") = 1.0,
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "compute",
+          [](const PyClass &self, const py::array_t<float> &fft_energies) {
+            if (!(C_CONTIGUOUS == (fft_energies.flags() & C_CONTIGUOUS))) {
+              throw py::value_error(
+                  "input fft_energies should be contiguous. Please use "
+                  "np.ascontiguousarray(fft_energies)");
+            }
+
+            int num_dim = fft_energies.ndim();
+            if (num_dim != 1) {
+              std::ostringstream os;
+              os << "Expect an array of 1 dimension (num_fft_bins/2+1,)"
+                    "Given dim: "
+                 << num_dim << "\n";
+              throw py::value_error(os.str());
+            }
+
+            py::array_t<float> ans(self.NumBins());
+
+            py::buffer_info buf = ans.request();
+            auto p = static_cast<float *>(buf.ptr);
+            self.Compute(fft_energies.data(), p);
+
+            return ans;
+          },
+          py::arg("fft_energies"))
+      .def_property_readonly("dim", &PyClass::NumBins)
+      .def_static("inverse_mel_scale", &PyClass::InverseMelScale,
+                  py::arg("mel"))
+      .def_static("mel_scale", &PyClass::MelScale, py::arg("hz"))
+      .def_static("inverse_mel_scale_slaney", &PyClass::InverseMelScaleSlaney,
+                  py::arg("mel"))
+      .def_static("mel_scale_slaney", &PyClass::MelScaleSlaney, py::arg("hz"))
+
+      ;
 }
 
 }  // namespace knf

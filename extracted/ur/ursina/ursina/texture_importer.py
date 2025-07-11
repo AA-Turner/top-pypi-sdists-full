@@ -8,29 +8,42 @@ from ursina.texture import Texture
 
 imported_textures = dict()
 file_types = ('.tif', '.jpg', '.jpeg', '.png', '.gif')
-folders = [ # folder search order
-    application.compressed_textures_folder,
-    application.asset_folder,
-    application.internal_textures_folder,
-    ]
 textureless = False
 
+use_thumbhash = False
+thumbhashes = None
+thumbhash_path = application.textures_compressed_folder / 'thumbhashes.json'
 
-def load_texture(name, path=None, use_cache=True, filtering='default'):
-    if textureless:
-        return None
+
+def load_texture(name, folder:Path=None, use_cache=True, filtering='default'):
+    if textureless and '*' not in name:
+        return Texture(application.internal_textures_folder/'white_cube.png')
 
     if use_cache and name in imported_textures:
         return copy(imported_textures[name])
 
+    if use_thumbhash:
+        global thumbhashes
+        import thumbhash
+        import json
+        if thumbhashes is None:
+            with thumbhash_path.open('r') as file:
+                thumbhashes = json.load(file)
 
-    _folders = folders
-    # print('looking in:', _folders)
-    if path:
-        if isinstance(path, str):
-            _folders = (Path(path),)
-        else:
-            _folders = (path,)
+        if name in thumbhashes:
+            image = thumbhash.thumbhash_to_image(thumbhashes[name])
+            tex = Texture(image, filtering='bilinear')
+            imported_textures[name] = tex
+            return tex
+
+    if folder is not None:
+        if not isinstance(folder, Path):
+            raise TypeError(f'folder must be a Path, not a {type(folder)}')
+        _folders = (folder,)
+
+    else:
+        _folders = (application.textures_compressed_folder, application.asset_folder, application.internal_textures_folder)
+
 
     if name.endswith('.mp4'):
         for folder in _folders:
@@ -74,8 +87,8 @@ def compress_textures(name=''):
         return e
 
 
-    if not application.compressed_textures_folder.exists():
-        application.compressed_textures_folder.mkdir()
+    if not application.textures_compressed_folder.exists():
+        application.textures_compressed_folder.mkdir()
 
 
     file_type = '.*'
@@ -107,18 +120,40 @@ def compress_textures(name=''):
         # print('............', image.mode)
         if image and image.mode != 'RGBA' and max(image.size) > 512:
             image.save(
-                application.compressed_textures_folder / (Path(f).stem + '.jpg'),
+                application.textures_compressed_folder / (Path(f).stem + '.jpg'),
                 'JPEG',
                 quality=80,
                 optimize=True,
                 progressive=True
                 )
-            print('    compressing to jpg:', application.compressed_textures_folder / (f.stem + '.jpg'))
+            print('    compressing to jpg:', application.textures_compressed_folder / (f.stem + '.jpg'))
             continue
         else:
-            image.save(application.compressed_textures_folder / (f.stem + '.png'), 'PNG')
-            print('    compressing to png:', application.compressed_textures_folder / (f.stem + '.png'))
+            image.save(application.textures_compressed_folder / (f.stem + '.png'), 'PNG')
+            print('    compressing to png:', application.textures_compressed_folder / (f.stem + '.png'))
 
+
+def generate_thumbhashes():
+    import json
+    thumbhashes = dict()
+    # for suffix in ('jpg', 'jpeg', 'png', 'tif'):
+    for image_path in application.asset_folder.glob('**/*.*'):
+        if image_path.suffix not in ('.jpg', '.jpeg', '.png', '.tif'):
+            continue
+        if image_path.stem in thumbhashes:
+            continue
+
+        print('making thumbhash for:', image_path.name)
+        with image_path.open('rb') as image_file:
+            thumbhashes[image_path.stem] = image_to_thumbhash(image_file)
+            # image = thumbhash.thumbhash_to_image(thumbhashes[name], base_size=128)
+            # tex = Texture(image)
+
+    if not application.textures_compressed_folder.exists():
+        application.textures_compressed_folder.mkdir()
+
+    with thumbhash_path.open('w') as file:
+        json.dump(thumbhashes, file, indent=0)
 
 
 if __name__ == '__main__':

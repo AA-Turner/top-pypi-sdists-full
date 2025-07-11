@@ -27,7 +27,7 @@ class DeviceComponent(domainresource.DomainResource):
     __resource_type__ = "DeviceComponent"
 
     identifier: fhirtypes.IdentifierType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="identifier",
         title="Instance id assigned by the software stack",
         description=(
@@ -36,11 +36,12 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     languageCode: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="languageCode",
         title=(
             "Language code for the human-readable text strings produced by the "
@@ -53,11 +54,12 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     lastSystemChange: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="lastSystemChange",
         title="Recent system change timestamp",
         description=(
@@ -66,16 +68,17 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     lastSystemChange__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_lastSystemChange",
         title="Extension field for ``lastSystemChange``.",
     )
 
     measurementPrinciple: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="measurementPrinciple",
         title=(
             "other | chemical | electrical | impedance | nuclear | optical | "
@@ -87,6 +90,7 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": [
@@ -105,13 +109,13 @@ class DeviceComponent(domainresource.DomainResource):
         },
     )
     measurementPrinciple__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_measurementPrinciple",
         title="Extension field for ``measurementPrinciple``.",
     )
 
     operationalStatus: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="operationalStatus",
         title=(
             "Current operational status of the component, for example On, Off or "
@@ -123,11 +127,12 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     parameterGroup: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="parameterGroup",
         title="Current supported parameter group",
         description=(
@@ -136,11 +141,12 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     parent: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="parent",
         title="Parent resource link",
         description=(
@@ -149,13 +155,14 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["DeviceComponent"],
         },
     )
 
     productionSpecification: typing.List[fhirtypes.DeviceComponentProductionSpecificationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productionSpecification",
         title="Specification details such as Component Revisions, or Serial Numbers",
         description=(
@@ -164,11 +171,12 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     source: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="source",
         title="Top-level device resource link",
         description=(
@@ -177,13 +185,14 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Device"],
         },
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="What kind of component it is",
         description=(
@@ -192,14 +201,15 @@ class DeviceComponent(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceComponent`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceComponent`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -210,6 +220,27 @@ class DeviceComponent(domainresource.DomainResource):
             "contained",
             "extension",
             "modifierExtension",
+            "identifier",
+            "type",
+            "lastSystemChange",
+            "source",
+            "parent",
+            "operationalStatus",
+            "parameterGroup",
+            "measurementPrinciple",
+            "productionSpecification",
+            "languageCode",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceComponent`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "identifier",
             "type",
             "lastSystemChange",
@@ -236,7 +267,7 @@ class DeviceComponentProductionSpecification(backboneelement.BackboneElement):
     __resource_type__ = "DeviceComponentProductionSpecification"
 
     componentId: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="componentId",
         title="Internal component unique identification",
         description=(
@@ -247,24 +278,28 @@ class DeviceComponentProductionSpecification(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     productionSpec: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productionSpec",
         title="A printable string defining the component",
         description="The printable string defining the component.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     productionSpec__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_productionSpec", title="Extension field for ``productionSpec``."
+        default=None,
+        alias="_productionSpec",
+        title="Extension field for ``productionSpec``.",
     )
 
     specType: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specType",
         title=(
             "Type or kind of production specification, for example serial number or"
@@ -276,14 +311,15 @@ class DeviceComponentProductionSpecification(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceComponentProductionSpecification`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceComponentProductionSpecification`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -293,3 +329,10 @@ class DeviceComponentProductionSpecification(backboneelement.BackboneElement):
             "componentId",
             "productionSpec",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceComponentProductionSpecification`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "specType", "componentId", "productionSpec"]

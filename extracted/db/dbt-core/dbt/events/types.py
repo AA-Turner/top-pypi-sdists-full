@@ -709,7 +709,16 @@ class ModelParamUsageDeprecation(WarnLevel):
         return "D032"
 
     def message(self) -> str:
-        description = "Usage of `--models`, `--model`, and `-m` is deprecated in favor of `--resource-type model --select`"
+        description = "Usage of `--models`, `--model`, and `-m` is deprecated in favor of `--select` or `-s`."
+        return line_wrap_message(deprecation_tag(description))
+
+
+class SourceOverrideDeprecation(WarnLevel):
+    def code(self) -> str:
+        return "D035"
+
+    def message(self) -> str:
+        description = f"The source property `overrides` is deprecated but was found on source `{self.source_name}` in file `{self.file}`. Instead, `enabled` should be used to disable the unwanted source."
         return line_wrap_message(deprecation_tag(description))
 
 

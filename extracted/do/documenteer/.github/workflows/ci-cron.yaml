@@ -4,21 +4,70 @@
 
 name: Periodic CI
 
+env:
+  PYTHON_VERSION: "3.13"
+
 "on":
   schedule:
     - cron: "0 12 * * 1"
+  workflow_dispatch: {}
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Run tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          tox-envs: 'lint'
+          use-cache: false
+          tox-plugins: tox-uv
+
+      - name: Report status
+        if: failure()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic lint for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
+
   test:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
         python-version:
-          - "3.11"
           - "3.12"
+          - "3.13"
         sphinx-version:
           - "7"
+          - "8"
           - "dev"
 
     steps:
@@ -41,17 +90,26 @@ jobs:
           npm install
           npm run build
 
-      - name: Install graphviz
-        run: |
-          sudo apt-get update
-          sudo apt-get install graphviz
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2
 
       - name: Run tests in tox
         uses: lsst-sqre/run-tox@v1
         with:
           python-version: ${{ matrix.python-version }}
-          tox-envs: "lint,typing-sphinx${{ matrix.sphinx-version }},py-test-sphinx${{ matrix.sphinx-version }},demo"
+          tox-envs: "typing-sphinx${{ matrix.sphinx-version }},py-test-sphinx${{ matrix.sphinx-version }},demo"
           use-cache: false
+          tox-plugins: tox-uv
+
+      - name: Report status
+        if: failure()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic test for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
   docs:
     runs-on: ubuntu-latest
@@ -61,12 +119,42 @@ jobs:
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'npm'
+          node-version-file: '.nvmrc'
+
+      - name: Authenticate GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NPM_PKG_TOKEN}" > ~/.npmrc
+        env:
+          NPM_PKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2
+
       - name: Build docs in tox
         uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: "docs,docs-lint"
           use-cache: false
+          tox-plugins: tox-uv
+
+      - name: Report status
+        if: failure()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic documentation test for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
   pypi:
     runs-on: ubuntu-latest
@@ -95,3 +183,13 @@ jobs:
         uses: lsst-sqre/build-and-publish-to-pypi@v3
         with:
           upload: false
+
+      - name: Report status
+        if: failure()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic packaging test for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}

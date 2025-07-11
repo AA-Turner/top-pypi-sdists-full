@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphiti-core
-Version: 0.15.1
+Version: 0.17.0
 Summary: A temporal graph building library
 Project-URL: Homepage, https://help.getzep.com/graphiti/graphiti/overview
 Project-URL: Repository, https://github.com/getzep/graphiti
@@ -264,6 +264,24 @@ Please see the [server README](./server/README.md) for more information.
 In addition to the Neo4j and OpenAi-compatible credentials, Graphiti also has a few optional environment variables.
 If you are using one of our supported models, such as Anthropic or Voyage models, the necessary environment variables
 must be set.
+
+### Database Configuration
+
+Database names are configured directly in the driver constructors:
+
+- **Neo4j**: Database name defaults to `neo4j` (hardcoded in Neo4jDriver)
+- **FalkorDB**: Database name defaults to `default_db` (hardcoded in FalkorDriver)
+
+To use a different database name, pass the `database` parameter when creating the driver:
+
+```python
+from graphiti_core.driver.neo4j_driver import Neo4jDriver
+
+# Use custom database name
+driver = Neo4jDriver(uri="bolt://localhost:7687", user="neo4j", password="password", database="my_db")
+```
+
+### Performance Configuration
 
 `USE_PARALLEL_RUNTIME` is an optional boolean variable that can be set to true if you wish
 to enable Neo4j's parallel runtime feature for several of our search queries.

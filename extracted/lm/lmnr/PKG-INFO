@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.6.18
+Version: 0.6.19
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -12,7 +12,7 @@ Requires-Dist: opentelemetry-sdk>=1.33.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.33.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.33.0
 Requires-Dist: opentelemetry-semantic-conventions>=0.54b0
-Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.8
+Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.9
 Requires-Dist: tqdm>=4.0
 Requires-Dist: tenacity>=8.0
 Requires-Dist: grpcio>=1
@@ -36,7 +36,6 @@ Requires-Dist: opentelemetry-instrumentation-mcp>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-milvus>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-mistralai>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-ollama>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-openai>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-pinecone>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-qdrant>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-replicate>=0.40.12 ; extra == 'all'
@@ -62,7 +61,6 @@ Requires-Dist: opentelemetry-instrumentation-mcp>=0.40.12 ; extra == 'mcp'
 Requires-Dist: opentelemetry-instrumentation-milvus>=0.40.12 ; extra == 'milvus'
 Requires-Dist: opentelemetry-instrumentation-mistralai>=0.40.12 ; extra == 'mistralai'
 Requires-Dist: opentelemetry-instrumentation-ollama>=0.40.12 ; extra == 'ollama'
-Requires-Dist: opentelemetry-instrumentation-openai>=0.40.12 ; extra == 'openai'
 Requires-Dist: opentelemetry-instrumentation-pinecone>=0.40.12 ; extra == 'pinecone'
 Requires-Dist: opentelemetry-instrumentation-qdrant>=0.40.12 ; extra == 'qdrant'
 Requires-Dist: opentelemetry-instrumentation-replicate>=0.40.12 ; extra == 'replicate'
@@ -91,7 +89,6 @@ Provides-Extra: mcp
 Provides-Extra: milvus
 Provides-Extra: mistralai
 Provides-Extra: ollama
-Provides-Extra: openai
 Provides-Extra: pinecone
 Provides-Extra: qdrant
 Provides-Extra: replicate

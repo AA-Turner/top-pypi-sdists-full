@@ -29,7 +29,7 @@ class ImplementationGuide(domainresource.DomainResource):
     __resource_type__ = "ImplementationGuide"
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for the publisher",
         description=(
@@ -38,11 +38,12 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     copyright: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copyright",
         title="Use and/or publishing restrictions",
         description=(
@@ -55,11 +56,11 @@ class ImplementationGuide(domainresource.DomainResource):
         },
     )
     copyright__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_copyright", title="Extension field for ``copyright``."
+        default=None, alias="_copyright", title="Extension field for ``copyright``."
     )
 
     copyrightLabel: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="copyrightLabel",
         title="Copyright holder and year(s)",
         description=(
@@ -73,11 +74,13 @@ class ImplementationGuide(domainresource.DomainResource):
         },
     )
     copyrightLabel__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_copyrightLabel", title="Extension field for ``copyrightLabel``."
+        default=None,
+        alias="_copyrightLabel",
+        title="Extension field for ``copyrightLabel``.",
     )
 
     date: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date last changed",
         description=(
@@ -89,14 +92,15 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     definition: fhirtypes.ImplementationGuideDefinitionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="definition",
         title="Information needed to build the IG",
         description=(
@@ -109,7 +113,7 @@ class ImplementationGuide(domainresource.DomainResource):
     )
 
     dependsOn: typing.List[fhirtypes.ImplementationGuideDependsOnType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dependsOn",
         title="Another Implementation guide this depends on",
         description=(
@@ -119,11 +123,12 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Natural language description of the implementation guide",
         description=(
@@ -135,11 +140,11 @@ class ImplementationGuide(domainresource.DomainResource):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     experimental: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="experimental",
         title="For testing purposes, not real usage",
         description=(
@@ -149,14 +154,17 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     experimental__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_experimental", title="Extension field for ``experimental``."
+        default=None,
+        alias="_experimental",
+        title="Extension field for ``experimental``.",
     )
 
     fhirVersion: typing.List[fhirtypes.CodeType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fhirVersion",
         title="FHIR Version(s) this Implementation Guide targets",
         description=(
@@ -167,15 +175,16 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     fhirVersion__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_fhirVersion", title="Extension field for ``fhirVersion``."
+        default=None, alias="_fhirVersion", title="Extension field for ``fhirVersion``."
     )
 
     global_fhir: typing.List[fhirtypes.ImplementationGuideGlobalType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="global",
         title="Profiles that apply globally",
         description=(
@@ -184,11 +193,12 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title=(
             "Additional identifier for the implementation guide (business "
@@ -201,11 +211,12 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     jurisdiction: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="Intended jurisdiction for implementation guide (if applicable)",
         description=(
@@ -214,11 +225,12 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     license: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="license",
         title="SPDX license code for this IG (or not-open-source)",
         description=(
@@ -227,14 +239,15 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     license__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_license", title="Extension field for ``license``."
+        default=None, alias="_license", title="Extension field for ``license``."
     )
 
     manifest: fhirtypes.ImplementationGuideManifestType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manifest",
         title="Information about an assembled IG",
         description=(
@@ -247,7 +260,7 @@ class ImplementationGuide(domainresource.DomainResource):
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name for this implementation guide (computer friendly)",
         description=(
@@ -257,15 +270,16 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     packageId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="packageId",
         title="NPM Package name for IG",
         description=(
@@ -276,15 +290,16 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     packageId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_packageId", title="Extension field for ``packageId``."
+        default=None, alias="_packageId", title="Extension field for ``packageId``."
     )
 
     publisher: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="publisher",
         title="Name of the publisher/steward (organization or individual)",
         description=(
@@ -293,14 +308,15 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     publisher__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_publisher", title="Extension field for ``publisher``."
+        default=None, alias="_publisher", title="Extension field for ``publisher``."
     )
 
     purpose: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="purpose",
         title="Why this implementation guide is defined",
         description=(
@@ -312,11 +328,11 @@ class ImplementationGuide(domainresource.DomainResource):
         },
     )
     purpose__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_purpose", title="Extension field for ``purpose``."
+        default=None, alias="_purpose", title="Extension field for ``purpose``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | active | retired | unknown",
         description=(
@@ -325,6 +341,7 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -332,11 +349,11 @@ class ImplementationGuide(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Name for this implementation guide (human friendly)",
         description=(
@@ -344,14 +361,15 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title=(
             "Canonical identifier for this implementation guide, represented as a "
@@ -369,15 +387,16 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     useContext: typing.List[fhirtypes.UsageContextType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="useContext",
         title="The context that the content is intended to support",
         description=(
@@ -389,11 +408,12 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Business version of the implementation guide",
         description=(
@@ -407,14 +427,15 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     versionAlgorithmCoding: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versionAlgorithmCoding",
         title="How to compare versions",
         description=(
@@ -423,6 +444,7 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e versionAlgorithm[x]
             "one_of_many": "versionAlgorithm",
             "one_of_many_required": False,
@@ -430,7 +452,7 @@ class ImplementationGuide(domainresource.DomainResource):
     )
 
     versionAlgorithmString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versionAlgorithmString",
         title="How to compare versions",
         description=(
@@ -439,22 +461,23 @@ class ImplementationGuide(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e versionAlgorithm[x]
             "one_of_many": "versionAlgorithm",
             "one_of_many_required": False,
         },
     )
     versionAlgorithmString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_versionAlgorithmString",
         title="Extension field for ``versionAlgorithmString``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuide`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuide`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -490,6 +513,37 @@ class ImplementationGuide(domainresource.DomainResource):
             "global",
             "definition",
             "manifest",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuide`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "url",
+            "identifier",
+            "version",
+            "versionAlgorithmString",
+            "versionAlgorithmCoding",
+            "name",
+            "title",
+            "status",
+            "experimental",
+            "date",
+            "publisher",
+            "contact",
+            "useContext",
+            "jurisdiction",
+            "packageId",
+            "license",
+            "fhirVersion",
+            "dependsOn",
+            "global",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -541,7 +595,7 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDefinition"
 
     grouping: typing.List[fhirtypes.ImplementationGuideDefinitionGroupingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="grouping",
         title="Grouping used to present related resources in the IG",
         description=(
@@ -554,7 +608,7 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
     )
 
     page: fhirtypes.ImplementationGuideDefinitionPageType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="page",
         title="Page/Section in the Guide",
         description=(
@@ -567,7 +621,7 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
     )
 
     parameter: typing.List[fhirtypes.ImplementationGuideDefinitionParameterType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="parameter",
         title="Defines how IG is built by tools",
         description=(
@@ -581,7 +635,7 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
     )
 
     resource: typing.List[fhirtypes.ImplementationGuideDefinitionResourceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="resource",
         title="Resource in the implementation guide",
         description=(
@@ -596,7 +650,7 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
     )
 
     template: typing.List[fhirtypes.ImplementationGuideDefinitionTemplateType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="template",
         title="A template for building resources",
         description=None,
@@ -607,9 +661,9 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -621,6 +675,13 @@ class ImplementationGuideDefinition(backboneelement.BackboneElement):
             "parameter",
             "template",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class ImplementationGuideDefinitionGrouping(backboneelement.BackboneElement):
@@ -636,7 +697,7 @@ class ImplementationGuideDefinitionGrouping(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDefinitionGrouping"
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Human readable text describing the package",
         description=None,
@@ -645,11 +706,11 @@ class ImplementationGuideDefinitionGrouping(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Descriptive name for the package",
         description=(
@@ -662,16 +723,23 @@ class ImplementationGuideDefinitionGrouping(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDefinitionGrouping`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDefinitionGrouping`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "name", "description"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDefinitionGrouping`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -698,7 +766,7 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDefinitionPage"
 
     generation: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="generation",
         title="html | markdown | xml | generated",
         description="A code that indicates how the page is generated.",
@@ -711,11 +779,11 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
         },
     )
     generation__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_generation", title="Extension field for ``generation``."
+        default=None, alias="_generation", title="Extension field for ``generation``."
     )
 
     name: fhirtypes.UrlType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name of the page when published",
         description="The url by which the page should be known when published.",
@@ -725,11 +793,11 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     page: typing.List[fhirtypes.ImplementationGuideDefinitionPageType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="page",
         title="Nested Pages / Sections",
         description="Nested Pages/Sections under this page.",
@@ -739,7 +807,7 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
     )
 
     sourceMarkdown: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sourceMarkdown",
         title="Source for page",
         description="Indicates the URL or the actual content to provide for the page.",
@@ -751,11 +819,13 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
         },
     )
     sourceMarkdown__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sourceMarkdown", title="Extension field for ``sourceMarkdown``."
+        default=None,
+        alias="_sourceMarkdown",
+        title="Extension field for ``sourceMarkdown``.",
     )
 
     sourceString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sourceString",
         title="Source for page",
         description="Indicates the URL or the actual content to provide for the page.",
@@ -767,11 +837,13 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
         },
     )
     sourceString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sourceString", title="Extension field for ``sourceString``."
+        default=None,
+        alias="_sourceString",
+        title="Extension field for ``sourceString``.",
     )
 
     sourceUrl: fhirtypes.UrlType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sourceUrl",
         title="Source for page",
         description="Indicates the URL or the actual content to provide for the page.",
@@ -783,11 +855,11 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
         },
     )
     sourceUrl__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sourceUrl", title="Extension field for ``sourceUrl``."
+        default=None, alias="_sourceUrl", title="Extension field for ``sourceUrl``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Short title shown for navigational assistance",
         description=(
@@ -800,14 +872,14 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDefinitionPage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDefinitionPage`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -821,6 +893,13 @@ class ImplementationGuideDefinitionPage(backboneelement.BackboneElement):
             "generation",
             "page",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDefinitionPage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -868,7 +947,7 @@ class ImplementationGuideDefinitionParameter(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDefinitionParameter"
 
     code: fhirtypes.CodingType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="code",
         title="Code that identifies parameter",
         description="A tool-specific code that defines the parameter.",
@@ -878,7 +957,7 @@ class ImplementationGuideDefinitionParameter(backboneelement.BackboneElement):
     )
 
     value: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="Value for named type",
         description=None,
@@ -888,16 +967,23 @@ class ImplementationGuideDefinitionParameter(backboneelement.BackboneElement):
         },
     )
     value__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDefinitionParameter`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDefinitionParameter`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "code", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDefinitionParameter`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -926,7 +1012,7 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDefinitionResource"
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Reason why included in guide",
         description=(
@@ -938,11 +1024,11 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     fhirVersion: typing.List[fhirtypes.CodeType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fhirVersion",
         title="Versions this applies to (if different to IG)",
         description=(
@@ -955,11 +1041,11 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
         },
     )
     fhirVersion__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_fhirVersion", title="Extension field for ``fhirVersion``."
+        default=None, alias="_fhirVersion", title="Extension field for ``fhirVersion``."
     )
 
     groupingId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="groupingId",
         title="Grouping this is part of",
         description="Reference to the id of the grouping this resource appears in.",
@@ -968,11 +1054,11 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
         },
     )
     groupingId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_groupingId", title="Extension field for ``groupingId``."
+        default=None, alias="_groupingId", title="Extension field for ``groupingId``."
     )
 
     isExample: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="isExample",
         title="Is this an example",
         description="If true, indicates the resource is an example instance.",
@@ -981,11 +1067,11 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
         },
     )
     isExample__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_isExample", title="Extension field for ``isExample``."
+        default=None, alias="_isExample", title="Extension field for ``isExample``."
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Human readable name for the resource",
         description=(
@@ -998,11 +1084,11 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     profile: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="profile",
         title="Profile(s) this is an example of",
         description="If present, indicates profile(s) the instance is valid against.",
@@ -1013,11 +1099,11 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
         },
     )
     profile__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_profile", title="Extension field for ``profile``."
+        default=None, alias="_profile", title="Extension field for ``profile``."
     )
 
     reference: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="reference",
         title="Location of the resource",
         description="Where this resource is found.",
@@ -1030,9 +1116,9 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDefinitionResource`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDefinitionResource`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1047,6 +1133,13 @@ class ImplementationGuideDefinitionResource(backboneelement.BackboneElement):
             "groupingId",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDefinitionResource`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
+
 
 class ImplementationGuideDefinitionTemplate(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -1059,7 +1152,7 @@ class ImplementationGuideDefinitionTemplate(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDefinitionTemplate"
 
     code: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Type of template specified",
         description=None,
@@ -1069,11 +1162,11 @@ class ImplementationGuideDefinitionTemplate(backboneelement.BackboneElement):
         },
     )
     code__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_code", title="Extension field for ``code``."
+        default=None, alias="_code", title="Extension field for ``code``."
     )
 
     scope: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="scope",
         title="The scope in which the template applies",
         description=None,
@@ -1082,11 +1175,11 @@ class ImplementationGuideDefinitionTemplate(backboneelement.BackboneElement):
         },
     )
     scope__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_scope", title="Extension field for ``scope``."
+        default=None, alias="_scope", title="Extension field for ``scope``."
     )
 
     source: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="source",
         title="The source location for the template",
         description=None,
@@ -1096,16 +1189,23 @@ class ImplementationGuideDefinitionTemplate(backboneelement.BackboneElement):
         },
     )
     source__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_source", title="Extension field for ``source``."
+        default=None, alias="_source", title="Extension field for ``source``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDefinitionTemplate`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDefinitionTemplate`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "code", "source", "scope"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDefinitionTemplate`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1133,7 +1233,7 @@ class ImplementationGuideDependsOn(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideDependsOn"
 
     packageId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="packageId",
         title="NPM Package name for IG this depends on",
         description=(
@@ -1142,14 +1242,15 @@ class ImplementationGuideDependsOn(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     packageId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_packageId", title="Extension field for ``packageId``."
+        default=None, alias="_packageId", title="Extension field for ``packageId``."
     )
 
     reason: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title="Why dependency exists",
         description=(
@@ -1160,27 +1261,28 @@ class ImplementationGuideDependsOn(backboneelement.BackboneElement):
         },
     )
     reason__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_reason", title="Extension field for ``reason``."
+        default=None, alias="_reason", title="Extension field for ``reason``."
     )
 
     uri: fhirtypes.CanonicalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="uri",
         title="Identity of the IG that this depends on",
         description="A canonical reference to the Implementation guide for the dependency.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ImplementationGuide"],
         },
     )
     uri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_uri", title="Extension field for ``uri``."
+        default=None, alias="_uri", title="Extension field for ``uri``."
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Version of the IG",
         description=(
@@ -1189,17 +1291,18 @@ class ImplementationGuideDependsOn(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideDependsOn`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideDependsOn`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1210,6 +1313,13 @@ class ImplementationGuideDependsOn(backboneelement.BackboneElement):
             "version",
             "reason",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideDependsOn`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "uri", "packageId", "version"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1236,42 +1346,51 @@ class ImplementationGuideGlobal(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideGlobal"
 
     profile: fhirtypes.CanonicalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="profile",
         title="Profile that all resources must conform to",
         description="A reference to the profile that all instances must conform to.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["StructureDefinition"],
         },
     )
     profile__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_profile", title="Extension field for ``profile``."
+        default=None, alias="_profile", title="Extension field for ``profile``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Type this profile applies to",
         description="The type of resource that all instances must conform to.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideGlobal`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideGlobal`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "profile"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideGlobal`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "type", "profile"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1298,7 +1417,7 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideManifest"
 
     image: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="image",
         title="Image within the IG",
         description="Indicates a relative path to an image that exists within the IG.",
@@ -1307,11 +1426,11 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
         },
     )
     image__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_image", title="Extension field for ``image``."
+        default=None, alias="_image", title="Extension field for ``image``."
     )
 
     other: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="other",
         title="Additional linkable file in IG",
         description=(
@@ -1324,11 +1443,11 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
         },
     )
     other__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_other", title="Extension field for ``other``."
+        default=None, alias="_other", title="Extension field for ``other``."
     )
 
     page: typing.List[fhirtypes.ImplementationGuideManifestPageType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="page",
         title="HTML page within the parent IG",
         description="Information about a page within the IG.",
@@ -1338,7 +1457,7 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
     )
 
     rendering: fhirtypes.UrlType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rendering",
         title="Location of rendered implementation guide",
         description=(
@@ -1347,14 +1466,15 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     rendering__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_rendering", title="Extension field for ``rendering``."
+        default=None, alias="_rendering", title="Extension field for ``rendering``."
     )
 
     resource: typing.List[fhirtypes.ImplementationGuideManifestResourceType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="resource",
         title="Resource in the implementation guide",
         description=(
@@ -1365,14 +1485,15 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideManifest`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideManifest`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1384,6 +1505,13 @@ class ImplementationGuideManifest(backboneelement.BackboneElement):
             "image",
             "other",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideManifest`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "rendering", "resource"]
 
 
 class ImplementationGuideManifestPage(backboneelement.BackboneElement):
@@ -1398,7 +1526,7 @@ class ImplementationGuideManifestPage(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideManifestPage"
 
     anchor: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="anchor",
         title="Anchor available on the page",
         description="The name of an anchor available on the page.",
@@ -1407,11 +1535,11 @@ class ImplementationGuideManifestPage(backboneelement.BackboneElement):
         },
     )
     anchor__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_anchor", title="Extension field for ``anchor``."
+        default=None, alias="_anchor", title="Extension field for ``anchor``."
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="HTML page name",
         description="Relative path to the page.",
@@ -1421,11 +1549,11 @@ class ImplementationGuideManifestPage(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="Title of the page, for references",
         description="Label for the page intended for human display.",
@@ -1434,16 +1562,23 @@ class ImplementationGuideManifestPage(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideManifestPage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideManifestPage`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "name", "title", "anchor"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideManifestPage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1472,7 +1607,7 @@ class ImplementationGuideManifestResource(backboneelement.BackboneElement):
     __resource_type__ = "ImplementationGuideManifestResource"
 
     isExample: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="isExample",
         title="Is this an example",
         description="If true, indicates the resource is an example instance.",
@@ -1481,11 +1616,11 @@ class ImplementationGuideManifestResource(backboneelement.BackboneElement):
         },
     )
     isExample__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_isExample", title="Extension field for ``isExample``."
+        default=None, alias="_isExample", title="Extension field for ``isExample``."
     )
 
     profile: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="profile",
         title="Profile(s) this is an example of",
         description="If present, indicates profile(s) the instance is valid against.",
@@ -1496,23 +1631,24 @@ class ImplementationGuideManifestResource(backboneelement.BackboneElement):
         },
     )
     profile__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_profile", title="Extension field for ``profile``."
+        default=None, alias="_profile", title="Extension field for ``profile``."
     )
 
     reference: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="reference",
         title="Location of the resource",
         description="Where this resource is found.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Resource"],
         },
     )
 
     relativePath: fhirtypes.UrlType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="relativePath",
         title="Relative path for page in IG",
         description="The relative path for primary page for this resource within the IG.",
@@ -1521,14 +1657,16 @@ class ImplementationGuideManifestResource(backboneelement.BackboneElement):
         },
     )
     relativePath__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_relativePath", title="Extension field for ``relativePath``."
+        default=None,
+        alias="_relativePath",
+        title="Extension field for ``relativePath``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImplementationGuideManifestResource`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImplementationGuideManifestResource`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1539,3 +1677,10 @@ class ImplementationGuideManifestResource(backboneelement.BackboneElement):
             "profile",
             "relativePath",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImplementationGuideManifestResource`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "reference"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-mcp
-Version: 0.3.4
+Version: 0.3.6
 Summary: Automatic MCP server generator for FastAPI applications - converts FastAPI endpoints to MCP tools for LLM integration
 Project-URL: Homepage, https://github.com/tadata-org/fastapi_mcp
 Project-URL: Documentation, https://github.com/tadata-org/fastapi_mcp#readme
@@ -56,7 +56,15 @@ Requires-Dist: uvicorn>=0.20.0
 Description-Content-Type: text/markdown
 
 <p align="center"><a href="https://github.com/tadata-org/fastapi_mcp"><img src="https://github.com/user-attachments/assets/7e44e98b-a0ba-4aff-a68a-4ffee3a6189c" alt="fastapi-to-mcp" height=100/></a></p>
-<h1 align="center">FastAPI-MCP</h1>
+
+<div align="center">
+  <span style="font-size: 0.85em; font-weight: normal;">Built by <a href="https://tadata.com">Tadata</a></span>
+</div>
+
+<h1 align="center">
+  FastAPI-MCP
+</h1>
+
 <p align="center">Expose your FastAPI endpoints as Model Context Protocol (MCP) tools, with Auth!</p>
 <div align="center">
 
@@ -88,6 +96,10 @@ Description-Content-Type: text/markdown
 
 - **ASGI transport** - Uses FastAPI's ASGI interface directly for efficient communication
 
+
+## Hosted Solution
+
+If you prefer a managed hosted solution check out [tadata.com](https://tadata.com).
 
 ## Installation
 
@@ -137,6 +149,7 @@ FastAPI-MCP is designed as a native extension of FastAPI, not just a converter t
 
 This design philosophy ensures minimum friction when adding MCP capabilities to your existing FastAPI services.
 
+
 ## Development and Contributing
 
 Thank you for considering contributing to FastAPI-MCP! We encourage the community to post Issues and create Pull Requests.
@@ -154,4 +167,4 @@ Join [MCParty Slack community](https://join.slack.com/t/themcparty/shared_invite
 
 ## License
 
-MIT License. Copyright (c) 2024 Tadata Inc.
+MIT License. Copyright (c) 2025 Tadata Inc.

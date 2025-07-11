@@ -38,6 +38,31 @@ class CrcBase(CrccheckBase):
     _check_data = bytearray(b"123456789")
     _residue = None
 
+    @classmethod
+    def poly(cls):
+        """Getter for polynominal value."""
+        return cls._poly
+
+    @classmethod
+    def reflect_input(cls):
+        """Getter for reflect_input."""
+        return cls._reflect_input
+
+    @classmethod
+    def reflect_output(cls):
+        """Getter for reflect_output."""
+        return cls._reflect_output
+
+    @classmethod
+    def xor_output(cls):
+        """Getter for xor_output value."""
+        return cls._xor_output
+
+    @classmethod
+    def residue(cls):
+        """Getter for residue value."""
+        return cls._residue
+
     def process(self, data):
         """ Process given data.
 
@@ -49,7 +74,7 @@ class CrcBase(CrccheckBase):
         """
         crc = self._value
         highbit = 1 << (self._width - 1)
-        mask = ((highbit - 1) << 1) | 0x1  # done this way to avoid overrun for 64-bit values
+        mask = (1 << self._width) - 1
         poly = self._poly
         shift = self._width - 8
         diff8 = -shift
@@ -91,12 +116,12 @@ class CrcBase(CrccheckBase):
 
     def __eq__(self, other):
         # noinspection PyProtectedMember
-        return self._width == other._width and \
-               self._poly == other._poly and \
-               self._initvalue == other._initvalue and \
-               self._reflect_input == other._reflect_input and \
-               self._reflect_output == other._reflect_output and \
-               self._xor_output == other._xor_output
+        return self._width == other.width() and \
+               self._poly == other.poly() and \
+               self._initvalue == other.initvalue() and \
+               self._reflect_input == other.reflect_input() and \
+               self._reflect_output == other.reflect_output() and \
+               self._xor_output == other.xor_output()
 
     def __repr__(self):
         residue = hex(self._residue) if self._residue is not None else 'None'
@@ -162,16 +187,16 @@ def identify(data, crc, width=None, classes=None, one=True):
 
     This function can be used to identify a suitable CRC class if the exact CRC algorithm/parameters
     are not known, but a CRC value is known from some data. Note that this function can be quite
-    time consuming on large data, especially if the given width is not known.
+    time-consuming on large data, especially if the given width is not known.
 
     Args:
         data (bytes): Data to compare with the `crc`.
         crc (int): Known CRC of the given `data`.
-        width (int or None): Known bit width of given `crc`.
+        width (int or None): Known bit-width of given `crc`.
             Providing the width will speed up the identification of the CRC algorithm.
         classes (iterable or None): Listing of classes to check. If None then ALLCRCCLASSES is used.
-        one (bool): If True then only the first found CRC class is retunred.
-            Otherwise a list of all suitable CRC classes.
+        one (bool): If True then only the first found CRC class is returned,
+            otherwise a list of all suitable CRC classes.
 
     Returns:
         If `one` is True:
@@ -201,7 +226,7 @@ class Crc(CrcBase):
     """ Creates a new general (user-defined) CRC calculator instance.
 
         Arguments:
-            width (int): bit width of CRC.
+            width (int): bit-width of CRC.
             poly (int): polynomial of CRC with the top bit omitted.
             initvalue (int): initial value of internal running CRC value. Usually either 0 or (1<<width)-1,
                 i.e. "all-1s".
@@ -407,6 +432,55 @@ class Crc32Base(CrcBase):
             crc &= 0xFFFFFFFF
         self._value = crc
         return self
+
+
+def _inthex(value):
+    try:
+        return int(value, 0)
+    except TypeError:
+        return int(value)
+
+
+def crccls(width=None, poly=None, initvalue=None, reflect_input=None, reflect_output=None, xor_output=None,
+           check_result=None, residue=None, clsname=None, name=None, basecls=None):
+    if clsname is None:
+        clsname = 'CrcGeneric'
+    if name is None:
+        name = clsname
+
+    if basecls is not None:
+        if not issubclass(basecls, CrcBase):
+            raise ValueError('basecls invalid')
+        elif width is not None and basecls.width() != width:
+            raise ValueError('basecls has unsuitable width')
+    elif width is not None:
+        basecls = {32: Crc32Base, 16: Crc16Base, 8: Crc8Base}.get(width, CrcBase)
+    else:
+        raise ValueError('Either width or basecls must be given')
+
+    # Set given attributes only, rest is taken from base class
+    attr = {'_names': (str(name),)}
+    if width is not None:
+        attr['_width'] = _inthex(width)
+    if poly is not None:
+        attr['_poly'] = _inthex(poly)
+    if initvalue is not None:
+        attr['_initvalue'] = _inthex(initvalue)
+    if reflect_input is not None:
+        attr['_reflect_input'] = bool(reflect_input)
+    if reflect_output is not None:
+        attr['_reflect_output'] = bool(reflect_output)
+    if xor_output is not None:
+        attr['_xor_output'] = _inthex(xor_output)
+    if check_result is not None:
+        attr['_check_result'] = _inthex(check_result)
+    if residue is not None:
+        attr['_residue'] = _inthex(residue)
+
+    return type(str(clsname), (basecls,), attr)
+
+
+# # # CRC CLASSES # # #
 
 
 class Crc3Gsm(CrcBase):
@@ -2082,6 +2156,19 @@ class Crc64Ms(CrcBase):
     _residue = 0x0000000000000000
 
 
+class Crc64Nvme(CrcBase):
+    """CRC-64/NVME"""
+    _names = ('CRC-64/NVME',)
+    _width = 64
+    _poly = 0xad93d23594c93659
+    _initvalue = 0xffffffffffffffff
+    _reflect_input = True
+    _reflect_output = True
+    _xor_output = 0xffffffffffffffff
+    _check_result = 0xae8b14860a799888
+    _residue = 0xf310303b2b6f6e42
+
+
 class Crc64Redis(CrcBase):
     """CRC-64/REDIS"""
     _names = ('CRC-64/REDIS',)
@@ -2153,7 +2240,7 @@ ALLCRCCLASSES = (
     Crc17CanFd, Crc21CanFd, Crc24Ble, Crc24FlexrayA, Crc24FlexrayB, Crc24Interlaken, Crc24LteA, Crc24LteB,
     Crc24Openpgp, Crc24Os9, Crc30Cdma, Crc31Philips, Crc32Aixm, Crc32Autosar, Crc32Base91D, Crc32Bzip2, Crc32CdRomEdc,
     Crc32Cksum, Crc32Iscsi, Crc32IsoHdlc, Crc32Jamcrc, Crc32Mef, Crc32Mpeg2, Crc32Xfer, Crc40Gsm, Crc64Ecma182,
-    Crc64GoIso, Crc64Ms, Crc64Redis, Crc64We, Crc64Xz, Crc82Darc
+    Crc64GoIso, Crc64Ms, Crc64Nvme, Crc64Redis, Crc64We, Crc64Xz, Crc82Darc
 )
 
 ALLCRCCLASSES_ALIASES = (
@@ -2176,5 +2263,5 @@ ALLCRCCLASSES_ALIASES = (
     Crc32Base91D, Crc32D, Crc32d, Crc32Bzip2, Crc32Aal5, Crc32DectB, Crc32B, Crc32CdRomEdc, Crc32Cksum, CrcCksum,
     Crc32Posix, Crc32Iscsi, Crc32Base91C, Crc32Castagnoli, Crc32Interlaken, Crc32C, Crc32c, Crc32IsoHdlc, Crc32,
     Crc32Adccp, Crc32V42, Crc32Xz, CrcPkzip, Crc32Jamcrc, CrcJamcrc, Crc32Mef, Crc32Mpeg2, Crc32Xfer, CrcXfer,
-    Crc40Gsm, Crc64Ecma182, Crc64, Crc64GoIso, Crc64Ms, Crc64Redis, Crc64We, Crc64Xz, Crc64GoEcma, Crc82Darc
+    Crc40Gsm, Crc64Ecma182, Crc64, Crc64GoIso, Crc64Ms, Crc64Nvme, Crc64Redis, Crc64We, Crc64Xz, Crc64GoEcma, Crc82Darc
 )

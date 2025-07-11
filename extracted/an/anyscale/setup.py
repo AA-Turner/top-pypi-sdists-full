@@ -25,9 +25,6 @@ def read_requirements(path):
 
 other_extras_requires = {
     "gcp": [
-        # Python 3.11 does not work well with protobuf<4 ,
-        # when google-cloud-* and google-api packages are required.
-        "protobuf < 4 ; python_version < '3.11'",
         "google-api-python-client",
         "google-cloud-secret-manager",
         "google-cloud-compute",

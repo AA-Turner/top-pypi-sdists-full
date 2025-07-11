@@ -3,7 +3,7 @@
 # :Author:    Ken Robbins <ken@kenrobbins.com>
 # :License:   MIT License
 # :Copyright: © 2015 Ken Robbins
-# :Copyright: © 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Lele Gaifax
+# :Copyright: © 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 Lele Gaifax
 #
 
 import os.path
@@ -43,8 +43,8 @@ else:
                            " as explained in the README.rst; in all other cases you may"
                            " want to report the issue.")
 
-with open('version.txt', encoding='utf-8') as f:
-    VERSION = f.read()
+# Automatically updated by bump-my-version at release time
+VERSION = '1.21'
 
 with open('README.rst', encoding='utf-8') as f:
     LONG_DESCRIPTION = f.read()
@@ -103,15 +103,14 @@ setup(
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: C++',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python',
     ],
     ext_modules=[Extension('rapidjson', **extension_options)],

@@ -1,7 +1,6 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-import numpy as np
 from sklearn import clone
 
 from econml.utilities import check_input_arrays
@@ -71,6 +70,12 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
         # Assign treatment expansion attributes
         self.transformer = dummy_est.transformer
 
+        self._allowed_missing_vars = dummy_est._gen_allowed_missing_vars()
+
+    def _gen_allowed_missing_vars(self):
+        """Generate the allowed missing variables for the federated estimator."""
+        return self._allowed_missing_vars
+
     # Methods needed to implement the LinearCateEstimator interface
 
     def const_marginal_effect(self, X=None):
@@ -78,10 +83,7 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
         return self._inference.const_marginal_effect_inference(X).point_estimate
 
     def fit(self, *args, **kwargs):
-        """
-        This method should not be called; it is included only for compatibility with the
-        CATE estimation APIs
-        """
+        """Do not call this method; it is included only for compatibility with the CATE estimation APIs."""
         raise NotImplementedError("FederatedEstimator does not support fit")
 
     # Methods needed to implement the LinearFinalModelCateEstimatorMixin

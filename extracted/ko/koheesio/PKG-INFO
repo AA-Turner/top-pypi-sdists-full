@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: koheesio
-Version: 0.10.3
+Version: 0.10.4
 Summary: The steps-based Koheesio framework
 Project-URL: Documentation, https://github.com/Nike-Inc/koheesio#readme
 Project-URL: Issues, https://github.com/Nike-Inc/koheesio/issues
@@ -87,8 +87,10 @@ Provides-Extra: tableau
 Requires-Dist: tableauhyperapi>=0.0.19484; extra == 'tableau'
 Requires-Dist: tableauserverclient>=0.25; extra == 'tableau'
 Provides-Extra: test
+Requires-Dist: aioresponses; extra == 'test'
 Requires-Dist: chispa; extra == 'test'
 Requires-Dist: coverage[toml]; extra == 'test'
+Requires-Dist: flaky; extra == 'test'
 Requires-Dist: freezegun; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
@@ -99,6 +101,7 @@ Requires-Dist: pytest-randomly; extra == 'test'
 Requires-Dist: pytest-sftpserver; extra == 'test'
 Requires-Dist: pytest-xdist; extra == 'test'
 Requires-Dist: requests-mock; extra == 'test'
+Requires-Dist: responses; extra == 'test'
 Requires-Dist: time-machine; extra == 'test'
 Description-Content-Type: text/markdown
 

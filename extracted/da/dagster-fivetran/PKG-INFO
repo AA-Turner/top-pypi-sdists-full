@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-fivetran
-Version: 0.27.1
+Version: 0.27.2
 Summary: Package for integrating Fivetran with Dagster.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-fivetran
 Author: Dagster Labs
@@ -10,13 +10,14 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<3.13
+Requires-Python: >=3.9,<=3.13.3
 License-File: LICENSE
-Requires-Dist: dagster==1.11.1
+Requires-Dist: dagster==1.11.2
 Provides-Extra: managed
-Requires-Dist: dagster-managed-elements==0.27.1; extra == "managed"
+Requires-Dist: dagster-managed-elements==0.27.2; extra == "managed"
 Provides-Extra: test
 Requires-Dist: pytest-order; extra == "test"
 Dynamic: author

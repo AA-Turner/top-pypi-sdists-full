@@ -26,7 +26,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     __resource_type__ = "MedicationKnowledge"
 
     administrationGuidelines: typing.List[fhirtypes.MedicationKnowledgeAdministrationGuidelinesType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="administrationGuidelines",
         title="Guidelines for administration of the medication",
         description="Guidelines for the administration of the medication.",
@@ -36,7 +36,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     amount: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title="Amount of drug in package",
         description=(
@@ -48,11 +48,12 @@ class MedicationKnowledge(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     associatedMedication: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="associatedMedication",
         title="A medication resource that is associated with this medication",
         description=(
@@ -69,7 +70,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Code that identifies this medication",
         description=(
@@ -81,11 +82,12 @@ class MedicationKnowledge(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     contraindication: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contraindication",
         title="Potential clinical issue with or between medication(s)",
         description=(
@@ -101,7 +103,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     cost: typing.List[fhirtypes.MedicationKnowledgeCostType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="cost",
         title="The pricing of the medication",
         description="The price of the medication.",
@@ -111,7 +113,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     doseForm: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="doseForm",
         title="powder | tablets | capsule +",
         description="Describes the form of the item.  Powder; tablets; capsule.",
@@ -121,7 +123,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     drugCharacteristic: typing.List[fhirtypes.MedicationKnowledgeDrugCharacteristicType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="drugCharacteristic",
         title="Specifies descriptive properties of the medicine",
         description=(
@@ -134,7 +136,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     ingredient: typing.List[fhirtypes.MedicationKnowledgeIngredientType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="ingredient",
         title="Active or inactive ingredient",
         description="Identifies a particular constituent of interest in the product.",
@@ -144,7 +146,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     intendedRoute: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="intendedRoute",
         title="The intended or approved route of administration",
         description=None,
@@ -154,7 +156,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     kinetics: typing.List[fhirtypes.MedicationKnowledgeKineticsType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="kinetics",
         title=(
             "The time course of drug absorption, distribution, metabolism and "
@@ -167,7 +169,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     manufacturer: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="manufacturer",
         title="Manufacturer of the item",
         description=(
@@ -177,13 +179,14 @@ class MedicationKnowledge(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     medicineClassification: typing.List[fhirtypes.MedicationKnowledgeMedicineClassificationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="medicineClassification",
         title=(
             "Categorization of the medication within a formulary or classification "
@@ -196,7 +199,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     monitoringProgram: typing.List[fhirtypes.MedicationKnowledgeMonitoringProgramType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="monitoringProgram",
         title="Program under which a medication is reviewed",
         description="The program under which the medication is reviewed.",
@@ -206,7 +209,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     monograph: typing.List[fhirtypes.MedicationKnowledgeMonographType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="monograph",
         title="Associated documentation about the medication",
         description=None,
@@ -216,7 +219,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     packaging: fhirtypes.MedicationKnowledgePackagingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="packaging",
         title="Details about packaged medications",
         description="Information that only applies to packages (not products).",
@@ -226,7 +229,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     preparationInstruction: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preparationInstruction",
         title="The instructions for preparing the medication",
         description=None,
@@ -235,13 +238,13 @@ class MedicationKnowledge(domainresource.DomainResource):
         },
     )
     preparationInstruction__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_preparationInstruction",
         title="Extension field for ``preparationInstruction``.",
     )
 
     productType: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="productType",
         title="Category of the medication or product",
         description=(
@@ -254,7 +257,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     regulatory: typing.List[fhirtypes.MedicationKnowledgeRegulatoryType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="regulatory",
         title="Regulatory information about a medication",
         description=None,
@@ -264,7 +267,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     relatedMedicationKnowledge: typing.List[fhirtypes.MedicationKnowledgeRelatedMedicationKnowledgeType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="relatedMedicationKnowledge",
         title="Associated or related medication information",
         description="Associated or related knowledge about a medication.",
@@ -274,7 +277,7 @@ class MedicationKnowledge(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="active | inactive | entered-in-error",
         description=(
@@ -284,17 +287,18 @@ class MedicationKnowledge(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["active", "inactive", "entered-in-error"],
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     synonym: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="synonym",
         title="Additional names for a medication",
         description=(
@@ -304,17 +308,18 @@ class MedicationKnowledge(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     synonym__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_synonym", title="Extension field for ``synonym``."
+        default=None, alias="_synonym", title="Extension field for ``synonym``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledge`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledge`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -349,6 +354,22 @@ class MedicationKnowledge(domainresource.DomainResource):
             "kinetics",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledge`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "code",
+            "status",
+            "manufacturer",
+            "amount",
+            "synonym",
+        ]
+
 
 class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -362,7 +383,7 @@ class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElemen
     __resource_type__ = "MedicationKnowledgeAdministrationGuidelines"
 
     dosage: typing.List[fhirtypes.MedicationKnowledgeAdministrationGuidelinesDosageType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dosage",
         title="Dosage for the medication for the specific guidelines",
         description=None,
@@ -372,7 +393,7 @@ class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElemen
     )
 
     indicationCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="indicationCodeableConcept",
         title=(
             "Indication for use that apply to the specific administration " "guidelines"
@@ -387,7 +408,7 @@ class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElemen
     )
 
     indicationReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="indicationReference",
         title=(
             "Indication for use that apply to the specific administration " "guidelines"
@@ -404,7 +425,7 @@ class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElemen
     )
 
     patientCharacteristics: typing.List[fhirtypes.MedicationKnowledgeAdministrationGuidelinesPatientCharacteristicsType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patientCharacteristics",
         title=(
             "Characteristics of the patient that are relevant to the administration"
@@ -421,9 +442,9 @@ class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElemen
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeAdministrationGuidelines`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeAdministrationGuidelines`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -434,6 +455,13 @@ class MedicationKnowledgeAdministrationGuidelines(backboneelement.BackboneElemen
             "indicationReference",
             "patientCharacteristics",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeAdministrationGuidelines`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -467,7 +495,7 @@ class MedicationKnowledgeAdministrationGuidelinesDosage(
     __resource_type__ = "MedicationKnowledgeAdministrationGuidelinesDosage"
 
     dosage: typing.List[fhirtypes.DosageType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="dosage",
         title="Dosage for the medication for the specific guidelines",
         description=None,
@@ -477,7 +505,7 @@ class MedicationKnowledgeAdministrationGuidelinesDosage(
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Type of dosage",
         description=(
@@ -491,11 +519,18 @@ class MedicationKnowledgeAdministrationGuidelinesDosage(
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeAdministrationGuidelinesDosage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeAdministrationGuidelinesDosage`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "dosage"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeAdministrationGuidelinesDosage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics(
@@ -516,7 +551,7 @@ class MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics(
     )
 
     characteristicCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="characteristicCodeableConcept",
         title=(
             "Specific characteristic that is relevant to the administration "
@@ -535,7 +570,7 @@ class MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics(
     )
 
     characteristicQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="characteristicQuantity",
         title=(
             "Specific characteristic that is relevant to the administration "
@@ -554,7 +589,7 @@ class MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics(
     )
 
     value: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="The specific characteristic",
         description="The specific characteristic (e.g. height, weight, gender, etc.).",
@@ -563,14 +598,14 @@ class MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics(
         },
     )
     value__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -580,6 +615,13 @@ class MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics(
             "characteristicQuantity",
             "value",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeAdministrationGuidelinesPatientCharacteristics`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -615,7 +657,7 @@ class MedicationKnowledgeCost(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeCost"
 
     cost: fhirtypes.MoneyType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="cost",
         title="The price of the medication",
         description=None,
@@ -625,7 +667,7 @@ class MedicationKnowledgeCost(backboneelement.BackboneElement):
     )
 
     source: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="source",
         title="The source or owner for the price information",
         description="The source or owner that assigns the price to the medication.",
@@ -634,11 +676,11 @@ class MedicationKnowledgeCost(backboneelement.BackboneElement):
         },
     )
     source__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_source", title="Extension field for ``source``."
+        default=None, alias="_source", title="Extension field for ``source``."
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="The category of the cost information",
         description=(
@@ -652,11 +694,18 @@ class MedicationKnowledgeCost(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeCost`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeCost`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "source", "cost"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeCost`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
@@ -672,7 +721,7 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeDrugCharacteristic"
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Code specifying the type of characteristic of medication",
         description=(
@@ -685,7 +734,7 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
     )
 
     valueBase64Binary: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBase64Binary",
         title="Description of the characteristic",
         description=None,
@@ -697,13 +746,13 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
         },
     )
     valueBase64Binary__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_valueBase64Binary",
         title="Extension field for ``valueBase64Binary``.",
     )
 
     valueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCodeableConcept",
         title="Description of the characteristic",
         description=None,
@@ -716,7 +765,7 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
     )
 
     valueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="Description of the characteristic",
         description=None,
@@ -729,7 +778,7 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
     )
 
     valueString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueString",
         title="Description of the characteristic",
         description=None,
@@ -741,14 +790,14 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
         },
     )
     valueString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueString", title="Extension field for ``valueString``."
+        default=None, alias="_valueString", title="Extension field for ``valueString``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeDrugCharacteristic`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeDrugCharacteristic`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -760,6 +809,13 @@ class MedicationKnowledgeDrugCharacteristic(backboneelement.BackboneElement):
             "valueQuantity",
             "valueBase64Binary",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeDrugCharacteristic`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -797,7 +853,7 @@ class MedicationKnowledgeIngredient(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeIngredient"
 
     isActive: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="isActive",
         title="Active ingredient indicator",
         description=(
@@ -809,11 +865,11 @@ class MedicationKnowledgeIngredient(backboneelement.BackboneElement):
         },
     )
     isActive__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_isActive", title="Extension field for ``isActive``."
+        default=None, alias="_isActive", title="Extension field for ``isActive``."
     )
 
     itemCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemCodeableConcept",
         title="Medication(s) or substance(s) contained in the medication",
         description=(
@@ -829,7 +885,7 @@ class MedicationKnowledgeIngredient(backboneelement.BackboneElement):
     )
 
     itemReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemReference",
         title="Medication(s) or substance(s) contained in the medication",
         description=(
@@ -847,7 +903,7 @@ class MedicationKnowledgeIngredient(backboneelement.BackboneElement):
     )
 
     strength: fhirtypes.RatioType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="strength",
         title="Quantity of ingredient present",
         description=(
@@ -862,9 +918,9 @@ class MedicationKnowledgeIngredient(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeIngredient`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeIngredient`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -875,6 +931,13 @@ class MedicationKnowledgeIngredient(backboneelement.BackboneElement):
             "isActive",
             "strength",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeIngredient`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -905,7 +968,7 @@ class MedicationKnowledgeKinetics(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeKinetics"
 
     areaUnderCurve: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="areaUnderCurve",
         title="The drug concentration measured at certain discrete points in time",
         description=None,
@@ -915,7 +978,7 @@ class MedicationKnowledgeKinetics(backboneelement.BackboneElement):
     )
 
     halfLifePeriod: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="halfLifePeriod",
         title="Time required for concentration in the body to decrease by half",
         description=(
@@ -928,7 +991,7 @@ class MedicationKnowledgeKinetics(backboneelement.BackboneElement):
     )
 
     lethalDose50: typing.List[fhirtypes.QuantityType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="lethalDose50",
         title="The median lethal dose of a drug",
         description=None,
@@ -939,9 +1002,9 @@ class MedicationKnowledgeKinetics(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeKinetics`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeKinetics`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -951,6 +1014,13 @@ class MedicationKnowledgeKinetics(backboneelement.BackboneElement):
             "lethalDose50",
             "halfLifePeriod",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeKinetics`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeMedicineClassification(backboneelement.BackboneElement):
@@ -965,7 +1035,7 @@ class MedicationKnowledgeMedicineClassification(backboneelement.BackboneElement)
     __resource_type__ = "MedicationKnowledgeMedicineClassification"
 
     classification: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="classification",
         title="Specific category assigned to the medication",
         description=(
@@ -978,7 +1048,7 @@ class MedicationKnowledgeMedicineClassification(backboneelement.BackboneElement)
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title=(
             "The type of category for the medication (for example, therapeutic "
@@ -992,11 +1062,18 @@ class MedicationKnowledgeMedicineClassification(backboneelement.BackboneElement)
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeMedicineClassification`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeMedicineClassification`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "classification"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeMedicineClassification`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeMonitoringProgram(backboneelement.BackboneElement):
@@ -1011,7 +1088,7 @@ class MedicationKnowledgeMonitoringProgram(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeMonitoringProgram"
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name of the reviewing program",
         description=None,
@@ -1020,11 +1097,11 @@ class MedicationKnowledgeMonitoringProgram(backboneelement.BackboneElement):
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Type of program under which the medication is monitored",
         description=None,
@@ -1035,11 +1112,18 @@ class MedicationKnowledgeMonitoringProgram(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeMonitoringProgram`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeMonitoringProgram`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "name"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeMonitoringProgram`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeMonograph(backboneelement.BackboneElement):
@@ -1053,7 +1137,7 @@ class MedicationKnowledgeMonograph(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeMonograph"
 
     source: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="source",
         title="Associated documentation about the medication",
         description=None,
@@ -1065,7 +1149,7 @@ class MedicationKnowledgeMonograph(backboneelement.BackboneElement):
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="The category of medication document",
         description=(
@@ -1079,11 +1163,18 @@ class MedicationKnowledgeMonograph(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeMonograph`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeMonograph`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "source"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeMonograph`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgePackaging(backboneelement.BackboneElement):
@@ -1098,7 +1189,7 @@ class MedicationKnowledgePackaging(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgePackaging"
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="The number of product units the package would contain if fully loaded",
         description=None,
@@ -1108,7 +1199,7 @@ class MedicationKnowledgePackaging(backboneelement.BackboneElement):
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "A code that defines the specific type of packaging that the medication"
@@ -1125,11 +1216,18 @@ class MedicationKnowledgePackaging(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgePackaging`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgePackaging`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "quantity"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgePackaging`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
@@ -1143,7 +1241,7 @@ class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeRegulatory"
 
     maxDispense: fhirtypes.MedicationKnowledgeRegulatoryMaxDispenseType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxDispense",
         title=(
             "The maximum number of units of the medication that can be dispensed in"
@@ -1156,7 +1254,7 @@ class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
     )
 
     regulatoryAuthority: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="regulatoryAuthority",
         title="Specifies the authority of the regulation",
         description="The authority that is specifying the regulations.",
@@ -1168,7 +1266,7 @@ class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
     )
 
     schedule: typing.List[fhirtypes.MedicationKnowledgeRegulatoryScheduleType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="schedule",
         title="Specifies the schedule of a medication in jurisdiction",
         description=None,
@@ -1178,7 +1276,7 @@ class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
     )
 
     substitution: typing.List[fhirtypes.MedicationKnowledgeRegulatorySubstitutionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="substitution",
         title=(
             "Specifies if changes are allowed when dispensing a medication from a "
@@ -1192,9 +1290,9 @@ class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeRegulatory`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeRegulatory`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -1205,6 +1303,13 @@ class MedicationKnowledgeRegulatory(backboneelement.BackboneElement):
             "schedule",
             "maxDispense",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeRegulatory`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeRegulatoryMaxDispense(backboneelement.BackboneElement):
@@ -1219,7 +1324,7 @@ class MedicationKnowledgeRegulatoryMaxDispense(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeRegulatoryMaxDispense"
 
     period: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="The period that applies to the maximum number of units",
         description=None,
@@ -1229,7 +1334,7 @@ class MedicationKnowledgeRegulatoryMaxDispense(backboneelement.BackboneElement):
     )
 
     quantity: fhirtypes.QuantityType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="quantity",
         title="The maximum number of units of the medication that can be dispensed",
         description=None,
@@ -1240,11 +1345,18 @@ class MedicationKnowledgeRegulatoryMaxDispense(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeRegulatoryMaxDispense`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeRegulatoryMaxDispense`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "quantity", "period"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeRegulatoryMaxDispense`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeRegulatorySchedule(backboneelement.BackboneElement):
@@ -1258,7 +1370,7 @@ class MedicationKnowledgeRegulatorySchedule(backboneelement.BackboneElement):
     __resource_type__ = "MedicationKnowledgeRegulatorySchedule"
 
     schedule: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="schedule",
         title="Specifies the specific drug schedule",
         description=None,
@@ -1269,11 +1381,18 @@ class MedicationKnowledgeRegulatorySchedule(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeRegulatorySchedule`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeRegulatorySchedule`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "schedule"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeRegulatorySchedule`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
 
 class MedicationKnowledgeRegulatorySubstitution(backboneelement.BackboneElement):
@@ -1288,7 +1407,7 @@ class MedicationKnowledgeRegulatorySubstitution(backboneelement.BackboneElement)
     __resource_type__ = "MedicationKnowledgeRegulatorySubstitution"
 
     allowed: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="allowed",
         title=(
             "Specifies if regulation allows for changes in the medication when "
@@ -1301,11 +1420,11 @@ class MedicationKnowledgeRegulatorySubstitution(backboneelement.BackboneElement)
         },
     )
     allowed__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_allowed", title="Extension field for ``allowed``."
+        default=None, alias="_allowed", title="Extension field for ``allowed``."
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Specifies the type of substitution allowed",
         description=None,
@@ -1316,11 +1435,18 @@ class MedicationKnowledgeRegulatorySubstitution(backboneelement.BackboneElement)
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeRegulatorySubstitution`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeRegulatorySubstitution`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "allowed"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeRegulatorySubstitution`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -1346,7 +1472,7 @@ class MedicationKnowledgeRelatedMedicationKnowledge(backboneelement.BackboneElem
     __resource_type__ = "MedicationKnowledgeRelatedMedicationKnowledge"
 
     reference: typing.List[fhirtypes.ReferenceType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="reference",
         title="Associated documentation about the associated medication knowledge",
         description=None,
@@ -1358,7 +1484,7 @@ class MedicationKnowledgeRelatedMedicationKnowledge(backboneelement.BackboneElem
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Category of medicationKnowledge",
         description="The category of the associated medication knowledge reference.",
@@ -1369,8 +1495,15 @@ class MedicationKnowledgeRelatedMedicationKnowledge(backboneelement.BackboneElem
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``MedicationKnowledgeRelatedMedicationKnowledge`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``MedicationKnowledgeRelatedMedicationKnowledge`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "reference"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``MedicationKnowledgeRelatedMedicationKnowledge`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

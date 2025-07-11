@@ -9,6 +9,10 @@ from .output.table import (
     format_table,
 )
 
+from . import users
+
+from .pagination.pagination import get_many_entries
+
 
 def query(ctx, **kwargs):
     token = context.get_token(ctx)
@@ -85,18 +89,38 @@ def format_audit_list_as_text(ctx, audits, show_columns):
     return table
 
 
-def query_auth_audits(ctx, **kwargs):
+def query_auth_audits(ctx, limit=50, map_email=False, **kwargs):
     apiclient = context.get_apiclient(ctx)
     kwargs["org_id"] = input_helpers.get_org_from_input_or_ctx(ctx, **kwargs)
     dt_from = kwargs.pop("dt_from", "now-1day")
     kwargs = strip_none(kwargs)
+    kwargs["dt_from"] = dt_from
 
-    query_results = apiclient.audits_api.list_auth_records(dt_from=dt_from, **kwargs)
+    emails = {}
+    if map_email:
+        guids = users.list_user_guids(ctx, org_id=kwargs["org_id"])
+        for guid in guids:
+            emails[guid.guid] = guid.name
 
-    if query_results:
-        return query_results.auth_audits
+    def get_page(dt_to, **kwargs):
+        page = apiclient.audits_api.list_auth_records(dt_to=dt_to, **kwargs)
+        if len(page.auth_audits) == 0:
+            return page
 
-    return []
+        page["dt_to"] = page.auth_audits[-1].time
+        return page
+
+    query_results = get_many_entries(
+        get_page, "auth_audits", maximum=limit, page_key="dt_to", **kwargs
+    )
+    for result in query_results:
+        if not result.user_id:
+            continue
+        email = emails.get(result.user_id)
+        if email:
+            result["email"] = email
+
+    return query_results
 
 
 def format_auth_audit_list_as_text(ctx, records):

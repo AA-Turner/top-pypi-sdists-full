@@ -220,6 +220,46 @@ def test_pytest_benchmark_compatibility(pytester: pytest.Pytester) -> None:
     )
 
 
+def test_codspeed_marker_unexpected_args(pytester: pytest.Pytester) -> None:
+    pytester.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.codspeed_benchmark(
+            "positional_arg"
+        )
+        def test_bench():
+            pass
+        """
+    )
+    result = pytester.runpytest("--codspeed")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines_random(
+        ["*ValueError: Positional arguments are not allowed in the benchmark marker*"],
+    )
+
+
+def test_codspeed_marker_unexpected_kwargs(pytester: pytest.Pytester) -> None:
+    pytester.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.codspeed_benchmark(
+            not_allowed=True
+        )
+        def test_bench():
+            pass
+        """
+    )
+    result = pytester.runpytest("--codspeed")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines_random(
+        [
+            "*ValueError: Unknown kwargs passed to benchmark marker: not_allowed*",
+        ],
+    )
+
+
 def test_pytest_benchmark_extra_info(pytester: pytest.Pytester) -> None:
     """https://pytest-benchmark.readthedocs.io/en/latest/usage.html#extra-info"""
     pytester.makepyfile(
@@ -298,3 +338,103 @@ def test_capsys(pytester: pytest.Pytester, mode: MeasurementMode):
     result.assert_outcomes(passed=1)
     result.stdout.no_fnmatch_line("*print to stdout*")
     result.stderr.no_fnmatch_line("*print to stderr*")
+
+
+@pytest.mark.xfail(reason="not supported by pytest-benchmark, see #78")
+@pytest.mark.parametrize("mode", [*MeasurementMode])
+def test_stateful_warmup_fixture(
+    pytester: pytest.Pytester, mode: MeasurementMode
+) -> None:
+    """Test that the stateful warmup works correctly."""
+    pytester.makepyfile(
+        """
+        import pytest
+
+        def test_stateful_warmup(benchmark):
+            has_run = False
+
+            def b():
+                nonlocal has_run
+                assert not has_run, "Benchmark ran multiple times without setup"
+                has_run = True
+
+            benchmark(b)
+        """
+    )
+    result = run_pytest_codspeed_with_mode(pytester, mode)
+    assert result.ret == 0, "the run should have succeeded"
+    result.assert_outcomes(passed=1)
+
+
+@pytest.mark.xfail(reason="not supported by pytest-benchmark, see #78")
+@pytest.mark.parametrize("mode", [*MeasurementMode])
+def test_stateful_warmup_marker(
+    pytester: pytest.Pytester, mode: MeasurementMode
+) -> None:
+    """Test that the stateful warmup marker works correctly."""
+    pytester.makepyfile(
+        """
+        import pytest
+
+        has_run = False
+
+        @pytest.fixture(autouse=True)
+        def fixture():
+            global has_run
+            has_run = False
+
+
+        @pytest.mark.benchmark
+        def test_stateful_warmup_marker():
+            global has_run
+            assert not has_run, "Benchmark ran multiple times without setup"
+            has_run = True
+        """
+    )
+    result = run_pytest_codspeed_with_mode(pytester, mode)
+    assert result.ret == 0, "the run should have succeeded"
+    result.assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize("mode", [*MeasurementMode])
+def test_benchmark_fixture_used_twice(
+    pytester: pytest.Pytester, mode: MeasurementMode
+) -> None:
+    """Test that using the benchmark fixture twice in a test raises an error."""
+    pytester.makepyfile(
+        """
+        def test_benchmark_used_twice(benchmark):
+            def foo():
+                pass
+
+            benchmark(foo)
+            benchmark(foo)
+        """
+    )
+    result = run_pytest_codspeed_with_mode(pytester, mode)
+    assert result.ret == 1, "the run should have failed"
+    result.stdout.fnmatch_lines(
+        ["*RuntimeError: The benchmark fixture can only be used once per test*"]
+    )
+
+
+@pytest.mark.parametrize("mode", [*MeasurementMode])
+def test_benchmark_fixture_used_normal_pedantic(
+    pytester: pytest.Pytester, mode: MeasurementMode
+) -> None:
+    """Test that using the benchmark fixture twice in a test raises an error."""
+    pytester.makepyfile(
+        """
+        def test_benchmark_used_twice(benchmark):
+            def foo():
+                pass
+
+            benchmark(foo)
+            benchmark.pedantic(foo)
+        """
+    )
+    result = run_pytest_codspeed_with_mode(pytester, mode)
+    assert result.ret == 1, "the run should have failed"
+    result.stdout.fnmatch_lines(
+        ["*RuntimeError: The benchmark fixture can only be used once per test*"]
+    )

@@ -25,20 +25,23 @@ class VirtualServiceDetail(datatype.DataType):
     __resource_type__ = "VirtualServiceDetail"
 
     additionalInfo: typing.List[fhirtypes.UrlType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="additionalInfo",
         title="Address to see alternative connection details",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     additionalInfo__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_additionalInfo", title="Extension field for ``additionalInfo``."
+        default=None,
+        alias="_additionalInfo",
+        title="Extension field for ``additionalInfo``.",
     )
 
     addressContactPoint: fhirtypes.ContactPointType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addressContactPoint",
         title="Contact address/number",
         description=(
@@ -48,6 +51,7 @@ class VirtualServiceDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e address[x]
             "one_of_many": "address",
             "one_of_many_required": False,
@@ -55,7 +59,7 @@ class VirtualServiceDetail(datatype.DataType):
     )
 
     addressExtendedContactDetail: fhirtypes.ExtendedContactDetailType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addressExtendedContactDetail",
         title="Contact address/number",
         description=(
@@ -65,6 +69,7 @@ class VirtualServiceDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e address[x]
             "one_of_many": "address",
             "one_of_many_required": False,
@@ -72,7 +77,7 @@ class VirtualServiceDetail(datatype.DataType):
     )
 
     addressString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addressString",
         title="Contact address/number",
         description=(
@@ -82,17 +87,20 @@ class VirtualServiceDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e address[x]
             "one_of_many": "address",
             "one_of_many_required": False,
         },
     )
     addressString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_addressString", title="Extension field for ``addressString``."
+        default=None,
+        alias="_addressString",
+        title="Extension field for ``addressString``.",
     )
 
     addressUrl: fhirtypes.UrlType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="addressUrl",
         title="Contact address/number",
         description=(
@@ -102,17 +110,18 @@ class VirtualServiceDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e address[x]
             "one_of_many": "address",
             "one_of_many_required": False,
         },
     )
     addressUrl__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_addressUrl", title="Extension field for ``addressUrl``."
+        default=None, alias="_addressUrl", title="Extension field for ``addressUrl``."
     )
 
     channelType: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="channelType",
         title="Channel Type",
         description=(
@@ -121,44 +130,65 @@ class VirtualServiceDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     maxParticipants: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxParticipants",
         title="Maximum number of participants supported by the virtual service",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     maxParticipants__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxParticipants", title="Extension field for ``maxParticipants``."
+        default=None,
+        alias="_maxParticipants",
+        title="Extension field for ``maxParticipants``.",
     )
 
     sessionKey: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sessionKey",
         title="Session Key required by the virtual service",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     sessionKey__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sessionKey", title="Extension field for ``sessionKey``."
+        default=None, alias="_sessionKey", title="Extension field for ``sessionKey``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``VirtualServiceDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``VirtualServiceDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "channelType",
+            "addressUrl",
+            "addressString",
+            "addressContactPoint",
+            "addressExtendedContactDetail",
+            "additionalInfo",
+            "maxParticipants",
+            "sessionKey",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``VirtualServiceDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "channelType",
             "addressUrl",
             "addressString",

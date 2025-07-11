@@ -27,7 +27,7 @@ class DeviceDispense(domainresource.DomainResource):
     __resource_type__ = "DeviceDispense"
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="The order or request that this dispense is fulfilling",
         description=None,
@@ -39,7 +39,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="Type of device dispense",
         description="Indicates the type of device dispense.",
@@ -49,7 +49,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     destination: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="destination",
         title="Where the device was sent or should be sent",
         description=(
@@ -64,7 +64,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     device: fhirtypes.CodeableReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="device",
         title="What device was supplied",
         description=(
@@ -75,13 +75,14 @@ class DeviceDispense(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Device", "DeviceDefinition"],
         },
     )
 
     encounter: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="encounter",
         title="Encounter associated with event",
         description="The encounter that establishes the context for this event.",
@@ -93,7 +94,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     eventHistory: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="eventHistory",
         title="A list of relevant lifecycle events",
         description=(
@@ -108,17 +109,18 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier for this dispensation",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     location: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="Where the dispense occurred",
         description="The principal physical location where the dispense was performed.",
@@ -130,7 +132,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Information about the dispense",
         description=(
@@ -143,7 +145,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     partOf: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="partOf",
         title="The bigger event that this dispense is a part of",
         description=None,
@@ -155,7 +157,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     performer: typing.List[fhirtypes.DeviceDispensePerformerType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="performer",
         title="Who performed event",
         description="Indicates who or what performed the event.",
@@ -165,20 +167,23 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     preparedDate: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preparedDate",
         title="When product was packaged and reviewed",
         description="The time when the dispensed product was packaged and reviewed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     preparedDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_preparedDate", title="Extension field for ``preparedDate``."
+        default=None,
+        alias="_preparedDate",
+        title="Extension field for ``preparedDate``.",
     )
 
     quantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantity",
         title="Amount dispensed",
         description="The number of devices that have been dispensed.",
@@ -188,7 +193,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     receiver: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="receiver",
         title="Who collected the device or where the medication was delivered",
         description=(
@@ -211,7 +216,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "preparation | in-progress | cancelled | on-hold | completed | entered-"
@@ -220,6 +225,7 @@ class DeviceDispense(domainresource.DomainResource):
         description="A code specifying the state of the set of dispense events.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -237,11 +243,11 @@ class DeviceDispense(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     statusReason: fhirtypes.CodeableReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="statusReason",
         title="Why a dispense was or was not performed",
         description="Indicates the reason why a dispense was or was not performed.",
@@ -253,7 +259,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     subject: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="subject",
         title="Who the dispense is for",
         description=(
@@ -262,13 +268,14 @@ class DeviceDispense(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Practitioner"],
         },
     )
 
     supportingInformation: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="supportingInformation",
         title="Information that supports the dispensing of the device",
         description="Additional information that supports the device being dispensed.",
@@ -280,7 +287,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Trial fill, partial fill, emergency fill, etc",
         description="Indicates the type of dispensing event that is performed.",
@@ -290,7 +297,7 @@ class DeviceDispense(domainresource.DomainResource):
     )
 
     usageInstruction: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="usageInstruction",
         title="Full representation of the usage instructions",
         description="The full representation of the instructions.",
@@ -299,13 +306,13 @@ class DeviceDispense(domainresource.DomainResource):
         },
     )
     usageInstruction__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_usageInstruction",
         title="Extension field for ``usageInstruction``.",
     )
 
     whenHandedOver: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whenHandedOver",
         title="When product was given out",
         description=(
@@ -317,14 +324,16 @@ class DeviceDispense(domainresource.DomainResource):
         },
     )
     whenHandedOver__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_whenHandedOver", title="Extension field for ``whenHandedOver``."
+        default=None,
+        alias="_whenHandedOver",
+        title="Extension field for ``whenHandedOver``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDispense`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDispense`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -358,6 +367,23 @@ class DeviceDispense(domainresource.DomainResource):
             "eventHistory",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDispense`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "identifier",
+            "status",
+            "device",
+            "subject",
+            "preparedDate",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -382,7 +408,7 @@ class DeviceDispensePerformer(backboneelement.BackboneElement):
     __resource_type__ = "DeviceDispensePerformer"
 
     actor: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="actor",
         title="Individual who was performing",
         description=(
@@ -405,7 +431,7 @@ class DeviceDispensePerformer(backboneelement.BackboneElement):
     )
 
     function: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="function",
         title="Who performed the dispense and what they did",
         description=(
@@ -419,8 +445,15 @@ class DeviceDispensePerformer(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DeviceDispensePerformer`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DeviceDispensePerformer`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "function", "actor"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DeviceDispensePerformer`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 0.48.0
+Version: 0.48.1
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
@@ -281,7 +282,8 @@ Error codes are as follows:
 
 Certain errors are automatically retried 5 times by default, with a short exponential backoff.
 Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,
-429 Rate Limit, and >=500 Internal errors are all retried by default.
+429 Rate Limit, and >=500 Internal errors are all retried by default for GET requests. For POST requests, only 
+429 errors will be retried.
 
 You can use the `max_retries` option to configure or disable retry settings:
 
@@ -290,12 +292,12 @@ from runloop_api_client import Runloop
 
 # Configure the default for all requests:
 client = Runloop(
-    # default is 2
+    # default is 5
     max_retries=0,
 )
 
 # Or, configure per-request:
-client.with_options(max_retries=5).devboxes.create()
+client.with_options(max_retries=10).devboxes.create()
 ```
 
 ### Timeouts

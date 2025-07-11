@@ -1134,14 +1134,14 @@ class PeopleCountingUseCase(BaseProcessor):
 
     def _format_timestamp_for_video(self, timestamp: float) -> str:
         """Format timestamp for video chunks (HH:MM:SS.ms format)."""
-        hours = int(timestamp // 3600)
-        minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
+        hours = int(float(timestamp) // 3600)
+        minutes = int((float(timestamp) % 3600) // 60)
+        seconds = float(timestamp) % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
-        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        dt = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
@@ -1151,14 +1151,14 @@ class PeopleCountingUseCase(BaseProcessor):
         
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         
-        if is_video_chunk:
-            # For video chunks, use video_timestamp from stream_info
-            video_timestamp = stream_info.get("video_timestamp", 0.0)
-            return self._format_timestamp_for_video(video_timestamp)
-        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        # if is_video_chunk and stream_info.get("input_settings", {}).get("stream_type","video_file")!="video_file":
+        #     # For video chunks, use video_timestamp from stream_info
+        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
+        #     return self._format_timestamp_for_stream(video_timestamp)
+        if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
             # If video format, return video timestamp
             stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str
+            return stream_time_str[:8]
         else:
             # For streams, use stream_time from stream_info
             stream_time_str = stream_info.get("stream_time", "")
@@ -1183,10 +1183,10 @@ class PeopleCountingUseCase(BaseProcessor):
         
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         
-        if is_video_chunk:
-            # For video chunks, start from 00:00:00
-            return "00:00:00"
-        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        # if is_video_chunk:
+        #     # For video chunks, start from 00:00:00
+        #     return "00:00:00"
+        if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
@@ -1433,7 +1433,7 @@ class PeopleCountingUseCase(BaseProcessor):
                 for zone_name, zone_count in zone_analysis.items():
                         zone_total = robust_zone_total(zone_count)
                         human_text_lines.append(f"\t- Zone name: {zone_name}")
-                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total}")
+                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total-1}")
 
                 
                 human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
@@ -1496,6 +1496,7 @@ class PeopleCountingUseCase(BaseProcessor):
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
 
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         human_text_lines.append(f"\t- People Detected: {total_people}")
 
         human_text_lines.append("")

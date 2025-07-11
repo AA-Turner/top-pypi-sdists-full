@@ -35,9 +35,9 @@ def test_local_only(tmp_path: Path, mocker: MockerFixture, capfd: pytest.Capture
     main()
     out, _ = capfd.readouterr()
     found = {i.split("==")[0] for i in out.splitlines()}
-    expected = {"foo", "pip", "setuptools", "wheel"}
+    expected = {"foo", "pip", "setuptools"}
     if sys.version_info >= (3, 12):
-        expected -= {"setuptools", "wheel"}  # pragma: no cover
+        expected -= {"setuptools"}  # pragma: no cover
 
     assert found == expected
 
@@ -180,7 +180,7 @@ def test_paths(fake_dist: Path) -> None:
 
     dists = get_installed_distributions(supplied_paths=mocked_path)
     assert len(dists) == 1
-    assert dists[0].name == "bar"
+    assert dists[0].metadata["Name"] == "bar"
 
 
 def test_paths_when_in_virtual_env(tmp_path: Path, fake_dist: Path) -> None:
@@ -193,4 +193,4 @@ def test_paths_when_in_virtual_env(tmp_path: Path, fake_dist: Path) -> None:
 
     dists = get_installed_distributions(interpreter=str(s.creator.exe), supplied_paths=mocked_path)
     assert len(dists) == 1
-    assert dists[0].name == "bar"
+    assert dists[0].metadata["Name"] == "bar"

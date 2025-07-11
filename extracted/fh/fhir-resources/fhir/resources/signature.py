@@ -30,7 +30,7 @@ class Signature(datatype.DataType):
     __resource_type__ = "Signature"
 
     data: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="data",
         title="The actual signature content (XML DigSig. JWS, picture, etc.)",
         description=(
@@ -42,11 +42,11 @@ class Signature(datatype.DataType):
         },
     )
     data__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_data", title="Extension field for ``data``."
+        default=None, alias="_data", title="Extension field for ``data``."
     )
 
     onBehalfOf: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="onBehalfOf",
         title="The party represented",
         description=(
@@ -55,6 +55,7 @@ class Signature(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Practitioner",
@@ -68,7 +69,7 @@ class Signature(datatype.DataType):
     )
 
     sigFormat: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sigFormat",
         title="The technical format of the signature",
         description=(
@@ -82,11 +83,11 @@ class Signature(datatype.DataType):
         },
     )
     sigFormat__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sigFormat", title="Extension field for ``sigFormat``."
+        default=None, alias="_sigFormat", title="Extension field for ``sigFormat``."
     )
 
     targetFormat: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="targetFormat",
         title="The technical format of the signed resources",
         description=(
@@ -98,11 +99,13 @@ class Signature(datatype.DataType):
         },
     )
     targetFormat__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_targetFormat", title="Extension field for ``targetFormat``."
+        default=None,
+        alias="_targetFormat",
+        title="Extension field for ``targetFormat``.",
     )
 
     type: typing.List[fhirtypes.CodingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Indication of the reason the entity signed the object(s)",
         description=(
@@ -113,24 +116,26 @@ class Signature(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     when: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="when",
         title="When the signature was created",
         description="When the digital signature was signed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     when__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_when", title="Extension field for ``when``."
+        default=None, alias="_when", title="Extension field for ``when``."
     )
 
     who: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="who",
         title="Who signed",
         description=(
@@ -139,6 +144,7 @@ class Signature(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Practitioner",
@@ -153,9 +159,9 @@ class Signature(datatype.DataType):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Signature`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Signature`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -168,3 +174,10 @@ class Signature(datatype.DataType):
             "sigFormat",
             "data",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Signature`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["type", "when", "who", "onBehalfOf"]

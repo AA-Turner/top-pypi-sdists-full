@@ -26,7 +26,7 @@ class ExpansionProfile(domainresource.DomainResource):
     __resource_type__ = "ExpansionProfile"
 
     activeOnly: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="activeOnly",
         title="Include or exclude inactive concepts in the expansion",
         description=(
@@ -35,14 +35,15 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     activeOnly__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_activeOnly", title="Extension field for ``activeOnly``."
+        default=None, alias="_activeOnly", title="Extension field for ``activeOnly``."
     )
 
     contact: typing.List[fhirtypes.ContactDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for the publisher",
         description=(
@@ -51,11 +52,12 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     date: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date this was last changed",
         description=(
@@ -67,14 +69,15 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     description: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Natural language description of the expansion profile",
         description=(
@@ -86,11 +89,11 @@ class ExpansionProfile(domainresource.DomainResource):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     designation: fhirtypes.ExpansionProfileDesignationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="designation",
         title="When the expansion profile imposes designation contraints",
         description=(
@@ -99,11 +102,12 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     displayLanguage: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="displayLanguage",
         title=(
             "Specify the language for the display element of codes in the value set"
@@ -115,14 +119,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     displayLanguage__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_displayLanguage", title="Extension field for ``displayLanguage``."
+        default=None,
+        alias="_displayLanguage",
+        title="Extension field for ``displayLanguage``.",
     )
 
     excludeNested: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="excludeNested",
         title="Nested codes in the expansion or not",
         description=(
@@ -131,14 +138,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     excludeNested__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_excludeNested", title="Extension field for ``excludeNested``."
+        default=None,
+        alias="_excludeNested",
+        title="Extension field for ``excludeNested``.",
     )
 
     excludeNotForUI: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="excludeNotForUI",
         title=(
             "Include or exclude codes which cannot be rendered in user interfaces "
@@ -150,14 +160,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     excludeNotForUI__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_excludeNotForUI", title="Extension field for ``excludeNotForUI``."
+        default=None,
+        alias="_excludeNotForUI",
+        title="Extension field for ``excludeNotForUI``.",
     )
 
     excludePostCoordinated: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="excludePostCoordinated",
         title=(
             "Include or exclude codes which are post coordinated expressions in the"
@@ -169,16 +182,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     excludePostCoordinated__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_excludePostCoordinated",
         title="Extension field for ``excludePostCoordinated``.",
     )
 
     excludedSystem: fhirtypes.ExpansionProfileExcludedSystemType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="excludedSystem",
         title="Systems/Versions to be exclude",
         description=(
@@ -187,11 +201,12 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     experimental: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="experimental",
         title="For testing purposes, not real usage",
         description=(
@@ -201,24 +216,28 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     experimental__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_experimental", title="Extension field for ``experimental``."
+        default=None,
+        alias="_experimental",
+        title="Extension field for ``experimental``.",
     )
 
     fixedVersion: typing.List[fhirtypes.ExpansionProfileFixedVersionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedVersion",
         title="Fix use of a code system to a particular version",
         description="Fix use of a particular code system to a particular version.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Additional identifier for the expansion profile",
         description=(
@@ -228,11 +247,12 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     includeDefinition: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="includeDefinition",
         title="Include or exclude the value set definition in the expansion",
         description=(
@@ -241,16 +261,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     includeDefinition__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_includeDefinition",
         title="Extension field for ``includeDefinition``.",
     )
 
     includeDesignations: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="includeDesignations",
         title="Whether the expansion should include concept designations",
         description=(
@@ -259,16 +280,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     includeDesignations__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_includeDesignations",
         title="Extension field for ``includeDesignations``.",
     )
 
     jurisdiction: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="jurisdiction",
         title="Intended jurisdiction for expansion profile (if applicable)",
         description=(
@@ -277,11 +299,12 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     limitedExpansion: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="limitedExpansion",
         title=(
             "Controls behaviour of the value set expand operation when value sets "
@@ -296,16 +319,17 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     limitedExpansion__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_limitedExpansion",
         title="Extension field for ``limitedExpansion``.",
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name for this expansion profile (computer friendly)",
         description=(
@@ -315,14 +339,15 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     publisher: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="publisher",
         title="Name of the publisher (organization or individual)",
         description=(
@@ -331,14 +356,15 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     publisher__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_publisher", title="Extension field for ``publisher``."
+        default=None, alias="_publisher", title="Extension field for ``publisher``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | active | retired | unknown",
         description=(
@@ -347,6 +373,7 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -354,11 +381,11 @@ class ExpansionProfile(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title="Logical URI to reference this expansion profile (globally unique)",
         description=(
@@ -372,14 +399,15 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     useContext: typing.List[fhirtypes.UsageContextType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="useContext",
         title="Context the content is intended to support",
         description=(
@@ -389,11 +417,12 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Business version of the expansion profile",
         description=(
@@ -407,17 +436,18 @@ class ExpansionProfile(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfile`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfile`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -438,6 +468,39 @@ class ExpansionProfile(domainresource.DomainResource):
             "publisher",
             "contact",
             "description",
+            "useContext",
+            "jurisdiction",
+            "fixedVersion",
+            "excludedSystem",
+            "includeDesignations",
+            "designation",
+            "includeDefinition",
+            "activeOnly",
+            "excludeNested",
+            "excludeNotForUI",
+            "excludePostCoordinated",
+            "displayLanguage",
+            "limitedExpansion",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfile`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "url",
+            "identifier",
+            "version",
+            "name",
+            "status",
+            "experimental",
+            "date",
+            "publisher",
+            "contact",
             "useContext",
             "jurisdiction",
             "fixedVersion",
@@ -478,32 +541,41 @@ class ExpansionProfileDesignation(backboneelement.BackboneElement):
     __resource_type__ = "ExpansionProfileDesignation"
 
     exclude: fhirtypes.ExpansionProfileDesignationExcludeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="exclude",
         title="Designations to be excluded",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     include: fhirtypes.ExpansionProfileDesignationIncludeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="include",
         title="Designations to be included",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileDesignation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileDesignation`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "include", "exclude"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileDesignation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "include", "exclude"]
 
 
 class ExpansionProfileDesignationExclude(backboneelement.BackboneElement):
@@ -517,22 +589,30 @@ class ExpansionProfileDesignationExclude(backboneelement.BackboneElement):
     __resource_type__ = "ExpansionProfileDesignationExclude"
 
     designation: typing.List[fhirtypes.ExpansionProfileDesignationExcludeDesignationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="designation",
         title="The designation to be excluded",
         description="A data group for each designation to be excluded.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileDesignationExclude`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileDesignationExclude`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "designation"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileDesignationExclude`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "designation"]
 
 
 class ExpansionProfileDesignationExcludeDesignation(backboneelement.BackboneElement):
@@ -547,35 +627,44 @@ class ExpansionProfileDesignationExcludeDesignation(backboneelement.BackboneElem
     __resource_type__ = "ExpansionProfileDesignationExcludeDesignation"
 
     language: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Human language of the designation to be excluded",
         description="The language this designation is defined for.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     language__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_language", title="Extension field for ``language``."
+        default=None, alias="_language", title="Extension field for ``language``."
     )
 
     use: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title="What kind of Designation to exclude",
         description="Which kinds of designation to exclude from the expansion.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileDesignationExcludeDesignation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileDesignationExcludeDesignation`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "language", "use"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileDesignationExcludeDesignation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "language", "use"]
 
 
 class ExpansionProfileDesignationInclude(backboneelement.BackboneElement):
@@ -589,22 +678,30 @@ class ExpansionProfileDesignationInclude(backboneelement.BackboneElement):
     __resource_type__ = "ExpansionProfileDesignationInclude"
 
     designation: typing.List[fhirtypes.ExpansionProfileDesignationIncludeDesignationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="designation",
         title="The designation to be included",
         description="A data group for each designation to be included.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileDesignationInclude`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileDesignationInclude`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "designation"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileDesignationInclude`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "designation"]
 
 
 class ExpansionProfileDesignationIncludeDesignation(backboneelement.BackboneElement):
@@ -619,35 +716,44 @@ class ExpansionProfileDesignationIncludeDesignation(backboneelement.BackboneElem
     __resource_type__ = "ExpansionProfileDesignationIncludeDesignation"
 
     language: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Human language of the designation to be included",
         description="The language this designation is defined for.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     language__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_language", title="Extension field for ``language``."
+        default=None, alias="_language", title="Extension field for ``language``."
     )
 
     use: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title="What kind of Designation to include",
         description="Which kinds of designation to include in the expansion.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileDesignationIncludeDesignation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileDesignationIncludeDesignation`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "language", "use"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileDesignationIncludeDesignation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "language", "use"]
 
 
 class ExpansionProfileExcludedSystem(backboneelement.BackboneElement):
@@ -663,21 +769,22 @@ class ExpansionProfileExcludedSystem(backboneelement.BackboneElement):
     __resource_type__ = "ExpansionProfileExcludedSystem"
 
     system: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="system",
         title="The specific code system to be excluded",
         description="An absolute URI which is the code system to be excluded.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     system__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_system", title="Extension field for ``system``."
+        default=None, alias="_system", title="Extension field for ``system``."
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Specific version of the code system referred to",
         description=(
@@ -686,19 +793,27 @@ class ExpansionProfileExcludedSystem(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileExcludedSystem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileExcludedSystem`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "system", "version"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileExcludedSystem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "system", "version"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -724,7 +839,7 @@ class ExpansionProfileFixedVersion(backboneelement.BackboneElement):
     __resource_type__ = "ExpansionProfileFixedVersion"
 
     mode: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="mode",
         title="default | check | override",
         description=(
@@ -733,6 +848,7 @@ class ExpansionProfileFixedVersion(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -740,25 +856,26 @@ class ExpansionProfileFixedVersion(backboneelement.BackboneElement):
         },
     )
     mode__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_mode", title="Extension field for ``mode``."
+        default=None, alias="_mode", title="Extension field for ``mode``."
     )
 
     system: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="system",
         title="System to have its version fixed",
         description="The specific system for which to fix the version.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     system__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_system", title="Extension field for ``system``."
+        default=None, alias="_system", title="Extension field for ``system``."
     )
 
     version: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="version",
         title="Specific version of the code system referred to",
         description=(
@@ -767,20 +884,28 @@ class ExpansionProfileFixedVersion(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     version__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_version", title="Extension field for ``version``."
+        default=None, alias="_version", title="Extension field for ``version``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExpansionProfileFixedVersion`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExpansionProfileFixedVersion`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "system", "version", "mode"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExpansionProfileFixedVersion`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "system", "version", "mode"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

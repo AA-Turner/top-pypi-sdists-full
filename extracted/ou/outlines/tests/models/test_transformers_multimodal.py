@@ -6,7 +6,7 @@ from io import BytesIO
 from urllib.request import urlopen
 
 import pytest
-from PIL import Image
+from PIL import Image as PILImage
 from pydantic import BaseModel
 from transformers import (
     LlavaForConditionalGeneration,
@@ -14,6 +14,7 @@ from transformers import (
 )
 
 import outlines
+from outlines.inputs import Chat, Image
 from outlines.models.transformers import (
     TransformersMultiModal,
     TransformerTokenizer,
@@ -32,20 +33,26 @@ IMAGE_URLS = [
 def images():
     def img_from_url(url):
         img_byte_stream = BytesIO(urlopen(url).read())
-        return Image.open(img_byte_stream).convert("RGB")
+        image = PILImage.open(img_byte_stream).convert("RGB")
+        image.format = "PNG"
+        return image
 
     return [img_from_url(url) for url in IMAGE_URLS]
 
 
 @pytest.fixture
 def model():
-    return outlines.from_transformers(
+    model = outlines.from_transformers(
         LlavaForConditionalGeneration.from_pretrained(TEST_MODEL),
         AutoProcessor.from_pretrained(TEST_MODEL),
     )
+    chat_template = '{% for message in messages %}{{ message.role }}: {{ message.content }}{% endfor %}'
+    model.type_adapter.tokenizer.chat_template = chat_template
+
+    return model
 
 
-def test_transformers_vision_instantiate_simple():
+def test_transformers_multimodal_instantiate_simple():
     model = outlines.from_transformers(
         LlavaForConditionalGeneration.from_pretrained(TEST_MODEL),
         AutoProcessor.from_pretrained(TEST_MODEL),
@@ -56,41 +63,59 @@ def test_transformers_vision_instantiate_simple():
     assert model.tensor_library_name == "torch"
 
 
-def test_transformers_vision_simple(model, images):
+def test_transformers_multimodal_simple(model, images):
     result = model.generate(
-        {"text": "<image>Describe this image in one sentence:", "images": images[0]},
+        ["<image>Describe this image in one sentence:", Image(images[0])],
         None,
         max_new_tokens=2,
     )
     assert isinstance(result, str)
 
 
-def test_transformers_vision_call(model, images):
+def test_transformers_multimodal_call(model, images):
     result = model(
-        {"text": "<image>Describe this image in one sentence:", "images": images[0]},
+        ["<image>Describe this image in one sentence:", Image(images[0])],
         max_new_tokens=2,
     )
     assert isinstance(result, str)
 
 
-def test_transformers_vision_wrong_number_images(model, images):
+def test_transformers_multimodal_wrong_number_images(model, images):
     with pytest.raises(ValueError):
         model(
-            {
-                "text": "<image>Describe this image in one sentence:",
-                "images": [images[0], images[1]],
-            }
+            [
+                "<image>Describe this image in one sentence:",
+                Image(images[0]),
+                Image(images[1]),
+            ],
         )
 
 
-def test_transformers_vision_wrong_input_type(model):
-    with pytest.raises(NotImplementedError):
+def test_transformers_multimodal_wrong_input_type(model):
+    with pytest.raises(TypeError):
         model.generate("invalid input", None)
+
+
+def test_transformers_multimodal_chat(model, images):
+    result = model(
+        Chat(messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    "What's on this image?<image>",
+                    Image(images[0]),
+                ],
+            },
+        ]),
+        max_new_tokens=2,
+    )
+    assert isinstance(result, str)
 
 
 def test_transformers_inference_kwargs(model, images):
     result = model(
-        {"text": "<image>Describe this image in one sentence:", "images": images[0]},
+        ["<image>Describe this image in one sentence:", Image(images[0])],
         max_new_tokens=2,
     )
     assert isinstance(result, str)
@@ -99,40 +124,41 @@ def test_transformers_inference_kwargs(model, images):
 def test_transformers_invalid_inference_kwargs(model, images):
     with pytest.raises(ValueError):
         model(
-            {
-                "text": "<image>Describe this image in one sentence:",
-                "images": images[0],
-            },
+            [
+                "<image>Describe this image in one sentence:",
+                Image(images[0]),
+            ],
             foo="bar",
         )
 
 
 def test_transformers_several_images(model, images):
     result = model(
-        {
-            "text": "<image><image>Describe this image in one sentence:",
-            "images": [images[0], images[1]],
-        },
+        [
+            "<image><image>Describe this image in one sentence:",
+            Image(images[0]),
+            Image(images[1]),
+        ],
         max_new_tokens=2,
     )
     assert isinstance(result, str)
 
 
-def test_transformers_vision_json(model, images):
+def test_transformers_multimodal_json(model, images):
     class Foo(BaseModel):
         name: str
 
     result = model(
-        {"text": "<image>Give a name to this animal.", "images": images[0]},
+        ["<image>Give a name to this animal.", Image(images[0])],
         Foo,
         max_new_tokens=10,
     )
     assert "name" in result
 
 
-def test_transformers_vision_regex(model, images):
+def test_transformers_multimodal_regex(model, images):
     result = model(
-        {"text": "<image>How old is it?", "images": images[0]},
+        ["<image>How old is it?", Image(images[0])],
         Regex(r"[0-9]")
     )
 
@@ -140,13 +166,13 @@ def test_transformers_vision_regex(model, images):
     assert re.match(r"[0-9]", result)
 
 
-def test_transformers_vision_choice(model, images):
+def test_transformers_multimodal_choice(model, images):
     class Foo(Enum):
         cat = "cat"
         dog = "dog"
 
     result = model(
-        {"text": "<image>Is it a cat or a dog?", "images": images[0]},
+        ["<image>Is it a cat or a dog?", Image(images[0])],
         Foo,
     )
 
@@ -154,9 +180,9 @@ def test_transformers_vision_choice(model, images):
     assert result in ["cat", "dog"]
 
 
-def test_transformers_vision_multiple_samples(model, images):
+def test_transformers_multimodal_multiple_samples(model, images):
     result = model(
-        {"text": "<image>Describe this image in one sentence.", "images": images[0]},
+        ["<image>Describe this image in one sentence.", Image(images[0])],
         num_return_sequences=2,
         num_beams=2,
         max_new_tokens=2,
@@ -165,17 +191,11 @@ def test_transformers_vision_multiple_samples(model, images):
     assert len(result) == 2
 
 
-def test_transformers_vision_batch(model, images):
+def test_transformers_multimodal_batch(model, images):
     result = model.batch(
         [
-            {
-                "text": "<image>Describe this image in one sentence.",
-                "images": images[0],
-            },
-            {
-                "text": "<image>Describe this image in one sentence.",
-                "images": [images[0]],
-            }
+            ["<image>Describe this image in one sentence.", Image(images[0])],
+            ["<image>Describe this image in one sentence.", Image(images[0])],
         ],
         max_new_tokens=2,
     )
@@ -184,14 +204,8 @@ def test_transformers_vision_batch(model, images):
 
     result = model.batch(
         [
-            {
-                "text": "<image>Describe this image in one sentence.<image>",
-                "images": [images[0], images[1]],
-            },
-            {
-                "text": "<image>Describe this image in one sentence.<image>",
-                "images": [images[0], images[1]],
-            }
+            ["<image>Describe this image in one sentence.<image>", Image(images[0]), Image(images[1])],
+            ["<image>Describe this image in one sentence.<image>", Image(images[0]), Image(images[1])],
         ],
         num_return_sequences=2,
         num_beams=2,
@@ -202,3 +216,44 @@ def test_transformers_vision_batch(model, images):
     for item in result:
         assert isinstance(item, list)
         assert len(item) == 2
+
+    result = model.batch(
+        [
+            Chat(messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": [
+                        "What's on this image?<image>",
+                        Image(images[0]),
+                    ],
+                },
+            ]),
+            Chat(messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": [
+                        "What's on this image?<image>",
+                        Image(images[1]),
+                    ],
+                },
+            ]),
+        ],
+        max_new_tokens=2,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+
+
+def test_transformers_multimodal_deprecated_input_type(model, images):
+    with pytest.warns(DeprecationWarning):
+        result = model.generate(
+            {
+                "text": "<image>Describe this image in one sentence:",
+                "images": images[0],
+            },
+            None,
+            max_new_tokens=2,
+        )
+        assert isinstance(result, str)

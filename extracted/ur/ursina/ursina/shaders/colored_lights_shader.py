@@ -1,6 +1,5 @@
-from ursina import *
-from panda3d.core import Shader as Panda3dShader
-
+from ursina import color
+from ursina.shader import Shader
 
 colored_lights_shader = Shader(name='colored_lights_shader', language=Shader.GLSL,
 vertex='''

@@ -1,13 +1,13 @@
-from ursina import *
-from collections import namedtuple
 from copy import copy
 
+from ursina import *
 
-class Node:
+
+class _ConversationNode:
     __slots__ = ['index', 'indent_level', 'content', 'code', 'children', 'is_answer']
 
     def __str__(self):
-        return 'Node:\n    ' + '\n    '.join([f'{e} = {getattr(self, e)}' for e in Node.__slots__])
+        return f'{__class__.__name__}:\n    ' + '\n    '.join([f'{e} = {getattr(self, e)}' for e in __class__.__slots__])
 
 
 class Conversation(Entity):
@@ -20,7 +20,7 @@ class Conversation(Entity):
         self.question.text_entity.position = (-.45, -.05)
         self.question.highlight_color = self.question.color
         self.more_indicator = Entity(parent=self.question, model=Circle(3), position=(.45,-.4,-1), rotation_z=180, color=color.azure, world_scale=.5, z=-1, enabled=False)
-        self.more_indicator.blink(duration=1, loop=True)
+        self.more_indicator.animate_color(color.white, duration=1, loop=True, curve=curve.linear_boomerang)
         self.spacing = 4 * .02
         self.wordwrap = 65
         self.button_model = Quad(radius=.5, aspect=1/.075)
@@ -170,7 +170,7 @@ class Conversation(Entity):
                 prev_node = n
                 continue
 
-            n = Node()
+            n = _ConversationNode()
             n.index = node_index
             n.indent_level = indent_level
             n.is_answer = content.startswith('* ')

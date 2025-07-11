@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from great_tables._locations import resolve_cols_c, resolve_rows_i, RowSelectExpr
-from great_tables._tbl_data import DataFrameLike, is_na, SelectExpr
+from typing_extensions import TypeAlias
+
+from great_tables._locations import RowSelectExpr, resolve_cols_c, resolve_rows_i
+from great_tables._tbl_data import DataFrameLike, SelectExpr, is_na
 from great_tables.loc import body
 from great_tables.style import fill, text
-from typing_extensions import TypeAlias
 
 from .constants import ALL_PALETTES, COLOR_NAME_TO_HEX, DEFAULT_PALETTE
 
@@ -28,6 +29,7 @@ def data_color(
     alpha: int | float | None = None,
     reverse: bool = False,
     autocolor_text: bool = True,
+    truncate: bool = False,
 ) -> GTSelf:
     """
     Perform data cell colorization.
@@ -73,6 +75,11 @@ def data_color(
     autocolor_text
         Whether or not to automatically color the text of the data values. If `True`, then the text
         will be colored according to the background color of the cell.
+    truncate
+        If `True`, then any values that fall outside of the domain will be truncated to the
+        minimum or maximum value of the domain (will have the same color). If `False`, then any
+        values that fall outside of the domain will be set to `NaN` and will follow the `na_color=`
+        color.
 
     Returns
     -------
@@ -237,7 +244,9 @@ def data_color(
                 domain = _get_domain_numeric(df=data_table, vals=column_vals)
 
             # Rescale only the non-NA values in `column_vals` to the range [0, 1]
-            scaled_vals = _rescale_numeric(df=data_table, vals=column_vals, domain=domain)
+            scaled_vals = _rescale_numeric(
+                df=data_table, vals=column_vals, domain=domain, truncate=truncate
+            )
 
         elif all(isinstance(x, str) for x in filtered_column_vals):
             # If `domain` is not provided, then infer it from the data values
@@ -568,7 +577,7 @@ def _expand_short_hex(hex_color: str) -> str:
 
 
 def _rescale_numeric(
-    df: DataFrameLike, vals: list[int | float], domain: list[float]
+    df: DataFrameLike, vals: list[int | float], domain: list[float], truncate: bool = False
 ) -> list[float]:
     """
     Rescale numeric values
@@ -587,10 +596,19 @@ def _rescale_numeric(
         scaled_vals = [0.0 if not is_na(df, x) else x for x in vals]
     else:
         # Rescale the values in `vals` to the range [0, 1], pass through NA values
-        scaled_vals = [(x - domain_min) / domain_range if not is_na(df, x) else x for x in vals]
+        filled = [np.nan if is_na(df, x) else x for x in vals]
+        scaled = [(x - domain_min) / domain_range for x in filled]
 
-    # Add NA values to any values in `scaled_vals` that are not in the [0, 1] range
-    scaled_vals = [x if not is_na(df, x) and (x >= 0 and x <= 1) else np.nan for x in scaled_vals]
+        if truncate:
+            # values outside domain set to 0 or 1
+            min_val = 0.0
+            max_val = 1.0
+        else:
+            # values outside domain set to missing
+            min_val = np.nan
+            max_val = np.nan
+
+        scaled_vals = [min_val if x < 0 else max_val if x > 1 else x for x in scaled]
 
     return scaled_vals
 
@@ -617,7 +635,7 @@ def _rescale_factor(
     scaled_vals = _rescale_numeric(
         df=df,
         vals=[domain.index(x) if x in domain else np.nan for x in vals],
-        domain=[0, domain_length],
+        domain=[0, domain_length - 1],
     )
 
     return scaled_vals

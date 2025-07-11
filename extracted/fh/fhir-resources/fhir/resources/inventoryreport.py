@@ -25,7 +25,7 @@ class InventoryReport(domainresource.DomainResource):
     __resource_type__ = "InventoryReport"
 
     countType: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="countType",
         title="snapshot | difference",
         description=(
@@ -34,6 +34,7 @@ class InventoryReport(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -41,31 +42,33 @@ class InventoryReport(domainresource.DomainResource):
         },
     )
     countType__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_countType", title="Extension field for ``countType``."
+        default=None, alias="_countType", title="Extension field for ``countType``."
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier for the report",
         description="Business identifier for the InventoryReport.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     inventoryListing: typing.List[fhirtypes.InventoryReportInventoryListingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="inventoryListing",
         title="An inventory listing section (grouped by any of the attributes)",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="A note associated with the InventoryReport",
         description=None,
@@ -75,17 +78,18 @@ class InventoryReport(domainresource.DomainResource):
     )
 
     operationType: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="operationType",
         title="addition | subtraction",
         description="What type of operation is being performed - addition or subtraction.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     operationTypeReason: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="operationTypeReason",
         title=(
             "The reason for this count - regular count, ad-hoc count, new arrivals,"
@@ -94,27 +98,29 @@ class InventoryReport(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     reportedDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reportedDateTime",
         title="When the report has been submitted",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     reportedDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_reportedDateTime",
         title="Extension field for ``reportedDateTime``.",
     )
 
     reporter: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reporter",
         title="Who submits the report",
         description=None,
@@ -131,7 +137,7 @@ class InventoryReport(domainresource.DomainResource):
     )
 
     reportingPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reportingPeriod",
         title="The period the report refers to",
         description=None,
@@ -141,7 +147,7 @@ class InventoryReport(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="draft | requested | active | entered-in-error",
         description=(
@@ -150,6 +156,7 @@ class InventoryReport(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -157,14 +164,14 @@ class InventoryReport(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``InventoryReport`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``InventoryReport`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -185,6 +192,25 @@ class InventoryReport(domainresource.DomainResource):
             "reportingPeriod",
             "inventoryListing",
             "note",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``InventoryReport`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "modifierExtension",
+            "identifier",
+            "status",
+            "countType",
+            "operationType",
+            "operationTypeReason",
+            "reportedDateTime",
+            "inventoryListing",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -214,7 +240,7 @@ class InventoryReportInventoryListing(backboneelement.BackboneElement):
     __resource_type__ = "InventoryReportInventoryListing"
 
     countingDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="countingDateTime",
         title="The date and time when the items were counted",
         description=None,
@@ -223,33 +249,35 @@ class InventoryReportInventoryListing(backboneelement.BackboneElement):
         },
     )
     countingDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_countingDateTime",
         title="Extension field for ``countingDateTime``.",
     )
 
     item: typing.List[fhirtypes.InventoryReportInventoryListingItemType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="item",
         title="The item or items in this listing",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     itemStatus: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="itemStatus",
         title="The status of the items that are being reported",
         description="The status of the items.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     location: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="Location of the inventory items",
         description=None,
@@ -262,9 +290,9 @@ class InventoryReportInventoryListing(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``InventoryReportInventoryListing`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``InventoryReportInventoryListing`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -275,6 +303,13 @@ class InventoryReportInventoryListing(backboneelement.BackboneElement):
             "countingDateTime",
             "item",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``InventoryReportInventoryListing`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "itemStatus", "item"]
 
 
 class InventoryReportInventoryListingItem(backboneelement.BackboneElement):
@@ -288,7 +323,7 @@ class InventoryReportInventoryListingItem(backboneelement.BackboneElement):
     __resource_type__ = "InventoryReportInventoryListingItem"
 
     category: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="The inventory category or classification of the items being reported",
         description=(
@@ -298,16 +333,18 @@ class InventoryReportInventoryListingItem(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     item: fhirtypes.CodeableReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="item",
         title="The code or reference to the item type",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Medication",
@@ -322,19 +359,27 @@ class InventoryReportInventoryListingItem(backboneelement.BackboneElement):
     )
 
     quantity: fhirtypes.QuantityType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="quantity",
         title="The quantity of the item or items being reported",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``InventoryReportInventoryListingItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``InventoryReportInventoryListingItem`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "category", "quantity", "item"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``InventoryReportInventoryListingItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "category", "quantity", "item"]

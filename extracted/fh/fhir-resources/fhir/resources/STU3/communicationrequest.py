@@ -28,7 +28,7 @@ class CommunicationRequest(domainresource.DomainResource):
     __resource_type__ = "CommunicationRequest"
 
     authoredOn: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="authoredOn",
         title="When request transitioned to being actionable",
         description=(
@@ -37,14 +37,15 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     authoredOn__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_authoredOn", title="Extension field for ``authoredOn``."
+        default=None, alias="_authoredOn", title="Extension field for ``authoredOn``."
     )
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="Fulfills plan or proposal",
         description=(
@@ -53,13 +54,14 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Resource"],
         },
     )
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="Message category",
         description=(
@@ -72,7 +74,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     context: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="context",
         title="Encounter or episode leading to message",
         description=(
@@ -81,13 +83,14 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Encounter", "EpisodeOfCare"],
         },
     )
 
     groupIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="groupIdentifier",
         title="Composite request this is part of",
         description=(
@@ -97,11 +100,12 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Unique identifier",
         description=(
@@ -112,11 +116,12 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     medium: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="medium",
         title="A channel of communication",
         description="A channel that was used for this communication (e.g. email, fax).",
@@ -126,7 +131,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Comments made about communication request",
         description=(
@@ -139,30 +144,32 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     occurrenceDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrenceDateTime",
         title="When scheduled",
         description="The time when this communication is to occur.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
         },
     )
     occurrenceDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_occurrenceDateTime",
         title="Extension field for ``occurrenceDateTime``.",
     )
 
     occurrencePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrencePeriod",
         title="When scheduled",
         description="The time when this communication is to occur.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
@@ -170,7 +177,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     payload: typing.List[fhirtypes.CommunicationRequestPayloadType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="payload",
         title="Message payload",
         description=(
@@ -183,7 +190,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     priority: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="Message urgency",
         description=(
@@ -192,36 +199,39 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     priority__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_priority", title="Extension field for ``priority``."
+        default=None, alias="_priority", title="Extension field for ``priority``."
     )
 
     reasonCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonCode",
         title="Why is communication needed?",
         description="Describes why the request is being made in coded or textual form.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     reasonReference: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonReference",
         title="Why is communication needed?",
         description="Indicates another resource whose existence justifies this request.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Condition", "Observation"],
         },
     )
 
     recipient: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="recipient",
         title="Message recipient",
         description=(
@@ -245,7 +255,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     replaces: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="replaces",
         title="Request(s) replaced by this request",
         description=(
@@ -254,13 +264,14 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["CommunicationRequest"],
         },
     )
 
     requester: fhirtypes.CommunicationRequestRequesterType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requester",
         title="Who/what is requesting service",
         description=(
@@ -269,11 +280,12 @@ class CommunicationRequest(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     sender: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sender",
         title="Message sender",
         description=(
@@ -294,7 +306,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "draft | active | suspended | cancelled | completed | entered-in-error "
@@ -303,6 +315,7 @@ class CommunicationRequest(domainresource.DomainResource):
         description="The status of the proposal or order.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -318,11 +331,11 @@ class CommunicationRequest(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="Focus of message",
         description="The patient or group that is the focus of this communication request.",
@@ -334,7 +347,7 @@ class CommunicationRequest(domainresource.DomainResource):
     )
 
     topic: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="topic",
         title="Focal resources",
         description=(
@@ -350,9 +363,9 @@ class CommunicationRequest(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``CommunicationRequest`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``CommunicationRequest`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -384,6 +397,30 @@ class CommunicationRequest(domainresource.DomainResource):
             "reasonCode",
             "reasonReference",
             "note",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``CommunicationRequest`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "basedOn",
+            "replaces",
+            "groupIdentifier",
+            "status",
+            "priority",
+            "context",
+            "occurrenceDateTime",
+            "occurrencePeriod",
+            "authoredOn",
+            "requester",
+            "reasonCode",
+            "reasonReference",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -426,7 +463,7 @@ class CommunicationRequestPayload(backboneelement.BackboneElement):
     __resource_type__ = "CommunicationRequestPayload"
 
     contentAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentAttachment",
         title="Message part content",
         description=(
@@ -442,7 +479,7 @@ class CommunicationRequestPayload(backboneelement.BackboneElement):
     )
 
     contentReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentReference",
         title="Message part content",
         description=(
@@ -460,7 +497,7 @@ class CommunicationRequestPayload(backboneelement.BackboneElement):
     )
 
     contentString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentString",
         title="Message part content",
         description=(
@@ -475,14 +512,16 @@ class CommunicationRequestPayload(backboneelement.BackboneElement):
         },
     )
     contentString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_contentString", title="Extension field for ``contentString``."
+        default=None,
+        alias="_contentString",
+        title="Extension field for ``contentString``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``CommunicationRequestPayload`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``CommunicationRequestPayload`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -492,6 +531,13 @@ class CommunicationRequestPayload(backboneelement.BackboneElement):
             "contentAttachment",
             "contentReference",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``CommunicationRequestPayload`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -525,12 +571,13 @@ class CommunicationRequestRequester(backboneelement.BackboneElement):
     __resource_type__ = "CommunicationRequestRequester"
 
     agent: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="agent",
         title="Individual making the request",
         description="The device, practitioner, etc. who initiated the request.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Practitioner",
@@ -543,12 +590,13 @@ class CommunicationRequestRequester(backboneelement.BackboneElement):
     )
 
     onBehalfOf: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="onBehalfOf",
         title="Organization agent is acting for",
         description="The organization the device or practitioner was acting on behalf of.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
@@ -556,8 +604,15 @@ class CommunicationRequestRequester(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``CommunicationRequestRequester`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``CommunicationRequestRequester`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "agent", "onBehalfOf"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``CommunicationRequestRequester`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "agent", "onBehalfOf"]

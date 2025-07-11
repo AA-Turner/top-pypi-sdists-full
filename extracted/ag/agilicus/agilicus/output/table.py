@@ -223,6 +223,24 @@ def list_map(column: OutputColumn, mapfn: Callable):
     return column
 
 
+def expand_dict(column: OutputColumn):
+    orig = column.getter
+
+    def getter(record, getter):
+        if orig:
+            val = orig(record, getter)
+        else:
+            val = getter(column.in_name)(record)
+        if val is None:
+            return val
+        if not isinstance(val, dict):
+            val = val.to_dict()
+        return list(val.items())
+
+    column.getter = getter
+    return column
+
+
 def summarize(column: OutputColumn, max_length: int):
     orig = column.format_fn
 

@@ -27,7 +27,7 @@ class RiskAssessment(domainresource.DomainResource):
     __resource_type__ = "RiskAssessment"
 
     basedOn: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="Request fulfilled by this assessment",
         description="A reference to the request that is fulfilled by this risk assessment.",
@@ -39,7 +39,7 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     basis: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basis",
         title="Information used in assessment",
         description=(
@@ -54,17 +54,18 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Type of assessment",
         description="The type of the risk assessment performed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     comment: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="comment",
         title="Comments on the risk assessment",
         description="Additional comments about the risk assessment.",
@@ -73,11 +74,11 @@ class RiskAssessment(domainresource.DomainResource):
         },
     )
     comment__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_comment", title="Extension field for ``comment``."
+        default=None, alias="_comment", title="Extension field for ``comment``."
     )
 
     condition: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="condition",
         title="Condition assessed",
         description=(
@@ -86,45 +87,49 @@ class RiskAssessment(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Condition"],
         },
     )
 
     context: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="context",
         title="Where was assessment performed?",
         description="The encounter where the assessment was performed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Encounter", "EpisodeOfCare"],
         },
     )
 
     identifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Unique identifier for the assessment",
         description="Business identifier assigned to the risk assessment.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     method: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="method",
         title="Evaluation mechanism",
         description="The algorithm, process or mechanism used to evaluate the risk.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     mitigation: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="mitigation",
         title="How to reduce risk",
         description=(
@@ -136,34 +141,36 @@ class RiskAssessment(domainresource.DomainResource):
         },
     )
     mitigation__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_mitigation", title="Extension field for ``mitigation``."
+        default=None, alias="_mitigation", title="Extension field for ``mitigation``."
     )
 
     occurrenceDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrenceDateTime",
         title="When was assessment made?",
         description="The date (and possibly time) the risk assessment was performed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
         },
     )
     occurrenceDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_occurrenceDateTime",
         title="Extension field for ``occurrenceDateTime``.",
     )
 
     occurrencePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="occurrencePeriod",
         title="When was assessment made?",
         description="The date (and possibly time) the risk assessment was performed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e occurrence[x]
             "one_of_many": "occurrence",
             "one_of_many_required": False,
@@ -171,7 +178,7 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     parent: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="parent",
         title="Part of this occurrence",
         description=(
@@ -186,19 +193,20 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     performer: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="performer",
         title="Who did assessment?",
         description="The provider or software application that performed the assessment.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Practitioner", "Device"],
         },
     )
 
     prediction: typing.List[fhirtypes.RiskAssessmentPredictionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="prediction",
         title="Outcome predicted",
         description="Describes the expected outcome for the subject.",
@@ -208,7 +216,7 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     reasonCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonCodeableConcept",
         title="Why the assessment was necessary?",
         description="The reason the risk assessment was performed.",
@@ -221,7 +229,7 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     reasonReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonReference",
         title="Why the assessment was necessary?",
         description="The reason the risk assessment was performed.",
@@ -236,7 +244,7 @@ class RiskAssessment(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="registered | preliminary | final | amended +",
         description=(
@@ -252,16 +260,17 @@ class RiskAssessment(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="Who/what does assessment apply to?",
         description="The patient or group the risk assessment applies to.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient", "Group"],
         },
@@ -269,9 +278,9 @@ class RiskAssessment(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RiskAssessment`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RiskAssessment`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -300,6 +309,26 @@ class RiskAssessment(domainresource.DomainResource):
             "prediction",
             "mitigation",
             "comment",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RiskAssessment`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "method",
+            "code",
+            "subject",
+            "context",
+            "occurrenceDateTime",
+            "occurrencePeriod",
+            "condition",
+            "performer",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -345,7 +374,7 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
     __resource_type__ = "RiskAssessmentPrediction"
 
     outcome: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="outcome",
         title="Possible outcome for the subject",
         description=(
@@ -358,7 +387,7 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
     )
 
     probabilityDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="probabilityDecimal",
         title="Likelihood of specified outcome",
         description="How likely is the outcome (in the specified timeframe).",
@@ -370,13 +399,13 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
         },
     )
     probabilityDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_probabilityDecimal",
         title="Extension field for ``probabilityDecimal``.",
     )
 
     probabilityRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="probabilityRange",
         title="Likelihood of specified outcome",
         description="How likely is the outcome (in the specified timeframe).",
@@ -389,7 +418,7 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
     )
 
     qualitativeRisk: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="qualitativeRisk",
         title="Likelihood of specified outcome as a qualitative value",
         description=(
@@ -402,7 +431,7 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
     )
 
     rationale: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rationale",
         title="Explanation of prediction",
         description="Additional information explaining the basis for the prediction.",
@@ -411,11 +440,11 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
         },
     )
     rationale__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_rationale", title="Extension field for ``rationale``."
+        default=None, alias="_rationale", title="Extension field for ``rationale``."
     )
 
     relativeRisk: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="relativeRisk",
         title="Relative likelihood",
         description=(
@@ -429,11 +458,13 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
         },
     )
     relativeRisk__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_relativeRisk", title="Extension field for ``relativeRisk``."
+        default=None,
+        alias="_relativeRisk",
+        title="Extension field for ``relativeRisk``.",
     )
 
     whenPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whenPeriod",
         title="Timeframe or age range",
         description=(
@@ -449,7 +480,7 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
     )
 
     whenRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="whenRange",
         title="Timeframe or age range",
         description=(
@@ -466,9 +497,9 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RiskAssessmentPrediction`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RiskAssessmentPrediction`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -483,6 +514,13 @@ class RiskAssessmentPrediction(backboneelement.BackboneElement):
             "whenRange",
             "rationale",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RiskAssessmentPrediction`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice

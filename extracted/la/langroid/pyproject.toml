@@ -1,6 +1,6 @@
 [project]
 name = "langroid"
-version = "0.57.0"
+version = "0.58.1"
 authors = [
     {name = "Prasad Chalasani", email = "pchalasani@gmail.com"},
 ]
@@ -269,6 +269,9 @@ asyncio = [
 ]
 firecrawl = [
     "firecrawl-py>=1.13.5",
+]
+crawl-4-ai = [
+    "crawl4ai>=0.6.3",
 ]
 
 

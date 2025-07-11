@@ -27,7 +27,7 @@ class EnrollmentResponse(domainresource.DomainResource):
     __resource_type__ = "EnrollmentResponse"
 
     created: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="created",
         title="Creation date",
         description=(
@@ -39,11 +39,11 @@ class EnrollmentResponse(domainresource.DomainResource):
         },
     )
     created__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_created", title="Extension field for ``created``."
+        default=None, alias="_created", title="Extension field for ``created``."
     )
 
     disposition: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="disposition",
         title="Disposition Message",
         description="A description of the status of the adjudication.",
@@ -52,11 +52,11 @@ class EnrollmentResponse(domainresource.DomainResource):
         },
     )
     disposition__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_disposition", title="Extension field for ``disposition``."
+        default=None, alias="_disposition", title="Extension field for ``disposition``."
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business Identifier",
         description="The Response business identifier.",
@@ -66,7 +66,7 @@ class EnrollmentResponse(domainresource.DomainResource):
     )
 
     organization: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="organization",
         title="Insurer",
         description="The Insurer who produced this adjudicated response.",
@@ -78,7 +78,7 @@ class EnrollmentResponse(domainresource.DomainResource):
     )
 
     outcome: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcome",
         title="queued | complete | error | partial",
         description="Processing status: error, complete.",
@@ -90,11 +90,11 @@ class EnrollmentResponse(domainresource.DomainResource):
         },
     )
     outcome__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_outcome", title="Extension field for ``outcome``."
+        default=None, alias="_outcome", title="Extension field for ``outcome``."
     )
 
     request: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="request",
         title="Claim reference",
         description="Original request resource reference.",
@@ -106,7 +106,7 @@ class EnrollmentResponse(domainresource.DomainResource):
     )
 
     requestProvider: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requestProvider",
         title="Responsible practitioner",
         description=(
@@ -125,26 +125,27 @@ class EnrollmentResponse(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="active | cancelled | draft | entered-in-error",
         description="The status of the resource instance.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["active", "cancelled", "draft", "entered-in-error"],
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``EnrollmentResponse`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``EnrollmentResponse`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -164,3 +165,10 @@ class EnrollmentResponse(domainresource.DomainResource):
             "organization",
             "requestProvider",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``EnrollmentResponse`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["id", "meta", "implicitRules", "status"]

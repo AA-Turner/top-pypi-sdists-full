@@ -426,7 +426,7 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                 self.driver.get("https://chromewebstore.google.com/detail/whom-gerenciador-de-certi/lnidijeaekolpfeckelhkomndglcglhh")
 
                 try:
-                    tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'Instalar') or contains(text(), 'Obter') or contains(text(), 'Add to Chrome')]").click()
+                    tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'no Chrome') or contains(text(), 'Usar') or contains(text(), 'Add to Chrome')]").click()
                 except Exception as e:
                     return
                 time.sleep(5)

@@ -1,5 +1,5 @@
-from ursina import *
-
+from ursina import color
+from ursina.shader import Shader
 
 basic_lighting_shader = Shader(name='basic_lighting_shader', language=Shader.GLSL,
 vertex = '''

@@ -27,14 +27,15 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_sling_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.13",
+    python_requires=">=3.9,<=3.13.3",
     install_requires=[
-        "dagster==1.11.1",
+        "dagster==1.11.2",
         "sling>=1.1.5",
         # Required due to a bug in uv that can cause sling-linux-amd64 to be installed instead.
         # See: https://github.com/astral-sh/uv/issues/10945

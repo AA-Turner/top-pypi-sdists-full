@@ -30,7 +30,7 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_pagerduty_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.13",
-    install_requires=["dagster==1.11.1", "pypd"],
+    python_requires=">=3.9,<=3.13.3",
+    install_requires=["dagster==1.11.2", "pypd"],
     zip_safe=False,
 )

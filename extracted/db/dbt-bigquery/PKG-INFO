@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-bigquery
-Version: 1.9.2
+Version: 1.10.0
 Summary: The BigQuery adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-bigquery
 Project-URL: Documentation, https://docs.getdbt.com
@@ -21,10 +21,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9.0
-Requires-Dist: dbt-adapters<2.0,>=1.7
+Requires-Dist: dbt-adapters<2.0,>=1.16
 Requires-Dist: dbt-common<2.0,>=1.10
-Requires-Dist: dbt-core>=1.8.0
+Requires-Dist: dbt-core>=1.10.0rc0
 Requires-Dist: google-api-core>=2.11.0
+Requires-Dist: google-auth>=2.29.0
 Requires-Dist: google-cloud-aiplatform>=1.72.0
 Requires-Dist: google-cloud-bigquery[pandas]<4.0,>=3.0
 Requires-Dist: google-cloud-dataproc~=5.0

@@ -6,6 +6,7 @@ from typing import (
     TYPE_CHECKING, Any, AsyncIterator, Iterator, Optional, Union
 )
 
+from outlines.inputs import Chat
 from outlines.models.base import AsyncModel, Model, ModelTypeAdapter
 from outlines.models.openai import OpenAITypeAdapter
 from outlines.types.dsl import (
@@ -14,7 +15,6 @@ from outlines.types.dsl import (
     python_types_to_terms,
     to_regex,
 )
-from outlines.templates import Vision
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI, OpenAI
@@ -25,8 +25,8 @@ __all__ = ["AsyncSGLang", "SGLang", "from_sglang"]
 class SGLangTypeAdapter(ModelTypeAdapter):
     """Type adapter for the `SGLang` and `AsyncSGLang` models."""
 
-    def format_input(self, model_input: Union[str, Vision]) -> dict:
-        """Generate the prompt argument to pass to the client.
+    def format_input(self, model_input: Union[Chat, list, str]) -> list:
+        """Generate the value of the messages argument to pass to the client.
 
         We rely on the OpenAITypeAdapter to format the input as the sglang
         server expects input in the same format as OpenAI.
@@ -38,7 +38,7 @@ class SGLangTypeAdapter(ModelTypeAdapter):
 
         Returns
         -------
-        dict
+        list
             The formatted input to be passed to the client.
 
         """
@@ -105,7 +105,7 @@ class SGLang(Model):
 
     def generate(
         self,
-        model_input: Union[str, Vision],
+        model_input: Union[Chat, list, str],
         output_type: Optional[Any] = None,
         **inference_kwargs: Any,
     ) -> Union[str, list[str]]:
@@ -161,7 +161,7 @@ class SGLang(Model):
 
     def generate_stream(
         self,
-        model_input: Union[str, Vision],
+        model_input: Union[Chat, list, str],
         output_type: Optional[Any] = None,
         **inference_kwargs: Any,
     ) -> Iterator[str]:
@@ -198,7 +198,7 @@ class SGLang(Model):
 
     def _build_client_args(
         self,
-        model_input: Union[str, Vision],
+        model_input: Union[Chat, str, list],
         output_type: Optional[Any] = None,
         **inference_kwargs: Any,
     ) -> dict:
@@ -211,7 +211,7 @@ class SGLang(Model):
             inference_kwargs["model"] = self.model_name
 
         client_args = {
-            **messages,
+            "messages": messages,
             **inference_kwargs,
         }
 
@@ -249,7 +249,7 @@ class AsyncSGLang(AsyncModel):
 
     async def generate(
         self,
-        model_input: Union[str, Vision],
+        model_input: Union[Chat, str, list],
         output_type: Optional[Any] = None,
         **inference_kwargs: Any,
     ) -> Union[str, list[str]]:
@@ -303,7 +303,7 @@ class AsyncSGLang(AsyncModel):
 
     async def generate_stream( # type: ignore
         self,
-        model_input: Union[str, Vision],
+        model_input: Union[Chat, str, list],
         output_type: Optional[Any] = None,
         **inference_kwargs: Any,
     ) -> AsyncIterator[str]:
@@ -341,7 +341,7 @@ class AsyncSGLang(AsyncModel):
 
     def _build_client_args(
         self,
-        model_input: Union[str, Vision],
+        model_input: Union[Chat, str, list],
         output_type: Optional[Any] = None,
         **inference_kwargs: Any,
     ) -> dict:
@@ -354,7 +354,7 @@ class AsyncSGLang(AsyncModel):
             inference_kwargs["model"] = self.model_name
 
         client_args = {
-            **messages,
+            "messages": messages,
             **inference_kwargs,
         }
 

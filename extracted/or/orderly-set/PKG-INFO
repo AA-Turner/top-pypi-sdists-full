@@ -1,12 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: orderly-set
-Version: 5.4.1
+Version: 5.5.0
 Summary: Orderly set
-Home-page: https://github.com/seperman/orderly-set
-Download-URL: https://github.com/seperman/orderly-set/tarball/master
-Author: Seperman
-Author-email: sep@zepworks.com
-License: MIT
+Author-email: Seperman <sep@zepworks.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
@@ -18,21 +16,26 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: AUTHORS.md
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
-Dynamic: requires-python
-Dynamic: summary
+License-File: MIT-LICENSE
+Requires-Dist: coverage~=7.6.0 ; extra == "coverage"
+Requires-Dist: bump2version~=1.0.0 ; extra == "dev"
+Requires-Dist: ipdb~=0.13.0 ; extra == "dev"
+Requires-Dist: orjson ; extra == "optimize"
+Requires-Dist: flake8~=7.1.0 ; extra == "static"
+Requires-Dist: flake8-pyproject~=1.2.3 ; extra == "static"
+Requires-Dist: pytest~=8.3.0 ; extra == "test"
+Requires-Dist: pytest-benchmark~=5.1.0 ; extra == "test"
+Requires-Dist: pytest-cov~=6.0.0 ; extra == "test"
+Requires-Dist: python-dotenv~=1.0.0 ; extra == "test"
+Project-URL: Download, https://github.com/seperman/orderly-set/tarball/master
+Project-URL: Homepage, https://github.com/seperman/orderly-set
+Provides-Extra: coverage
+Provides-Extra: dev
+Provides-Extra: optimize
+Provides-Extra: static
+Provides-Extra: test
 
-# Orderly Set 5.4.1
+# Orderly Set 5.5.0
 
 Orderly Set is a package containing multiple implementations of Ordered Set.
 
@@ -213,3 +216,4 @@ This version of OrderedSet makes different trade-offs for the sake of efficient 
 Its content is a standard Python list instead of a doubly-linked list. This
 provides O(1) lookups by index at the expense of O(N) deletion, as well as
 slightly faster iteration.
+

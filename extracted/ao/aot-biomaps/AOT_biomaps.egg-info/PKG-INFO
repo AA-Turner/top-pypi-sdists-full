@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: AOT_biomaps
-Version: 2.8.3
+Version: 2.8.4
 Summary: Acousto-Optic Tomography
 Home-page: https://github.com/LucasDuclos/AcoustoOpticTomography
 Author: Lucas Duclos
@@ -10,12 +10,11 @@ Requires-Dist: setuptools
 Requires-Dist: pyyaml
 Requires-Dist: numba
 Requires-Dist: tqdm
-Requires-Dist: GPUtil
+Requires-Dist: nvidia-ml-py3
 Requires-Dist: scikit-image
 Requires-Dist: scikit-learn
 Requires-Dist: pandas
 Provides-Extra: cpu
 Provides-Extra: gpu
 Requires-Dist: cupy; extra == "gpu"
-Requires-Dist: nvidia-ml-py3; extra == "gpu"
 Requires-Dist: torch; extra == "gpu"

@@ -6,6 +6,7 @@ import bottle
 import json
 import datetime
 import time
+import html
 from bottle import Bottle, static_file, request, response, template, HTTPResponse
 from gway import gw
 
@@ -81,6 +82,7 @@ def setup_app(*,
     js="global",            # Default JS  (without .js extension)
     auth="disabled",       # Accept "optional"/"disabled" words to disable
     engine="bottle",
+    **setup_kwargs,
 ):
     """
     Setup Bottle web application with symmetrical static/shared public folders.
@@ -141,7 +143,7 @@ def setup_app(*,
         _links.clear()
         _registered_routes.clear()
         if home:
-            add_home(home, path)
+            add_home(home, path, project)
             add_links(f"{path}/{home}", links)
 
         def index():
@@ -155,7 +157,7 @@ def setup_app(*,
             return gw.web.error.redirect(f"404 Not Found: {request.url}", err=error)
     
     elif home:
-        add_home(home, path)
+        add_home(home, path, project)
         add_links(f"{path}/{home}", links)
 
     if getattr(gw, "timed_enabled", False):
@@ -245,6 +247,12 @@ def setup_app(*,
                 css_files=(f"{media_origin}/{css}.css",),
                 js_files=(f"{media_origin}/{js}.js",),
             )
+
+        def index_dispatch():
+            return view_dispatch("index")
+
+        add_route(app, f"/{path}", ["GET", "POST"], index_dispatch)
+        add_route(app, f"/{path}/", ["GET", "POST"], index_dispatch)
         add_route(app, f"/{path}/<view:path>", ["GET", "POST"], view_dispatch)
 
     # API dispatcher (only if apis is not None)
@@ -407,6 +415,21 @@ def setup_app(*,
         gw.info(f"Registered homes: {_homes}")
         debug_routes(app)
 
+    # --- Call project-level setup_app if defined ---
+    project_setup = getattr(source, "setup_app", None)
+    if callable(project_setup) and project_setup is not setup_app:
+        gw.verbose(f"Delegating to {project}.setup_app")
+        try:
+            maybe_app = project_setup(app=app, **setup_kwargs)
+            if maybe_app is not None:
+                app = maybe_app
+        except Exception as exc:
+            gw.warn(f"{project}.setup_app failed: {exc}")
+    elif setup_kwargs:
+        gw.error(
+            f"Extra setup arguments ignored for {project}: {', '.join(setup_kwargs.keys())}"
+        )
+
     return oapp if oapp else app
 
 # Use current_endpoint to get the current project route
@@ -462,6 +485,31 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
     '''
     nav = gw.web.nav.render(homes=_homes, links=_links) if is_setup('web.nav') else ""
 
+    debug_html = ""
+    if getattr(gw, "debug_enabled", False):
+        debug_html = """
+            <div id='gw-debug-overlay' style='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);color:#fff;overflow:auto;z-index:10000;padding:1em;'>
+                <div style='text-align:right;'><a href='#' id='gw-debug-close' style='color:#fff;text-decoration:none;'>[x] Close</a></div>
+                <div id='gw-debug-content'>Loading...</div>
+            </div>
+            <div id='gw-debug-btn' style='position:fixed;bottom:1em;right:1em;background:#333;color:#fff;border-radius:50%;padding:0.4em 0.6em;cursor:pointer;z-index:10001;font-weight:bold;'>&#9881;?</div>
+            <script>
+            (function(){
+                var btn=document.getElementById('gw-debug-btn');
+                var overlay=document.getElementById('gw-debug-overlay');
+                var close=document.getElementById('gw-debug-close');
+                function show(){
+                    overlay.style.display='block';
+                    fetch('/render/site/debug_info').then(r=>r.text()).then(t=>{document.getElementById('gw-debug-content').innerHTML=t;});
+                }
+                btn.addEventListener('click',function(e){e.preventDefault();show();});
+                close.addEventListener('click',function(e){e.preventDefault();overlay.style.display='none';});
+            })();
+            </script>
+        """
+
+    message_html = gw.web.message.render() if is_setup('web.message') else ""
+
     html = template("""<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -474,15 +522,16 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
         <body>
             <div class="page-wrap">
                 <div class="layout">
-                    {{!nav}}<main>{{!content}}</main>
+                    {{!nav}}<main>{{!message_html}}{{!content}}</main>
                 </div>
                 <footer><p>This website was <strong>built</strong>, <strong>tested</strong>
                     and <strong>released</strong> with <a href="https://arthexis.com">GWAY</a>
                     <a href="https://pypi.org/project/gway/{{!version}}/">v{{!version}}</a>,
                     fresh since {{!fresh}}{{!build}}.</p>
-                    {{!credits}}
-                </footer>
+            {{!credits}}
+            </footer>
             </div>
+            {{!debug_html}}
             {{!js_links}}
         </body>
         </html>
@@ -521,9 +570,13 @@ def is_setup(project_name):
     global _enabled
     return project_name in _enabled
 
-def add_home(home, path):
+def add_home(home, path, project=None):
     global _homes
-    title = home.replace('-', ' ').replace('_', ' ').title()
+    if home.lower() == "index" and project:
+        title_src = project
+    else:
+        title_src = home
+    title = title_src.replace('.', ' ').replace('-', ' ').replace('_', ' ').title()
     route = f"{path}/{home}"
     if (title, route) not in _homes:
         _homes.append((title, route))

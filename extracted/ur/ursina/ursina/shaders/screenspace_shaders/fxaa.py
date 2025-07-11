@@ -1,4 +1,6 @@
-from ursina import *
+from ursina import color
+from ursina.shader import Shader
+from ursina.vec2 import Vec2
 
 fxaa_shader = Shader(language=Shader.GLSL,
 fragment='''

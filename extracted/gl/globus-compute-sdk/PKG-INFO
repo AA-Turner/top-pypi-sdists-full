@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: globus-compute-sdk
-Version: 3.9.0
+Version: 3.10.0
 Summary: Globus Compute: High Performance Function Serving for Science
 Home-page: https://github.com/globus/globus-compute
 Author: Globus Compute Team
@@ -29,8 +29,8 @@ Requires-Dist: packaging>=21.1
 Requires-Dist: pika>=1.2
 Requires-Dist: tblib==1.7.0
 Requires-Dist: texttable>=1.6.7
-Requires-Dist: colorama==0.4.6
-Requires-Dist: rich==13.7.1
+Requires-Dist: colorama<1,>=0.4.6
+Requires-Dist: rich<15,>=13.7.1
 Requires-Dist: psutil<6
 Requires-Dist: exceptiongroup>=1.2.2
 Provides-Extra: dev

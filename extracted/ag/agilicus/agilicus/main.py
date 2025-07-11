@@ -717,6 +717,7 @@ def list_audit_records(ctx, show_column, **kwargs):
 @click.option("--event", default=None)
 @click.option("--stage", default=None)
 @click.option("--request-id", default=None)
+@click.option("--map-email", is_flag=True, default=False)
 @click.pass_context
 def list_auth_audit_records(ctx, **kwargs):
     records = audits.query_auth_audits(ctx, **kwargs)
@@ -1216,6 +1217,26 @@ def remove_feature(ctx, feature, **kwargs):
 @cli.command(name="update-system-options")
 @click.argument("org-id")
 @click.option("--allowed-domains", multiple=True)
+@click.option(
+    "--license-constraints",
+    type=click_extension.JSONFile("r"),
+    help="a constraints file; - for stdin",
+)
+@click.option(
+    "--constraint-vars",
+    type=click_extension.JSONFile("r"),
+    help="a constraint variables file; - for stdin",
+)
+@click.option(
+    "--replace-constraints",
+    type=bool,
+    is_flag=True,
+)
+@click.option(
+    "--replace-vars",
+    type=bool,
+    is_flag=True,
+)
 @click.pass_context
 def update_system_options(ctx, org_id, **kwargs):
     result = orgs.replace_system_options(ctx, org_id, **kwargs)
@@ -1227,7 +1248,7 @@ def update_system_options(ctx, org_id, **kwargs):
 @click.pass_context
 def get_system_options(ctx, org_id):
     result = orgs.get_system_options(ctx, org_id)
-    output_entry(ctx, result)
+    output_entry(ctx, result.to_dict())
 
 
 @cli.command(name="add-org")
@@ -7161,6 +7182,26 @@ def delete_billing_account(ctx, **kwargs):
 @click.option("--customer-id", default=None)
 @click.option("--product-id", default=None)
 @click.option("--dev-mode/--prod-mode", is_flag=True, default=None)
+@click.option(
+    "--license-constraints",
+    type=click_extension.JSONFile("r"),
+    help="a constraints file; - for stdin",
+)
+@click.option(
+    "--constraint-vars",
+    type=click_extension.JSONFile("r"),
+    help="a constraint variables file; - for stdin",
+)
+@click.option(
+    "--replace-constraints",
+    type=bool,
+    is_flag=True,
+)
+@click.option(
+    "--replace-vars",
+    type=bool,
+    is_flag=True,
+)
 @click.pass_context
 def update_billing_account(ctx, **kwargs):
     account = billing.replace_billing_account(ctx, **kwargs)
@@ -7255,6 +7296,7 @@ def override_replace(
 @click.option("--subscription-reconcile", default=None)
 @click.option("--trial-period", type=int, default=None)
 @click.option("--dev-mode", is_flag=True, default=None)
+@click.option("--license-id", default=None)
 @click.pass_context
 def update_subscription(
     ctx,
@@ -7265,6 +7307,7 @@ def update_subscription(
     product_id=None,
     subscription_reconcile=None,
     dev_mode=None,
+    license_id=None,
     **kwargs,
 ):
     """Update the min/max overrides in a customer subscription."""
@@ -7320,6 +7363,8 @@ def update_subscription(
 
     if dev_mode is not None:
         bsub.spec.dev_mode = dev_mode
+    if license_id is not None:
+        bsub.spec.license_id = license_id
 
     params = {}
     if subscription_reconcile is not None:

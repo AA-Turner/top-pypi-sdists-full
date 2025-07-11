@@ -27,7 +27,7 @@ class Linkage(domainresource.DomainResource):
     __resource_type__ = "Linkage"
 
     active: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="active",
         title="Whether this linkage assertion is active or not",
         description=(
@@ -36,14 +36,15 @@ class Linkage(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     active__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_active", title="Extension field for ``active``."
+        default=None, alias="_active", title="Extension field for ``active``."
     )
 
     author: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="author",
         title="Who is responsible for linkages",
         description=(
@@ -53,6 +54,7 @@ class Linkage(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Practitioner",
@@ -63,7 +65,7 @@ class Linkage(domainresource.DomainResource):
     )
 
     item: typing.List[fhirtypes.LinkageItemType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="item",
         title="Item to be linked",
         description=(
@@ -73,14 +75,15 @@ class Linkage(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Linkage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Linkage`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -95,6 +98,13 @@ class Linkage(domainresource.DomainResource):
             "author",
             "item",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Linkage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["id", "meta", "implicitRules", "active", "author", "item"]
 
 
 class LinkageItem(backboneelement.BackboneElement):
@@ -111,19 +121,20 @@ class LinkageItem(backboneelement.BackboneElement):
     __resource_type__ = "LinkageItem"
 
     resource: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="resource",
         title="Resource being linked",
         description="The resource instance being linked as part of the group.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Resource"],
         },
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="source | alternate | historical",
         description=(
@@ -132,6 +143,7 @@ class LinkageItem(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -139,16 +151,23 @@ class LinkageItem(backboneelement.BackboneElement):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``LinkageItem`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``LinkageItem`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "resource"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``LinkageItem`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "type", "resource"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

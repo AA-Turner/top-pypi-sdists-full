@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_csm_threats_agent_rules`
 
-Refer to the Terraform Registry for docs: [`data_datadog_csm_threats_agent_rules`](https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules).
+Refer to the Terraform Registry for docs: [`data_datadog_csm_threats_agent_rules`](https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogCsmThreatsAgentRules(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRules",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataDatadogCsmThreatsAgentRules(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param policy_id: Listing only the rules in the policy with this field as the ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
+        :param policy_id: Listing only the rules in the policy with this field as the ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataDatadogCsmThreatsAgentRules(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogCsmThreatsAgentRules to import.
-        :param import_from_id: The id of the existing DataDatadogCsmThreatsAgentRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogCsmThreatsAgentRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogCsmThreatsAgentRules to import is found.
         '''
         if __debug__:
@@ -204,6 +204,65 @@ class DataDatadogCsmThreatsAgentRulesAgentRulesActions:
         return "DataDatadogCsmThreatsAgentRulesAgentRulesActions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataDatadogCsmThreatsAgentRulesAgentRulesActionsHashOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActionsHashOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5bdce4a694d0dbf504c0b6724b99b5f580bccc7ea73bdd673e4b8a0ff69e1ce)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash]:
+        return typing.cast(typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69214056596ea07cbcac4d963fa2b1b15943c2587a39297dd22e169451784875)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class DataDatadogCsmThreatsAgentRulesAgentRulesActionsList(
@@ -307,6 +366,13 @@ class DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference(
             check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="hash")
+    def hash(
+        self,
+    ) -> DataDatadogCsmThreatsAgentRulesAgentRulesActionsHashOutputReference:
+        return typing.cast(DataDatadogCsmThreatsAgentRulesAgentRulesActionsHashOutputReference, jsii.get(self, "hash"))
 
     @builtins.property
     @jsii.member(jsii_name="set")
@@ -617,7 +683,7 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param policy_id: Listing only the rules in the policy with this field as the ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
+        :param policy_id: Listing only the rules in the policy with this field as the ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -717,7 +783,7 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def policy_id(self) -> typing.Optional[builtins.str]:
         '''Listing only the rules in the policy with this field as the ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.67.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
         '''
         result = self._values.get("policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -738,6 +804,8 @@ __all__ = [
     "DataDatadogCsmThreatsAgentRules",
     "DataDatadogCsmThreatsAgentRulesAgentRules",
     "DataDatadogCsmThreatsAgentRulesAgentRulesActions",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActionsHashOutputReference",
     "DataDatadogCsmThreatsAgentRulesAgentRulesActionsList",
     "DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference",
     "DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet",
@@ -776,6 +844,19 @@ def _typecheckingstub__36f23e00873bee1348193fce407ec1eb580b626ad776c894ab43282b3
 
 def _typecheckingstub__ec8b17148a17ac6be8f6a8545d9418a28a24e8eb5ebb81e4357c5d8858105838(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5bdce4a694d0dbf504c0b6724b99b5f580bccc7ea73bdd673e4b8a0ff69e1ce(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69214056596ea07cbcac4d963fa2b1b15943c2587a39297dd22e169451784875(
+    value: typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsHash],
 ) -> None:
     """Type checking stubs"""
     pass

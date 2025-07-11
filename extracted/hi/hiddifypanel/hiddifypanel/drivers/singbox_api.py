@@ -1,3 +1,4 @@
+import os
 import xtlsapi
 from hiddifypanel.models import *
 from .abstract_driver import DriverABS
@@ -15,7 +16,7 @@ class SingboxApi(DriverABS):
         return xtlsapi.SingboxClient('127.0.0.1', 10086)
 
     def get_enabled_users(self):
-        config_dir = current_app.config['HIDDIFY_CONFIG_PATH']
+        config_dir = os.environ['HIDDIFY_CONFIG_PATH']
         with open(f"{config_dir}/singbox/configs/01_api.json") as f:
             json_data = json.load(f)
             return {u.split("@")[0]: 1 for u in json_data['experimental']['v2ray_api']['stats']['users']}
@@ -37,17 +38,17 @@ class SingboxApi(DriverABS):
     def remove_client(self, user):
         pass
 
-    def get_all_usage(self, users):
+    def get_all_usage(self):
         xray_client = self.get_singbox_client()
         usages = xray_client.stats_query('user', reset=True)
-        uuid_user_map = {u.uuid: u for u in users}
+        
         res = defaultdict(int)
         for use in usages:
             if "user>>>" not in use.name:
                 continue
             # print(use.name, use.value)
             uuid = use.name.split(">>>")[1].split("@")[0]
-            res[uuid_user_map[uuid]] += use.value  # uplink + downlink
+            res[uuid] += use.value  # uplink + downlink
         return res
         # return {u: self.get_usage_imp(u.uuid) for u in users}
 

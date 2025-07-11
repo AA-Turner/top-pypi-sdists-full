@@ -10081,6 +10081,17 @@ class Messages(System.Object):
             """Returns a string message saying the Stop Market orders are no longer supported since the given end date"""
             ...
 
+    class InteractiveBrokersFixModel(System.Object):
+        """Provides user-facing messages for the Brokerages.InteractiveBrokersFixModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_combo_orders_for_future_options(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersFixModel, order: QuantConnect.Orders.Order) -> str:
+            """
+            Returns a string message saying the given brokerage model does not support order exercises
+            for index and cash-settled options
+            """
+            ...
+
     class InteractiveBrokersBrokerageModel(System.Object):
         """Provides user-facing messages for the Brokerages.InteractiveBrokersBrokerageModel class and its consumers or related classes"""
 

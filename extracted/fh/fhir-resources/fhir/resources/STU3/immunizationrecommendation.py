@@ -28,42 +28,45 @@ class ImmunizationRecommendation(domainresource.DomainResource):
     __resource_type__ = "ImmunizationRecommendation"
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier",
         description="A unique identifier assigned to this particular recommendation record.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     patient: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="patient",
         title="Who this profile is for",
         description="The patient the recommendations are for.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient"],
         },
     )
 
     recommendation: typing.List[fhirtypes.ImmunizationRecommendationRecommendationType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="recommendation",
         title="Vaccine administration recommendations",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImmunizationRecommendation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImmunizationRecommendation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -74,6 +77,20 @@ class ImmunizationRecommendation(domainresource.DomainResource):
             "contained",
             "extension",
             "modifierExtension",
+            "identifier",
+            "patient",
+            "recommendation",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImmunizationRecommendation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "identifier",
             "patient",
             "recommendation",
@@ -91,21 +108,22 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
     __resource_type__ = "ImmunizationRecommendationRecommendation"
 
     date: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date recommendation created",
         description="The date the immunization recommendation was created.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     dateCriterion: typing.List[fhirtypes.ImmunizationRecommendationRecommendationDateCriterionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="dateCriterion",
         title="Dates governing proposed immunization",
         description=(
@@ -118,7 +136,7 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
     )
 
     doseNumber: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="doseNumber",
         title="Recommended dose number",
         description=(
@@ -127,24 +145,26 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     doseNumber__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_doseNumber", title="Extension field for ``doseNumber``."
+        default=None, alias="_doseNumber", title="Extension field for ``doseNumber``."
     )
 
     forecastStatus: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="forecastStatus",
         title="Vaccine administration status",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     protocol: fhirtypes.ImmunizationRecommendationRecommendationProtocolType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="protocol",
         title="Protocol used by recommendation",
         description=(
@@ -157,7 +177,7 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
     )
 
     supportingImmunization: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="supportingImmunization",
         title="Past immunizations supporting recommendation",
         description=(
@@ -171,7 +191,7 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
     )
 
     supportingPatientInformation: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="supportingPatientInformation",
         title="Patient observations supporting recommendation",
         description=(
@@ -187,30 +207,32 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
     )
 
     targetDisease: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="targetDisease",
         title="Disease to be immunized against",
         description="The targeted disease for the recommendation.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     vaccineCode: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="vaccineCode",
         title="Vaccine recommendation applies to",
         description="Vaccine that pertains to the recommendation.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImmunizationRecommendationRecommendation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImmunizationRecommendationRecommendation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -225,6 +247,20 @@ class ImmunizationRecommendationRecommendation(backboneelement.BackboneElement):
             "protocol",
             "supportingImmunization",
             "supportingPatientInformation",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImmunizationRecommendationRecommendation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "modifierExtension",
+            "date",
+            "vaccineCode",
+            "targetDisease",
+            "doseNumber",
+            "forecastStatus",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -254,7 +290,7 @@ class ImmunizationRecommendationRecommendationDateCriterion(
     __resource_type__ = "ImmunizationRecommendationRecommendationDateCriterion"
 
     code: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="code",
         title="Type of date",
         description=(
@@ -267,7 +303,7 @@ class ImmunizationRecommendationRecommendationDateCriterion(
     )
 
     value: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="Recommended date",
         description="The date whose meaning is specified by dateCriterion.code.",
@@ -277,16 +313,23 @@ class ImmunizationRecommendationRecommendationDateCriterion(
         },
     )
     value__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImmunizationRecommendationRecommendationDateCriterion`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImmunizationRecommendationRecommendationDateCriterion`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "code", "value"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImmunizationRecommendationRecommendationDateCriterion`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -313,7 +356,7 @@ class ImmunizationRecommendationRecommendationProtocol(backboneelement.BackboneE
     __resource_type__ = "ImmunizationRecommendationRecommendationProtocol"
 
     authority: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="authority",
         title="Who is responsible for protocol",
         description=(
@@ -327,7 +370,7 @@ class ImmunizationRecommendationRecommendationProtocol(backboneelement.BackboneE
     )
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Protocol details",
         description=(
@@ -339,11 +382,11 @@ class ImmunizationRecommendationRecommendationProtocol(backboneelement.BackboneE
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     doseSequence: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="doseSequence",
         title="Dose number within sequence",
         description=(
@@ -355,11 +398,13 @@ class ImmunizationRecommendationRecommendationProtocol(backboneelement.BackboneE
         },
     )
     doseSequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_doseSequence", title="Extension field for ``doseSequence``."
+        default=None,
+        alias="_doseSequence",
+        title="Extension field for ``doseSequence``.",
     )
 
     series: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="series",
         title="Name of vaccination series",
         description=(
@@ -371,14 +416,14 @@ class ImmunizationRecommendationRecommendationProtocol(backboneelement.BackboneE
         },
     )
     series__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_series", title="Extension field for ``series``."
+        default=None, alias="_series", title="Extension field for ``series``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ImmunizationRecommendationRecommendationProtocol`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ImmunizationRecommendationRecommendationProtocol`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -389,3 +434,10 @@ class ImmunizationRecommendationRecommendationProtocol(backboneelement.BackboneE
             "authority",
             "series",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ImmunizationRecommendationRecommendationProtocol`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

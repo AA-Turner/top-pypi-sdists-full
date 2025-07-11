@@ -9,7 +9,10 @@ from .ensemble_cate import EnsembleCateEstimator
 
 
 class RScorer:
-    """ Scorer based on the RLearner loss. Fits residual models at fit time and calculates
+    """
+    Scorer based on the RLearner loss.
+
+    Fits residual models at fit time and calculates
     residuals of the evaluation data in a cross-fitting manner::
 
         Yres = Y - E[Y|X, W]
@@ -47,6 +50,9 @@ class RScorer:
 
     discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    discrete_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -101,6 +107,7 @@ class RScorer:
                  model_y,
                  model_t,
                  discrete_treatment=False,
+                 discrete_outcome=False,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -109,6 +116,7 @@ class RScorer:
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.discrete_treatment = discrete_treatment
+        self.discrete_outcome = discrete_outcome
         self.cv = cv
         self.categories = categories
         self.random_state = random_state
@@ -117,6 +125,7 @@ class RScorer:
 
     def fit(self, y, T, X=None, W=None, sample_weight=None, groups=None):
         """
+        Fit a baseline model to the data.
 
         Parameters
         ----------
@@ -146,6 +155,7 @@ class RScorer:
                                     model_t=self.model_t,
                                     cv=self.cv,
                                     discrete_treatment=self.discrete_treatment,
+                                    discrete_outcome=self.discrete_outcome,
                                     categories=self.categories,
                                     random_state=self.random_state,
                                     mc_iters=self.mc_iters,
@@ -158,6 +168,8 @@ class RScorer:
 
     def score(self, cate_model):
         """
+        Score a CATE model against the baseline.
+
         Parameters
         ----------
         cate_model : instance of fitted BaseCateEstimator
@@ -182,13 +194,15 @@ class RScorer:
             return 1 - np.mean((Y_res - Y_res_pred) ** 2) / self.base_score_
 
     def best_model(self, cate_models, return_scores=False):
-        """ Chooses the best among a list of models
+        """
+        Choose the best among a list of models.
 
         Parameters
         ----------
         cate_models : list of instance of fitted BaseCateEstimator
         return_scores : bool, default False
             Whether to return the list scores of each model
+
         Returns
         -------
         best_model : instance of fitted BaseCateEstimator
@@ -206,7 +220,8 @@ class RScorer:
             return cate_models[best], rscores[best]
 
     def ensemble(self, cate_models, eta=1000.0, return_scores=False):
-        """ Ensembles a list of models based on their performance
+        """
+        Ensemble a list of models based on their performance.
 
         Parameters
         ----------
@@ -215,6 +230,7 @@ class RScorer:
             The soft-max parameter for the ensemble
         return_scores : bool, default False
             Whether to return the list scores of each model
+
         Returns
         -------
         ensemble_model : instance of fitted EnsembleCateEstimator

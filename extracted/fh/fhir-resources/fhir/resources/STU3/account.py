@@ -28,7 +28,7 @@ class Account(domainresource.DomainResource):
     __resource_type__ = "Account"
 
     active: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="active",
         title="Time window that transactions may be posted to this account",
         description=(
@@ -38,11 +38,12 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     balance: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="balance",
         title="How much is in account?",
         description=(
@@ -55,7 +56,7 @@ class Account(domainresource.DomainResource):
     )
 
     coverage: typing.List[fhirtypes.AccountCoverageType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="coverage",
         title=(
             "The party(s) that are responsible for covering the payment of this "
@@ -64,11 +65,12 @@ class Account(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Explanation of purpose/use",
         description=(
@@ -77,14 +79,15 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     guarantor: typing.List[fhirtypes.AccountGuarantorType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="guarantor",
         title="Responsible for the account",
         description="Parties financially responsible for the account.",
@@ -94,7 +97,7 @@ class Account(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Account number",
         description=(
@@ -103,11 +106,12 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Human-readable label",
         description=(
@@ -115,14 +119,15 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     name__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_name", title="Extension field for ``name``."
+        default=None, alias="_name", title="Extension field for ``name``."
     )
 
     owner: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="owner",
         title="Who is responsible?",
         description=(
@@ -131,13 +136,14 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Transaction window",
         description=(
@@ -146,27 +152,29 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="active | inactive | entered-in-error",
         description="Indicates whether the account is presently used/usable or not.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["active", "inactive", "entered-in-error"],
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="What is account tied to?",
         description=(
@@ -175,6 +183,7 @@ class Account(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Patient",
@@ -188,20 +197,21 @@ class Account(domainresource.DomainResource):
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="E.g. patient, expense, depreciation",
         description="Categorizes the account for reporting and searching purposes.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Account`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Account`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -226,6 +236,27 @@ class Account(domainresource.DomainResource):
             "guarantor",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Account`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "status",
+            "type",
+            "name",
+            "subject",
+            "period",
+            "active",
+            "coverage",
+            "owner",
+            "description",
+        ]
+
 
 class AccountCoverage(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -239,7 +270,7 @@ class AccountCoverage(backboneelement.BackboneElement):
     __resource_type__ = "AccountCoverage"
 
     coverage: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="coverage",
         title=(
             "The party(s) that are responsible for covering the payment of this "
@@ -253,31 +284,40 @@ class AccountCoverage(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Coverage"],
         },
     )
 
     priority: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="The priority of the coverage in the context of this account",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     priority__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_priority", title="Extension field for ``priority``."
+        default=None, alias="_priority", title="Extension field for ``priority``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``AccountCoverage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``AccountCoverage`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "coverage", "priority"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``AccountCoverage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "coverage", "priority"]
 
 
 class AccountGuarantor(backboneelement.BackboneElement):
@@ -292,7 +332,7 @@ class AccountGuarantor(backboneelement.BackboneElement):
     __resource_type__ = "AccountGuarantor"
 
     onHold: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="onHold",
         title="Credit or other hold applied",
         description=(
@@ -304,11 +344,11 @@ class AccountGuarantor(backboneelement.BackboneElement):
         },
     )
     onHold__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_onHold", title="Extension field for ``onHold``."
+        default=None, alias="_onHold", title="Extension field for ``onHold``."
     )
 
     party: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="party",
         title="Responsible entity",
         description="The entity who is responsible.",
@@ -320,7 +360,7 @@ class AccountGuarantor(backboneelement.BackboneElement):
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Guarrantee account during",
         description=(
@@ -334,8 +374,15 @@ class AccountGuarantor(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``AccountGuarantor`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``AccountGuarantor`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "party", "onHold", "period"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``AccountGuarantor`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

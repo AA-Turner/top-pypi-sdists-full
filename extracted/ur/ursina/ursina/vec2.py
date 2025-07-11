@@ -42,19 +42,22 @@ class Vec2(PandaVec2):
         self[1] = value
 
     @property
-    def X(self):
-        return int(self.x)
-    @property
-    def Y(self):
-        return int(self.y)
-
-    @property
     def yx(self):
         return Vec2(self.y, self.x)
     @yx.setter
     def yx(self, value):
         self[1] = value[0]
         self[0] = value[1]
+
+    @property
+    def X(self):    # get x as int
+        return int(self.x)
+    @property
+    def Y(self):    # get y as int
+        return int(self.y)
+    @property
+    def XY(self):
+        return (self.X, self.Y)
 
 
 
@@ -86,6 +89,10 @@ Vec2.right = Vec2(1,0)
 Vec2.left = Vec2(-1,0)
 Vec2.up = Vec2(0,1)
 Vec2.down = Vec2(0,-1)
+
+Vec2.cardinal_directions = (Vec2.up, Vec2.right, Vec2.down, Vec2.left)
+Vec2.ordinal_directions = (Vec2(1,1), Vec2(1,-1), Vec2(-1,-1), Vec2(-1,1))
+Vec2.compass_directions = Vec2.cardinal_directions + Vec2.ordinal_directions
 
 
 

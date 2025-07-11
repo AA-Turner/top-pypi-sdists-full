@@ -51,11 +51,11 @@ fn curry_and_treehash(inner_puzzle_hash: &Bytes32, singleton_struct: &SingletonS
     .into()
 }
 
-// given a puzzle, solution and new coin of a singleton
-// this function validates the lineage proof and returns a new
-// solution spending a new coin ID.
-// The existing coin to be spent and the new coin's parent must also be passed in
-// for validation.
+/// given a puzzle, solution and new coin of a singleton
+/// this function validates the lineage proof and returns a new
+/// solution spending a new coin ID.
+/// The existing coin to be spent and the new coin's parent must also be passed in
+/// for validation.
 pub fn fast_forward_singleton(
     a: &mut Allocator,
     puzzle: NodePtr,
@@ -209,6 +209,7 @@ mod tests {
             amount,
             a.new_atom(&puzzle_hash)?,
             coin_id,
+            clvm_cost,
         );
 
         let mut visitor = MempoolVisitor::new_spend(&mut spend);

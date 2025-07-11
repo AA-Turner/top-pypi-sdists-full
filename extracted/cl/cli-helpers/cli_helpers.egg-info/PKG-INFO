@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cli_helpers
-Version: 2.4.0
+Version: 2.5.0
 Summary: Helpers for building command-line apps
 Home-page: https://github.com/dbcli/cli_helpers
 Author: dbcli
@@ -29,6 +29,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

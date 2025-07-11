@@ -2,28 +2,15 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import (
-    Event,
     Lock,
-    PriorityQueue,
     Queue,
     QueueEmpty,
-    QueueFull,
     Semaphore,
     StreamReader,
     Task,
     TaskGroup,
     create_subprocess_shell,
-    create_task,
     sleep,
-)
-from collections.abc import (
-    Callable,
-    Hashable,
-    ItemsView,
-    Iterable,
-    Iterator,
-    KeysView,
-    ValuesView,
 )
 from contextlib import (
     AbstractAsyncContextManager,
@@ -32,10 +19,8 @@ from contextlib import (
     asynccontextmanager,
     suppress,
 )
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from io import StringIO
-from itertools import chain
-from logging import DEBUG, Logger, getLogger
 from subprocess import PIPE
 from sys import stderr, stdout
 from typing import (
@@ -49,33 +34,36 @@ from typing import (
     override,
 )
 
-from typing_extensions import deprecated
-
-from utilities.dataclasses import replace_non_sentinel
-from utilities.errors import repr_error
 from utilities.functions import ensure_int, ensure_not_none, to_bool
 from utilities.random import SYSTEM_RANDOM
 from utilities.sentinel import Sentinel, sentinel
-from utilities.types import (
-    Delta,
-    MaybeCallableBool,
-    SupportsKeysAndGetItem,
-    SupportsRichComparison,
-)
-from utilities.whenever import SECOND, get_now, round_date_or_date_time, to_nanoseconds
+from utilities.whenever import get_now, round_date_or_date_time, to_nanoseconds
 
 if TYPE_CHECKING:
     from asyncio import _CoroutineLike
     from asyncio.subprocess import Process
-    from collections import deque
-    from collections.abc import AsyncIterator, Sequence
+    from collections.abc import (
+        AsyncIterator,
+        Callable,
+        ItemsView,
+        Iterable,
+        Iterator,
+        KeysView,
+        Sequence,
+        ValuesView,
+    )
     from contextvars import Context
     from random import Random
     from types import TracebackType
 
-    from whenever import TimeDelta, ZonedDateTime
+    from whenever import ZonedDateTime
 
-    from utilities.types import MaybeCallableEvent, MaybeType
+    from utilities.types import (
+        Delta,
+        MaybeCallableBool,
+        MaybeType,
+        SupportsKeysAndGetItem,
+    )
 
 
 class AsyncDict[K, V]:
@@ -224,167 +212,6 @@ class AsyncDict[K, V]:
 ##
 
 
-class EnhancedQueue[T](Queue[T]):
-    """An asynchronous deque."""
-
-    @override
-    def __init__(self, maxsize: int = 0) -> None:
-        super().__init__(maxsize=maxsize)
-        self._finished: Event
-        self._getters: deque[Any]
-        self._putters: deque[Any]
-        self._queue: deque[T]
-        self._unfinished_tasks: int
-
-    @override
-    @deprecated("Use `get_left`/`get_right` instead")
-    async def get(self) -> T:
-        raise RuntimeError  # pragma: no cover
-
-    @override
-    @deprecated("Use `get_left_nowait`/`get_right_nowait` instead")
-    def get_nowait(self) -> T:
-        raise RuntimeError  # pragma: no cover
-
-    @override
-    @deprecated("Use `put_left`/`put_right` instead")
-    async def put(self, item: T) -> None:
-        raise RuntimeError(item)  # pragma: no cover
-
-    @override
-    @deprecated("Use `put_left_nowait`/`put_right_nowait` instead")
-    def put_nowait(self, item: T) -> None:
-        raise RuntimeError(item)  # pragma: no cover
-
-    # get all
-
-    async def get_all(self, *, reverse: bool = False) -> Sequence[T]:
-        """Remove and return all items from the queue."""
-        first = await (self.get_right() if reverse else self.get_left())
-        return list(chain([first], self.get_all_nowait(reverse=reverse)))
-
-    def get_all_nowait(self, *, reverse: bool = False) -> Sequence[T]:
-        """Remove and return all items from the queue without blocking."""
-        items: Sequence[T] = []
-        while True:
-            try:
-                items.append(
-                    self.get_right_nowait() if reverse else self.get_left_nowait()
-                )
-            except QueueEmpty:
-                return items
-
-    # get left/right
-
-    async def get_left(self) -> T:
-        """Remove and return an item from the start of the queue."""
-        return await self._get_left_or_right(self._get)
-
-    async def get_right(self) -> T:
-        """Remove and return an item from the end of the queue."""
-        return await self._get_left_or_right(self._get_right)
-
-    def get_left_nowait(self) -> T:
-        """Remove and return an item from the start of the queue without blocking."""
-        return self._get_left_or_right_nowait(self._get)
-
-    def get_right_nowait(self) -> T:
-        """Remove and return an item from the end of the queue without blocking."""
-        return self._get_left_or_right_nowait(self._get_right)
-
-    # put left/right
-
-    async def put_left(self, *items: T) -> None:
-        """Put items into the queue at the start."""
-        return await self._put_left_or_right(self._put_left, *items)
-
-    async def put_right(self, *items: T) -> None:
-        """Put items into the queue at the end."""
-        return await self._put_left_or_right(self._put, *items)
-
-    def put_left_nowait(self, *items: T) -> None:
-        """Put items into the queue at the start without blocking."""
-        self._put_left_or_right_nowait(self._put_left, *items)
-
-    def put_right_nowait(self, *items: T) -> None:
-        """Put items into the queue at the end without blocking."""
-        self._put_left_or_right_nowait(self._put, *items)
-
-    # private
-
-    def _put_left(self, item: T) -> None:
-        self._queue.appendleft(item)
-
-    def _get_right(self) -> T:
-        return self._queue.pop()
-
-    async def _get_left_or_right(self, getter_use: Callable[[], T], /) -> T:
-        while self.empty():  # pragma: no cover
-            getter = self._get_loop().create_future()  # pyright: ignore[reportAttributeAccessIssue]
-            self._getters.append(getter)
-            try:
-                await getter
-            except:
-                getter.cancel()
-                with suppress(ValueError):
-                    self._getters.remove(getter)
-                if not self.empty() and not getter.cancelled():
-                    self._wakeup_next(self._getters)  # pyright: ignore[reportAttributeAccessIssue]
-                raise
-        return getter_use()
-
-    def _get_left_or_right_nowait(self, getter: Callable[[], T], /) -> T:
-        if self.empty():
-            raise QueueEmpty
-        item = getter()
-        self._wakeup_next(self._putters)  # pyright: ignore[reportAttributeAccessIssue]
-        return item
-
-    async def _put_left_or_right(
-        self, putter_use: Callable[[T], None], /, *items: T
-    ) -> None:
-        """Put an item into the queue."""
-        for item in items:
-            await self._put_left_or_right_one(putter_use, item)
-
-    async def _put_left_or_right_one(
-        self, putter_use: Callable[[T], None], item: T, /
-    ) -> None:
-        """Put an item into the queue."""
-        while self.full():  # pragma: no cover
-            putter = self._get_loop().create_future()  # pyright: ignore[reportAttributeAccessIssue]
-            self._putters.append(putter)
-            try:
-                await putter
-            except:
-                putter.cancel()
-                with suppress(ValueError):
-                    self._putters.remove(putter)
-                if not self.full() and not putter.cancelled():
-                    self._wakeup_next(self._putters)  # pyright: ignore[reportAttributeAccessIssue]
-                raise
-        return putter_use(item)
-
-    def _put_left_or_right_nowait(
-        self, putter: Callable[[T], None], /, *items: T
-    ) -> None:
-        for item in items:
-            self._put_left_or_right_nowait_one(putter, item)
-
-    def _put_left_or_right_nowait_one(
-        self, putter: Callable[[T], None], item: T, /
-    ) -> None:
-        if self.full():  # pragma: no cover
-            raise QueueFull
-        putter(item)
-        self._unfinished_tasks += 1
-        self._finished.clear()
-        self._wakeup_next(self._getters)  # pyright: ignore[reportAttributeAccessIssue]
-
-
-##
-
-
 class EnhancedTaskGroup(TaskGroup):
     """Task group with enhanced features."""
 
@@ -510,604 +337,6 @@ class EnhancedTaskGroup(TaskGroup):
 ##
 
 
-@dataclass(kw_only=True, slots=True)
-class LooperError(Exception): ...
-
-
-@dataclass(kw_only=True, slots=True)
-class _LooperNoTaskError(LooperError):
-    looper: Looper
-
-    @override
-    def __str__(self) -> str:
-        return f"{self.looper} has no running task"
-
-
-@dataclass(kw_only=True, unsafe_hash=True)
-class Looper[T]:
-    """A looper of a core coroutine, handling errors."""
-
-    auto_start: bool = field(default=False, repr=False)
-    freq: TimeDelta = field(default=SECOND, repr=False)
-    backoff: TimeDelta = field(default=10 * SECOND, repr=False)
-    empty_upon_exit: bool = field(default=False, repr=False)
-    logger: str | None = field(default=None, repr=False)
-    timeout: TimeDelta | None = field(default=None, repr=False)
-    # settings
-    _debug: bool = field(default=False, repr=False)
-    # counts
-    _entries: int = field(default=0, init=False, repr=False)
-    _core_attempts: int = field(default=0, init=False, repr=False)
-    _core_successes: int = field(default=0, init=False, repr=False)
-    _core_failures: int = field(default=0, init=False, repr=False)
-    _initialization_attempts: int = field(default=0, init=False, repr=False)
-    _initialization_successes: int = field(default=0, init=False, repr=False)
-    _initialization_failures: int = field(default=0, init=False, repr=False)
-    _tear_down_attempts: int = field(default=0, init=False, repr=False)
-    _tear_down_successes: int = field(default=0, init=False, repr=False)
-    _tear_down_failures: int = field(default=0, init=False, repr=False)
-    _restart_attempts: int = field(default=0, init=False, repr=False)
-    _restart_successes: int = field(default=0, init=False, repr=False)
-    _restart_failures: int = field(default=0, init=False, repr=False)
-    _stops: int = field(default=0, init=False, repr=False)
-    # flags
-    _is_entered: Event = field(default_factory=Event, init=False, repr=False)
-    _is_initialized: Event = field(default_factory=Event, init=False, repr=False)
-    _is_initializing: Event = field(default_factory=Event, init=False, repr=False)
-    _is_pending_back_off: Event = field(default_factory=Event, init=False, repr=False)
-    _is_pending_restart: Event = field(default_factory=Event, init=False, repr=False)
-    _is_pending_stop: Event = field(default_factory=Event, init=False, repr=False)
-    _is_pending_stop_when_empty: Event = field(
-        default_factory=Event, init=False, repr=False
-    )
-    _is_stopped: Event = field(default_factory=Event, init=False, repr=False)
-    _is_tearing_down: Event = field(default_factory=Event, init=False, repr=False)
-    # internal objects
-    _lock: Lock = field(default_factory=Lock, init=False, repr=False, hash=False)
-    _logger: Logger = field(init=False, repr=False, hash=False)
-    _queue: EnhancedQueue[T] = field(
-        default_factory=EnhancedQueue, init=False, repr=False, hash=False
-    )
-    _stack: AsyncExitStack = field(
-        default_factory=AsyncExitStack, init=False, repr=False, hash=False
-    )
-    _task: Task[None] | None = field(default=None, init=False, repr=False, hash=False)
-
-    def __post_init__(self) -> None:
-        self._logger = getLogger(name=self.logger)
-        self._logger.setLevel(DEBUG)
-
-    async def __aenter__(self) -> Self:
-        """Enter the context manager."""
-        match self._is_entered.is_set():
-            case True:
-                _ = self._debug and self._logger.debug("%s: already entered", self)
-            case False:
-                _ = self._debug and self._logger.debug("%s: entering context...", self)
-                self._is_entered.set()
-                async with self._lock:
-                    self._entries += 1
-                    self._task = create_task(self.run_looper())
-                for looper in self._yield_sub_loopers():
-                    _ = self._debug and self._logger.debug(
-                        "%s: adding sub-looper %s", self, looper
-                    )
-                    _ = await self._stack.enter_async_context(looper)
-                if self.auto_start:
-                    _ = self._debug and self._logger.debug("%s: auto-starting...", self)
-                    with suppress(TimeoutError):
-                        await self._task
-            case _ as never:
-                assert_never(never)
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None = None,
-        exc_value: BaseException | None = None,
-        traceback: TracebackType | None = None,
-    ) -> None:
-        """Exit the context manager."""
-        match self._is_entered.is_set():
-            case True:
-                _ = self._debug and self._logger.debug("%s: exiting context...", self)
-                self._is_entered.clear()
-                if (
-                    (exc_type is not None)
-                    and (exc_value is not None)
-                    and (traceback is not None)
-                ):
-                    _ = self._debug and self._logger.warning(
-                        "%s: encountered %s whilst in context",
-                        self,
-                        repr_error(exc_value),
-                    )
-                _ = await self._stack.__aexit__(exc_type, exc_value, traceback)
-                await self.stop()
-                if self.empty_upon_exit:
-                    await self.run_until_empty()
-            case False:
-                _ = self._debug and self._logger.debug("%s: already exited", self)
-            case _ as never:
-                assert_never(never)
-
-    def __await__(self) -> Any:
-        if (task := self._task) is None:  # cannot use match
-            raise _LooperNoTaskError(looper=self)
-        return task.__await__()
-
-    def __len__(self) -> int:
-        return self._queue.qsize()
-
-    async def _apply_back_off(self) -> None:
-        """Apply a back off period."""
-        await sleep_td(self.backoff)
-        self._is_pending_back_off.clear()
-
-    async def core(self) -> None:
-        """Core part of running the looper."""
-
-    def empty(self) -> bool:
-        """Check if the queue is empty."""
-        return self._queue.empty()
-
-    def get_all_nowait(self, *, reverse: bool = False) -> Sequence[T]:
-        """Remove and return all items from the queue without blocking."""
-        return self._queue.get_all_nowait(reverse=reverse)
-
-    def get_left_nowait(self) -> T:
-        """Remove and return an item from the start of the queue without blocking."""
-        return self._queue.get_left_nowait()
-
-    def get_right_nowait(self) -> T:
-        """Remove and return an item from the end of the queue without blocking."""
-        return self._queue.get_right_nowait()
-
-    async def initialize(
-        self, *, skip_sleep_if_failure: bool = False
-    ) -> Exception | None:
-        """Initialize the looper."""
-        match self._is_initializing.is_set():
-            case True:
-                _ = self._debug and self._logger.debug("%s: already initializing", self)
-                return None
-            case False:
-                _ = self._debug and self._logger.debug("%s: initializing...", self)
-                self._is_initializing.set()
-                self._is_initialized.clear()
-                async with self._lock:
-                    self._initialization_attempts += 1
-                try:
-                    await self._initialize_core()
-                except Exception as error:  # noqa: BLE001
-                    async with self._lock:
-                        self._initialization_failures += 1
-                    ret = error
-                    match skip_sleep_if_failure:
-                        case True:
-                            _ = self._logger.warning(
-                                "%s: encountered %s whilst initializing",
-                                self,
-                                repr_error(error),
-                            )
-                        case False:
-                            _ = self._logger.warning(
-                                "%s: encountered %s whilst initializing; sleeping for %s...",
-                                self,
-                                repr_error(error),
-                                self.backoff,
-                            )
-                            await self._apply_back_off()
-                        case _ as never:
-                            assert_never(never)
-                else:
-                    _ = self._debug and self._logger.debug(
-                        "%s: finished initializing", self
-                    )
-                    self._is_initialized.set()
-                    async with self._lock:
-                        self._initialization_successes += 1
-                    ret = None
-                finally:
-                    self._is_initializing.clear()
-                return ret
-            case _ as never:
-                assert_never(never)
-
-    async def _initialize_core(self) -> None:
-        """Core part of initializing the looper."""
-
-    def put_left_nowait(self, *items: T) -> None:
-        """Put items into the queue at the start without blocking."""
-        self._queue.put_left_nowait(*items)
-
-    def put_right_nowait(self, *items: T) -> None:
-        """Put items into the queue at the end without blocking."""
-        self._queue.put_right_nowait(*items)
-
-    def qsize(self) -> int:
-        """Get the number of items in the queue."""
-        return self._queue.qsize()
-
-    def replace(
-        self,
-        *,
-        auto_start: bool | Sentinel = sentinel,
-        empty_upon_exit: bool | Sentinel = sentinel,
-        freq: TimeDelta | Sentinel = sentinel,
-        backoff: TimeDelta | Sentinel = sentinel,
-        logger: str | None | Sentinel = sentinel,
-        timeout: TimeDelta | None | Sentinel = sentinel,
-        _debug: bool | Sentinel = sentinel,
-        **kwargs: Any,
-    ) -> Self:
-        """Replace elements of the looper."""
-        return replace_non_sentinel(
-            self,
-            auto_start=auto_start,
-            empty_upon_exit=empty_upon_exit,
-            freq=freq,
-            backoff=backoff,
-            logger=logger,
-            timeout=timeout,
-            _debug=_debug,
-            **kwargs,
-        )
-
-    def request_back_off(self) -> None:
-        """Request the looper to back off."""
-        match self._is_pending_back_off.is_set():
-            case True:
-                _ = self._debug and self._logger.debug(
-                    "%s: already requested back off", self
-                )
-            case False:
-                _ = self._debug and self._logger.debug(
-                    "%s: requesting back off...", self
-                )
-                self._is_pending_back_off.set()
-            case _ as never:
-                assert_never(never)
-
-    def request_restart(self) -> None:
-        """Request the looper to restart."""
-        match self._is_pending_restart.is_set():
-            case True:
-                _ = self._debug and self._logger.debug(
-                    "%s: already requested restart", self
-                )
-            case False:
-                _ = self._debug and self._logger.debug(
-                    "%s: requesting restart...", self
-                )
-                self._is_pending_restart.set()
-            case _ as never:
-                assert_never(never)
-        self.request_back_off()
-
-    def request_stop(self) -> None:
-        """Request the looper to stop."""
-        match self._is_pending_stop.is_set():
-            case True:
-                _ = self._debug and self._logger.debug(
-                    "%s: already requested stop", self
-                )
-            case False:
-                _ = self._debug and self._logger.debug("%s: requesting stop...", self)
-                self._is_pending_stop.set()
-            case _ as never:
-                assert_never(never)
-
-    def request_stop_when_empty(self) -> None:
-        """Request the looper to stop when the queue is empty."""
-        match self._is_pending_stop_when_empty.is_set():
-            case True:
-                _ = self._debug and self._logger.debug(
-                    "%s: already requested stop when empty", self
-                )
-            case False:
-                _ = self._debug and self._logger.debug(
-                    "%s: requesting stop when empty...", self
-                )
-                self._is_pending_stop_when_empty.set()
-            case _ as never:
-                assert_never(never)
-
-    async def restart(self) -> None:
-        """Restart the looper."""
-        _ = self._debug and self._logger.debug("%s: restarting...", self)
-        self._is_pending_restart.clear()
-        async with self._lock:
-            self._restart_attempts += 1
-        tear_down = await self.tear_down(skip_sleep_if_failure=True)
-        initialization = await self.initialize(skip_sleep_if_failure=True)
-        match tear_down, initialization:
-            case None, None:
-                _ = self._debug and self._logger.debug("%s: finished restarting", self)
-                async with self._lock:
-                    self._restart_successes += 1
-            case Exception(), None:
-                async with self._lock:
-                    self._restart_failures += 1
-                _ = self._logger.warning(
-                    "%s: encountered %s whilst restarting (tear down); sleeping for %s...",
-                    self,
-                    repr_error(tear_down),
-                    self.backoff,
-                )
-                await self._apply_back_off()
-            case None, Exception():
-                async with self._lock:
-                    self._restart_failures += 1
-                _ = self._logger.warning(
-                    "%s: encountered %s whilst restarting (initialize); sleeping for %s...",
-                    self,
-                    repr_error(initialization),
-                    self.backoff,
-                )
-                await self._apply_back_off()
-            case Exception(), Exception():
-                async with self._lock:
-                    self._restart_failures += 1
-                _ = self._logger.warning(
-                    "%s: encountered %s (tear down) and then %s (initialization) whilst restarting; sleeping for %s...",
-                    self,
-                    repr_error(tear_down),
-                    repr_error(initialization),
-                    self.backoff,
-                )
-                await self._apply_back_off()
-            case _ as never:
-                assert_never(never)
-
-    async def run_looper(self) -> None:
-        """Run the looper."""
-        try:
-            async with timeout_td(self.timeout):
-                while True:
-                    if self._is_stopped.is_set():
-                        _ = self._debug and self._logger.debug("%s: stopped", self)
-                        return
-                    if (self._is_pending_stop.is_set()) or (
-                        self._is_pending_stop_when_empty.is_set() and self.empty()
-                    ):
-                        await self.stop()
-                    elif self._is_pending_back_off.is_set():
-                        await self._apply_back_off()
-                    elif self._is_pending_restart.is_set():
-                        await self.restart()
-                    elif not self._is_initialized.is_set():
-                        _ = await self.initialize()
-                    else:
-                        _ = self._debug and self._logger.debug(
-                            "%s: running core...", self
-                        )
-                        async with self._lock:
-                            self._core_attempts += 1
-                        try:
-                            await self.core()
-                        except Exception as error:  # noqa: BLE001
-                            _ = self._logger.warning(
-                                "%s: encountered %s whilst running core...",
-                                self,
-                                repr_error(error),
-                            )
-                            async with self._lock:
-                                self._core_failures += 1
-                            self.request_restart()
-                        else:
-                            async with self._lock:
-                                self._core_successes += 1
-                            await sleep_td(self.freq)
-        except RuntimeError as error:  # pragma: no cover
-            if error.args[0] == "generator didn't stop after athrow()":
-                return
-            raise
-        except TimeoutError:
-            pass
-
-    async def run_until_empty(self) -> None:
-        """Run until the queue is empty."""
-        while not self.empty():
-            await self.core()
-            if not self.empty():
-                await sleep_td(self.freq)
-
-    @property
-    def stats(self) -> _LooperStats:
-        """Return the statistics."""
-        return _LooperStats(
-            entries=self._entries,
-            core_attempts=self._core_attempts,
-            core_successes=self._core_successes,
-            core_failures=self._core_failures,
-            initialization_attempts=self._initialization_attempts,
-            initialization_successes=self._initialization_successes,
-            initialization_failures=self._initialization_failures,
-            tear_down_attempts=self._tear_down_attempts,
-            tear_down_successes=self._tear_down_successes,
-            tear_down_failures=self._tear_down_failures,
-            restart_attempts=self._restart_attempts,
-            restart_successes=self._restart_successes,
-            restart_failures=self._restart_failures,
-            stops=self._stops,
-        )
-
-    async def stop(self) -> None:
-        """Stop the looper."""
-        match self._is_stopped.is_set():
-            case True:
-                _ = self._debug and self._logger.debug("%s: already stopped", self)
-            case False:
-                _ = self._debug and self._logger.debug("%s: stopping...", self)
-                self._is_pending_stop.clear()
-                self._is_stopped.set()
-                async with self._lock:
-                    self._stops += 1
-                _ = self._debug and self._logger.debug("%s: stopped", self)
-            case _ as never:
-                assert_never(never)
-
-    async def tear_down(
-        self, *, skip_sleep_if_failure: bool = False
-    ) -> Exception | None:
-        """Tear down the looper."""
-        match self._is_tearing_down.is_set():
-            case True:
-                _ = self._debug and self._logger.debug("%s: already tearing down", self)
-                return None
-            case False:
-                _ = self._debug and self._logger.debug("%s: tearing down...", self)
-                self._is_tearing_down.set()
-                async with self._lock:
-                    self._tear_down_attempts += 1
-                try:
-                    await self._tear_down_core()
-                except Exception as error:  # noqa: BLE001
-                    async with self._lock:
-                        self._tear_down_failures += 1
-                    ret = error
-                    match skip_sleep_if_failure:
-                        case True:
-                            _ = self._logger.warning(
-                                "%s: encountered %s whilst tearing down",
-                                self,
-                                repr_error(error),
-                            )
-                        case False:
-                            _ = self._logger.warning(
-                                "%s: encountered %s whilst tearing down; sleeping for %s...",
-                                self,
-                                repr_error(error),
-                                self.backoff,
-                            )
-                            await self._apply_back_off()
-                        case _ as never:
-                            assert_never(never)
-                else:
-                    _ = self._debug and self._logger.debug(
-                        "%s: finished tearing down", self
-                    )
-                    async with self._lock:
-                        self._tear_down_successes += 1
-                    ret = None
-                finally:
-                    self._is_tearing_down.clear()
-                return ret
-            case _ as never:
-                assert_never(never)
-
-    async def _tear_down_core(self) -> None:
-        """Core part of tearing down the looper."""
-
-    @property
-    def with_auto_start(self) -> Self:
-        """Replace the auto start flag of the looper."""
-        return self.replace(auto_start=True)
-
-    def _yield_sub_loopers(self) -> Iterator[Looper]:
-        """Yield all sub-loopers."""
-        yield from []
-
-
-@dataclass(kw_only=True, slots=True)
-class _LooperStats:
-    entries: int = 0
-    core_attempts: int = 0
-    core_successes: int = 0
-    core_failures: int = 0
-    initialization_attempts: int = 0
-    initialization_successes: int = 0
-    initialization_failures: int = 0
-    tear_down_attempts: int = 0
-    tear_down_successes: int = 0
-    tear_down_failures: int = 0
-    restart_attempts: int = 0
-    restart_successes: int = 0
-    restart_failures: int = 0
-    stops: int = 0
-
-
-##
-
-
-class UniquePriorityQueue[T: SupportsRichComparison, U: Hashable](
-    PriorityQueue[tuple[T, U]]
-):
-    """Priority queue with unique tasks."""
-
-    @override
-    def __init__(self, maxsize: int = 0) -> None:
-        super().__init__(maxsize)
-        self._set: set[U] = set()
-
-    @override
-    def _get(self) -> tuple[T, U]:
-        item = super()._get()
-        _, value = item
-        self._set.remove(value)
-        return item
-
-    @override
-    def _put(self, item: tuple[T, U]) -> None:
-        _, value = item
-        if value not in self._set:
-            super()._put(item)
-            self._set.add(value)
-
-
-class UniqueQueue[T: Hashable](Queue[T]):
-    """Queue with unique tasks."""
-
-    @override
-    def __init__(self, maxsize: int = 0) -> None:
-        super().__init__(maxsize)
-        self._set: set[T] = set()
-
-    @override
-    def _get(self) -> T:
-        item = super()._get()
-        self._set.remove(item)
-        return item
-
-    @override
-    def _put(self, item: T) -> None:
-        if item not in self._set:
-            super()._put(item)
-            self._set.add(item)
-
-
-##
-
-
-@overload
-def get_event(*, event: MaybeCallableEvent) -> Event: ...
-@overload
-def get_event(*, event: None) -> None: ...
-@overload
-def get_event(*, event: Sentinel) -> Sentinel: ...
-@overload
-def get_event(*, event: MaybeCallableEvent | Sentinel) -> Event | Sentinel: ...
-@overload
-def get_event(
-    *, event: MaybeCallableEvent | None | Sentinel = sentinel
-) -> Event | None | Sentinel: ...
-def get_event(
-    *, event: MaybeCallableEvent | None | Sentinel = sentinel
-) -> Event | None | Sentinel:
-    """Get the event."""
-    match event:
-        case Event() | None | Sentinel():
-            return event
-        case Callable() as func:
-            return get_event(event=func())
-        case _ as never:
-            assert_never(never)
-
-
-##
-
-
 async def get_items[T](queue: Queue[T], /, *, max_size: int | None = None) -> list[T]:
     """Get items from a queue; if empty then wait."""
     try:
@@ -1116,8 +345,8 @@ async def get_items[T](queue: Queue[T], /, *, max_size: int | None = None) -> li
         from utilities.pytest import is_pytest
 
         if (not is_pytest()) or (error.args[0] != "Event loop is closed"):
-            return []
-        raise
+            raise
+        return []
     max_size_use = None if max_size is None else (max_size - 1)
     items.extend(get_items_nowait(queue, max_size=max_size_use))
     return items
@@ -1262,14 +491,8 @@ async def timeout_td(
 
 __all__ = [
     "AsyncDict",
-    "EnhancedQueue",
     "EnhancedTaskGroup",
-    "Looper",
-    "LooperError",
     "StreamCommandOutput",
-    "UniquePriorityQueue",
-    "UniqueQueue",
-    "get_event",
     "get_items",
     "get_items_nowait",
     "put_items",

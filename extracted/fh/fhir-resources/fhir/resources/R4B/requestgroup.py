@@ -27,7 +27,7 @@ class RequestGroup(domainresource.DomainResource):
     __resource_type__ = "RequestGroup"
 
     action: typing.List[fhirtypes.RequestGroupActionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="action",
         title="Proposed actions, if any",
         description="The actions, if any, produced by the evaluation of the artifact.",
@@ -37,7 +37,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     author: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="author",
         title="Device or practitioner that authored the request group",
         description="Provides a reference to the author of the request group.",
@@ -49,7 +49,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     authoredOn: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="authoredOn",
         title="When the request group was authored",
         description="Indicates when the request group was created.",
@@ -58,11 +58,11 @@ class RequestGroup(domainresource.DomainResource):
         },
     )
     authoredOn__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_authoredOn", title="Extension field for ``authoredOn``."
+        default=None, alias="_authoredOn", title="Extension field for ``authoredOn``."
     )
 
     basedOn: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="basedOn",
         title="Fulfills plan, proposal, or order",
         description=(
@@ -77,17 +77,18 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     code: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="What's being requested/ordered",
         description="A code that identifies what the overall request group is.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     encounter: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="encounter",
         title="Created as part of",
         description="Describes the context of the request group, if any.",
@@ -99,7 +100,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     groupIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="groupIdentifier",
         title="Composite request this is part of",
         description=(
@@ -109,11 +110,12 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier",
         description=(
@@ -122,11 +124,12 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     instantiatesCanonical: typing.List[fhirtypes.CanonicalType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instantiatesCanonical",
         title="Instantiates FHIR protocol or definition",
         description=(
@@ -136,16 +139,17 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     instantiatesCanonical__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_instantiatesCanonical",
         title="Extension field for ``instantiatesCanonical``.",
     )
 
     instantiatesUri: typing.List[fhirtypes.UriType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="instantiatesUri",
         title="Instantiates external protocol or definition",
         description=(
@@ -155,14 +159,17 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     instantiatesUri__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_instantiatesUri", title="Extension field for ``instantiatesUri``."
+        default=None,
+        alias="_instantiatesUri",
+        title="Extension field for ``instantiatesUri``.",
     )
 
     intent: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="intent",
         title=(
             "proposal | plan | directive | order | original-order | reflex-order | "
@@ -174,6 +181,7 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -191,11 +199,11 @@ class RequestGroup(domainresource.DomainResource):
         },
     )
     intent__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_intent", title="Extension field for ``intent``."
+        default=None, alias="_intent", title="Extension field for ``intent``."
     )
 
     note: typing.List[fhirtypes.AnnotationType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="note",
         title="Additional notes about the response",
         description=(
@@ -208,7 +216,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     priority: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="routine | urgent | asap | stat",
         description=(
@@ -217,17 +225,18 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["routine", "urgent", "asap", "stat"],
         },
     )
     priority__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_priority", title="Extension field for ``priority``."
+        default=None, alias="_priority", title="Extension field for ``priority``."
     )
 
     reasonCode: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonCode",
         title="Why the request group is needed",
         description="Describes the reason for the request group in coded or textual form.",
@@ -237,7 +246,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     reasonReference: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reasonReference",
         title="Why the request group is needed",
         description=(
@@ -257,7 +266,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     replaces: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="replaces",
         title="Request(s) replaced by this request",
         description=(
@@ -272,7 +281,7 @@ class RequestGroup(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "draft | active | on-hold | revoked | completed | entered-in-error | "
@@ -284,6 +293,7 @@ class RequestGroup(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -299,11 +309,11 @@ class RequestGroup(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     subject: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="subject",
         title="Who the request group is about",
         description="The subject for which the request group was created.",
@@ -316,9 +326,9 @@ class RequestGroup(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RequestGroup`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RequestGroup`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -349,6 +359,25 @@ class RequestGroup(domainresource.DomainResource):
             "action",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RequestGroup`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "instantiatesCanonical",
+            "instantiatesUri",
+            "groupIdentifier",
+            "status",
+            "intent",
+            "priority",
+            "code",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -373,7 +402,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     __resource_type__ = "RequestGroupAction"
 
     action: typing.List[fhirtypes.RequestGroupActionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="action",
         title="Sub action",
         description="Sub actions.",
@@ -383,7 +412,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     cardinalityBehavior: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="cardinalityBehavior",
         title="single | multiple",
         description="Defines whether the action can be selected multiple times.",
@@ -395,13 +424,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     cardinalityBehavior__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_cardinalityBehavior",
         title="Extension field for ``cardinalityBehavior``.",
     )
 
     code: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Code representing the meaning of the action or sub-actions",
         description=(
@@ -415,7 +444,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     condition: typing.List[fhirtypes.RequestGroupActionConditionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="condition",
         title="Whether or not the action is applicable",
         description=(
@@ -428,7 +457,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Short description of the action",
         description=(
@@ -437,14 +466,15 @@ class RequestGroupAction(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     documentation: typing.List[fhirtypes.RelatedArtifactType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="documentation",
         title="Supporting documentation for the intended performer of the action",
         description=(
@@ -458,7 +488,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     groupingBehavior: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="groupingBehavior",
         title="visual-group | logical-group | sentence-group",
         description="Defines the grouping behavior for the action and its children.",
@@ -470,13 +500,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     groupingBehavior__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_groupingBehavior",
         title="Extension field for ``groupingBehavior``.",
     )
 
     participant: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="participant",
         title="Who should perform the action",
         description="The participant that should perform or be responsible for this action.",
@@ -494,7 +524,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     precheckBehavior: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="precheckBehavior",
         title="yes | no",
         description="Defines whether the action should usually be preselected.",
@@ -506,13 +536,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     precheckBehavior__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_precheckBehavior",
         title="Extension field for ``precheckBehavior``.",
     )
 
     prefix: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="prefix",
         title="User-visible prefix for the action (e.g. 1. or A.)",
         description="A user-visible prefix for the action.",
@@ -521,11 +551,11 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     prefix__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_prefix", title="Extension field for ``prefix``."
+        default=None, alias="_prefix", title="Extension field for ``prefix``."
     )
 
     priority: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="routine | urgent | asap | stat",
         description=(
@@ -540,11 +570,11 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     priority__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_priority", title="Extension field for ``priority``."
+        default=None, alias="_priority", title="Extension field for ``priority``."
     )
 
     relatedAction: typing.List[fhirtypes.RequestGroupActionRelatedActionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="relatedAction",
         title="Relationship to another action",
         description=(
@@ -557,7 +587,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     requiredBehavior: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requiredBehavior",
         title="must | could | must-unless-documented",
         description="Defines expectations around whether an action is required.",
@@ -569,13 +599,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     requiredBehavior__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_requiredBehavior",
         title="Extension field for ``requiredBehavior``.",
     )
 
     resource: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="resource",
         title="The target of the action",
         description=(
@@ -590,7 +620,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     selectionBehavior: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="selectionBehavior",
         title="any | all | all-or-none | exactly-one | at-most-one | one-or-more",
         description="Defines the selection behavior for the action and its children.",
@@ -609,13 +639,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     selectionBehavior__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_selectionBehavior",
         title="Extension field for ``selectionBehavior``.",
     )
 
     textEquivalent: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="textEquivalent",
         title=(
             "Static text equivalent of the action, used if the dynamic aspects "
@@ -629,14 +659,17 @@ class RequestGroupAction(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     textEquivalent__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_textEquivalent", title="Extension field for ``textEquivalent``."
+        default=None,
+        alias="_textEquivalent",
+        title="Extension field for ``textEquivalent``.",
     )
 
     timingAge: fhirtypes.AgeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timingAge",
         title="When the action should take place",
         description="An optional value describing when the action should be performed.",
@@ -649,7 +682,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     timingDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timingDateTime",
         title="When the action should take place",
         description="An optional value describing when the action should be performed.",
@@ -661,11 +694,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     timingDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_timingDateTime", title="Extension field for ``timingDateTime``."
+        default=None,
+        alias="_timingDateTime",
+        title="Extension field for ``timingDateTime``.",
     )
 
     timingDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timingDuration",
         title="When the action should take place",
         description="An optional value describing when the action should be performed.",
@@ -678,7 +713,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     timingPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timingPeriod",
         title="When the action should take place",
         description="An optional value describing when the action should be performed.",
@@ -691,7 +726,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     timingRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timingRange",
         title="When the action should take place",
         description="An optional value describing when the action should be performed.",
@@ -704,7 +739,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     timingTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timingTiming",
         title="When the action should take place",
         description="An optional value describing when the action should be performed.",
@@ -717,7 +752,7 @@ class RequestGroupAction(backboneelement.BackboneElement):
     )
 
     title: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="title",
         title="User-visible title",
         description="The title of the action displayed to a user.",
@@ -726,11 +761,11 @@ class RequestGroupAction(backboneelement.BackboneElement):
         },
     )
     title__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_title", title="Extension field for ``title``."
+        default=None, alias="_title", title="Extension field for ``title``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="create | update | remove | fire-event",
         description="The type of action to perform (create, update, remove).",
@@ -741,9 +776,9 @@ class RequestGroupAction(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RequestGroupAction`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RequestGroupAction`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -774,6 +809,13 @@ class RequestGroupAction(backboneelement.BackboneElement):
             "resource",
             "action",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RequestGroupAction`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "description", "textEquivalent"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice
@@ -814,7 +856,7 @@ class RequestGroupActionCondition(backboneelement.BackboneElement):
     __resource_type__ = "RequestGroupActionCondition"
 
     expression: fhirtypes.ExpressionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="expression",
         title="Boolean-valued expression",
         description=(
@@ -827,7 +869,7 @@ class RequestGroupActionCondition(backboneelement.BackboneElement):
     )
 
     kind: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="kind",
         title="applicability | start | stop",
         description="The kind of condition.",
@@ -840,16 +882,23 @@ class RequestGroupActionCondition(backboneelement.BackboneElement):
         },
     )
     kind__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_kind", title="Extension field for ``kind``."
+        default=None, alias="_kind", title="Extension field for ``kind``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RequestGroupActionCondition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RequestGroupActionCondition`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "kind", "expression"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RequestGroupActionCondition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -876,7 +925,7 @@ class RequestGroupActionRelatedAction(backboneelement.BackboneElement):
     __resource_type__ = "RequestGroupActionRelatedAction"
 
     actionId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actionId",
         title="What action this is related to",
         description="The element id of the action this is related to.",
@@ -886,11 +935,11 @@ class RequestGroupActionRelatedAction(backboneelement.BackboneElement):
         },
     )
     actionId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_actionId", title="Extension field for ``actionId``."
+        default=None, alias="_actionId", title="Extension field for ``actionId``."
     )
 
     offsetDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="offsetDuration",
         title="Time offset for the relationship",
         description=(
@@ -906,7 +955,7 @@ class RequestGroupActionRelatedAction(backboneelement.BackboneElement):
     )
 
     offsetRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="offsetRange",
         title="Time offset for the relationship",
         description=(
@@ -922,7 +971,7 @@ class RequestGroupActionRelatedAction(backboneelement.BackboneElement):
     )
 
     relationship: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="relationship",
         title=(
             "before-start | before | before-end | concurrent-with-start | "
@@ -948,14 +997,16 @@ class RequestGroupActionRelatedAction(backboneelement.BackboneElement):
         },
     )
     relationship__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_relationship", title="Extension field for ``relationship``."
+        default=None,
+        alias="_relationship",
+        title="Extension field for ``relationship``.",
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RequestGroupActionRelatedAction`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RequestGroupActionRelatedAction`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -966,6 +1017,13 @@ class RequestGroupActionRelatedAction(backboneelement.BackboneElement):
             "offsetDuration",
             "offsetRange",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RequestGroupActionRelatedAction`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

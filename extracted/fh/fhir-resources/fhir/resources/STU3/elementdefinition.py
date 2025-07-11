@@ -27,20 +27,21 @@ class ElementDefinition(element.Element):
     __resource_type__ = "ElementDefinition"
 
     alias: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="alias",
         title="Other names",
         description="Identifies additional names by which this element might also be known.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     alias__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_alias", title="Extension field for ``alias``."
+        default=None, alias="_alias", title="Extension field for ``alias``."
     )
 
     base: fhirtypes.ElementDefinitionBaseType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="base",
         title="Base definition information for tools",
         description=(
@@ -53,11 +54,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     binding: fhirtypes.ElementDefinitionBindingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="binding",
         title="ValueSet details if this is coded",
         description=(
@@ -66,11 +68,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     code: typing.List[fhirtypes.CodingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Corresponding codes in terminologies",
         description=(
@@ -79,11 +82,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     comment: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="comment",
         title="Comments about the use of this element",
         description=(
@@ -93,14 +97,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     comment__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_comment", title="Extension field for ``comment``."
+        default=None, alias="_comment", title="Extension field for ``comment``."
     )
 
     condition: typing.List[fhirtypes.IdType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="condition",
         title="Reference to invariant about presence",
         description=(
@@ -109,14 +114,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     condition__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_condition", title="Extension field for ``condition``."
+        default=None, alias="_condition", title="Extension field for ``condition``."
     )
 
     constraint: typing.List[fhirtypes.ElementDefinitionConstraintType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="constraint",
         title="Condition that must evaluate to true",
         description=(
@@ -125,11 +131,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     contentReference: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentReference",
         title="Reference to definition of content for the element",
         description=(
@@ -138,16 +145,17 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     contentReference__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_contentReference",
         title="Extension field for ``contentReference``.",
     )
 
     defaultValueAddress: fhirtypes.AddressType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueAddress",
         title="Specified value if missing from instance",
         description=(
@@ -156,6 +164,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -163,7 +172,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueAge: fhirtypes.AgeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueAge",
         title="Specified value if missing from instance",
         description=(
@@ -172,6 +181,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -179,7 +189,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueAnnotation: fhirtypes.AnnotationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueAnnotation",
         title="Specified value if missing from instance",
         description=(
@@ -188,6 +198,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -195,7 +206,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueAttachment",
         title="Specified value if missing from instance",
         description=(
@@ -204,6 +215,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -211,7 +223,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueBase64Binary: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueBase64Binary",
         title="Specified value if missing from instance",
         description=(
@@ -220,19 +232,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueBase64Binary__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueBase64Binary",
         title="Extension field for ``defaultValueBase64Binary``.",
     )
 
     defaultValueBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueBoolean",
         title="Specified value if missing from instance",
         description=(
@@ -241,19 +254,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueBoolean",
         title="Extension field for ``defaultValueBoolean``.",
     )
 
     defaultValueCode: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueCode",
         title="Specified value if missing from instance",
         description=(
@@ -262,19 +276,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueCode__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueCode",
         title="Extension field for ``defaultValueCode``.",
     )
 
     defaultValueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueCodeableConcept",
         title="Specified value if missing from instance",
         description=(
@@ -283,6 +298,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -290,7 +306,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueCoding: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueCoding",
         title="Specified value if missing from instance",
         description=(
@@ -299,6 +315,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -306,7 +323,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueContactPoint: fhirtypes.ContactPointType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueContactPoint",
         title="Specified value if missing from instance",
         description=(
@@ -315,6 +332,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -322,7 +340,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueCount: fhirtypes.CountType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueCount",
         title="Specified value if missing from instance",
         description=(
@@ -331,6 +349,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -338,7 +357,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueDate",
         title="Specified value if missing from instance",
         description=(
@@ -347,19 +366,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueDate",
         title="Extension field for ``defaultValueDate``.",
     )
 
     defaultValueDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueDateTime",
         title="Specified value if missing from instance",
         description=(
@@ -368,19 +388,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueDateTime",
         title="Extension field for ``defaultValueDateTime``.",
     )
 
     defaultValueDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueDecimal",
         title="Specified value if missing from instance",
         description=(
@@ -389,19 +410,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueDecimal",
         title="Extension field for ``defaultValueDecimal``.",
     )
 
     defaultValueDistance: fhirtypes.DistanceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueDistance",
         title="Specified value if missing from instance",
         description=(
@@ -410,6 +432,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -417,7 +440,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueDuration",
         title="Specified value if missing from instance",
         description=(
@@ -426,6 +449,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -433,7 +457,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueHumanName: fhirtypes.HumanNameType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueHumanName",
         title="Specified value if missing from instance",
         description=(
@@ -442,6 +466,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -449,7 +474,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueId",
         title="Specified value if missing from instance",
         description=(
@@ -458,17 +483,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_defaultValueId", title="Extension field for ``defaultValueId``."
+        default=None,
+        alias="_defaultValueId",
+        title="Extension field for ``defaultValueId``.",
     )
 
     defaultValueIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueIdentifier",
         title="Specified value if missing from instance",
         description=(
@@ -477,6 +505,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -484,7 +513,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueInstant: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueInstant",
         title="Specified value if missing from instance",
         description=(
@@ -493,19 +522,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueInstant__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueInstant",
         title="Extension field for ``defaultValueInstant``.",
     )
 
     defaultValueInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueInteger",
         title="Specified value if missing from instance",
         description=(
@@ -514,19 +544,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueInteger",
         title="Extension field for ``defaultValueInteger``.",
     )
 
     defaultValueMarkdown: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueMarkdown",
         title="Specified value if missing from instance",
         description=(
@@ -535,19 +566,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueMarkdown__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueMarkdown",
         title="Extension field for ``defaultValueMarkdown``.",
     )
 
     defaultValueMeta: fhirtypes.MetaType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueMeta",
         title="Specified value if missing from instance",
         description=(
@@ -556,6 +588,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -563,7 +596,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueMoney: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueMoney",
         title="Specified value if missing from instance",
         description=(
@@ -572,6 +605,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -579,7 +613,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueOid: fhirtypes.OidType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueOid",
         title="Specified value if missing from instance",
         description=(
@@ -588,17 +622,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueOid__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_defaultValueOid", title="Extension field for ``defaultValueOid``."
+        default=None,
+        alias="_defaultValueOid",
+        title="Extension field for ``defaultValueOid``.",
     )
 
     defaultValuePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValuePeriod",
         title="Specified value if missing from instance",
         description=(
@@ -607,6 +644,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -614,7 +652,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValuePositiveInt: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValuePositiveInt",
         title="Specified value if missing from instance",
         description=(
@@ -623,19 +661,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValuePositiveInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValuePositiveInt",
         title="Extension field for ``defaultValuePositiveInt``.",
     )
 
     defaultValueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueQuantity",
         title="Specified value if missing from instance",
         description=(
@@ -644,6 +683,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -651,7 +691,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueRange",
         title="Specified value if missing from instance",
         description=(
@@ -660,6 +700,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -667,7 +708,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueRatio: fhirtypes.RatioType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueRatio",
         title="Specified value if missing from instance",
         description=(
@@ -676,6 +717,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -683,7 +725,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueReference",
         title="Specified value if missing from instance",
         description=(
@@ -692,6 +734,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -699,7 +742,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueSampledData: fhirtypes.SampledDataType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueSampledData",
         title="Specified value if missing from instance",
         description=(
@@ -708,6 +751,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -715,7 +759,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueSignature: fhirtypes.SignatureType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueSignature",
         title="Specified value if missing from instance",
         description=(
@@ -724,6 +768,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -731,7 +776,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueString",
         title="Specified value if missing from instance",
         description=(
@@ -740,19 +785,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueString",
         title="Extension field for ``defaultValueString``.",
     )
 
     defaultValueTime: fhirtypes.TimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueTime",
         title="Specified value if missing from instance",
         description=(
@@ -761,19 +807,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueTime",
         title="Extension field for ``defaultValueTime``.",
     )
 
     defaultValueTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueTiming",
         title="Specified value if missing from instance",
         description=(
@@ -782,6 +829,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
@@ -789,7 +837,7 @@ class ElementDefinition(element.Element):
     )
 
     defaultValueUnsignedInt: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueUnsignedInt",
         title="Specified value if missing from instance",
         description=(
@@ -798,19 +846,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueUnsignedInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_defaultValueUnsignedInt",
         title="Extension field for ``defaultValueUnsignedInt``.",
     )
 
     defaultValueUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="defaultValueUri",
         title="Specified value if missing from instance",
         description=(
@@ -819,17 +868,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e defaultValue[x]
             "one_of_many": "defaultValue",
             "one_of_many_required": False,
         },
     )
     defaultValueUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_defaultValueUri", title="Extension field for ``defaultValueUri``."
+        default=None,
+        alias="_defaultValueUri",
+        title="Extension field for ``defaultValueUri``.",
     )
 
     definition: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="definition",
         title="Full formal definition as narrative text",
         description=(
@@ -841,14 +893,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     definition__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_definition", title="Extension field for ``definition``."
+        default=None, alias="_definition", title="Extension field for ``definition``."
     )
 
     example: typing.List[fhirtypes.ElementDefinitionExampleType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="example",
         title="Example value (as defined for type)",
         description=(
@@ -857,11 +910,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     fixedAddress: fhirtypes.AddressType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedAddress",
         title="Value must be exactly this",
         description=(
@@ -872,6 +926,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -879,7 +934,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedAge: fhirtypes.AgeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedAge",
         title="Value must be exactly this",
         description=(
@@ -890,6 +945,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -897,7 +953,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedAnnotation: fhirtypes.AnnotationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedAnnotation",
         title="Value must be exactly this",
         description=(
@@ -908,6 +964,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -915,7 +972,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedAttachment",
         title="Value must be exactly this",
         description=(
@@ -926,6 +983,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -933,7 +991,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedBase64Binary: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedBase64Binary",
         title="Value must be exactly this",
         description=(
@@ -944,19 +1002,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedBase64Binary__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_fixedBase64Binary",
         title="Extension field for ``fixedBase64Binary``.",
     )
 
     fixedBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedBoolean",
         title="Value must be exactly this",
         description=(
@@ -967,17 +1026,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedBoolean", title="Extension field for ``fixedBoolean``."
+        default=None,
+        alias="_fixedBoolean",
+        title="Extension field for ``fixedBoolean``.",
     )
 
     fixedCode: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedCode",
         title="Value must be exactly this",
         description=(
@@ -988,17 +1050,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedCode__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedCode", title="Extension field for ``fixedCode``."
+        default=None, alias="_fixedCode", title="Extension field for ``fixedCode``."
     )
 
     fixedCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedCodeableConcept",
         title="Value must be exactly this",
         description=(
@@ -1009,6 +1072,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1016,7 +1080,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedCoding: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedCoding",
         title="Value must be exactly this",
         description=(
@@ -1027,6 +1091,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1034,7 +1099,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedContactPoint: fhirtypes.ContactPointType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedContactPoint",
         title="Value must be exactly this",
         description=(
@@ -1045,6 +1110,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1052,7 +1118,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedCount: fhirtypes.CountType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedCount",
         title="Value must be exactly this",
         description=(
@@ -1063,6 +1129,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1070,7 +1137,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedDate",
         title="Value must be exactly this",
         description=(
@@ -1081,17 +1148,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedDate", title="Extension field for ``fixedDate``."
+        default=None, alias="_fixedDate", title="Extension field for ``fixedDate``."
     )
 
     fixedDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedDateTime",
         title="Value must be exactly this",
         description=(
@@ -1102,17 +1170,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedDateTime", title="Extension field for ``fixedDateTime``."
+        default=None,
+        alias="_fixedDateTime",
+        title="Extension field for ``fixedDateTime``.",
     )
 
     fixedDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedDecimal",
         title="Value must be exactly this",
         description=(
@@ -1123,17 +1194,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedDecimal", title="Extension field for ``fixedDecimal``."
+        default=None,
+        alias="_fixedDecimal",
+        title="Extension field for ``fixedDecimal``.",
     )
 
     fixedDistance: fhirtypes.DistanceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedDistance",
         title="Value must be exactly this",
         description=(
@@ -1144,6 +1218,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1151,7 +1226,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedDuration",
         title="Value must be exactly this",
         description=(
@@ -1162,6 +1237,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1169,7 +1245,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedHumanName: fhirtypes.HumanNameType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedHumanName",
         title="Value must be exactly this",
         description=(
@@ -1180,6 +1256,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1187,7 +1264,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedId",
         title="Value must be exactly this",
         description=(
@@ -1198,17 +1275,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedId", title="Extension field for ``fixedId``."
+        default=None, alias="_fixedId", title="Extension field for ``fixedId``."
     )
 
     fixedIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedIdentifier",
         title="Value must be exactly this",
         description=(
@@ -1219,6 +1297,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1226,7 +1305,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedInstant: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedInstant",
         title="Value must be exactly this",
         description=(
@@ -1237,17 +1316,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedInstant__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedInstant", title="Extension field for ``fixedInstant``."
+        default=None,
+        alias="_fixedInstant",
+        title="Extension field for ``fixedInstant``.",
     )
 
     fixedInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedInteger",
         title="Value must be exactly this",
         description=(
@@ -1258,17 +1340,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedInteger", title="Extension field for ``fixedInteger``."
+        default=None,
+        alias="_fixedInteger",
+        title="Extension field for ``fixedInteger``.",
     )
 
     fixedMarkdown: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedMarkdown",
         title="Value must be exactly this",
         description=(
@@ -1279,17 +1364,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedMarkdown__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedMarkdown", title="Extension field for ``fixedMarkdown``."
+        default=None,
+        alias="_fixedMarkdown",
+        title="Extension field for ``fixedMarkdown``.",
     )
 
     fixedMeta: fhirtypes.MetaType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedMeta",
         title="Value must be exactly this",
         description=(
@@ -1300,6 +1388,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1307,7 +1396,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedMoney: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedMoney",
         title="Value must be exactly this",
         description=(
@@ -1318,6 +1407,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1325,7 +1415,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedOid: fhirtypes.OidType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedOid",
         title="Value must be exactly this",
         description=(
@@ -1336,17 +1426,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedOid__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedOid", title="Extension field for ``fixedOid``."
+        default=None, alias="_fixedOid", title="Extension field for ``fixedOid``."
     )
 
     fixedPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedPeriod",
         title="Value must be exactly this",
         description=(
@@ -1357,6 +1448,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1364,7 +1456,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedPositiveInt: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedPositiveInt",
         title="Value must be exactly this",
         description=(
@@ -1375,19 +1467,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedPositiveInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_fixedPositiveInt",
         title="Extension field for ``fixedPositiveInt``.",
     )
 
     fixedQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedQuantity",
         title="Value must be exactly this",
         description=(
@@ -1398,6 +1491,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1405,7 +1499,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedRange",
         title="Value must be exactly this",
         description=(
@@ -1416,6 +1510,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1423,7 +1518,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedRatio: fhirtypes.RatioType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedRatio",
         title="Value must be exactly this",
         description=(
@@ -1434,6 +1529,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1441,7 +1537,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedReference",
         title="Value must be exactly this",
         description=(
@@ -1452,6 +1548,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1459,7 +1556,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedSampledData: fhirtypes.SampledDataType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedSampledData",
         title="Value must be exactly this",
         description=(
@@ -1470,6 +1567,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1477,7 +1575,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedSignature: fhirtypes.SignatureType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedSignature",
         title="Value must be exactly this",
         description=(
@@ -1488,6 +1586,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1495,7 +1594,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedString",
         title="Value must be exactly this",
         description=(
@@ -1506,17 +1605,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedString", title="Extension field for ``fixedString``."
+        default=None, alias="_fixedString", title="Extension field for ``fixedString``."
     )
 
     fixedTime: fhirtypes.TimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedTime",
         title="Value must be exactly this",
         description=(
@@ -1527,17 +1627,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedTime", title="Extension field for ``fixedTime``."
+        default=None, alias="_fixedTime", title="Extension field for ``fixedTime``."
     )
 
     fixedTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedTiming",
         title="Value must be exactly this",
         description=(
@@ -1548,6 +1649,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
@@ -1555,7 +1657,7 @@ class ElementDefinition(element.Element):
     )
 
     fixedUnsignedInt: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedUnsignedInt",
         title="Value must be exactly this",
         description=(
@@ -1566,19 +1668,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedUnsignedInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_fixedUnsignedInt",
         title="Extension field for ``fixedUnsignedInt``.",
     )
 
     fixedUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="fixedUri",
         title="Value must be exactly this",
         description=(
@@ -1589,17 +1692,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e fixed[x]
             "one_of_many": "fixed",
             "one_of_many_required": False,
         },
     )
     fixedUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_fixedUri", title="Extension field for ``fixedUri``."
+        default=None, alias="_fixedUri", title="Extension field for ``fixedUri``."
     )
 
     isModifier: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="isModifier",
         title="If this modifies the meaning of other elements",
         description=(
@@ -1613,14 +1717,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     isModifier__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_isModifier", title="Extension field for ``isModifier``."
+        default=None, alias="_isModifier", title="Extension field for ``isModifier``."
     )
 
     isSummary: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="isSummary",
         title="Include when _summary = true?",
         description=(
@@ -1629,14 +1734,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     isSummary__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_isSummary", title="Extension field for ``isSummary``."
+        default=None, alias="_isSummary", title="Extension field for ``isSummary``."
     )
 
     label: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="label",
         title="Name for element to display with or prompt for element",
         description=(
@@ -1646,14 +1752,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     label__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_label", title="Extension field for ``label``."
+        default=None, alias="_label", title="Extension field for ``label``."
     )
 
     mapping: typing.List[fhirtypes.ElementDefinitionMappingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="mapping",
         title="Map element to another set of definitions",
         description=(
@@ -1662,11 +1769,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     max: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="max",
         title="Maximum Cardinality (a number or *)",
         description=(
@@ -1675,14 +1783,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     max__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_max", title="Extension field for ``max``."
+        default=None, alias="_max", title="Extension field for ``max``."
     )
 
     maxLength: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxLength",
         title="Max length for strings",
         description=(
@@ -1692,14 +1801,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     maxLength__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxLength", title="Extension field for ``maxLength``."
+        default=None, alias="_maxLength", title="Extension field for ``maxLength``."
     )
 
     maxValueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueDate",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1709,17 +1819,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxValueDate", title="Extension field for ``maxValueDate``."
+        default=None,
+        alias="_maxValueDate",
+        title="Extension field for ``maxValueDate``.",
     )
 
     maxValueDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueDateTime",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1729,19 +1842,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_maxValueDateTime",
         title="Extension field for ``maxValueDateTime``.",
     )
 
     maxValueDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueDecimal",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1751,17 +1865,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxValueDecimal", title="Extension field for ``maxValueDecimal``."
+        default=None,
+        alias="_maxValueDecimal",
+        title="Extension field for ``maxValueDecimal``.",
     )
 
     maxValueInstant: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueInstant",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1771,17 +1888,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueInstant__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxValueInstant", title="Extension field for ``maxValueInstant``."
+        default=None,
+        alias="_maxValueInstant",
+        title="Extension field for ``maxValueInstant``.",
     )
 
     maxValueInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueInteger",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1791,17 +1911,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxValueInteger", title="Extension field for ``maxValueInteger``."
+        default=None,
+        alias="_maxValueInteger",
+        title="Extension field for ``maxValueInteger``.",
     )
 
     maxValuePositiveInt: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValuePositiveInt",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1811,19 +1934,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValuePositiveInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_maxValuePositiveInt",
         title="Extension field for ``maxValuePositiveInt``.",
     )
 
     maxValueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueQuantity",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1833,6 +1957,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
@@ -1840,7 +1965,7 @@ class ElementDefinition(element.Element):
     )
 
     maxValueTime: fhirtypes.TimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueTime",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1850,17 +1975,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_maxValueTime", title="Extension field for ``maxValueTime``."
+        default=None,
+        alias="_maxValueTime",
+        title="Extension field for ``maxValueTime``.",
     )
 
     maxValueUnsignedInt: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxValueUnsignedInt",
         title="Maximum Allowed Value (for some types)",
         description=(
@@ -1870,19 +1998,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e maxValue[x]
             "one_of_many": "maxValue",
             "one_of_many_required": False,
         },
     )
     maxValueUnsignedInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_maxValueUnsignedInt",
         title="Extension field for ``maxValueUnsignedInt``.",
     )
 
     meaningWhenMissing: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="meaningWhenMissing",
         title="Implicit meaning when this element is missing",
         description=(
@@ -1891,29 +2020,31 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     meaningWhenMissing__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_meaningWhenMissing",
         title="Extension field for ``meaningWhenMissing``.",
     )
 
     min: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="min",
         title="Minimum Cardinality",
         description="The minimum number of times this element SHALL appear in the instance.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     min__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_min", title="Extension field for ``min``."
+        default=None, alias="_min", title="Extension field for ``min``."
     )
 
     minValueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueDate",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -1923,17 +2054,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_minValueDate", title="Extension field for ``minValueDate``."
+        default=None,
+        alias="_minValueDate",
+        title="Extension field for ``minValueDate``.",
     )
 
     minValueDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueDateTime",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -1943,19 +2077,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_minValueDateTime",
         title="Extension field for ``minValueDateTime``.",
     )
 
     minValueDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueDecimal",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -1965,17 +2100,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_minValueDecimal", title="Extension field for ``minValueDecimal``."
+        default=None,
+        alias="_minValueDecimal",
+        title="Extension field for ``minValueDecimal``.",
     )
 
     minValueInstant: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueInstant",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -1985,17 +2123,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueInstant__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_minValueInstant", title="Extension field for ``minValueInstant``."
+        default=None,
+        alias="_minValueInstant",
+        title="Extension field for ``minValueInstant``.",
     )
 
     minValueInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueInteger",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -2005,17 +2146,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_minValueInteger", title="Extension field for ``minValueInteger``."
+        default=None,
+        alias="_minValueInteger",
+        title="Extension field for ``minValueInteger``.",
     )
 
     minValuePositiveInt: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValuePositiveInt",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -2025,19 +2169,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValuePositiveInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_minValuePositiveInt",
         title="Extension field for ``minValuePositiveInt``.",
     )
 
     minValueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueQuantity",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -2047,6 +2192,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
@@ -2054,7 +2200,7 @@ class ElementDefinition(element.Element):
     )
 
     minValueTime: fhirtypes.TimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueTime",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -2064,17 +2210,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_minValueTime", title="Extension field for ``minValueTime``."
+        default=None,
+        alias="_minValueTime",
+        title="Extension field for ``minValueTime``.",
     )
 
     minValueUnsignedInt: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minValueUnsignedInt",
         title="Minimum Allowed Value (for some types)",
         description=(
@@ -2084,19 +2233,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e minValue[x]
             "one_of_many": "minValue",
             "one_of_many_required": False,
         },
     )
     minValueUnsignedInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_minValueUnsignedInt",
         title="Extension field for ``minValueUnsignedInt``.",
     )
 
     mustSupport: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="mustSupport",
         title="If the element must supported",
         description=(
@@ -2106,14 +2256,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     mustSupport__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_mustSupport", title="Extension field for ``mustSupport``."
+        default=None, alias="_mustSupport", title="Extension field for ``mustSupport``."
     )
 
     orderMeaning: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="orderMeaning",
         title="What the order of the elements means",
         description=(
@@ -2123,14 +2274,17 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     orderMeaning__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_orderMeaning", title="Extension field for ``orderMeaning``."
+        default=None,
+        alias="_orderMeaning",
+        title="Extension field for ``orderMeaning``.",
     )
 
     path: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="path",
         title="Path of the element in the hierarchy of elements",
         description=(
@@ -2140,15 +2294,16 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     path__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_path", title="Extension field for ``path``."
+        default=None, alias="_path", title="Extension field for ``path``."
     )
 
     patternAddress: fhirtypes.AddressType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternAddress",
         title="Value must have at least these property values",
         description=(
@@ -2160,6 +2315,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2167,7 +2323,7 @@ class ElementDefinition(element.Element):
     )
 
     patternAge: fhirtypes.AgeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternAge",
         title="Value must have at least these property values",
         description=(
@@ -2179,6 +2335,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2186,7 +2343,7 @@ class ElementDefinition(element.Element):
     )
 
     patternAnnotation: fhirtypes.AnnotationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternAnnotation",
         title="Value must have at least these property values",
         description=(
@@ -2198,6 +2355,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2205,7 +2363,7 @@ class ElementDefinition(element.Element):
     )
 
     patternAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternAttachment",
         title="Value must have at least these property values",
         description=(
@@ -2217,6 +2375,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2224,7 +2383,7 @@ class ElementDefinition(element.Element):
     )
 
     patternBase64Binary: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternBase64Binary",
         title="Value must have at least these property values",
         description=(
@@ -2236,19 +2395,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternBase64Binary__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_patternBase64Binary",
         title="Extension field for ``patternBase64Binary``.",
     )
 
     patternBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternBoolean",
         title="Value must have at least these property values",
         description=(
@@ -2260,17 +2420,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternBoolean", title="Extension field for ``patternBoolean``."
+        default=None,
+        alias="_patternBoolean",
+        title="Extension field for ``patternBoolean``.",
     )
 
     patternCode: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternCode",
         title="Value must have at least these property values",
         description=(
@@ -2282,17 +2445,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternCode__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternCode", title="Extension field for ``patternCode``."
+        default=None, alias="_patternCode", title="Extension field for ``patternCode``."
     )
 
     patternCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternCodeableConcept",
         title="Value must have at least these property values",
         description=(
@@ -2304,6 +2468,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2311,7 +2476,7 @@ class ElementDefinition(element.Element):
     )
 
     patternCoding: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternCoding",
         title="Value must have at least these property values",
         description=(
@@ -2323,6 +2488,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2330,7 +2496,7 @@ class ElementDefinition(element.Element):
     )
 
     patternContactPoint: fhirtypes.ContactPointType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternContactPoint",
         title="Value must have at least these property values",
         description=(
@@ -2342,6 +2508,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2349,7 +2516,7 @@ class ElementDefinition(element.Element):
     )
 
     patternCount: fhirtypes.CountType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternCount",
         title="Value must have at least these property values",
         description=(
@@ -2361,6 +2528,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2368,7 +2536,7 @@ class ElementDefinition(element.Element):
     )
 
     patternDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternDate",
         title="Value must have at least these property values",
         description=(
@@ -2380,17 +2548,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternDate", title="Extension field for ``patternDate``."
+        default=None, alias="_patternDate", title="Extension field for ``patternDate``."
     )
 
     patternDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternDateTime",
         title="Value must have at least these property values",
         description=(
@@ -2402,17 +2571,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternDateTime", title="Extension field for ``patternDateTime``."
+        default=None,
+        alias="_patternDateTime",
+        title="Extension field for ``patternDateTime``.",
     )
 
     patternDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternDecimal",
         title="Value must have at least these property values",
         description=(
@@ -2424,17 +2596,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternDecimal", title="Extension field for ``patternDecimal``."
+        default=None,
+        alias="_patternDecimal",
+        title="Extension field for ``patternDecimal``.",
     )
 
     patternDistance: fhirtypes.DistanceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternDistance",
         title="Value must have at least these property values",
         description=(
@@ -2446,6 +2621,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2453,7 +2629,7 @@ class ElementDefinition(element.Element):
     )
 
     patternDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternDuration",
         title="Value must have at least these property values",
         description=(
@@ -2465,6 +2641,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2472,7 +2649,7 @@ class ElementDefinition(element.Element):
     )
 
     patternHumanName: fhirtypes.HumanNameType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternHumanName",
         title="Value must have at least these property values",
         description=(
@@ -2484,6 +2661,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2491,7 +2669,7 @@ class ElementDefinition(element.Element):
     )
 
     patternId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternId",
         title="Value must have at least these property values",
         description=(
@@ -2503,17 +2681,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternId", title="Extension field for ``patternId``."
+        default=None, alias="_patternId", title="Extension field for ``patternId``."
     )
 
     patternIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternIdentifier",
         title="Value must have at least these property values",
         description=(
@@ -2525,6 +2704,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2532,7 +2712,7 @@ class ElementDefinition(element.Element):
     )
 
     patternInstant: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternInstant",
         title="Value must have at least these property values",
         description=(
@@ -2544,17 +2724,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternInstant__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternInstant", title="Extension field for ``patternInstant``."
+        default=None,
+        alias="_patternInstant",
+        title="Extension field for ``patternInstant``.",
     )
 
     patternInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternInteger",
         title="Value must have at least these property values",
         description=(
@@ -2566,17 +2749,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternInteger", title="Extension field for ``patternInteger``."
+        default=None,
+        alias="_patternInteger",
+        title="Extension field for ``patternInteger``.",
     )
 
     patternMarkdown: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternMarkdown",
         title="Value must have at least these property values",
         description=(
@@ -2588,17 +2774,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternMarkdown__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternMarkdown", title="Extension field for ``patternMarkdown``."
+        default=None,
+        alias="_patternMarkdown",
+        title="Extension field for ``patternMarkdown``.",
     )
 
     patternMeta: fhirtypes.MetaType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternMeta",
         title="Value must have at least these property values",
         description=(
@@ -2610,6 +2799,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2617,7 +2807,7 @@ class ElementDefinition(element.Element):
     )
 
     patternMoney: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternMoney",
         title="Value must have at least these property values",
         description=(
@@ -2629,6 +2819,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2636,7 +2827,7 @@ class ElementDefinition(element.Element):
     )
 
     patternOid: fhirtypes.OidType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternOid",
         title="Value must have at least these property values",
         description=(
@@ -2648,17 +2839,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternOid__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternOid", title="Extension field for ``patternOid``."
+        default=None, alias="_patternOid", title="Extension field for ``patternOid``."
     )
 
     patternPeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternPeriod",
         title="Value must have at least these property values",
         description=(
@@ -2670,6 +2862,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2677,7 +2870,7 @@ class ElementDefinition(element.Element):
     )
 
     patternPositiveInt: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternPositiveInt",
         title="Value must have at least these property values",
         description=(
@@ -2689,19 +2882,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternPositiveInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_patternPositiveInt",
         title="Extension field for ``patternPositiveInt``.",
     )
 
     patternQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternQuantity",
         title="Value must have at least these property values",
         description=(
@@ -2713,6 +2907,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2720,7 +2915,7 @@ class ElementDefinition(element.Element):
     )
 
     patternRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternRange",
         title="Value must have at least these property values",
         description=(
@@ -2732,6 +2927,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2739,7 +2935,7 @@ class ElementDefinition(element.Element):
     )
 
     patternRatio: fhirtypes.RatioType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternRatio",
         title="Value must have at least these property values",
         description=(
@@ -2751,6 +2947,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2758,7 +2955,7 @@ class ElementDefinition(element.Element):
     )
 
     patternReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternReference",
         title="Value must have at least these property values",
         description=(
@@ -2770,6 +2967,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2777,7 +2975,7 @@ class ElementDefinition(element.Element):
     )
 
     patternSampledData: fhirtypes.SampledDataType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternSampledData",
         title="Value must have at least these property values",
         description=(
@@ -2789,6 +2987,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2796,7 +2995,7 @@ class ElementDefinition(element.Element):
     )
 
     patternSignature: fhirtypes.SignatureType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternSignature",
         title="Value must have at least these property values",
         description=(
@@ -2808,6 +3007,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2815,7 +3015,7 @@ class ElementDefinition(element.Element):
     )
 
     patternString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternString",
         title="Value must have at least these property values",
         description=(
@@ -2827,17 +3027,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternString", title="Extension field for ``patternString``."
+        default=None,
+        alias="_patternString",
+        title="Extension field for ``patternString``.",
     )
 
     patternTime: fhirtypes.TimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternTime",
         title="Value must have at least these property values",
         description=(
@@ -2849,17 +3052,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternTime", title="Extension field for ``patternTime``."
+        default=None, alias="_patternTime", title="Extension field for ``patternTime``."
     )
 
     patternTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternTiming",
         title="Value must have at least these property values",
         description=(
@@ -2871,6 +3075,7 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
@@ -2878,7 +3083,7 @@ class ElementDefinition(element.Element):
     )
 
     patternUnsignedInt: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternUnsignedInt",
         title="Value must have at least these property values",
         description=(
@@ -2890,19 +3095,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternUnsignedInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_patternUnsignedInt",
         title="Extension field for ``patternUnsignedInt``.",
     )
 
     patternUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patternUri",
         title="Value must have at least these property values",
         description=(
@@ -2914,17 +3120,18 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e pattern[x]
             "one_of_many": "pattern",
             "one_of_many_required": False,
         },
     )
     patternUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_patternUri", title="Extension field for ``patternUri``."
+        default=None, alias="_patternUri", title="Extension field for ``patternUri``."
     )
 
     representation: typing.List[fhirtypes.CodeType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="representation",
         title="xmlAttr | xmlText | typeAttr | cdaText | xhtml",
         description=(
@@ -2933,17 +3140,20 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["xmlAttr", "xmlText", "typeAttr", "cdaText", "xhtml"],
         },
     )
     representation__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_representation", title="Extension field for ``representation``."
+        default=None,
+        alias="_representation",
+        title="Extension field for ``representation``.",
     )
 
     requirements: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requirements",
         title="Why this resource has been created",
         description=(
@@ -2954,14 +3164,17 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     requirements__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_requirements", title="Extension field for ``requirements``."
+        default=None,
+        alias="_requirements",
+        title="Extension field for ``requirements``.",
     )
 
     short: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="short",
         title="Concise definition for space-constrained presentation",
         description=(
@@ -2970,14 +3183,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     short__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_short", title="Extension field for ``short``."
+        default=None, alias="_short", title="Extension field for ``short``."
     )
 
     sliceName: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sliceName",
         title="Name for this particular element (in a set of slices)",
         description=(
@@ -2988,14 +3202,15 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     sliceName__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sliceName", title="Extension field for ``sliceName``."
+        default=None, alias="_sliceName", title="Extension field for ``sliceName``."
     )
 
     slicing: fhirtypes.ElementDefinitionSlicingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="slicing",
         title="This element is sliced - slices follow",
         description=(
@@ -3010,11 +3225,12 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     type: typing.List[fhirtypes.ElementDefinitionTypeType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Data type and Profile for this element",
         description=(
@@ -3023,18 +3239,186 @@ class ElementDefinition(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "path",
+            "representation",
+            "sliceName",
+            "label",
+            "code",
+            "slicing",
+            "short",
+            "definition",
+            "comment",
+            "requirements",
+            "alias",
+            "min",
+            "max",
+            "base",
+            "contentReference",
+            "type",
+            "defaultValueBase64Binary",
+            "defaultValueBoolean",
+            "defaultValueCode",
+            "defaultValueDate",
+            "defaultValueDateTime",
+            "defaultValueDecimal",
+            "defaultValueId",
+            "defaultValueInstant",
+            "defaultValueInteger",
+            "defaultValueMarkdown",
+            "defaultValueOid",
+            "defaultValuePositiveInt",
+            "defaultValueString",
+            "defaultValueTime",
+            "defaultValueUnsignedInt",
+            "defaultValueUri",
+            "defaultValueAddress",
+            "defaultValueAge",
+            "defaultValueAnnotation",
+            "defaultValueAttachment",
+            "defaultValueCodeableConcept",
+            "defaultValueCoding",
+            "defaultValueContactPoint",
+            "defaultValueCount",
+            "defaultValueDistance",
+            "defaultValueDuration",
+            "defaultValueHumanName",
+            "defaultValueIdentifier",
+            "defaultValueMoney",
+            "defaultValuePeriod",
+            "defaultValueQuantity",
+            "defaultValueRange",
+            "defaultValueRatio",
+            "defaultValueReference",
+            "defaultValueSampledData",
+            "defaultValueSignature",
+            "defaultValueTiming",
+            "defaultValueMeta",
+            "meaningWhenMissing",
+            "orderMeaning",
+            "fixedBase64Binary",
+            "fixedBoolean",
+            "fixedCode",
+            "fixedDate",
+            "fixedDateTime",
+            "fixedDecimal",
+            "fixedId",
+            "fixedInstant",
+            "fixedInteger",
+            "fixedMarkdown",
+            "fixedOid",
+            "fixedPositiveInt",
+            "fixedString",
+            "fixedTime",
+            "fixedUnsignedInt",
+            "fixedUri",
+            "fixedAddress",
+            "fixedAge",
+            "fixedAnnotation",
+            "fixedAttachment",
+            "fixedCodeableConcept",
+            "fixedCoding",
+            "fixedContactPoint",
+            "fixedCount",
+            "fixedDistance",
+            "fixedDuration",
+            "fixedHumanName",
+            "fixedIdentifier",
+            "fixedMoney",
+            "fixedPeriod",
+            "fixedQuantity",
+            "fixedRange",
+            "fixedRatio",
+            "fixedReference",
+            "fixedSampledData",
+            "fixedSignature",
+            "fixedTiming",
+            "fixedMeta",
+            "patternBase64Binary",
+            "patternBoolean",
+            "patternCode",
+            "patternDate",
+            "patternDateTime",
+            "patternDecimal",
+            "patternId",
+            "patternInstant",
+            "patternInteger",
+            "patternMarkdown",
+            "patternOid",
+            "patternPositiveInt",
+            "patternString",
+            "patternTime",
+            "patternUnsignedInt",
+            "patternUri",
+            "patternAddress",
+            "patternAge",
+            "patternAnnotation",
+            "patternAttachment",
+            "patternCodeableConcept",
+            "patternCoding",
+            "patternContactPoint",
+            "patternCount",
+            "patternDistance",
+            "patternDuration",
+            "patternHumanName",
+            "patternIdentifier",
+            "patternMoney",
+            "patternPeriod",
+            "patternQuantity",
+            "patternRange",
+            "patternRatio",
+            "patternReference",
+            "patternSampledData",
+            "patternSignature",
+            "patternTiming",
+            "patternMeta",
+            "example",
+            "minValueDate",
+            "minValueDateTime",
+            "minValueInstant",
+            "minValueTime",
+            "minValueDecimal",
+            "minValueInteger",
+            "minValuePositiveInt",
+            "minValueUnsignedInt",
+            "minValueQuantity",
+            "maxValueDate",
+            "maxValueDateTime",
+            "maxValueInstant",
+            "maxValueTime",
+            "maxValueDecimal",
+            "maxValueInteger",
+            "maxValuePositiveInt",
+            "maxValueUnsignedInt",
+            "maxValueQuantity",
+            "maxLength",
+            "condition",
+            "constraint",
+            "mustSupport",
+            "isModifier",
+            "isSummary",
+            "binding",
+            "mapping",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "path",
             "representation",
             "sliceName",
@@ -3384,35 +3768,37 @@ class ElementDefinitionBase(element.Element):
     __resource_type__ = "ElementDefinitionBase"
 
     max: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="max",
         title="Max cardinality of the base element",
         description="Maximum cardinality of the base element identified by the path.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     max__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_max", title="Extension field for ``max``."
+        default=None, alias="_max", title="Extension field for ``max``."
     )
 
     min: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="min",
         title="Min cardinality of the base element",
         description="Minimum cardinality of the base element identified by the path.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     min__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_min", title="Extension field for ``min``."
+        default=None, alias="_min", title="Extension field for ``min``."
     )
 
     path: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="path",
         title="Path that identifies the base element",
         description=(
@@ -3424,20 +3810,28 @@ class ElementDefinitionBase(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     path__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_path", title="Extension field for ``path``."
+        default=None, alias="_path", title="Extension field for ``path``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionBase`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionBase`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "path", "min", "max"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionBase`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["path", "min", "max"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -3468,20 +3862,21 @@ class ElementDefinitionBinding(element.Element):
     __resource_type__ = "ElementDefinitionBinding"
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Human explanation of the value set",
         description="Describes the intended use of this particular set of codes.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     strength: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="strength",
         title="required | extensible | preferred | example",
         description=(
@@ -3491,6 +3886,7 @@ class ElementDefinitionBinding(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -3498,11 +3894,11 @@ class ElementDefinitionBinding(element.Element):
         },
     )
     strength__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_strength", title="Extension field for ``strength``."
+        default=None, alias="_strength", title="Extension field for ``strength``."
     )
 
     valueSetReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueSetReference",
         title="Source of value set",
         description=(
@@ -3515,6 +3911,7 @@ class ElementDefinitionBinding(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e valueSet[x]
             "one_of_many": "valueSet",
             "one_of_many_required": False,
@@ -3524,7 +3921,7 @@ class ElementDefinitionBinding(element.Element):
     )
 
     valueSetUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueSetUri",
         title="Source of value set",
         description=(
@@ -3537,20 +3934,21 @@ class ElementDefinitionBinding(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e valueSet[x]
             "one_of_many": "valueSet",
             "one_of_many_required": False,
         },
     )
     valueSetUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueSetUri", title="Extension field for ``valueSetUri``."
+        default=None, alias="_valueSetUri", title="Extension field for ``valueSetUri``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionBinding`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionBinding`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -3560,6 +3958,13 @@ class ElementDefinitionBinding(element.Element):
             "valueSetUri",
             "valueSetReference",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionBinding`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["strength", "description", "valueSetUri", "valueSetReference"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -3602,7 +4007,7 @@ class ElementDefinitionConstraint(element.Element):
     __resource_type__ = "ElementDefinitionConstraint"
 
     expression: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="expression",
         title="FHIRPath expression of constraint",
         description=(
@@ -3611,15 +4016,16 @@ class ElementDefinitionConstraint(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     expression__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_expression", title="Extension field for ``expression``."
+        default=None, alias="_expression", title="Extension field for ``expression``."
     )
 
     human: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="human",
         title="Human description of constraint",
         description=(
@@ -3628,15 +4034,16 @@ class ElementDefinitionConstraint(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     human__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_human", title="Extension field for ``human``."
+        default=None, alias="_human", title="Extension field for ``human``."
     )
 
     key: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="key",
         title="Target of 'condition' reference above",
         description=(
@@ -3646,28 +4053,32 @@ class ElementDefinitionConstraint(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     key__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_key", title="Extension field for ``key``."
+        default=None, alias="_key", title="Extension field for ``key``."
     )
 
     requirements: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requirements",
         title="Why this constraint is necessary or appropriate",
         description="Description of why this constraint is necessary or appropriate.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     requirements__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_requirements", title="Extension field for ``requirements``."
+        default=None,
+        alias="_requirements",
+        title="Extension field for ``requirements``.",
     )
 
     severity: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="severity",
         title="error | warning",
         description=(
@@ -3676,6 +4087,7 @@ class ElementDefinitionConstraint(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -3683,11 +4095,11 @@ class ElementDefinitionConstraint(element.Element):
         },
     )
     severity__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_severity", title="Extension field for ``severity``."
+        default=None, alias="_severity", title="Extension field for ``severity``."
     )
 
     source: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="source",
         title="Reference to original source of constraint",
         description=(
@@ -3696,14 +4108,15 @@ class ElementDefinitionConstraint(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     source__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_source", title="Extension field for ``source``."
+        default=None, alias="_source", title="Extension field for ``source``."
     )
 
     xpath: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="xpath",
         title="XPath expression of constraint",
         description=(
@@ -3712,21 +4125,37 @@ class ElementDefinitionConstraint(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     xpath__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_xpath", title="Extension field for ``xpath``."
+        default=None, alias="_xpath", title="Extension field for ``xpath``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionConstraint`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionConstraint`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "key",
+            "requirements",
+            "severity",
+            "human",
+            "expression",
+            "xpath",
+            "source",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionConstraint`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "key",
             "requirements",
             "severity",
@@ -3766,21 +4195,22 @@ class ElementDefinitionExample(element.Element):
     __resource_type__ = "ElementDefinitionExample"
 
     label: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="label",
         title="Describes the purpose of this example",
         description="Describes the purpose of this example amoung the set of examples.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     label__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_label", title="Extension field for ``label``."
+        default=None, alias="_label", title="Extension field for ``label``."
     )
 
     valueAddress: fhirtypes.AddressType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueAddress",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3789,6 +4219,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3796,7 +4227,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueAge: fhirtypes.AgeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueAge",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3805,6 +4236,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3812,7 +4244,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueAnnotation: fhirtypes.AnnotationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueAnnotation",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3821,6 +4253,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3828,7 +4261,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueAttachment: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueAttachment",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3837,6 +4270,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3844,7 +4278,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueBase64Binary: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBase64Binary",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3853,19 +4287,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueBase64Binary__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_valueBase64Binary",
         title="Extension field for ``valueBase64Binary``.",
     )
 
     valueBoolean: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueBoolean",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3874,17 +4309,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueBoolean__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueBoolean", title="Extension field for ``valueBoolean``."
+        default=None,
+        alias="_valueBoolean",
+        title="Extension field for ``valueBoolean``.",
     )
 
     valueCode: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCode",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3893,17 +4331,18 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueCode__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueCode", title="Extension field for ``valueCode``."
+        default=None, alias="_valueCode", title="Extension field for ``valueCode``."
     )
 
     valueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCodeableConcept",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3912,6 +4351,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3919,7 +4359,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueCoding: fhirtypes.CodingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCoding",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3928,6 +4368,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3935,7 +4376,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueContactPoint: fhirtypes.ContactPointType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueContactPoint",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3944,6 +4385,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3951,7 +4393,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueCount: fhirtypes.CountType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCount",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3960,6 +4402,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -3967,7 +4410,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDate",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3976,17 +4419,18 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDate", title="Extension field for ``valueDate``."
+        default=None, alias="_valueDate", title="Extension field for ``valueDate``."
     )
 
     valueDateTime: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDateTime",
         title="Value of Example (one of allowed types)",
         description=(
@@ -3995,17 +4439,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueDateTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDateTime", title="Extension field for ``valueDateTime``."
+        default=None,
+        alias="_valueDateTime",
+        title="Extension field for ``valueDateTime``.",
     )
 
     valueDecimal: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDecimal",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4014,17 +4461,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueDecimal__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueDecimal", title="Extension field for ``valueDecimal``."
+        default=None,
+        alias="_valueDecimal",
+        title="Extension field for ``valueDecimal``.",
     )
 
     valueDistance: fhirtypes.DistanceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDistance",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4033,6 +4483,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4040,7 +4491,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueDuration: fhirtypes.DurationType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueDuration",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4049,6 +4500,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4056,7 +4508,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueHumanName: fhirtypes.HumanNameType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueHumanName",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4065,6 +4517,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4072,7 +4525,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueId: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueId",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4081,17 +4534,18 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueId__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueId", title="Extension field for ``valueId``."
+        default=None, alias="_valueId", title="Extension field for ``valueId``."
     )
 
     valueIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueIdentifier",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4100,6 +4554,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4107,7 +4562,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueInstant: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueInstant",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4116,17 +4571,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueInstant__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueInstant", title="Extension field for ``valueInstant``."
+        default=None,
+        alias="_valueInstant",
+        title="Extension field for ``valueInstant``.",
     )
 
     valueInteger: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueInteger",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4135,17 +4593,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueInteger__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueInteger", title="Extension field for ``valueInteger``."
+        default=None,
+        alias="_valueInteger",
+        title="Extension field for ``valueInteger``.",
     )
 
     valueMarkdown: fhirtypes.MarkdownType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueMarkdown",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4154,17 +4615,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueMarkdown__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueMarkdown", title="Extension field for ``valueMarkdown``."
+        default=None,
+        alias="_valueMarkdown",
+        title="Extension field for ``valueMarkdown``.",
     )
 
     valueMeta: fhirtypes.MetaType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueMeta",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4173,6 +4637,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4180,7 +4645,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueMoney: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueMoney",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4189,6 +4654,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4196,7 +4662,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueOid: fhirtypes.OidType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueOid",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4205,17 +4671,18 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueOid__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueOid", title="Extension field for ``valueOid``."
+        default=None, alias="_valueOid", title="Extension field for ``valueOid``."
     )
 
     valuePeriod: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valuePeriod",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4224,6 +4691,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4231,7 +4699,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valuePositiveInt: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valuePositiveInt",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4240,19 +4708,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valuePositiveInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_valuePositiveInt",
         title="Extension field for ``valuePositiveInt``.",
     )
 
     valueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4261,6 +4730,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4268,7 +4738,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueRange",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4277,6 +4747,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4284,7 +4755,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueRatio: fhirtypes.RatioType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueRatio",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4293,6 +4764,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4300,7 +4772,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueReference: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueReference",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4309,6 +4781,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4316,7 +4789,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueSampledData: fhirtypes.SampledDataType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueSampledData",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4325,6 +4798,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4332,7 +4806,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueSignature: fhirtypes.SignatureType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueSignature",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4341,6 +4815,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4348,7 +4823,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueString: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueString",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4357,17 +4832,18 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueString__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueString", title="Extension field for ``valueString``."
+        default=None, alias="_valueString", title="Extension field for ``valueString``."
     )
 
     valueTime: fhirtypes.TimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueTime",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4376,17 +4852,18 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueTime__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueTime", title="Extension field for ``valueTime``."
+        default=None, alias="_valueTime", title="Extension field for ``valueTime``."
     )
 
     valueTiming: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueTiming",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4395,6 +4872,7 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -4402,7 +4880,7 @@ class ElementDefinitionExample(element.Element):
     )
 
     valueUnsignedInt: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueUnsignedInt",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4411,19 +4889,20 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueUnsignedInt__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_valueUnsignedInt",
         title="Extension field for ``valueUnsignedInt``.",
     )
 
     valueUri: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueUri",
         title="Value of Example (one of allowed types)",
         description=(
@@ -4432,24 +4911,72 @@ class ElementDefinitionExample(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
         },
     )
     valueUri__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_valueUri", title="Extension field for ``valueUri``."
+        default=None, alias="_valueUri", title="Extension field for ``valueUri``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionExample`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionExample`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "label",
+            "valueBase64Binary",
+            "valueBoolean",
+            "valueCode",
+            "valueDate",
+            "valueDateTime",
+            "valueDecimal",
+            "valueId",
+            "valueInstant",
+            "valueInteger",
+            "valueMarkdown",
+            "valueOid",
+            "valuePositiveInt",
+            "valueString",
+            "valueTime",
+            "valueUnsignedInt",
+            "valueUri",
+            "valueAddress",
+            "valueAge",
+            "valueAnnotation",
+            "valueAttachment",
+            "valueCodeableConcept",
+            "valueCoding",
+            "valueContactPoint",
+            "valueCount",
+            "valueDistance",
+            "valueDuration",
+            "valueHumanName",
+            "valueIdentifier",
+            "valueMoney",
+            "valuePeriod",
+            "valueQuantity",
+            "valueRange",
+            "valueRatio",
+            "valueReference",
+            "valueSampledData",
+            "valueSignature",
+            "valueTiming",
+            "valueMeta",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionExample`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "label",
             "valueBase64Binary",
             "valueBoolean",
@@ -4573,47 +5100,50 @@ class ElementDefinitionMapping(element.Element):
     __resource_type__ = "ElementDefinitionMapping"
 
     comment: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="comment",
         title="Comments about the mapping or its use",
         description="Comments that provide information about the mapping or its use.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     comment__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_comment", title="Extension field for ``comment``."
+        default=None, alias="_comment", title="Extension field for ``comment``."
     )
 
     identity: fhirtypes.IdType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identity",
         title="Reference to mapping declaration",
         description="An internal reference to the definition of a mapping.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     identity__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_identity", title="Extension field for ``identity``."
+        default=None, alias="_identity", title="Extension field for ``identity``."
     )
 
     language: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="language",
         title="Computable language of mapping",
         description="Identifies the computable language in which mapping.map is expressed.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     language__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_language", title="Extension field for ``language``."
+        default=None, alias="_language", title="Extension field for ``language``."
     )
 
     map: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="map",
         title="Details of the mapping",
         description=(
@@ -4622,20 +5152,28 @@ class ElementDefinitionMapping(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     map__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_map", title="Extension field for ``map``."
+        default=None, alias="_map", title="Extension field for ``map``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionMapping`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionMapping`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "identity", "language", "map", "comment"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionMapping`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["identity", "language", "map", "comment"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -4667,7 +5205,7 @@ class ElementDefinitionSlicing(element.Element):
     __resource_type__ = "ElementDefinitionSlicing"
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Text description of how slicing works (or not)",
         description=(
@@ -4678,14 +5216,15 @@ class ElementDefinitionSlicing(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     discriminator: typing.List[fhirtypes.ElementDefinitionSlicingDiscriminatorType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="discriminator",
         title="Element values that are used to distinguish the slices",
         description=(
@@ -4697,11 +5236,12 @@ class ElementDefinitionSlicing(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     ordered: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="ordered",
         title="If elements must be in same order as slices",
         description=(
@@ -4710,14 +5250,15 @@ class ElementDefinitionSlicing(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     ordered__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_ordered", title="Extension field for ``ordered``."
+        default=None, alias="_ordered", title="Extension field for ``ordered``."
     )
 
     rules: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rules",
         title="closed | open | openAtEnd",
         description=(
@@ -4727,6 +5268,7 @@ class ElementDefinitionSlicing(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -4734,16 +5276,23 @@ class ElementDefinitionSlicing(element.Element):
         },
     )
     rules__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_rules", title="Extension field for ``rules``."
+        default=None, alias="_rules", title="Extension field for ``rules``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionSlicing`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionSlicing`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "discriminator", "description", "ordered", "rules"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionSlicing`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["discriminator", "description", "ordered", "rules"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -4773,7 +5322,7 @@ class ElementDefinitionSlicingDiscriminator(element.Element):
     __resource_type__ = "ElementDefinitionSlicingDiscriminator"
 
     path: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="path",
         title="Path to element value",
         description=(
@@ -4782,20 +5331,22 @@ class ElementDefinitionSlicingDiscriminator(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     path__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_path", title="Extension field for ``path``."
+        default=None, alias="_path", title="Extension field for ``path``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="value | exists | pattern | type | profile",
         description="How the element value is interpreted when discrimination is evaluated.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -4803,16 +5354,23 @@ class ElementDefinitionSlicingDiscriminator(element.Element):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionSlicingDiscriminator`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionSlicingDiscriminator`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "type", "path"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionSlicingDiscriminator`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["type", "path"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
@@ -4839,7 +5397,7 @@ class ElementDefinitionType(element.Element):
     __resource_type__ = "ElementDefinitionType"
 
     aggregation: typing.List[fhirtypes.CodeType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="aggregation",
         title="contained | referenced | bundled - how aggregated",
         description=(
@@ -4849,17 +5407,18 @@ class ElementDefinitionType(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["contained", "referenced", "bundled"],
         },
     )
     aggregation__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_aggregation", title="Extension field for ``aggregation``."
+        default=None, alias="_aggregation", title="Extension field for ``aggregation``."
     )
 
     code: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Data type or Resource (reference to definition)",
         description=(
@@ -4871,15 +5430,16 @@ class ElementDefinitionType(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     code__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_code", title="Extension field for ``code``."
+        default=None, alias="_code", title="Extension field for ``code``."
     )
 
     profile: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="profile",
         title="Profile (StructureDefinition) to apply (or IG)",
         description=(
@@ -4892,14 +5452,15 @@ class ElementDefinitionType(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     profile__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_profile", title="Extension field for ``profile``."
+        default=None, alias="_profile", title="Extension field for ``profile``."
     )
 
     targetProfile: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="targetProfile",
         title="Profile (StructureDefinition) to apply to reference target (or IG)",
         description=(
@@ -4912,14 +5473,17 @@ class ElementDefinitionType(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     targetProfile__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_targetProfile", title="Extension field for ``targetProfile``."
+        default=None,
+        alias="_targetProfile",
+        title="Extension field for ``targetProfile``.",
     )
 
     versioning: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="versioning",
         title="either | independent | specific",
         description=(
@@ -4928,20 +5492,21 @@ class ElementDefinitionType(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["either", "independent", "specific"],
         },
     )
     versioning__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_versioning", title="Extension field for ``versioning``."
+        default=None, alias="_versioning", title="Extension field for ``versioning``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ElementDefinitionType`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ElementDefinitionType`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -4952,6 +5517,13 @@ class ElementDefinitionType(element.Element):
             "aggregation",
             "versioning",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ElementDefinitionType`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["code", "profile", "targetProfile", "aggregation", "versioning"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

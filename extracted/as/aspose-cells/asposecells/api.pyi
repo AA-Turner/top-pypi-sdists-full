@@ -5271,6 +5271,10 @@ class Cells:
         :param options: The options of deleting range.'''
         raise NotImplementedError()
 
+    def isDefaultColumnHidden(self) -> bool:
+        ''''''
+        raise NotImplementedError()
+
     @overload
     def createRange(self, upperLeftCell : str, lowerRightCell : str) -> Range:
         '''Creates a :class:`Range` object from a range of cells.
@@ -5557,6 +5561,11 @@ class Cells:
         :param width: Column width.'''
         raise NotImplementedError()
 
+    def setDefaultColumnHidden(self, value : bool) -> None:
+        '''
+        :param value: '''
+        raise NotImplementedError()
+
     def getCellStyle(self, row : int, column : int) -> Style:
         '''Get the style of given cell.
         :param row: row index
@@ -5810,6 +5819,10 @@ class CellsHelper:
         :param value: '''
         raise NotImplementedError()
 
+    def getCacheFolder(self) -> str:
+        '''Gets the folder for temporary files that may be used as data cache.'''
+        raise NotImplementedError()
+
     def columnIndexToName(self, column : int) -> str:
         '''Gets column name according to column index.
         :param column: Column index.
@@ -5917,6 +5930,11 @@ class CellsHelper:
         :param row: Row index.
         :param column: Column index.
         :returns: Name of cell.'''
+        raise NotImplementedError()
+
+    def setCacheFolder(self, cache : str) -> None:
+        '''Sets the folder for temporary files that may be used as data cache.
+        :param cache: '''
         raise NotImplementedError()
 
     def cellNameToIndex(self, cellName : str) -> list[int]:
@@ -10865,7 +10883,7 @@ class CustomRenderSettings:
     '''Represents custom settings during rendering.'''
 
     def getCellBorderWidth(self, borderType : int) -> float:
-        '''Get cell border width according to border type.
+        '''Specifies cell border width according to border type.
         :param borderType: :class:`CellBorderType`. cell border type
         :returns: cell border width'''
         raise NotImplementedError()
@@ -12602,6 +12620,19 @@ class DocumentPropertyCollection:
 
 class DocxSaveOptions:
     '''Represents options of saving .docx file.'''
+
+    def getAsNormalView(self) -> bool:
+        '''Exporting Excel file to docx fiel as normal view.
+        If this property is true , one Area will be output, and no scale will take effect.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setAsNormalView(self, value : bool) -> None:
+        '''Exporting Excel file to docx fiel as normal view.
+        If this property is true , one Area will be output, and no scale will take effect.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
 
     def getSaveAsEditableShaps(self) -> bool:
         ''':deprecated: Use SaveFormat.SaveAsEditableShapes instead.'''
@@ -20252,7 +20283,7 @@ class JsonSaveOptions:
         raise NotImplementedError()
 
     def getExportStylePool(self) -> bool:
-        '''Exporting style pool when converting to json struct.'''
+        '''Indicates whether to export styles collectively or individually to each cell.'''
         raise NotImplementedError()
 
     def setExportEmptyCells(self, value : bool) -> None:
@@ -20294,7 +20325,7 @@ class JsonSaveOptions:
         raise NotImplementedError()
 
     def setExportStylePool(self, value : bool) -> None:
-        '''Exporting style pool when converting to json struct.
+        '''Indicates whether to export styles collectively or individually to each cell.
         :param value: '''
         raise NotImplementedError()
 
@@ -22824,8 +22855,22 @@ class MapChartRegionType:
 class MarkdownSaveOptions:
     '''Represents the save options for markdown.'''
 
-    def getStreamProvider(self) -> IStreamProvider:
-        '''Gets the IStreamProvider for exporting objects.'''
+    def setExportImagesAsBase64(self, value : bool) -> None:
+        '''Specifies whether images are saved in Base64 format to Markdown.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCalculateFormula(self) -> bool:
+        '''Indicates whether to calculate formulas before saving html file.'''
+        raise NotImplementedError()
+
+    def getEncoding(self) -> Encoding:
+        '''Gets the default encoding.'''
+        raise NotImplementedError()
+
+    def setSheetSet(self, value : SheetSet) -> None:
+        '''Sets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getActive()`.
+        :param value: '''
         raise NotImplementedError()
 
     def setLightCellsDataProvider(self, value : LightCellsDataProvider) -> None:
@@ -22833,14 +22878,14 @@ class MarkdownSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setStreamProvider(self, value : IStreamProvider) -> None:
-        '''Sets the IStreamProvider for exporting objects.
+    def setCalculateFormula(self, value : bool) -> None:
+        '''Indicates whether to calculate formulas before saving html file.
         :param value: '''
         raise NotImplementedError()
 
-    def setFormatStrategy(self, value : int) -> None:
-        '''Sets the format strategy when exporting the cell value as string.
-        See :class:`CellValueFormatStrategy`
+    def setTableHeaderType(self, value : int) -> None:
+        '''Sets how set the header of the table.
+        See :class:`MarkdownTableHeaderType`
         :param value: '''
         raise NotImplementedError()
 
@@ -22849,40 +22894,23 @@ class MarkdownSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def getLineSeparator(self) -> str:
+        '''Gets the line separator.'''
+        raise NotImplementedError()
+
+    def setFormatStrategy(self, value : int) -> None:
+        '''Sets the format strategy when exporting the cell value as string.
+        See :class:`CellValueFormatStrategy`
+        :param value: '''
+        raise NotImplementedError()
+
     def setLineSeparator(self, value : str) -> None:
         '''Sets the line separator.
         :param value: '''
         raise NotImplementedError()
 
-    def getEncoding(self) -> Encoding:
-        '''Gets the default encoding.'''
-        raise NotImplementedError()
-
-    def getLineSeparator(self) -> str:
-        '''Gets the line separator.'''
-        raise NotImplementedError()
-
-    def setExportImagesAsBase64(self, value : bool) -> None:
-        '''Specifies whether images are saved in Base64 format to Markdown.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setSheetSet(self, value : SheetSet) -> None:
-        '''Sets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getActive()`.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getTableHeaderType(self) -> int:
-        '''Gets how set the header of the table.
-        See :class:`MarkdownTableHeaderType`'''
-        raise NotImplementedError()
-
     def getExportImagesAsBase64(self) -> bool:
         '''Specifies whether images are saved in Base64 format to Markdown.'''
-        raise NotImplementedError()
-
-    def getLightCellsDataProvider(self) -> LightCellsDataProvider:
-        '''The Data provider to provide cells data for saving workbook in light mode.'''
         raise NotImplementedError()
 
     def getImageOptions(self) -> ImageOrPrintOptions:
@@ -22894,14 +22922,26 @@ class MarkdownSaveOptions:
         See :class:`CellValueFormatStrategy`'''
         raise NotImplementedError()
 
-    def getSheetSet(self) -> SheetSet:
-        '''Gets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getActive()`.'''
+    def getTableHeaderType(self) -> int:
+        '''Gets how set the header of the table.
+        See :class:`MarkdownTableHeaderType`'''
         raise NotImplementedError()
 
-    def setTableHeaderType(self, value : int) -> None:
-        '''Sets how set the header of the table.
-        See :class:`MarkdownTableHeaderType`
+    def getLightCellsDataProvider(self) -> LightCellsDataProvider:
+        '''The Data provider to provide cells data for saving workbook in light mode.'''
+        raise NotImplementedError()
+
+    def getStreamProvider(self) -> IStreamProvider:
+        '''Gets the IStreamProvider for exporting objects.'''
+        raise NotImplementedError()
+
+    def setStreamProvider(self, value : IStreamProvider) -> None:
+        '''Sets the IStreamProvider for exporting objects.
         :param value: '''
+        raise NotImplementedError()
+
+    def getSheetSet(self) -> SheetSet:
+        '''Gets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getActive()`.'''
         raise NotImplementedError()
 
 
@@ -23058,6 +23098,10 @@ class MemorySetting:
 
     MEMORY_PREFERENCE : MemorySetting
     '''Memory performance preferrable.'''
+
+    FILE_CACHE : MemorySetting
+    '''Memory performance preferrable and using file instead of memory
+    to maintain the cells data.'''
 
 
 class MergedCellsShrinkType:
@@ -26545,28 +26589,28 @@ class PasteType:
     '''Only copies the heights of the range.'''
 
     COMMENTS : PasteType
-    ''''''
+    '''Only copies comments in the range.'''
 
     FORMATS : PasteType
-    ''''''
+    '''Only copies formats in the range.'''
 
     FORMULAS : PasteType
-    ''''''
+    '''Only copies formulas in the range.'''
 
     FORMULAS_AND_NUMBER_FORMATS : PasteType
-    ''''''
+    '''Only copies formulas and number formats in the range.'''
 
     VALIDATION : PasteType
-    ''''''
+    '''Only copies validations in the range.'''
 
     VALUES : PasteType
-    ''''''
+    '''Only copies values in the range.'''
 
     VALUES_AND_FORMATS : PasteType
-    ''''''
+    '''Only copies values and formats in the range.'''
 
     VALUES_AND_NUMBER_FORMATS : PasteType
-    ''''''
+    '''Only copies values and number formats in the range.'''
 
 
 class PatternFill:
@@ -29100,7 +29144,7 @@ class PivotGlobalizationSettings:
         raise NotImplementedError()
 
     def getTextOfAllPeriods(self) -> str:
-        '''Gets the local text of "All Periods"'''
+        '''Gets the localized text of "All Periods".'''
         raise NotImplementedError()
 
     def getShortTextOf12Months(self) -> list[str]:
@@ -36878,11 +36922,11 @@ class ShapeCollection:
     def addFreeform(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int, paths : list[ShapePath]) -> Shape:
         '''Adds a freeform shape to the worksheet.
         :param upperLeftRow: Upper left row index.
-        :param top: Represents the vertical offset of Polygon from its left row, in unit of pixel.
+        :param top: Represents the vertical offset of freeform shape from its left row, in unit of pixel.
         :param upperLeftColumn: Upper left column index.
-        :param left: Represents the horizontal offset of Polygon from its left column, in unit of pixel.
-        :param height: Represents the height of Polygon, in unit of pixel.
-        :param width: Represents the width of Polygon, in unit of pixel.
+        :param left: Represents the horizontal offset of freeform shape from its left column, in unit of pixel.
+        :param height: Represents the height of freeform shape, in unit of pixel.
+        :param width: Represents the width of freeform shape, in unit of pixel.
         :param paths: Represents a user-defined path
         :returns: A freeform shape.'''
         raise NotImplementedError()
@@ -37148,42 +37192,61 @@ class ShapeLockType:
 class ShapePath:
     '''Represents a creation path consisting of a series of moves, lines and curves that when combined will form a geometric shape.'''
 
-    def lineTo(self, x : float, y : float) -> None:
-        '''Appends a line segment to the current figure. The starting point is the end point of the current figure.
-        :param x: The x-coordinate of the endpoint of the line segment.
-        :param y: The y-coordinate of the endpoint of the line segment.'''
-        raise NotImplementedError()
-
-    def moveTo(self, x : float, y : float) -> None:
-        '''Starts a new figure from the specified point without closing the current figure. All subsequent points added to the path are added to this new figure.
-        :param x: The x-coordinate of the starting point of the figure.
-        :param y: The y-coordinate of the starting point of the figure.'''
-        raise NotImplementedError()
-
-    def close(self) -> None:
-        '''Closes the current figure and starts a new figure. If the current figure contains a sequence of connected lines and curves, the method closes the loop by connecting a line from the endpoint to the starting point.'''
-        raise NotImplementedError()
-
-    def cubicBezierTo(self, ctrX1 : float, ctrY1 : float, ctrX2 : float, ctrY2 : float, endX : float, endY : float) -> None:
-        '''Appends a cubic B茅zier curve to the current figure. The starting point is the end point of the current figure.
-        :param ctrX1: The x-coordinate of the first control point for the curve.
-        :param ctrY1: The y-coordinate of the first control point for the curve.
-        :param ctrX2: The x-coordinate of the second control point for the curve.
-        :param ctrY2: The y-coordinate of the second control point for the curve.
-        :param endX: The x-coordinate of the endpoint of the curve.
-        :param endY: The y-coordinate of the endpoint of the curve.'''
-        raise NotImplementedError()
-
     def getPathSegementList(self) -> ShapeSegmentPathCollection:
         '''Gets :class:`ShapeSegmentPathCollection` list'''
         raise NotImplementedError()
 
+    def lineTo(self, x : float, y : float) -> None:
+        '''Appends a line segment to the current figure.
+        The starting point is the end point of the current figure.
+        :param x: The x-coordinate of the endpoint of the line segment(Unit: Pixel).
+        :param y: The y-coordinate of the endpoint of the line segment(Unit: Pixel).'''
+        raise NotImplementedError()
+
+    def getHeightPixel(self) -> int:
+        '''Gets the height of this path in unit of pixels.'''
+        raise NotImplementedError()
+
     def arcTo(self, wR : float, hR : float, stAng : float, swAng : float) -> None:
         '''Appends an elliptical arc to the current figure. The starting point is the end point of the current figure.
-        :param wR: The half-width of the rectangular area of 鈥嬧€媡he ellipse that draws the arc.
-        :param hR: The half-height of the rectangular area of 鈥嬧€媡he ellipse that draws the arc.
-        :param stAng: The starting angle of the arc, measured in degrees clockwise from the x-axis.
-        :param swAng: The angle between startAngle and the end of the arc.'''
+        :param wR: The half-width of the rectangular area of 鈥嬧€媡he ellipse that draws the arc(Unit: Pixel).
+        :param hR: The half-height of the rectangular area of 鈥嬧€媡he ellipse that draws the arc(Unit: Pixel).
+        :param stAng: The starting angle of the arc, measured in degrees clockwise from the x-axis(Unit: Degree).
+        :param swAng: The angle between startAngle and the end of the arc.(Unit: Degree)'''
+        raise NotImplementedError()
+
+    def cubicBezierTo(self, ctrX1 : float, ctrY1 : float, ctrX2 : float, ctrY2 : float, endX : float, endY : float) -> None:
+        '''Appends a cubic B茅zier curve to the current figure. The starting point is the end point of the current figure.
+        :param ctrX1: The x-coordinate of the first control point for the curve(Unit: Pixel).
+        :param ctrY1: The y-coordinate of the first control point for the curve(Unit: Pixel).
+        :param ctrX2: The x-coordinate of the second control point for the curve(Unit: Pixel).
+        :param ctrY2: The y-coordinate of the second control point for the curve(Unit: Pixel).
+        :param endX: The x-coordinate of the endpoint of the curve(Unit: Pixel).
+        :param endY: The y-coordinate of the endpoint of the curve(Unit: Pixel).'''
+        raise NotImplementedError()
+
+    def getWidthPixel(self) -> int:
+        '''Gets the width of this path in unit of pixels.'''
+        raise NotImplementedError()
+
+    def setHeightPixel(self, value : int) -> None:
+        '''Gets the height of this path in unit of pixels.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setWidthPixel(self, value : int) -> None:
+        '''Gets the width of this path in unit of pixels.
+        :param value: '''
+        raise NotImplementedError()
+
+    def moveTo(self, x : float, y : float) -> None:
+        '''Starts a new figure from the specified point without closing the current figure. All subsequent points added to the path are added to this new figure.
+        :param x: The x-coordinate of the starting point of the figure(Unit: Pixel).
+        :param y: The y-coordinate of the starting point of the figure(Unit: Pixel).'''
+        raise NotImplementedError()
+
+    def close(self) -> None:
+        '''Closes the current figure and starts a new figure. If the current figure contains a sequence of connected lines and curves, the method closes the loop by connecting a line from the endpoint to the starting point.'''
         raise NotImplementedError()
 
 
@@ -46271,9 +46334,18 @@ class WorkbookDesigner:
         :param value: '''
         raise NotImplementedError()
 
+    def setContainsVariables(self, value : bool) -> None:
+        '''Indicates whether the first worksheet contains custom variables.
+        :param value: '''
+        raise NotImplementedError()
+
     def setRepeatFormulasWithSubtotal(self, value : bool) -> None:
         '''Indicates whether repeating formulas with subtotal row.
         :param value: '''
+        raise NotImplementedError()
+
+    def containsVariables(self) -> bool:
+        '''Indicates whether the first worksheet contains custom variables.'''
         raise NotImplementedError()
 
 
@@ -48140,10 +48212,6 @@ class XlsSaveOptions:
         '''Indicates whether matching font color because there are 56 colors in the standard color palette.
         :param value: '''
         raise NotImplementedError()
-
-
-class XmlColumnProperty:
-    '''Represents Xml Data Binding information.'''
 
 
 class XmlDataBinding:

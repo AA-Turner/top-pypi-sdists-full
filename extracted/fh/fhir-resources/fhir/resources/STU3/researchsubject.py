@@ -31,7 +31,7 @@ class ResearchSubject(domainresource.DomainResource):
     __resource_type__ = "ResearchSubject"
 
     actualArm: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actualArm",
         title="What path was followed",
         description=(
@@ -43,11 +43,11 @@ class ResearchSubject(domainresource.DomainResource):
         },
     )
     actualArm__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_actualArm", title="Extension field for ``actualArm``."
+        default=None, alias="_actualArm", title="Extension field for ``actualArm``."
     )
 
     assignedArm: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="assignedArm",
         title="What path should be followed",
         description=(
@@ -59,11 +59,11 @@ class ResearchSubject(domainresource.DomainResource):
         },
     )
     assignedArm__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_assignedArm", title="Extension field for ``assignedArm``."
+        default=None, alias="_assignedArm", title="Extension field for ``assignedArm``."
     )
 
     consent: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="consent",
         title="Agreement to participate in study",
         description=(
@@ -78,7 +78,7 @@ class ResearchSubject(domainresource.DomainResource):
     )
 
     identifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business Identifier for research subject",
         description=(
@@ -87,23 +87,25 @@ class ResearchSubject(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     individual: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="individual",
         title="Who is part of study",
         description="The record of the person or animal who is involved in the study.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Patient"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Start and end of participation",
         description=(
@@ -111,16 +113,18 @@ class ResearchSubject(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="candidate | enrolled | active | suspended | withdrawn | completed",
         description="The current state of the subject.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -135,16 +139,17 @@ class ResearchSubject(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     study: fhirtypes.ReferenceType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="study",
         title="Study subject is part of",
         description="Reference to the study the subject is participating in.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["ResearchStudy"],
         },
@@ -152,9 +157,9 @@ class ResearchSubject(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ResearchSubject`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ResearchSubject`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -173,6 +178,22 @@ class ResearchSubject(domainresource.DomainResource):
             "assignedArm",
             "actualArm",
             "consent",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ResearchSubject`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "status",
+            "period",
+            "study",
+            "individual",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:

@@ -1,10 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: canonical-sphinx-extensions
-Version: 0.0.27
+Version: 0.0.29
 Summary: A collection of Sphinx extensions used by Canonical documentation
 Home-page: https://github.com/canonical/canonical-sphinx-extensions
-Author: Ruth Fuchss
-Author-email: ruth.fuchss@canonical.com
+Author: Michael Park
+Author-email: michael.park@canonical.com
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -13,6 +13,7 @@ Requires-Dist: requests
 Requires-Dist: beautifulsoup4
 Requires-Dist: docutils
 Requires-Dist: gitpython
+Dynamic: license-file
 
 # Canonical Sphinx extensions
 

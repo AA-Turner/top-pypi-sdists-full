@@ -1,12 +1,13 @@
 """Integration with the `ollama` library."""
 
 import json
+from functools import singledispatchmethod
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Optional, Union
 
 from pydantic import TypeAdapter
 
+from outlines.inputs import Chat, Image
 from outlines.models.base import AsyncModel, Model, ModelTypeAdapter
-from outlines.templates import Vision
 from outlines.types import CFG, JsonSchema, Regex
 from outlines.types.utils import (
     is_dataclass,
@@ -25,8 +26,9 @@ __all__ = ["Ollama", "from_ollama"]
 class OllamaTypeAdapter(ModelTypeAdapter):
     """Type adapter for the `Ollama` model."""
 
-    def format_input(self, model_input: Union[str, Vision]) -> dict:
-        """Generate the prompt argument to pass to the model.
+    @singledispatchmethod
+    def format_input(self, model_input):
+        """Generate the value of the `messages` argument to pass to the client.
 
         Parameters
         ----------
@@ -35,33 +37,75 @@ class OllamaTypeAdapter(ModelTypeAdapter):
 
         Returns
         -------
-        dict
-            The model input to be passed to the client.
+        list
+            The formatted value of the `messages` argument to be passed to
+            the client.
 
         """
-        if isinstance(model_input, str):
-            return self.format_str_model_input(model_input)
-        elif isinstance(model_input, Vision):
-            return self.format_vision_model_input(model_input)
         raise TypeError(
-            f"The input type {model_input} is not available with Ollama. "
-            "The only available types are `str` and `Vision`."
+            f"The input type {type(model_input)} is not available with "
+            "Ollama. The only available types are `str`, `list` and `Chat`."
         )
 
-    def format_str_model_input(self, model_input: str) -> dict:
-        """Format the string model input to pass to the client.
+    @format_input.register(str)
+    def format_str_model_input(self, model_input: str) -> list:
+        """Generate the value of the `messages` argument to pass to the
+        client when the user only passes a prompt.
 
         """
-        return {"prompt": model_input}
+        return [
+            self._create_message("user", model_input)
+        ]
 
-    def format_vision_model_input(self, model_input: Vision) -> dict:
-        """Format the vision model input to pass to the client.
+    @format_input.register(list)
+    def format_list_model_input(self, model_input: list) -> list:
+        """Generate the value of the `messages` argument to pass to the
+        client when the user passes a prompt and images.
 
         """
-        return {
-            "prompt": model_input.prompt,
-            "images": [model_input.image_str]
-        }
+        return [
+            self._create_message("user", model_input)
+        ]
+
+    @format_input.register(Chat)
+    def format_chat_model_input(self, model_input: Chat) -> list:
+        """Generate the value of the `messages` argument to pass to the
+        client when the user passes a Chat instance.
+
+        """
+        return [
+            self._create_message(message["role"], message["content"])
+            for message in model_input.messages
+        ]
+
+    def _create_message(self, role: str, content: str | list) -> dict:
+        """Create a message."""
+
+        if isinstance(content, str):
+            return {
+                "role": role,
+                "content": content,
+            }
+
+        elif isinstance(content, list):
+            prompt = content[0]
+            images = content[1:]
+
+            if not all(isinstance(image, Image) for image in images):
+                raise ValueError("All assets provided must be of type Image")
+
+            return {
+                "role": role,
+                "content": prompt,
+                "image": [image.image_str for image in images],
+            }
+
+        else:
+            raise ValueError(
+                f"Invalid content type: {type(content)}. "
+                "The content must be a string or a list containing a string "
+                "and a list of images."
+            )
 
     def format_output_type(
         self, output_type: Optional[Any] = None
@@ -139,7 +183,7 @@ class Ollama(Model):
         self.type_adapter = OllamaTypeAdapter()
 
     def generate(self,
-        model_input: str,
+        model_input: Chat | str | list,
         output_type: Optional[Any] = None,
         **kwargs: Any,
     ) -> str:
@@ -165,12 +209,12 @@ class Ollama(Model):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        response = self.client.generate(
-            **self.type_adapter.format_input(model_input),
+        response = self.client.chat(
+            messages=self.type_adapter.format_input(model_input),
             format=self.type_adapter.format_output_type(output_type),
             **kwargs,
         )
-        return response.response
+        return response.message.content
 
     def generate_batch(
         self,
@@ -184,7 +228,7 @@ class Ollama(Model):
 
     def generate_stream(
         self,
-        model_input: str,
+        model_input: Chat | str | list,
         output_type: Optional[Any] = None,
         **kwargs: Any,
     ) -> Iterator[str]:
@@ -210,14 +254,14 @@ class Ollama(Model):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        response = self.client.generate(
-            **self.type_adapter.format_input(model_input),
+        response = self.client.chat(
+            messages=self.type_adapter.format_input(model_input),
             format=self.type_adapter.format_output_type(output_type),
             stream=True,
             **kwargs,
         )
         for chunk in response:
-            yield chunk.response
+            yield chunk.message.content
 
 
 class AsyncOllama(AsyncModel):
@@ -245,7 +289,7 @@ class AsyncOllama(AsyncModel):
         self.type_adapter = OllamaTypeAdapter()
 
     async def generate(self,
-        model_input: str,
+        model_input: Chat | str | list,
         output_type: Optional[Any] = None,
         **kwargs: Any,
     ) -> str:
@@ -271,12 +315,12 @@ class AsyncOllama(AsyncModel):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        response = await self.client.generate(
-            **self.type_adapter.format_input(model_input),
+        response = await self.client.chat(
+            messages=self.type_adapter.format_input(model_input),
             format=self.type_adapter.format_output_type(output_type),
             **kwargs,
         )
-        return response.response
+        return response.message.content
 
     async def generate_batch(
         self,
@@ -290,7 +334,7 @@ class AsyncOllama(AsyncModel):
 
     async def generate_stream( # type: ignore
         self,
-        model_input: str,
+        model_input: Chat | str | list,
         output_type: Optional[Any] = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
@@ -316,14 +360,14 @@ class AsyncOllama(AsyncModel):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        stream = await self.client.generate(
-            **self.type_adapter.format_input(model_input),
+        stream = await self.client.chat(
+            messages=self.type_adapter.format_input(model_input),
             format=self.type_adapter.format_output_type(output_type),
             stream=True,
             **kwargs,
         )
         async for chunk in stream:
-            yield chunk.response
+            yield chunk.message.content
 
 
 def from_ollama(

@@ -278,6 +278,14 @@ class Block:
     def get_expected_parent(self) -> type[BlockContext] | None:
         return None
 
+    def breaks_grouping(self) -> bool:
+        """
+        Whether this component breaks FormComponent grouping chains.
+        Components that return False will not reset the pseudo_parent
+        when encountered during fill_expected_parents grouping.
+        """
+        return True
+
     def get_config(self):
         config = {}
         signature = inspect.signature(self.__class__.__init__)
@@ -490,7 +498,8 @@ class BlockContext(Block):
         for child in self.children:
             expected_parent = child.get_expected_parent()
             if not expected_parent or isinstance(self, expected_parent):
-                pseudo_parent = None
+                if child.breaks_grouping():
+                    pseudo_parent = None
                 children.append(child)
             else:
                 if pseudo_parent is not None and isinstance(
@@ -2410,7 +2419,7 @@ Received inputs:
         else:
             self.parent.children.extend(self.children)
         self.config = self.get_config_file()
-        self.app = App.create_app(self)
+        self.app = App.create_app(self, mcp_server=False)
         self.progress_tracking = any(
             block_fn.tracks_progress for block_fn in self.fns.values()
         )
@@ -2463,7 +2472,7 @@ Received inputs:
             blocks=self,
             default_concurrency_limit=default_concurrency_limit,
         )
-        self.app = App.create_app(self)
+        self.app = App.create_app(self, mcp_server=False)
         return self
 
     def validate_queue_settings(self):

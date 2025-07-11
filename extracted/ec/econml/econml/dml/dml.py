@@ -5,36 +5,29 @@ from warnings import warn
 
 import numpy as np
 from sklearn.base import TransformerMixin, clone
-from sklearn.exceptions import NotFittedError
-from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv
+from sklearn.linear_model import (ElasticNetCV)
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
-                                   OneHotEncoder)
+from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
-import copy
+
 
 from .._ortho_learner import _OrthoLearner
-from ._rlearner import _RLearner
+from ._rlearner import _RLearner, _ModelFinal
 from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
-                               ForestModelFinalCateEstimatorMixin,
                                LinearModelFinalCateEstimatorMixin,
                                StatsModelsCateEstimatorMixin,
                                LinearCateEstimator)
-from ..inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
+from ..inference import GenericSingleTreatmentModelFinalInference
 from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
-                                               StatsModelsLinearRegression,
-                                               WeightedLassoCVWrapper)
-from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
-from ..utilities import (_deprecate_positional, add_intercept,
+                                               StatsModelsLinearRegression)
+from ..utilities import (add_intercept,
                          broadcast_unit_treatments, check_high_dimensional,
-                         cross_product, deprecated,
-                         hstack, inverse_onehot, ndim, reshape,
-                         reshape_treatmentwise_effects, shape, transpose,
-                         get_feature_names_or_default, filter_none_kwargs)
+                         cross_product, hstack, inverse_onehot, reshape_treatmentwise_effects,
+                         shape, get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
-from ..sklearn_extensions.model_selection import get_selector, ModelSelector, SingleModelSelector
+from ..sklearn_extensions.model_selection import get_selector, SingleModelSelector
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV, dml_sensitivity_values,
+                                             sensitivity_summary)
 
 
 def _combine(X, W, n_samples):
@@ -62,20 +55,42 @@ class _FirstStageWrapper:
                 raise AttributeError("Cannot use a classifier as a first stage model when the target is continuous!")
             return self._model.predict(_combine(X, W, n_samples))
 
-    def score(self, X, W, Target, sample_weight=None):
-        if hasattr(self._model, 'score'):
-            if self._discrete_target:
-                # In this case, the Target is the one-hot-encoding of the treatment variable
-                # We need to go back to the label representation of the one-hot so as to call
-                # the classifier.
-                Target = inverse_onehot(Target)
+    def score(self, X, W, Target, sample_weight=None, scoring=None, score_by_dim=False):
+        """
+        Score the first stage model on provided data.
+
+        :param X: Nuisances
+        :param W: Treatments
+        :param Target: The true targets
+        :param sample_weight: optional sample weights
+        :param scoring: non-standard scoring function name from sklearn get_scorer. Results in
+            call to _rlearner._wrap_scoring
+        :param score_by_dim: If a multi-dimension treatment, score each treatment separately.
+        :return:
+        """
+        XW_combined = _combine(X, W, Target.shape[0])
+        if self._discrete_target:
+            # In this case, the Target is the one-hot-encoding of the treatment variable
+            # We need to go back to the label representation of the one-hot so as to call
+            # the classifier.
+            Target = inverse_onehot(Target)
+        if hasattr(self._model, 'score') and scoring is None and not score_by_dim:
+            # Standard default model scoring
             if sample_weight is not None:
-                return self._model.score(_combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
+                return self._model.score(XW_combined, Target, sample_weight=sample_weight)
             else:
-                return self._model.score(_combine(X, W, Target.shape[0]), Target)
+                return self._model.score(XW_combined, Target)
+        elif hasattr(self._model, 'score'):
+            return _FirstStageWrapper._wrap_scoring(scoring,Y_true=Target, X=XW_combined, est=self._model,
+                            sample_weight=sample_weight, score_by_dim=score_by_dim)
         else:
             return None
 
+    @staticmethod
+    def _wrap_scoring(scoring, Y_true, X, est, sample_weight=None, score_by_dim=False):
+        """Predict from the estimator, and use the _ModelFinal.wrap_scoring function."""
+        Y_pred = est.predict(X)
+        return _ModelFinal.wrap_scoring(scoring, Y_true, Y_pred, sample_weight, score_by_dim=score_by_dim)
 
 class _FirstStageSelector(SingleModelSelector):
     def __init__(self, model: SingleModelSelector, discrete_target):
@@ -115,10 +130,12 @@ def _make_first_stage_selector(model, is_discrete, random_state):
 
 
 class _FinalWrapper:
-    def __init__(self, model_final, fit_cate_intercept, featurizer, use_weight_trick):
+    def __init__(self, model_final, fit_cate_intercept, featurizer,
+                 use_weight_trick, allow_sensitivity_analysis=False):
         self._model = clone(model_final, safe=False)
         self._use_weight_trick = use_weight_trick
         self._original_featurizer = clone(featurizer, safe=False)
+        self.allow_sensitivity_analysis = allow_sensitivity_analysis
         if self._use_weight_trick:
             self._fit_cate_intercept = False
             self._featurizer = self._original_featurizer
@@ -157,6 +174,14 @@ class _FinalWrapper:
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]
         if not self._use_weight_trick:
+
+            # if binary/continuous treatment and single outcome, can calculate sensitivity params
+            if self.allow_sensitivity_analysis and not (
+                (self._d_t and self._d_t[0] > 1) or (
+                    self._d_y and self._d_y[0] > 1)
+            ):
+                self.sensitivity_params = dml_sensitivity_values(T_res, Y_res)
+
             fts = self._combine(X, T_res)
             filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
                                                  freq_weight=freq_weight, sample_var=sample_var)
@@ -298,8 +323,9 @@ class _BaseDML(_RLearner):
 
 class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     """
-    The base class for parametric Double ML estimators. The estimator is a special
-    case of an :class:`._RLearner` estimator, which in turn is a special case
+    The base class for parametric Double ML estimators.
+
+    The estimator is a special case of an :class:`._RLearner` estimator, which in turn is a special case
     of an :class:`_OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
@@ -544,7 +570,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return clone(self.model_final, safe=False)
 
     def _gen_rlearner_model_final(self):
-        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
+        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept,
+                             self._gen_featurizer(), False, allow_sensitivity_analysis=True)
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
@@ -602,6 +629,114 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     @property
     def fit_cate_intercept_(self):
         return self.rlearner_model_final_._fit_cate_intercept
+
+    def sensitivity_summary(self, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE.
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_summary(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
+
+    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
+        """
+        Calculate the sensitivity interval for the ATE.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on [Chernozhukov2022]_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_interval(**sensitivity_params._asdict(), alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
+
+    def robustness_value(self, null_hypothesis=0, alpha=0.05, interval_type='ci'):
+        """
+        Calculate the robustness value for the ATE.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on [Chernozhukov2022]_
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return RV(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis,
+                  alpha=alpha, interval_type=interval_type)
 
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
@@ -719,19 +854,19 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.49977..., 1.91668..., 0.70799...])
+    array([0.49976..., 1.91673..., 0.70800...])
     >>> est.effect_interval(X[:3])
-    (array([0.15122..., 1.40176..., 0.40954...]),
-    array([0.84831..., 2.43159..., 1.00644...]))
+    (array([0.15122..., 1.40182..., 0.40956...]),
+    array([0.84831..., 2.43164..., 1.00645...]))
     >>> est.coef_
-    array([ 0.48825...,  0.00105...,  0.00244...,  0.02217..., -0.08471...])
+    array([ 0.48825...,  0.00104...,  0.00244...,  0.02217..., -0.08472...])
     >>> est.coef__interval()
-    (array([ 0.30469..., -0.13904..., -0.12790..., -0.11514..., -0.22505... ]),
-    array([0.67180..., 0.14116..., 0.13278..., 0.15949..., 0.05562...]))
+    (array([ 0.30470... , -0.13905..., -0.12789..., -0.11513..., -0.22506...]),
+    array([0.67180..., 0.14114..., 0.13278..., 0.15949..., 0.05561...]))
     >>> est.intercept_
-    1.01247...
+    1.01248...
     >>> est.intercept__interval()
-    (0.87480..., 1.15015...)
+    (0.87481..., 1.15015...)
     """
 
     def __init__(self, *,
@@ -980,19 +1115,19 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.50083..., 1.91663..., 0.70386...])
+    array([0.50083..., 1.91668..., 0.70388...])
     >>> est.effect_interval(X[:3])
-    (array([0.14616..., 1.40364..., 0.40674...]),
-    array([0.85550...  , 2.42962... , 1.00099...]))
+    (array([0.14616..., 1.40370..., 0.40675...]),
+    array([0.85550..., 2.42966..., 1.00101...]))
     >>> est.coef_
-    array([ 0.49123...,  0.00495...,  0.00007...,  0.02302..., -0.08483...])
+    array([ 0.49123...,  0.00493... ,  0.00007...,  0.02302..., -0.08484...])
     >>> est.coef__interval()
-    (array([ 0.31323..., -0.13848..., -0.13721..., -0.11141..., -0.22961...]),
-    array([0.66923..., 0.14839... , 0.13735..., 0.15745..., 0.05993...]))
+    (array([ 0.31323..., -0.13850..., -0.13720..., -0.11141..., -0.22962...]),
+    array([0.66923..., 0.14837..., 0.13735..., 0.15745..., 0.05992...]))
     >>> est.intercept_
-    1.01476...
+    1.01477...
     >>> est.intercept__interval()
-    (0.87620..., 1.15332...)
+    (0.87621..., 1.15333...)
     """
 
     def __init__(self, *,
@@ -1238,7 +1373,7 @@ class KernelDML(DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.63041..., 1.86098..., 0.74218...])
+    array([0.63042..., 1.86101..., 0.74220...])
     """
 
     def __init__(self, model_y='auto', model_t='auto',
@@ -1342,6 +1477,7 @@ class KernelDML(DML):
 class NonParamDML(_BaseDML):
     """
     The base class for non-parametric Double ML estimators, that can have arbitrary final ML models of the CATE.
+
     Works only for single-dimensional continuous treatment or for binary categorical treatment and uses
     the re-weighting trick, reducing the final CATE estimation to a weighted square loss minimization.
     The model_final parameter must support the sample_weight keyword argument at fit time.

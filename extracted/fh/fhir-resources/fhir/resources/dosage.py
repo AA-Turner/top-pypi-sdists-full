@@ -27,7 +27,7 @@ class Dosage(backbonetype.BackboneType):
     __resource_type__ = "Dosage"
 
     additionalInstruction: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="additionalInstruction",
         title=(
             'Supplemental instruction or warnings to the patient - e.g. "with '
@@ -42,11 +42,12 @@ class Dosage(backbonetype.BackboneType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     asNeeded: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="asNeeded",
         title='Take "as needed"',
         description=(
@@ -55,14 +56,15 @@ class Dosage(backbonetype.BackboneType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     asNeeded__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_asNeeded", title="Extension field for ``asNeeded``."
+        default=None, alias="_asNeeded", title="Extension field for ``asNeeded``."
     )
 
     asNeededFor: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="asNeededFor",
         title='Take "as needed" (for x)',
         description=(
@@ -71,11 +73,12 @@ class Dosage(backbonetype.BackboneType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     doseAndRate: typing.List[fhirtypes.DosageDoseAndRateType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="doseAndRate",
         title=(
             "Amount of medication administered, to be administered or typical "
@@ -88,76 +91,83 @@ class Dosage(backbonetype.BackboneType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     maxDosePerAdministration: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxDosePerAdministration",
         title="Upper limit on medication per administration",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     maxDosePerLifetime: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxDosePerLifetime",
         title="Upper limit on medication per lifetime of the patient",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     maxDosePerPeriod: typing.List[fhirtypes.RatioType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="maxDosePerPeriod",
         title="Upper limit on medication per unit of time",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     method: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="method",
         title="Technique for administering medication",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     patientInstruction: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="patientInstruction",
         title="Patient or consumer oriented instructions",
         description="Instructions in terms that are understood by the patient or consumer.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     patientInstruction__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_patientInstruction",
         title="Extension field for ``patientInstruction``.",
     )
 
     route: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="route",
         title="How drug should enter body",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     sequence: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="sequence",
         title="The order of the dosage instructions",
         description=(
@@ -166,54 +176,81 @@ class Dosage(backbonetype.BackboneType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     sequence__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_sequence", title="Extension field for ``sequence``."
+        default=None, alias="_sequence", title="Extension field for ``sequence``."
     )
 
     site: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="site",
         title="Body site to administer to",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     text: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="text",
         title="Free text dosage instructions e.g. SIG",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     text__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_text", title="Extension field for ``text``."
+        default=None, alias="_text", title="Extension field for ``text``."
     )
 
     timing: fhirtypes.TimingType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="timing",
         title="When medication should be administered",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Dosage`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Dosage`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "sequence",
+            "text",
+            "additionalInstruction",
+            "patientInstruction",
+            "timing",
+            "asNeeded",
+            "asNeededFor",
+            "site",
+            "route",
+            "method",
+            "doseAndRate",
+            "maxDosePerPeriod",
+            "maxDosePerAdministration",
+            "maxDosePerLifetime",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Dosage`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "sequence",
             "text",
@@ -246,12 +283,13 @@ class DosageDoseAndRate(element.Element):
     __resource_type__ = "DosageDoseAndRate"
 
     doseQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="doseQuantity",
         title="Amount of medication per dose",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e dose[x]
             "one_of_many": "dose",
             "one_of_many_required": False,
@@ -259,12 +297,13 @@ class DosageDoseAndRate(element.Element):
     )
 
     doseRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="doseRange",
         title="Amount of medication per dose",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e dose[x]
             "one_of_many": "dose",
             "one_of_many_required": False,
@@ -272,12 +311,13 @@ class DosageDoseAndRate(element.Element):
     )
 
     rateQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rateQuantity",
         title="Amount of medication per unit of time",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e rate[x]
             "one_of_many": "rate",
             "one_of_many_required": False,
@@ -285,12 +325,13 @@ class DosageDoseAndRate(element.Element):
     )
 
     rateRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rateRange",
         title="Amount of medication per unit of time",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e rate[x]
             "one_of_many": "rate",
             "one_of_many_required": False,
@@ -298,12 +339,13 @@ class DosageDoseAndRate(element.Element):
     )
 
     rateRatio: fhirtypes.RatioType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="rateRatio",
         title="Amount of medication per unit of time",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e rate[x]
             "one_of_many": "rate",
             "one_of_many_required": False,
@@ -311,7 +353,7 @@ class DosageDoseAndRate(element.Element):
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="The kind of dose or rate specified",
         description=(
@@ -319,18 +361,33 @@ class DosageDoseAndRate(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DosageDoseAndRate`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DosageDoseAndRate`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "type",
+            "doseRange",
+            "doseQuantity",
+            "rateRatio",
+            "rateRange",
+            "rateQuantity",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DosageDoseAndRate`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "type",
             "doseRange",
             "doseQuantity",

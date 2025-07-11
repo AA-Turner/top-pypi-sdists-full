@@ -27,7 +27,7 @@ class ObservationDefinition(domainresource.DomainResource):
     __resource_type__ = "ObservationDefinition"
 
     abnormalCodedValueSet: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="abnormalCodedValueSet",
         title=(
             "Value set of abnormal coded values for the observations conforming to "
@@ -45,17 +45,18 @@ class ObservationDefinition(domainresource.DomainResource):
     )
 
     category: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="Category of observation",
         description="A code that classifies the general type of observation.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     code: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="code",
         title="Type of observation (code / type)",
         description=(
@@ -64,11 +65,12 @@ class ObservationDefinition(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     criticalCodedValueSet: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="criticalCodedValueSet",
         title=(
             "Value set of critical coded values for the observations conforming to "
@@ -86,17 +88,18 @@ class ObservationDefinition(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier for this ObservationDefinition instance",
         description="A unique identifier assigned to this ObservationDefinition artifact.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     method: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="method",
         title="Method used to produce the observation",
         description="The method or technique used to perform the observation.",
@@ -106,7 +109,7 @@ class ObservationDefinition(domainresource.DomainResource):
     )
 
     multipleResultsAllowed: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="multipleResultsAllowed",
         title="Multiple results allowed",
         description=(
@@ -118,13 +121,13 @@ class ObservationDefinition(domainresource.DomainResource):
         },
     )
     multipleResultsAllowed__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_multipleResultsAllowed",
         title="Extension field for ``multipleResultsAllowed``.",
     )
 
     normalCodedValueSet: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="normalCodedValueSet",
         title=(
             "Value set of normal coded values for the observations conforming to "
@@ -142,7 +145,7 @@ class ObservationDefinition(domainresource.DomainResource):
     )
 
     permittedDataType: typing.List[fhirtypes.CodeType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="permittedDataType",
         title=(
             "Quantity | CodeableConcept | string | boolean | integer | Range | "
@@ -172,13 +175,13 @@ class ObservationDefinition(domainresource.DomainResource):
         },
     )
     permittedDataType__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_permittedDataType",
         title="Extension field for ``permittedDataType``.",
     )
 
     preferredReportName: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="preferredReportName",
         title="Preferred report name",
         description=(
@@ -190,13 +193,13 @@ class ObservationDefinition(domainresource.DomainResource):
         },
     )
     preferredReportName__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_preferredReportName",
         title="Extension field for ``preferredReportName``.",
     )
 
     qualifiedInterval: typing.List[fhirtypes.ObservationDefinitionQualifiedIntervalType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="qualifiedInterval",
         title="Qualified range for continuous and ordinal observation results",
         description=(
@@ -210,7 +213,7 @@ class ObservationDefinition(domainresource.DomainResource):
     )
 
     quantitativeDetails: fhirtypes.ObservationDefinitionQuantitativeDetailsType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="quantitativeDetails",
         title="Characteristics of quantitative results",
         description="Characteristics for quantitative results of this observation.",
@@ -220,7 +223,7 @@ class ObservationDefinition(domainresource.DomainResource):
     )
 
     validCodedValueSet: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="validCodedValueSet",
         title=(
             "Value set of valid coded values for the observations conforming to "
@@ -239,9 +242,9 @@ class ObservationDefinition(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ObservationDefinition`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ObservationDefinition`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -267,6 +270,13 @@ class ObservationDefinition(domainresource.DomainResource):
             "criticalCodedValueSet",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ObservationDefinition`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["id", "meta", "implicitRules", "category", "code", "identifier"]
+
 
 class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -281,7 +291,7 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
     __resource_type__ = "ObservationDefinitionQualifiedInterval"
 
     age: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="age",
         title="Applicable age range, if relevant",
         description=(
@@ -294,7 +304,7 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
     )
 
     appliesTo: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="appliesTo",
         title="Targetted population of the range",
         description=(
@@ -307,7 +317,7 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
     )
 
     category: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="category",
         title="reference | critical | absolute",
         description=(
@@ -322,11 +332,11 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
         },
     )
     category__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_category", title="Extension field for ``category``."
+        default=None, alias="_category", title="Extension field for ``category``."
     )
 
     condition: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="condition",
         title="Condition associated with the reference range",
         description="Text based condition for which the reference range is valid.",
@@ -335,11 +345,11 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
         },
     )
     condition__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_condition", title="Extension field for ``condition``."
+        default=None, alias="_condition", title="Extension field for ``condition``."
     )
 
     context: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="context",
         title="Range context qualifier",
         description=(
@@ -352,7 +362,7 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
     )
 
     gender: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="gender",
         title="male | female | other | unknown",
         description="Sex of the population the range applies to.",
@@ -364,11 +374,11 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
         },
     )
     gender__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_gender", title="Extension field for ``gender``."
+        default=None, alias="_gender", title="Extension field for ``gender``."
     )
 
     gestationalAge: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="gestationalAge",
         title="Applicable gestational age range, if relevant",
         description=(
@@ -381,7 +391,7 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
     )
 
     range: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="range",
         title="The interval itself, for continuous or ordinal observations",
         description=(
@@ -395,9 +405,9 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ObservationDefinitionQualifiedInterval`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ObservationDefinitionQualifiedInterval`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -413,6 +423,13 @@ class ObservationDefinitionQualifiedInterval(backboneelement.BackboneElement):
             "condition",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ObservationDefinitionQualifiedInterval`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
+
 
 class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -426,7 +443,7 @@ class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
     __resource_type__ = "ObservationDefinitionQuantitativeDetails"
 
     conversionFactor: fhirtypes.DecimalType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="conversionFactor",
         title="SI to Customary unit conversion factor",
         description=(
@@ -438,13 +455,13 @@ class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
         },
     )
     conversionFactor__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_conversionFactor",
         title="Extension field for ``conversionFactor``.",
     )
 
     customaryUnit: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="customaryUnit",
         title="Customary unit for quantitative results",
         description=(
@@ -457,7 +474,7 @@ class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
     )
 
     decimalPrecision: fhirtypes.IntegerType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="decimalPrecision",
         title="Decimal precision of observation quantitative results",
         description=(
@@ -469,13 +486,13 @@ class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
         },
     )
     decimalPrecision__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="_decimalPrecision",
         title="Extension field for ``decimalPrecision``.",
     )
 
     unit: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="unit",
         title="SI unit for quantitative results",
         description=(
@@ -489,9 +506,9 @@ class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ObservationDefinitionQuantitativeDetails`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ObservationDefinitionQuantitativeDetails`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -502,3 +519,10 @@ class ObservationDefinitionQuantitativeDetails(backboneelement.BackboneElement):
             "conversionFactor",
             "decimalPrecision",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ObservationDefinitionQuantitativeDetails`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

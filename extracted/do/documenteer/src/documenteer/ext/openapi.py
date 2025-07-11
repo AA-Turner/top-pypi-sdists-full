@@ -6,15 +6,16 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sphinx.application import Sphinx
 from sphinx.config import Config
 from sphinx.errors import SphinxError
+from sphinx.util.typing import ExtensionMetadata
 
 from ..version import __version__
 
-__all__ = ["setup", "generate_openapi_spec"]
+__all__ = ["generate_openapi_spec", "setup"]
 
 
 def generate_openapi_spec(app: Sphinx, config: Config) -> None:
@@ -29,7 +30,7 @@ def generate_openapi_spec(app: Sphinx, config: Config) -> None:
     config
         The Sphinx configuration.
     """
-    generator_config: Optional[Dict[str, Any]] = config[
+    generator_config: dict[str, Any] | None = config[
         "documenteer_openapi_generator"
     ]
     if generator_config is None:
@@ -37,12 +38,12 @@ def generate_openapi_spec(app: Sphinx, config: Config) -> None:
 
     try:
         generator_func_config = generator_config["func"]
-    except KeyError:
+    except KeyError as e:
         raise SphinxError(
             "documenteer_openapi_generator must have a 'func' key "
             "specifing the function to generate the OpenAPI spec. "
             "It must have the form `module:func`."
-        )
+        ) from e
 
     generator_func_parts = generator_func_config.split(":")
     if len(generator_func_parts) != 2:
@@ -75,8 +76,8 @@ def generate_openapi_spec(app: Sphinx, config: Config) -> None:
     openapi_spec_path.write_text(openapi_text)
 
 
-def setup(app: Sphinx) -> Dict[str, Any]:
-    """Entry point for the Sphinx extension."""
+def setup(app: Sphinx) -> ExtensionMetadata:
+    """Set up the OpenAPI extension."""
     # Configuration values
 
     # The function to generate the OpenAPI spec.

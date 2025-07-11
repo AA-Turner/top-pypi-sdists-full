@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: juju
-Version: 3.6.1.2
+Version: 3.6.1.3
 Summary: Python library for Juju
 Home-page: https://github.com/juju/python-libjuju
 Maintainer: Juju Ecosystem Engineering
@@ -227,9 +227,33 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Requires-Python: >=3.8.6
 Description-Content-Type: text/x-rst
-Provides-Extra: dev
-Provides-Extra: docs
 License-File: LICENSE
+Requires-Dist: macaroonbakery<2.0,>=1.1
+Requires-Dist: pyyaml>=5.1.2
+Requires-Dist: websockets>=13.0.1
+Requires-Dist: paramiko>=2.4.0
+Requires-Dist: pyasn1>=0.4.4
+Requires-Dist: toposort<2,>=1.5
+Requires-Dist: typing_inspect>=0.6.0
+Requires-Dist: kubernetes<31.0.0,>=12.0.1
+Requires-Dist: hvac
+Requires-Dist: packaging
+Requires-Dist: typing-extensions>=4.5.0
+Requires-Dist: backports.strenum>=1.3.1; python_version < "3.11"
+Requires-Dist: backports-datetime-fromisoformat>=2.0.2
+Provides-Extra: dev
+Requires-Dist: typing-inspect; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio<=0.25.0; extra == "dev"
+Requires-Dist: Twine; extra == "dev"
+Requires-Dist: freezegun; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx==5.3.0; extra == "docs"
+Requires-Dist: sphinxcontrib-asyncio; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
 
 A Python library for Juju
 =========================

@@ -7624,6 +7624,96 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def subtract_high_narrowing_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svsubhnb[_u16](svuint16_t op1, svuint16_t op2)
+          SUBHNB Zresult.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    def subtract_high_narrowing_odd(even: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svsubhnt[_u16](svuint8_t even, svuint16_t op1, svuint16_t op2)
+          SUBHNT Ztied.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    def subtract_saturate(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqsub[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svqsub[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svqsub[_u8]_z(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UQSUB Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UQSUB Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UQSUBR Ztied2.B, Pg/M, Ztied2.B, Zop1.B
+          UQSUB Zresult.B, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def subtract_saturate_reversed(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqsubr[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svqsubr[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svqsubr[_u8]_z(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UQSUBR Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UQSUBR Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UQSUB Ztied2.B, Pg/M, Ztied2.B, Zop1.B
+          UQSUB Zresult.B, Zop2.B, Zop1.B
+        """
+        ...
+
+    @staticmethod
+    def subtract_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svsubwb[_s16](svint16_t op1, svint8_t op2)
+          SSUBWB Zresult.H, Zop1.H, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def subtract_widening_even_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svsublbt[_s16](svint8_t op1, svint8_t op2)
+          SSUBLBT Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def subtract_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svsubwt[_s16](svint16_t op1, svint8_t op2)
+          SSUBWT Zresult.H, Zop1.H, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def subtract_widening_odd_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svsubltb[_s16](svint8_t op1, svint8_t op2)
+          SSUBLTB Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def subtract_with_borrow_widening_lower(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svsbclb[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
+          SBCLB Ztied1.S, Zop_2.S, Zop_3.S
+        """
+        ...
+
+    @staticmethod
+    def subtract_with_borrow_widening_upper(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svsbclt[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
+          SBCLT Ztied1.S, Zop_2.S, Zop_3.S
+        """
+        ...
+
+    @staticmethod
     @overload
     def vector_table_lookup(table: System.ValueTuple[System.Numerics.Vector[int], System.Numerics.Vector[int]], indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """

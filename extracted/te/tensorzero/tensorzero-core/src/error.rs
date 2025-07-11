@@ -21,11 +21,12 @@ use crate::inference::types::Thought;
 ///
 /// WARNING: Setting this to true will expose potentially sensitive request/response
 /// data in logs and error responses. Use with caution.
-static DEBUG: OnceCell<bool> = if cfg!(feature = "e2e_tests") {
-    OnceCell::const_new_with(true)
-} else {
-    OnceCell::const_new()
-};
+static DEBUG: OnceCell<bool> =
+    if cfg!(feature = "e2e_tests") || cfg!(feature = "optimization_tests") {
+        OnceCell::const_new_with(true)
+    } else {
+        OnceCell::const_new()
+    };
 
 pub fn set_debug(debug: bool) -> Result<(), Error> {
     // We already initialized `DEBUG`, so do nothing
@@ -217,6 +218,10 @@ pub enum ErrorDetails {
         mode: String,
         message: String,
     },
+    InvalidEncodedJobHandle,
+    InvalidJobHandle {
+        message: String,
+    },
     InvalidInferenceOutputSource {
         source: String,
     },
@@ -392,6 +397,9 @@ pub enum ErrorDetails {
     UnknownCandidate {
         name: String,
     },
+    UnknownEvaluation {
+        name: String,
+    },
     UnknownFunction {
         name: String,
     },
@@ -488,6 +496,8 @@ impl ErrorDetails {
             ErrorDetails::InvalidTensorzeroUuid { .. } => tracing::Level::WARN,
             ErrorDetails::InvalidFunctionVariants { .. } => tracing::Level::ERROR,
             ErrorDetails::InvalidVariantForOptimization { .. } => tracing::Level::WARN,
+            ErrorDetails::InvalidEncodedJobHandle => tracing::Level::WARN,
+            ErrorDetails::InvalidJobHandle { .. } => tracing::Level::WARN,
             ErrorDetails::InvalidRenderedStoredInference { .. } => tracing::Level::ERROR,
             ErrorDetails::InvalidMetricName { .. } => tracing::Level::WARN,
             ErrorDetails::InvalidMessage { .. } => tracing::Level::WARN,
@@ -524,6 +534,7 @@ impl ErrorDetails {
             ErrorDetails::TypeConversion { .. } => tracing::Level::ERROR,
             ErrorDetails::UnknownCandidate { .. } => tracing::Level::ERROR,
             ErrorDetails::UnknownFunction { .. } => tracing::Level::WARN,
+            ErrorDetails::UnknownEvaluation { .. } => tracing::Level::WARN,
             ErrorDetails::UnknownModel { .. } => tracing::Level::ERROR,
             ErrorDetails::UnknownTool { .. } => tracing::Level::ERROR,
             ErrorDetails::UnknownVariant { .. } => tracing::Level::WARN,
@@ -575,6 +586,8 @@ impl ErrorDetails {
             ErrorDetails::ModelTimeout { .. } => StatusCode::REQUEST_TIMEOUT,
             ErrorDetails::VariantTimeout { .. } => StatusCode::REQUEST_TIMEOUT,
             ErrorDetails::InvalidClientMode { .. } => StatusCode::BAD_REQUEST,
+            ErrorDetails::InvalidEncodedJobHandle => StatusCode::BAD_REQUEST,
+            ErrorDetails::InvalidJobHandle { .. } => StatusCode::BAD_REQUEST,
             ErrorDetails::InvalidTensorzeroUuid { .. } => StatusCode::BAD_REQUEST,
             ErrorDetails::InvalidUuid { .. } => StatusCode::BAD_REQUEST,
             ErrorDetails::InputValidation { .. } => StatusCode::BAD_REQUEST,
@@ -624,6 +637,7 @@ impl ErrorDetails {
             ErrorDetails::TypeConversion { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorDetails::UnknownCandidate { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorDetails::UnknownFunction { .. } => StatusCode::NOT_FOUND,
+            ErrorDetails::UnknownEvaluation { .. } => StatusCode::NOT_FOUND,
             ErrorDetails::UnknownModel { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorDetails::UnknownTool { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorDetails::UnknownVariant { .. } => StatusCode::NOT_FOUND,
@@ -727,7 +741,7 @@ impl std::fmt::Display for ErrorDetails {
                 write!(f, "Error fetching image from {url}: {message}")
             }
             ErrorDetails::ObjectStoreUnconfigured { block_type } => {
-                write!(f, "Object storage is not configured. You must configure `[object_storage]` before making requests containing a `{block_type}` content block")
+                write!(f, "Object storage is not configured. You must configure `[object_storage]` before making requests containing a `{block_type}` content block. If you don't want to use object storage, you can explicitly set `object_storage.type = \"disabled\"` in your configuration.")
             }
             ErrorDetails::UnsupportedContentBlockType {
                 content_block_type,
@@ -903,6 +917,15 @@ impl std::fmt::Display for ErrorDetails {
                     "Dynamic evaluation run not found for episode id: {episode_id}",
                 )
             }
+            ErrorDetails::InvalidEncodedJobHandle => {
+                write!(
+                    f,
+                    "Invalid encoded job handle. Failed to decode using URL-safe Base64."
+                )
+            }
+            ErrorDetails::InvalidJobHandle { message } => {
+                write!(f, "Failed to deserialize job handle: {message}")
+            }
             ErrorDetails::InvalidFunctionVariants { message } => write!(f, "{message}"),
             ErrorDetails::InvalidTensorzeroUuid { message, kind } => {
                 write!(f, "Invalid {kind} ID: {message}")
@@ -1061,6 +1084,7 @@ impl std::fmt::Display for ErrorDetails {
             ErrorDetails::UnknownCandidate { name } => {
                 write!(f, "Unknown candidate variant: {name}")
             }
+            ErrorDetails::UnknownEvaluation { name } => write!(f, "Unknown evaluation: {name}"),
             ErrorDetails::UnknownFunction { name } => write!(f, "Unknown function: {name}"),
             ErrorDetails::UnknownModel { name } => write!(f, "Unknown model: {name}"),
             ErrorDetails::UnknownTool { name } => write!(f, "Unknown tool: {name}"),

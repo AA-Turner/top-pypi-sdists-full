@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: castellan
-Version: 5.3.0
+Version: 5.4.0
 Summary: Generic Key Manager interface for OpenStack
 Home-page: https://docs.openstack.org/castellan/latest/
 Author: OpenStack

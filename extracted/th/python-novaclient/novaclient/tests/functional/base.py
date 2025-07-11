@@ -13,14 +13,12 @@
 import os
 import time
 
-from cinderclient.v3 import client as cinderclient
 import fixtures
 from keystoneauth1.exceptions import discovery as discovery_exc
 from keystoneauth1 import identity
 from keystoneauth1 import session as ksession
 from keystoneclient import client as keystoneclient
 from keystoneclient import discover as keystone_discover
-from neutronclient.v2_0 import client as neutronclient
 import openstack.config
 import openstack.config.exceptions
 import openstack.connection
@@ -235,8 +233,7 @@ class ClientTestBase(testtools.TestCase):
 
         if "network" not in CACHE:
             # Get the networks from neutron.
-            neutron = neutronclient.Client(session=session)
-            neutron_networks = neutron.list_networks()['networks']
+            neutron_networks = self.openstack.network.networks()
             # Convert the neutron dicts to Network objects.
             nets = []
             for network in neutron_networks:
@@ -271,7 +268,6 @@ class ClientTestBase(testtools.TestCase):
         self.keystone = keystoneclient.Client(session=session,
                                               username=user,
                                               password=passwd)
-        self.cinder = cinderclient.Client(auth=auth, session=session)
 
     def _get_novaclient(self, session):
         nc = novaclient.client.Client("2", session=session)
@@ -332,7 +328,7 @@ class ClientTestBase(testtools.TestCase):
         """
         start_time = time.time()
         while time.time() - start_time < timeout:
-            volume = self.cinder.volumes.get(volume.id)
+            volume = self.openstack.block_storage.get_volume(volume)
             if volume.status == status:
                 break
             time.sleep(poll_interval)

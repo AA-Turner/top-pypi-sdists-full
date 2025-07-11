@@ -26,20 +26,21 @@ class OrganizationAffiliation(domainresource.DomainResource):
     __resource_type__ = "OrganizationAffiliation"
 
     active: bool | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="active",
         title="Whether this organization affiliation record is in active use",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     active__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_active", title="Extension field for ``active``."
+        default=None, alias="_active", title="Extension field for ``active``."
     )
 
     code: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="code",
         title="Definition of the role the participatingOrganization plays",
         description=(
@@ -48,11 +49,12 @@ class OrganizationAffiliation(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     endpoint: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="endpoint",
         title=(
             "Technical endpoints providing access to services operated for this " "role"
@@ -66,7 +68,7 @@ class OrganizationAffiliation(domainresource.DomainResource):
     )
 
     healthcareService: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="healthcareService",
         title="Healthcare services provided through the role",
         description=None,
@@ -78,29 +80,31 @@ class OrganizationAffiliation(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifiers that are specific to this role",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     location: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="location",
         title="The location(s) at which the role occurs",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Location"],
         },
     )
 
     network: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="network",
         title=(
             "Health insurance provider network in which the "
@@ -110,13 +114,14 @@ class OrganizationAffiliation(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     organization: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="organization",
         title="Organization where the role is available",
         description=(
@@ -125,13 +130,14 @@ class OrganizationAffiliation(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     participatingOrganization: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="participatingOrganization",
         title=(
             "Organization that provides/performs the role (e.g. providing services "
@@ -144,13 +150,14 @@ class OrganizationAffiliation(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title=(
             "The period during which the participatingOrganization is affiliated "
@@ -159,11 +166,12 @@ class OrganizationAffiliation(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     specialty: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialty",
         title=(
             "Specific specialty of the participatingOrganization in the context of "
@@ -172,11 +180,12 @@ class OrganizationAffiliation(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     telecom: typing.List[fhirtypes.ContactPointType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="telecom",
         title=(
             "Contact details at the participatingOrganization relevant to this "
@@ -185,14 +194,15 @@ class OrganizationAffiliation(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``OrganizationAffiliation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``OrganizationAffiliation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -215,4 +225,25 @@ class OrganizationAffiliation(domainresource.DomainResource):
             "healthcareService",
             "telecom",
             "endpoint",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``OrganizationAffiliation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "active",
+            "period",
+            "organization",
+            "participatingOrganization",
+            "network",
+            "code",
+            "specialty",
+            "location",
+            "telecom",
         ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager, suppress
+import sys
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
@@ -9,8 +10,11 @@ from pottery.exceptions import ReleaseUnlockedLock
 from redis.asyncio import Redis
 
 from utilities.asyncio import sleep_td, timeout_td
+from utilities.contextlib import enhanced_async_context_manager
+from utilities.errors import ImpossibleCaseError
 from utilities.iterables import always_iterable
 from utilities.logging import get_logger
+from utilities.warnings import suppress_warnings
 from utilities.whenever import MILLISECOND, SECOND, to_seconds
 
 if TYPE_CHECKING:
@@ -32,7 +36,7 @@ _THROTTLE: Delta | None = None
 
 async def run_as_service(
     redis: MaybeIterable[Redis],
-    func: Callable[[], Coro[None]],
+    make_func: Callable[[], Coro[None]],
     /,
     *,
     key: str | None = None,
@@ -45,12 +49,17 @@ async def run_as_service(
     sleep_error: Delta | None = None,
 ) -> None:
     """Run a function as a service."""
-    func_name = func().__name__
+    func = make_func()  # skipif-ci-and-not-linux
+    name = func.__name__  # skipif-ci-and-not-linux
+    with suppress_warnings(
+        message="coroutine '.*' was never awaited", category=RuntimeWarning
+    ):
+        del func
     try:  # skipif-ci-and-not-linux
         async with (
             yield_access(
                 redis,
-                func_name if key is None else key,
+                name if key is None else key,
                 num=num,
                 timeout_acquire=timeout_acquire,
                 timeout_release=timeout_release,
@@ -61,12 +70,18 @@ async def run_as_service(
         ):
             while True:
                 try:
-                    return await func()
+                    return await make_func()
                 except Exception:  # noqa: BLE001
                     if logger is not None:
                         get_logger(logger=logger).exception(
-                            "Error running %r as a service", func_name
+                            "Error running %r as a service", name
                         )
+                    exc_type, exc_value, traceback = sys.exc_info()
+                    if (exc_type is None) or (exc_value is None):  # pragma: no cover
+                        raise ImpossibleCaseError(
+                            case=[f"{exc_type=}", f"{exc_value=}"]
+                        ) from None
+                    sys.excepthook(exc_type, exc_value, traceback)
                     await sleep_td(sleep_error)
     except _YieldAccessUnableToAcquireLockError as error:  # skipif-ci-and-not-linux
         if logger is not None:
@@ -76,7 +91,7 @@ async def run_as_service(
 ##
 
 
-@asynccontextmanager
+@enhanced_async_context_manager
 async def yield_access(
     redis: MaybeIterable[Redis],
     key: str,

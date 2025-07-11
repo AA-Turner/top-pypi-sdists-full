@@ -27,12 +27,13 @@ class Population(backboneelement.BackboneElement):
     __resource_type__ = "Population"
 
     ageCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="ageCodeableConcept",
         title="The age of the specific population",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e age[x]
             "one_of_many": "age",
             "one_of_many_required": False,
@@ -40,12 +41,13 @@ class Population(backboneelement.BackboneElement):
     )
 
     ageRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="ageRange",
         title="The age of the specific population",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e age[x]
             "one_of_many": "age",
             "one_of_many_required": False,
@@ -53,17 +55,18 @@ class Population(backboneelement.BackboneElement):
     )
 
     gender: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="gender",
         title="The gender of the specific population",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     physiologicalCondition: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="physiologicalCondition",
         title=(
             "The existing physiological conditions of the specific population to "
@@ -72,28 +75,44 @@ class Population(backboneelement.BackboneElement):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     race: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="race",
         title="Race of the specific population",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Population`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Population`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
             "extension",
+            "modifierExtension",
+            "ageRange",
+            "ageCodeableConcept",
+            "gender",
+            "race",
+            "physiologicalCondition",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Population`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
             "modifierExtension",
             "ageRange",
             "ageCodeableConcept",

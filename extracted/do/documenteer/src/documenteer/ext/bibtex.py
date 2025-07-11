@@ -3,6 +3,7 @@
 __all__ = ("LsstBibtexStyle", "setup")
 
 import pybtex.style.formatting.plain
+from pybtex.database import Entry
 from pybtex.plugin import register_plugin
 from pybtex.style.formatting import toplevel
 from pybtex.style.template import (
@@ -15,6 +16,10 @@ from pybtex.style.template import (
     sentence,
     tag,
 )
+from sphinx.application import Sphinx
+from sphinx.util.typing import ExtensionMetadata
+
+from ..version import __version__
 
 
 class LsstBibtexStyle(pybtex.style.formatting.plain.Style):
@@ -22,7 +27,7 @@ class LsstBibtexStyle(pybtex.style.formatting.plain.Style):
     bibliographies.
     """
 
-    def format_docushare(self, e):
+    def format_docushare(self, e: Entry) -> str:
         default_url = join["https://ls.st/", field("handle", raw=True)]
 
         template = toplevel[
@@ -41,6 +46,12 @@ class LsstBibtexStyle(pybtex.style.formatting.plain.Style):
         return template.format_data(e)
 
 
-def setup(app):
+def setup(app: Sphinx) -> ExtensionMetadata:
     """Add this plugin to the Sphinx application."""
     register_plugin("pybtex.style.formatting", "lsst_aa", LsstBibtexStyle)
+
+    return {
+        "version": __version__,
+        "parallel_read_safe": True,
+        "parallel_write_safe": True,
+    }

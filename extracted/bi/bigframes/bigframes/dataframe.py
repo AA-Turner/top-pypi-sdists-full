@@ -2741,9 +2741,9 @@ class DataFrame(vendored_pandas_frame.DataFrame):
         if isinstance(other, bigframes.series.Series):
             raise ValueError("Seires is not a supported replacement type!")
 
-        if self.columns.nlevels > 1 or self.index.nlevels > 1:
+        if self.columns.nlevels > 1:
             raise NotImplementedError(
-                "The dataframe.where() method does not support multi-index and/or multi-column."
+                "The dataframe.where() method does not support multi-column."
             )
 
         aligned_block, (_, _) = self._block.join(cond._block, how="left")
@@ -3369,8 +3369,6 @@ class DataFrame(vendored_pandas_frame.DataFrame):
             "right",
             "cross",
         ] = "inner",
-        # TODO(garrettwu): Currently can take inner, outer, left and right. To support
-        # cross joins
         on: Union[blocks.Label, Sequence[blocks.Label], None] = None,
         *,
         left_on: Union[blocks.Label, Sequence[blocks.Label], None] = None,

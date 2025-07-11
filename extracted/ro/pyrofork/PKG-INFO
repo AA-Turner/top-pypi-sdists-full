@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrofork
-Version: 2.3.67
+Version: 2.3.68
 Summary: Fork of pyrogram. Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
 Project-URL: Homepage, https://github.com/Mayuri-Chan
 Project-URL: Tracker, https://github.com/Mayuri-Chan/pyrofork/issues
@@ -48,7 +48,7 @@ Provides-Extra: docs
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autobuild; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-immaterial==0.12.4; extra == 'docs'
+Requires-Dist: sphinx-immaterial==0.12.5; extra == 'docs'
 Requires-Dist: tornado>=6.3.3; extra == 'docs'
 Provides-Extra: speedup
 Requires-Dist: tgcrypto-pyrofork>=1.2.6; extra == 'speedup'

@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 """
+Generic implementation of Orthogonal Machine Learning.
 
 Orthogonal Machine Learning is a general approach to estimating causal models
 by formulating them as minimizers of some loss function that depends on
@@ -12,7 +13,6 @@ and save a lot of code repetition.
 
 References
 ----------
-
 Dylan Foster, Vasilis Syrgkanis (2019). Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
 
@@ -24,28 +24,22 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 """
 
-import copy
 from collections import namedtuple
-from warnings import warn
 from abc import abstractmethod
 from typing import List, Union
-import inspect
-from collections import defaultdict
-import re
 
 import numpy as np
 from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
-from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
-                                   OneHotEncoder)
+from sklearn.preprocessing import (LabelEncoder)
 from sklearn.utils import check_random_state
 
 from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
-from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
-                        inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
+from .utilities import (check_input_arrays,
+                        filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
+                        jacify_featurizer, reshape, shape)
 from .sklearn_extensions.model_selection import ModelSelector
 
 try:
@@ -60,6 +54,9 @@ except ImportError as exn:
 def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     """
     Fits a single model on the training data and calculates the nuisance value on the test data.
+
+    Parameters
+    ----------
     model:  object
         An object that supports fit and predict. Fit must accept all the args
         and the keyword arguments kwargs. Similarly predict must all accept
@@ -81,8 +78,9 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
         `model.predict(*args, **kwargs)`. Key-value arguments that have value
         None, are ommitted from the two calls. So all the args and the non None
         kwargs variables must be part of the models signature.
-    Returns:
-    --------
+
+    Returns
+    -------
     -Tuple containing:
     nuisance_temp (tuple): Predictions or values of interest from the model.
     fitted_model: The fitted model after training.
@@ -192,11 +190,11 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
 
     >>> nuisance
     (array([-1.105728... , -1.537566..., -2.451827... , ...,  1.106287...,
-       -1.829662..., -1.782273...]),)
+           -1.829662..., -1.782273...], shape=(5000,)),)
     >>> model_list
     [<Wrapper object at 0x...>, <Wrapper object at 0x...>]
     >>> fitted_inds
-    array([   0,    1,    2, ..., 4997, 4998, 4999])
+    array([   0,    1,    2, ..., 4997, 4998, 4999], shape=(5000,))
 
     """
     model_list = []
@@ -313,7 +311,9 @@ CachedValues = namedtuple('CachedValues', ['nuisances',
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
-    Base class for all orthogonal learners. This class is a parent class to any method that has
+    Base class for all orthogonal learners.
+
+    This class is a parent class to any method that has
     the following architecture:
 
     1.  The CATE :math:`\\theta(X)` is the minimizer of some expected loss function
@@ -426,7 +426,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Examples
     --------
-
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
@@ -473,15 +472,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
-    0.00756830...
+    np.float64(0.00756830...)
     >>> est.const_marginal_effect()
-    1.02364992...
+    np.float64(1.02364992...)
     >>> est.effect()
     array([1.023649...])
     >>> est.effect(T0=0, T1=10)
     array([10.236499...])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
-    0.00727995...
+    np.float64(0.00727995...)
     >>> est.ortho_learner_model_final_.model
     LinearRegression(fit_intercept=False)
     >>> est.ortho_learner_model_final_.model.coef_
@@ -531,15 +530,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, W=W)
 
     >>> est.score_
-    0.00673015...
+    np.float64(0.00672978...)
     >>> est.const_marginal_effect()
-    array([[1.008401...]])
+    array([[1.008402...]])
     >>> est.effect()
-    array([1.008401...])
+    array([1.008402...])
     >>> est.score(y, T, W=W)
-    0.00310431...
+    np.float64(0.00310431...)
     >>> est.ortho_learner_model_final_.model.coef_[0]
-    1.00840170...
+    np.float64(1.00840240...)
 
     Attributes
     ----------
@@ -589,7 +588,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):
-        """Must return a fresh instance of a nuisance model selector
+        """Must return a fresh instance of a nuisance model selector.
 
         Returns
         -------
@@ -615,7 +614,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_final(self):
-        """ Must return a fresh instance of a final model
+        """Must return a fresh instance of a final model.
 
         Returns
         -------
@@ -991,7 +990,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                            groups=groups))
 
     def const_marginal_effect(self, X=None):
-        X, = check_input_arrays(X)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         self._check_fitted_dims(X)
         if X is None:
             return self._ortho_learner_model_final.predict()
@@ -1001,36 +1004,56 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
-        X, = check_input_arrays(X)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
 
     const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
     def const_marginal_effect_inference(self, X=None):
-        X, = check_input_arrays(X)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_inference(X)
 
     const_marginal_effect_inference.__doc__ = LinearCateEstimator.const_marginal_effect_inference.__doc__
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
-        X, T0, T1 = check_input_arrays(X, T0, T1)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        T0, T1 = check_input_arrays(T0, T1)
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
 
     effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
-        X, T0, T1 = check_input_arrays(X, T0, T1)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        T0, T1 = check_input_arrays(T0, T1)
         self._check_fitted_dims(X)
         return super().effect_inference(X, T0=T0, T1=T1)
 
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, scoring=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds
         under different iterations. Then calls the score function of the model_final and
@@ -1054,6 +1077,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Weights for each samples
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
+        scoring: name of an sklearn scoring function to use instead of the default, optional
+            Supports f1_score, log_loss, mean_absolute_error, mean_squared_error, r2_score,
+            and roc_auc_score.
 
         Returns
         -------
@@ -1112,9 +1138,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             accumulated_nuisances += nuisances
 
+        score_kwargs = {
+            'X': X,
+            'W': W,
+            'Z': Z,
+            'sample_weight': sample_weight,
+            'groups': groups
+        }
+        # If using an _rlearner, the scoring parameter can be passed along, if provided
+        if scoring is not None:
+            # Cannot import in header, or circular imports
+            from .dml._rlearner import _ModelFinal
+            if isinstance(self._ortho_learner_model_final, _ModelFinal):
+                score_kwargs['scoring'] = scoring
+            else:
+                raise NotImplementedError("scoring parameter only implemented for "
+                                          "_rlearner._ModelFinal")
         return self._ortho_learner_model_final.score(Y, T, nuisances=accumulated_nuisances,
-                                                     **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                          sample_weight=sample_weight, groups=groups))
+                                                     **filter_none_kwargs(**score_kwargs))
 
     @property
     def ortho_learner_model_final_(self):

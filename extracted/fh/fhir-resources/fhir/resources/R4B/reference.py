@@ -23,7 +23,7 @@ class Reference(element.Element):
     __resource_type__ = "Reference"
 
     display: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="display",
         title="Text alternative for the resource",
         description=(
@@ -32,14 +32,15 @@ class Reference(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     display__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_display", title="Extension field for ``display``."
+        default=None, alias="_display", title="Extension field for ``display``."
     )
 
     identifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Logical reference, when literal reference is not known",
         description=(
@@ -55,11 +56,12 @@ class Reference(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     reference: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reference",
         title="Literal reference, Relative, internal or absolute URL",
         description=(
@@ -73,14 +75,15 @@ class Reference(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     reference__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_reference", title="Extension field for ``reference``."
+        default=None, alias="_reference", title="Extension field for ``reference``."
     )
 
     type: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title='Type the reference refers to (e.g. "Patient")',
         description=(
@@ -96,16 +99,24 @@ class Reference(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Reference`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Reference`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "reference", "type", "identifier", "display"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Reference`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["reference", "type", "identifier", "display"]

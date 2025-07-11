@@ -52,6 +52,7 @@ class AgilicusAPIHelper:
     trusted_certs: TrustedCertsApi
     rules: RulesApi
     policy_config: PolicyConfigApi
+    licensing: LicensingApi
 
 
 def GetClient(
@@ -125,4 +126,5 @@ def GetClient(
         trusted_certs=TrustedCertsApi(ApiClient(config)),
         rules=RulesApi(ApiClient(config)),
         policy_config=PolicyConfigApi(ApiClient(config)),
+        licensing=LicensingApi(ApiClient(config)),
     )

@@ -4,13 +4,13 @@ from flask import g
 from hiddifypanel.models.usage import DailyUsage
 from sqlalchemy import event, Column, Integer, Enum, Boolean, ForeignKey
 from strenum import StrEnum
-from apiflask import abort
-from flask_babel import gettext as __
-from flask_babel import lazy_gettext as _
+
+
+
 from hiddifypanel.database import db, db_execute
 from hiddifypanel.models.role import Role
 from hiddifypanel.models.base_account import BaseAccount
-from sqlalchemy_serializer import SerializerMixin
+
 
 
 class AdminMode(StrEnum):
@@ -25,7 +25,7 @@ class AdminMode(StrEnum):
     agent = auto()
 
 
-class AdminUser(BaseAccount, SerializerMixin):
+class AdminUser(BaseAccount):
     """
     This is a model class for a user in a database that includes columns for their ID, UUID, name, online status,
     account expiration date, usage limit, package days, mode, start date, current usage, last reset time, and comment.
@@ -150,6 +150,8 @@ class AdminUser(BaseAccount, SerializerMixin):
     def remove(self):
         if self.id == 1 or self.id == g.account.id:
             # raise ValidationError(_("Owner can not be deleted!"))
+            from flask_babel import gettext as __
+            from apiflask import abort
             abort(422, __("Owner can not be deleted!"))
         users = self.recursive_users_query().all()
         for u in users:

@@ -27,7 +27,7 @@ class Appointment(domainresource.DomainResource):
     __resource_type__ = "Appointment"
 
     appointmentType: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="appointmentType",
         title=(
             "The style of appointment or patient that has been booked in the slot "
@@ -36,11 +36,12 @@ class Appointment(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     comment: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="comment",
         title="Additional comments",
         description="Additional comments about the appointment.",
@@ -49,11 +50,11 @@ class Appointment(domainresource.DomainResource):
         },
     )
     comment__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_comment", title="Extension field for ``comment``."
+        default=None, alias="_comment", title="Extension field for ``comment``."
     )
 
     created: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="created",
         title="The date that this appointment was initially created",
         description=(
@@ -67,11 +68,11 @@ class Appointment(domainresource.DomainResource):
         },
     )
     created__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_created", title="Extension field for ``created``."
+        default=None, alias="_created", title="Extension field for ``created``."
     )
 
     description: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="description",
         title="Shown on a subject line in a meeting request, or appointment list",
         description=(
@@ -84,24 +85,25 @@ class Appointment(domainresource.DomainResource):
         },
     )
     description__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_description", title="Extension field for ``description``."
+        default=None, alias="_description", title="Extension field for ``description``."
     )
 
     end: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="end",
         title="When appointment is to conclude",
         description="Date/Time that the appointment is to conclude.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     end__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_end", title="Extension field for ``end``."
+        default=None, alias="_end", title="Extension field for ``end``."
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="External Ids for this item",
         description=(
@@ -112,11 +114,12 @@ class Appointment(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     incomingReferral: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="incomingReferral",
         title=(
             "The ReferralRequest provided as information to allocate to the "
@@ -134,7 +137,7 @@ class Appointment(domainresource.DomainResource):
     )
 
     indication: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="indication",
         title="Reason the appointment is to takes place (resource)",
         description=(
@@ -152,7 +155,7 @@ class Appointment(domainresource.DomainResource):
     )
 
     minutesDuration: fhirtypes.PositiveIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="minutesDuration",
         title="Can be less than start/end (e.g. estimate)",
         description=(
@@ -166,11 +169,13 @@ class Appointment(domainresource.DomainResource):
         },
     )
     minutesDuration__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_minutesDuration", title="Extension field for ``minutesDuration``."
+        default=None,
+        alias="_minutesDuration",
+        title="Extension field for ``minutesDuration``.",
     )
 
     participant: typing.List[fhirtypes.AppointmentParticipantType] = Field(  # type: ignore
-        ...,
+        default=...,
         alias="participant",
         title="Participants involved in appointment",
         description="List of participants involved in the appointment.",
@@ -180,7 +185,7 @@ class Appointment(domainresource.DomainResource):
     )
 
     priority: fhirtypes.UnsignedIntType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="priority",
         title="Used to make informed decisions if needing to re-prioritize",
         description=(
@@ -193,11 +198,11 @@ class Appointment(domainresource.DomainResource):
         },
     )
     priority__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_priority", title="Extension field for ``priority``."
+        default=None, alias="_priority", title="Extension field for ``priority``."
     )
 
     reason: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title="Reason this appointment is scheduled",
         description=(
@@ -206,11 +211,12 @@ class Appointment(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     requestedPeriod: typing.List[fhirtypes.PeriodType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requestedPeriod",
         title=(
             "Potential date/time interval(s) requested to allocate the appointment "
@@ -229,7 +235,7 @@ class Appointment(domainresource.DomainResource):
     )
 
     serviceCategory: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="serviceCategory",
         title=(
             "A broad categorisation of the service that is to be performed during "
@@ -238,21 +244,23 @@ class Appointment(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     serviceType: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="serviceType",
         title="The specific service that is to be performed during this appointment",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     slot: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="slot",
         title="The slots that this appointment is filling",
         description=(
@@ -267,7 +275,7 @@ class Appointment(domainresource.DomainResource):
     )
 
     specialty: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="specialty",
         title=(
             "The specialty of a practitioner that would be required to perform the "
@@ -276,24 +284,26 @@ class Appointment(domainresource.DomainResource):
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     start: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="start",
         title="When appointment is to take place",
         description="Date/Time that the appointment is to take place.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     start__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_start", title="Extension field for ``start``."
+        default=None, alias="_start", title="Extension field for ``start``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title=(
             "proposed | pending | booked | arrived | fulfilled | cancelled | noshow"
@@ -306,6 +316,7 @@ class Appointment(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -322,11 +333,11 @@ class Appointment(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     supportingInformation: typing.List[fhirtypes.ReferenceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="supportingInformation",
         title="Additional information to support the appointment",
         description=(
@@ -342,9 +353,9 @@ class Appointment(domainresource.DomainResource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Appointment`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Appointment`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -377,6 +388,26 @@ class Appointment(domainresource.DomainResource):
             "requestedPeriod",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Appointment`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "identifier",
+            "status",
+            "serviceCategory",
+            "serviceType",
+            "specialty",
+            "appointmentType",
+            "reason",
+            "start",
+            "end",
+        ]
+
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case
         In some cases, implementers might find that they do not have appropriate data for
@@ -401,7 +432,7 @@ class AppointmentParticipant(backboneelement.BackboneElement):
     __resource_type__ = "AppointmentParticipant"
 
     actor: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="actor",
         title="Person, Location/HealthcareService or Device",
         description=(
@@ -410,6 +441,7 @@ class AppointmentParticipant(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": [
                 "Patient",
@@ -423,7 +455,7 @@ class AppointmentParticipant(backboneelement.BackboneElement):
     )
 
     required: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="required",
         title="required | optional | information-only",
         description=(
@@ -433,17 +465,18 @@ class AppointmentParticipant(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["required", "optional", "information-only"],
         },
     )
     required__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_required", title="Extension field for ``required``."
+        default=None, alias="_required", title="Extension field for ``required``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="accepted | declined | tentative | needs-action",
         description="Participation status of the actor.",
@@ -456,24 +489,25 @@ class AppointmentParticipant(backboneelement.BackboneElement):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     type: typing.List[fhirtypes.CodeableConceptType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Role of participant in the appointment",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``AppointmentParticipant`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``AppointmentParticipant`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -484,6 +518,13 @@ class AppointmentParticipant(backboneelement.BackboneElement):
             "required",
             "status",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``AppointmentParticipant`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "type", "actor", "required"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

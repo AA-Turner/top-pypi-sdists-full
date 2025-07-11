@@ -7,12 +7,13 @@ directive.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Self
+from typing import Self
 
 import requests
 from pydantic import BaseModel, Field
 from sphinx.application import Sphinx
 from sphinx.config import Config
+from sphinx.util.typing import ExtensionMetadata
 
 from ..version import __version__
 
@@ -78,7 +79,7 @@ class BibRepo(BaseModel):
         url = self._get_raw_url(bib_file)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.unlink(missing_ok=True)
-        r = requests.get(url, allow_redirects=True)
+        r = requests.get(url, allow_redirects=True, timeout=10)
         r.raise_for_status()
         content = r.text
         cache_path.write_text(content)
@@ -113,7 +114,7 @@ def cache_bibfiles(app: Sphinx, config: Config) -> None:
                 config["bibtex_bibfiles"].append(str(cached_path))
 
 
-def setup(app: Sphinx) -> dict[str, Any]:
+def setup(app: Sphinx) -> ExtensionMetadata:
     """Set up the ``documenteer.ext.autocppapi`` Sphinx extensions."""
     # Configuration values
     app.add_config_value("documenteer_bibfile_github_repos", "", "env", [list])

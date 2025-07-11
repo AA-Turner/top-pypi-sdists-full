@@ -22,6 +22,8 @@ from ..output.table import (
     summarize,
 )
 
+from .formatters import constraint_columns
+
 
 def list_product_table_versions(ctx, **kwargs):
     token = context.get_token(ctx)
@@ -36,25 +38,11 @@ def format_product_table_versions(ctx, templates):
     num_subtable_rows = 10
     feature_columns = [
         column("name"),
-        summarize(
-            list_map(column("license_constraints", "constraints"), attrgetter("name")),
-            num_subtable_rows,
-        ),
-        summarize(
-            list_map(column("constraint_variables", "variables"), attrgetter("name")),
-            num_subtable_rows,
-        ),
+        *constraint_columns(num_subtable_rows),
     ]
     product_columns = [
         column("name"),
-        summarize(
-            list_map(column("license_constraints", "constraints"), attrgetter("name")),
-            num_subtable_rows,
-        ),
-        summarize(
-            list_map(column("constraint_variables", "variables"), attrgetter("name")),
-            num_subtable_rows,
-        ),
+        *constraint_columns(num_subtable_rows),
         column("included_features", "features"),
     ]
     columns = [

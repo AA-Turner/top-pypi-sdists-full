@@ -12,7 +12,6 @@ from dbt.adapters.sql.impl import (
     LIST_SCHEMAS_MACRO_NAME,
     LIST_RELATIONS_MACRO_NAME,
 )
-from dbt_common.behavior_flags import BehaviorFlag
 from dbt_common.contracts.constraints import ConstraintType
 from dbt_common.contracts.metadata import (
     TableMetadata,
@@ -53,6 +52,8 @@ class SnowflakeConfig(AdapterConfig):
     tmp_relation_type: Optional[str] = None
     merge_update_columns: Optional[str] = None
     target_lag: Optional[str] = None
+    row_access_policy: Optional[str] = None
+    table_tag: Optional[str] = None
 
     # extended formats
     table_format: Optional[str] = None
@@ -106,22 +107,6 @@ class SnowflakeAdapter(SQLAdapter):
     def get_catalog_integration(self, name: str) -> CatalogIntegration:
         # Snowflake uppercases everything in their metadata tables
         return super().get_catalog_integration(name.upper())
-
-    @property
-    def _behavior_flags(self) -> List[BehaviorFlag]:
-        return [
-            {
-                "name": "enable_iceberg_materializations",
-                "default": False,
-                "description": (
-                    "Enabling Iceberg materializations introduces latency to metadata queries, "
-                    "specifically within the list_relations_without_caching macro. Since Iceberg "
-                    "benefits only those actively using it, we've made this behavior opt-in to "
-                    "prevent unnecessary latency for other users."
-                ),
-                "docs_url": "https://docs.getdbt.com/reference/resource-configs/snowflake-configs#iceberg-table-format",
-            }
-        ]
 
     @classmethod
     def date_function(cls):
@@ -290,20 +275,14 @@ class SnowflakeAdapter(SQLAdapter):
                 return []
             raise
 
-        # this can be collapsed once Snowflake adds is_iceberg to show objects
-        columns = ["database_name", "schema_name", "name", "kind", "is_dynamic"]
-        if self.behavior.enable_iceberg_materializations.no_warn:
-            columns.append("is_iceberg")
-
+        columns = ["database_name", "schema_name", "name", "kind", "is_dynamic", "is_iceberg"]
+        schema_objects = schema_objects.rename(
+            column_names=[col.lower() for col in schema_objects.column_names]
+        )
         return [self._parse_list_relations_result(obj) for obj in schema_objects.select(columns)]
 
     def _parse_list_relations_result(self, result: "agate.Row") -> SnowflakeRelation:
-        # this can be collapsed once Snowflake adds is_iceberg to show objects
-        if self.behavior.enable_iceberg_materializations.no_warn:
-            database, schema, identifier, relation_type, is_dynamic, is_iceberg = result
-        else:
-            database, schema, identifier, relation_type, is_dynamic = result
-            is_iceberg = "N"
+        database, schema, identifier, relation_type, is_dynamic, is_iceberg = result
 
         try:
             relation_type = self.Relation.get_relation_type(relation_type.lower())
@@ -503,3 +482,36 @@ CALL {proc_name}();
             catalog_integration = self.get_catalog_integration(catalog)
             return catalog_integration.build_relation(model)
         return None
+
+    @available
+    def describe_dynamic_table(self, relation: SnowflakeRelation) -> Dict[str, Any]:
+        """
+        Get all relevant metadata about a dynamic table to return as a dict to Agate Table row
+
+        Args:
+            relation (SnowflakeRelation): the relation to describe
+        """
+        quoting = relation.quote_policy
+        schema = f'"{relation.schema}"' if quoting.schema else relation.schema
+        database = f'"{relation.database}"' if quoting.database else relation.database
+        show_sql = (
+            f"show dynamic tables like '{relation.identifier}' in schema {database}.{schema}"
+        )
+        res, dt_table = self.execute(show_sql, fetch=True)
+        if res.code != "SUCCESS":
+            raise DbtRuntimeError(f"Could not get dynamic query metadata: {show_sql} failed")
+        # normalize column names to lower case, this still preserves column order
+        dt_table = dt_table.rename(column_names=[name.lower() for name in dt_table.column_names])
+        return {
+            "dynamic_table": dt_table.select(
+                [
+                    "name",
+                    "schema_name",
+                    "database_name",
+                    "text",
+                    "target_lag",
+                    "warehouse",
+                    "refresh_mode",
+                ]
+            )
+        }

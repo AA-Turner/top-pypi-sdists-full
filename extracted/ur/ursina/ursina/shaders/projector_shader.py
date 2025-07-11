@@ -1,4 +1,9 @@
-from ursina import *; projector_shader = Shader(name='projector_shader', language=Shader.GLSL, vertex = '''
+from ursina import color, load_texture
+from ursina.shader import Shader
+from ursina.ursinastuff import Func
+from ursina.vec2 import Vec2
+
+projector_shader = Shader(name='projector_shader', language=Shader.GLSL, vertex = '''
 #version 140
 uniform mat4 p3d_ModelViewProjectionMatrix;
 uniform mat4 p3d_ModelMatrix;
@@ -100,7 +105,7 @@ if __name__ == '__main__':
     scene.fog_density = (10, 200)
 
     projector_texture = load_texture('vignette', application.internal_textures_folder)
-    # projector_texture.repeat = False
+    projector_texture.repeat = False
     projector_shader.default_input['projector_texture'] = projector_texture
 
     def update():

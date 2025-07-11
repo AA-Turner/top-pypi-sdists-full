@@ -27,17 +27,18 @@ class ExtendedContactDetail(datatype.DataType):
     __resource_type__ = "ExtendedContactDetail"
 
     address: fhirtypes.AddressType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="address",
         title="Address for the contact",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     name: typing.List[fhirtypes.HumanNameType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="name",
         title="Name of an individual to contact",
         description=(
@@ -46,11 +47,12 @@ class ExtendedContactDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     organization: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="organization",
         title="This contact detail is handled/monitored by a specific organization",
         description=(
@@ -60,46 +62,50 @@ class ExtendedContactDetail(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Period that this contact was valid for usage",
         description=None,
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     purpose: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="purpose",
         title="The type of contact",
         description="The purpose/type of contact.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     telecom: typing.List[fhirtypes.ContactPointType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="telecom",
         title="Contact details (e.g.phone/fax/url)",
         description="The contact details application for the purpose defined.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``ExtendedContactDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``ExtendedContactDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -111,3 +117,10 @@ class ExtendedContactDetail(datatype.DataType):
             "organization",
             "period",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``ExtendedContactDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["purpose", "name", "telecom", "address", "organization", "period"]

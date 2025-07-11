@@ -257,6 +257,52 @@ class TestMultiStore(base.MultiStoreBaseTest,
         self.assertEqual(expected_file_contents, new_image_contents)
         self.assertEqual(expected_file_size, new_image_file_size)
 
+    def test_add_image_exceeding_max_size_raises_exception(self):
+        # Setup
+        expected_image_id = str(uuid.uuid4())
+        path = os.path.join(self.test_dir, expected_image_id)
+        # expected total size
+        expected_file_size = 1020
+        # simulate input with extra data
+        image_file = io.BytesIO(b'a' * (expected_file_size + 100))
+
+        # Call method and assert exception
+        self.assertRaisesRegex(exceptions.Invalid, "Size exceeds: expected",
+                               self.store.add, expected_image_id, image_file,
+                               expected_file_size)
+
+        # Verify partial data is deleted from backend
+        self.assertFalse(os.path.exists(path))
+
+        # Verify that the stream's position reflects the number of bytes read,
+        # which should be exactly at expected_file_size plus the last buffer
+        # size read.
+        expected_read = expected_file_size + self.store.WRITE_CHUNKSIZE
+        self.assertEqual(expected_read, image_file.tell(),
+                         "The stream was not read only up to the expected "
+                         "size.")
+
+    def test_write_less_than_declared_raises_exception(self):
+        # Setup
+        expected_image_id = str(uuid.uuid4())
+        path = os.path.join(self.test_dir, expected_image_id)
+        # expected total size
+        actual_data_size = 800
+        # declared size larger than actual data
+        declared_size = 1000
+        image_file = io.BytesIO(b'b' * actual_data_size)
+
+        # Call method and assert exception
+        self.assertRaisesRegex(exceptions.Invalid, "Size mismatch: expected",
+                               self.store.add, expected_image_id, image_file,
+                               declared_size)
+
+        # Verify partial data is deleted from backend
+        self.assertFalse(os.path.exists(path))
+        # The input buffer should be fully read
+        self.assertEqual(actual_data_size, image_file.tell(),
+                         "Input stream was not fully read as expected")
+
     def test_add_check_metadata_with_invalid_mountpoint_location(self):
         in_metadata = [{'id': 'abcdefg',
                        'mountpoint': '/xyz/images'}]
@@ -450,6 +496,9 @@ class TestMultiStore(base.MultiStoreBaseTest,
         self.conf.set_override('filesystem_store_datadir',
                                override=None,
                                group='file1')
+        self.conf.set_override('filesystem_store_datadir',
+                               override=None,
+                               group='backend_defaults')
         self.conf.set_override('filesystem_store_datadirs',
                                [store_map[0] + ":100",
                                 store_map[1] + ":200"],
@@ -568,6 +617,9 @@ class TestMultiStore(base.MultiStoreBaseTest,
         self.conf.set_override('filesystem_store_datadir',
                                override=None,
                                group='file1')
+        self.conf.set_override('filesystem_store_datadir',
+                               override=None,
+                               group='backend_defaults')
         self.conf.set_override('filesystem_store_datadirs',
                                [store_map[0] + ":100",
                                 store_map[1] + ":200",
@@ -618,6 +670,9 @@ class TestMultiStore(base.MultiStoreBaseTest,
         self.conf.set_override('filesystem_store_datadir',
                                override=None,
                                group='file1')
+        self.conf.set_override('filesystem_store_datadir',
+                               override=None,
+                               group='backend_defaults')
 
         self.conf.set_override('filesystem_store_datadirs',
                                [store_map[0] + ":100",
@@ -670,6 +725,9 @@ class TestMultiStore(base.MultiStoreBaseTest,
         self.conf.set_override('filesystem_store_datadir',
                                override=None,
                                group='file1')
+        self.conf.set_override('filesystem_store_datadir',
+                               override=None,
+                               group='backend_defaults')
         self.conf.set_override('filesystem_store_datadirs',
                                [store_map[0] + ":100",
                                 store_map[1] + ":200"],

@@ -5572,6 +5572,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    SAGE_MAKER_STUDIO_ADMIN_PROJECT_USER_ROLE_POLICY = "SAGE_MAKER_STUDIO_ADMIN_PROJECT_USER_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

@@ -6,4 +6,4 @@ LTS_RELEASES = ["jammy", "focal", "bionic", "xenial", "trusty", "precise"]
 
 DEFAULT_ARCHITECTURE = "amd64"
 
-CLIENT_VERSION = "3.6.1.2"
+CLIENT_VERSION = "3.6.1.3"

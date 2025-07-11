@@ -29,7 +29,7 @@ class UsageContext(element.Element):
     __resource_type__ = "UsageContext"
 
     code: fhirtypes.CodingType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="code",
         title="Type of context being specified",
         description=(
@@ -38,11 +38,12 @@ class UsageContext(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     valueCodeableConcept: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueCodeableConcept",
         title="Value that defines the context",
         description=(
@@ -51,6 +52,7 @@ class UsageContext(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -58,7 +60,7 @@ class UsageContext(element.Element):
     )
 
     valueQuantity: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueQuantity",
         title="Value that defines the context",
         description=(
@@ -67,6 +69,7 @@ class UsageContext(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -74,7 +77,7 @@ class UsageContext(element.Element):
     )
 
     valueRange: fhirtypes.RangeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="valueRange",
         title="Value that defines the context",
         description=(
@@ -83,6 +86,7 @@ class UsageContext(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # Choice of Data Types. i.e value[x]
             "one_of_many": "value",
             "one_of_many_required": True,
@@ -91,9 +95,9 @@ class UsageContext(element.Element):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``UsageContext`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``UsageContext`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -103,6 +107,13 @@ class UsageContext(element.Element):
             "valueQuantity",
             "valueRange",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``UsageContext`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["code", "valueCodeableConcept", "valueQuantity", "valueRange"]
 
     def get_one_of_many_fields(self) -> typing.Dict[str, typing.List[str]]:
         """https://www.hl7.org/fhir/formats.html#choice

@@ -1,62 +1,51 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: econml
-Version: 0.15.1
+Version: 0.16.0
 Summary: This package contains several methods for calculating Conditional Average Treatment Effects
 Author: PyWhy contributors
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/py-why/EconML
 Project-URL: Bug Tracker, https://github.com/py-why/EconML/Issues
 Project-URL: Source Code, https://github.com/py-why/EconML
 Project-URL: Documentation, https://econml.azurewebsites.net/
 Keywords: treatment-effect
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<2
+Requires-Dist: numpy
 Requires-Dist: scipy>1.4.0
-Requires-Dist: scikit-learn<1.6,>=1.0
+Requires-Dist: scikit-learn<1.7,>=1.0
 Requires-Dist: sparse
 Requires-Dist: joblib>=0.13.0
 Requires-Dist: statsmodels>=0.10
 Requires-Dist: pandas>1.0
-Requires-Dist: shap<0.44.0,>=0.38.1
+Requires-Dist: shap<0.49.0,>=0.38.1
 Requires-Dist: lightgbm
 Requires-Dist: packaging
 Provides-Extra: automl
 Requires-Dist: azure-cli; extra == "automl"
-Provides-Extra: tf
-Requires-Dist: keras<2.4; python_version < "3.9" and extra == "tf"
-Requires-Dist: tensorflow<2.3,>1.10; python_version < "3.9" and extra == "tf"
-Requires-Dist: protobuf<4; python_version < "3.9" and extra == "tf"
-Requires-Dist: numpy<1.24; python_version < "3.9" and extra == "tf"
 Provides-Extra: plt
 Requires-Dist: graphviz; extra == "plt"
 Requires-Dist: matplotlib; extra == "plt"
 Provides-Extra: dowhy
-Requires-Dist: dowhy<0.12; python_version > "3.8" and extra == "dowhy"
-Requires-Dist: dowhy<0.11; python_version <= "3.8" and extra == "dowhy"
+Requires-Dist: dowhy<0.13; extra == "dowhy"
 Provides-Extra: ray
 Requires-Dist: ray>2.2.0; extra == "ray"
 Provides-Extra: all
 Requires-Dist: azure-cli; extra == "all"
-Requires-Dist: keras<2.4; python_version < "3.9" and extra == "all"
-Requires-Dist: tensorflow<2.3,>1.10; python_version < "3.9" and extra == "all"
-Requires-Dist: protobuf<4; python_version < "3.9" and extra == "all"
-Requires-Dist: numpy<1.24; python_version < "3.9" and extra == "all"
 Requires-Dist: graphviz; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
-Requires-Dist: dowhy<0.12; python_version > "3.8" and extra == "all"
-Requires-Dist: dowhy<0.11; python_version <= "3.8" and extra == "all"
+Requires-Dist: dowhy<0.13; extra == "all"
 Requires-Dist: ray>2.2.0; extra == "all"
+Dynamic: license-file
 
 [![Build status](https://github.com/py-why/EconML/actions/workflows/ci.yml/badge.svg)](https://github.com/py-why/EconML/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/econml.svg)](https://pypi.org/project/econml/)
@@ -109,11 +98,13 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-If you'd like to contribute to this project, see the [Help Wanted](#help-wanted) section below.
+If you'd like to contribute to this project, see the [Help Wanted](#finding-issues-to-help-with) section below.
 
-**July 3, 2024:** Release v0.15.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.15.1)
+**July 10, 2025:** Release v0.16.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.16.0)
 
 <details><summary>Previous releases</summary>
+
+**July 3, 2024:** Release v0.15.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.15.1)
 
 **February 12, 2024:** Release v0.15.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.15.0)
 
@@ -417,9 +408,9 @@ lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 ```Python
 from econml.iv.dml import NonParamDMLIV
 
-est = NonParamDMLIV(projection=False, 
-                    discrete_treatment=True, 
-                    discrete_instrument=True)
+est = NonParamDMLIV(discrete_treatment=True, 
+                    discrete_instrument=True,
+                    model_final=RandomForestRegressor())
 est.fit(Y, T, Z=Z, X=X, W=W) # no analytical confidence interval available
 treatment_effects = est.effect(X_test)
 ```
@@ -472,36 +463,6 @@ est = LinearIntentToTreatDRIV(model_y_xw=GradientBoostingRegressor(),
 est.fit(Y, T, Z=Z, X=X, W=W)
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
-```
-</details>
-
-<details>
-<summary>Deep Instrumental Variables (click to expand)</summary>
-
-```Python
-import keras
-from econml.iv.nnet import DeepIV
-
-treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
-                                    keras.layers.Dropout(0.17),
-                                    keras.layers.Dense(64, activation='relu'),
-                                    keras.layers.Dropout(0.17),
-                                    keras.layers.Dense(32, activation='relu'),
-                                    keras.layers.Dropout(0.17)])
-response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
-                                  keras.layers.Dropout(0.17),
-                                  keras.layers.Dense(64, activation='relu'),
-                                  keras.layers.Dropout(0.17),
-                                  keras.layers.Dense(32, activation='relu'),
-                                  keras.layers.Dropout(0.17),
-                                  keras.layers.Dense(1)])
-est = DeepIV(n_components=10, # Number of gaussians in the mixture density networks)
-             m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
-             h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
-             n_samples=1 # Number of samples used to estimate the response
-             )
-est.fit(Y, T, X=X, Z=Z) # Z -> instrumental variables
-treatment_effects = est.effect(X_test)
 ```
 </details>
 
@@ -607,12 +568,13 @@ See the <a href="#references">References</a> section for more details.
 <details>
   <summary>First Stage Model Selection (click to expand)</summary>
 
-First stage models can be selected either by passing in cross-validated models (e.g. `sklearn.linear_model.LassoCV`) to EconML's estimators or perform the first stage model selection outside of EconML and pass in the selected model. Unless selecting among a large set of hyperparameters, choosing first stage models externally is the preferred method due to statistical and computational advantages.
+EconML's cross-fitting estimators provide built-in functionality for first-stage model selection.  This support can work with existing sklearn model selection classes such as `LassoCV` or `GridSearchCV`, or you can pass a list of models to choose the best from among them when cross-fitting.
 
 ```Python
 from econml.dml import LinearDML
 from sklearn import clone
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LassoCV
 from sklearn.model_selection import GridSearchCV
 
 cv_model = GridSearchCV(
@@ -624,14 +586,9 @@ cv_model = GridSearchCV(
               },
               cv=5,
            )
-# First stage model selection within EconML
-# This is more direct, but computationally and statistically less efficient
-est = LinearDML(model_y=cv_model, model_t=cv_model)
-# First stage model selection ouside of EconML
-# This is the most efficient, but requires boilerplate code
-model_t = clone(cv_model).fit(W, T).best_estimator_
-model_y = clone(cv_model).fit(W, Y).best_estimator_
-est = LinearDML(model_y=model_t, model_t=model_y)
+
+est = LinearDML(model_y=cv_model, # use sklearn's grid search to select the best Y model 
+                model_t=[RandomForestRegressor(), LassoCV()]) # use built-in model selection to choose between forest and linear models for T model
 ```
 
 
@@ -727,15 +684,19 @@ You can get started by cloning this repository. We use
 We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
 `pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `pip install -e .` to get started (but depending on what you're doing you might want to install with extras instead, like `pip install -e .[plt]` if you want to use matplotlib integration, or you can use  `pip install -e .[all]` to include all extras).
 
-## Help wanted
+## Pre-commit hooks
 
-If you're looking to contribute to the project, we have a number of issues tagged with the [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) label that are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs.
+We use the [pre-commit](https://pre-commit.com/) framework to enforce code style and run checks before every commit. To install the pre-commit hooks, make sure you have pre-commit installed (`pip install pre-commit`) and then run `pre-commit install` in the root of the repository. This will install the hooks and run them automatically before every commit. If you want to run the hooks manually, you can run `pre-commit run --all-files`.
+
+## Finding issues to help with
+
+If you're looking to contribute to the project, we have a number of issues tagged with the [`up for grabs`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22up+for+grabs%22) and [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) labels. "Up for grabs" issues are ones that we think that people without a lot of experience in our codebase may be able to help with, while "Help wanted" issues are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs, but which might be more involved.
 
 ## Running the tests
 
-This project uses [pytest](https://docs.pytest.org/) for testing.  To run all tests locally after installing the package, you can use `pip install pytest-runner` followed by `python setup.py pytest`.
+This project uses [pytest](https://docs.pytest.org/) to run tests for continuous integration.  It is also possible to use `pytest` to run tests locally, but this isn't recommended because it will take an extremely long time and some tests are specific to certain environments or scenarios that have additional dependencies.  However, if you'd like to do this anyway, to run all tests locally after installing the package you can use `pip install pytest pytest-xdist pytest-cov coverage[toml]` (as well as `pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm` for the dependencies to run all of our notebooks as tests) followed by `python -m pytest`.
 
-However, running all tests can be very time-consuming, so you may prefer to run just a relevant subset of tests when developing locally.  The easiest way to do this is to rely on `pytest`'s compatibility with `unittest`, so you can just run `python -m unittest econml.tests.test_module` to run all tests in a given module, or `python -m unittest econml.tests.test_module.TestClass` to run all tests in a given class.  You can also run `python -m unittest econml.tests.test_module.TestClass.test_method` to run a single test method.
+Because running all tests can be very time-consuming, we recommend running only the relevant subset of tests when developing locally.  The easiest way to do this is to rely on `pytest`'s compatibility with `unittest`, so you can just run `python -m unittest econml.tests.test_module` to run all tests in a given module, or `python -m unittest econml.tests.test_module.TestClass` to run all tests in a given class.  You can also run `python -m unittest econml.tests.test_module.TestClass.test_method` to run a single test method.
 
 ## Generating the documentation
 
@@ -789,9 +750,7 @@ BibTex:
 
 This project welcomes contributions and suggestions.  We use the [DCO bot](https://github.com/apps/dco) to enforce a [Developer Certificate of Origin](https://developercertificate.org/) which requires users to sign-off on their commits.  This is a simple way to certify that you wrote or otherwise have the right to submit the code you are contributing to the project.  Git provides a `-s` command line option to include this automatically when you commit via `git commit`.
 
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+If you forget to sign one of your commits, the DCO bot will provide specific instructions along with the failed check; alternatively you can use `git commit --amend -s` to add the sign-off to your last commit if you forgot it or `git rebase --signoff` to sign all of the commits in the branch, after which you can force push the changes to your branch with `git push --force-with-lease`.
 
 This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/governance/blob/main/CODE-OF-CONDUCT.md).
 

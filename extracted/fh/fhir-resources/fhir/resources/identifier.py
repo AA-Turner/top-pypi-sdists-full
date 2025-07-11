@@ -25,29 +25,31 @@ class Identifier(datatype.DataType):
     __resource_type__ = "Identifier"
 
     assigner: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="assigner",
         title="Organization that issued id (may be just text)",
         description="Organization that issued/manages the identifier.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Time period when id is/was valid for use",
         description="Time period during which identifier is/was valid for use.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     system: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="system",
         title="The namespace for the identifier value",
         description=(
@@ -56,14 +58,15 @@ class Identifier(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     system__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_system", title="Extension field for ``system``."
+        default=None, alias="_system", title="Extension field for ``system``."
     )
 
     type: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="Description of identifier",
         description=(
@@ -72,27 +75,29 @@ class Identifier(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     use: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="use",
         title="usual | official | temp | secondary | old (If known)",
         description="The purpose of this identifier.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
             "enum_values": ["usual", "official", "temp", "secondary", "old"],
         },
     )
     use__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_use", title="Extension field for ``use``."
+        default=None, alias="_use", title="Extension field for ``use``."
     )
 
     value: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="value",
         title="The value that is unique",
         description=(
@@ -101,17 +106,18 @@ class Identifier(datatype.DataType):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     value__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_value", title="Extension field for ``value``."
+        default=None, alias="_value", title="Extension field for ``value``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Identifier`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Identifier`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -123,3 +129,10 @@ class Identifier(datatype.DataType):
             "period",
             "assigner",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Identifier`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["use", "type", "system", "value", "period", "assigner"]

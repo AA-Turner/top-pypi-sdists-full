@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: trulens-core
-Version: 1.5.3
+Version: 2.0.1
 Summary: Library to systematically track and evaluate LLM based applications.
 License: MIT
 Author: Snowflake Inc.
@@ -31,7 +31,7 @@ Requires-Dist: python-dotenv (>=0.21,<2.0)
 Requires-Dist: requests (>=2.31,<3.0)
 Requires-Dist: rich (>=13.6.0,<14.0.0)
 Requires-Dist: sqlalchemy (>=2.0,<3.0)
-Requires-Dist: trulens-otel-semconv (>=1.4.9,<2.0.0)
+Requires-Dist: trulens-otel-semconv (>=2.0.0,<3.0.0)
 Requires-Dist: typing_extensions (>=4.9,<5.0)
 Requires-Dist: wrapt (>=1.17.0)
 Project-URL: Documentation, https://trulens.org/getting_started/

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fhir.resources
-Version: 8.0.0
+Version: 8.1.0
 Summary: FHIR Resources as Model Class
 Home-page: https://github.com/nazrulworld/fhir.resources
 Author: Md Nazrul Islam
@@ -32,13 +32,72 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
-Provides-Extra: yaml
-Provides-Extra: xml
-Provides-Extra: test
-Provides-Extra: dev
-Provides-Extra: all
 License-File: LICENSE
 License-File: AUTHORS.rst
+Requires-Dist: fhir-core>=1.1.3
+Provides-Extra: yaml
+Requires-Dist: PyYAML>=5.4.1; extra == "yaml"
+Provides-Extra: xml
+Requires-Dist: lxml; extra == "xml"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest>5.4.0; python_version >= "3.6" and extra == "test"
+Requires-Dist: pytest-cov>=2.10.0; python_version >= "3.6" and extra == "test"
+Requires-Dist: flake8==6.0; extra == "test"
+Requires-Dist: flake8-isort>=6.0.0; extra == "test"
+Requires-Dist: flake8-bugbear>=22.12.6; extra == "test"
+Requires-Dist: requests==2.23.0; python_version < "3.10" and extra == "test"
+Requires-Dist: isort>=5.11.4; extra == "test"
+Requires-Dist: black<24.0,>=23.0; python_version >= "3.7" and extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: types-PyYAML; extra == "test"
+Requires-Dist: types-simplejson; extra == "test"
+Requires-Dist: types-requests; extra == "test"
+Requires-Dist: setuptools==65.6.3; python_version >= "3.7" and extra == "test"
+Requires-Dist: importlib-metadata>=5.2.0; extra == "test"
+Requires-Dist: typed-ast>=1.5.4; extra == "test"
+Requires-Dist: pytest-runner; extra == "test"
+Requires-Dist: PyYAML>=5.4.1; extra == "test"
+Requires-Dist: lxml; extra == "test"
+Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: pytest>5.4.0; python_version >= "3.6" and extra == "dev"
+Requires-Dist: pytest-cov>=2.10.0; python_version >= "3.6" and extra == "dev"
+Requires-Dist: flake8==6.0; extra == "dev"
+Requires-Dist: flake8-isort>=6.0.0; extra == "dev"
+Requires-Dist: flake8-bugbear>=22.12.6; extra == "dev"
+Requires-Dist: requests==2.23.0; python_version < "3.10" and extra == "dev"
+Requires-Dist: isort>=5.11.4; extra == "dev"
+Requires-Dist: black<24.0,>=23.0; python_version >= "3.7" and extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-simplejson; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: setuptools==65.6.3; python_version >= "3.7" and extra == "dev"
+Requires-Dist: importlib-metadata>=5.2.0; extra == "dev"
+Requires-Dist: typed-ast>=1.5.4; extra == "dev"
+Requires-Dist: Jinja2==3.1.6; extra == "dev"
+Requires-Dist: MarkupSafe==2.1.5; extra == "dev"
+Requires-Dist: colorlog==2.10.0; extra == "dev"
+Requires-Dist: certifi; extra == "dev"
+Requires-Dist: fhirspec>=0.6.0; extra == "dev"
+Requires-Dist: zest-releaser[recommended]; extra == "dev"
+Provides-Extra: all
+Requires-Dist: PyYAML>=5.4.1; extra == "all"
+Requires-Dist: lxml; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===============================
 FHIR® Resources (R5, R4B, STU3)
@@ -146,7 +205,7 @@ Usages
     ...     "name": "Acme Corporation",
     ...     "address": [{"country": "Switzerland"}]
     ... }'''
-    >>> org = Organization.model_dump_json(json_str)
+    >>> org = Organization.model_validate_json(json_str)
     >>> isinstance(org.address[0], Address)
     True
     >>> org.address[0].country == "Switzerland"
@@ -723,6 +782,26 @@ Examples::
     >>> importlib.reload(ftypes)
 
 
+FHIR ``summary`` search support
+-------------------------------
+This package is providing supporting ´´summary mode´´ activated serialization, meaning that you will not need to do extra, if you are planning to support `summary search <https://www.hl7.org/fhir/search.html#_summary>`_
+
+Example::
+
+    >>> from fhir.resources.organization import Organization
+    >>> json_str = '''{"resourceType": "Organization",
+    ...     "text": {"status": "generated", "div": "<p>summary example</p>"}
+    ...     "id": "f001",
+    ...     "active": True,
+    ...     "name": "Acme Corporation"
+    ... }'''
+    >>> org = Organization.model_validate_json(json_str)
+    >>> summary_dict = org.model_dump(summary_only=True)
+    >>> "text" not in summary_dict
+    True
+    >>> "active" in summary_dict
+    True
+    >>> "name" in summary_dict
 
 FHIR release R4B over R4
 ------------------------
@@ -856,6 +935,19 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 =======
 History
 =======
+
+8.1.0 (2025-07-10)
+------------------
+
+New features
+
+- Issue #181 ``summary`` (https://www.hl7.org/fhir/search.html#_summary) mode feature added.
+
+Fixes
+
+- Issue #184 pyright struggles with default position args.
+- Issue #186 missing py.typed marker, causing mypy import errors.
+- Issue #183 Pydantic 2.11+ Deprecation Warnings: model_fields Should Be Accessed on Class, Not Instance.
 
 8.0.0 (2024-12-25)
 ------------------

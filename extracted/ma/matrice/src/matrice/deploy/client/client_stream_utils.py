@@ -100,7 +100,7 @@ class ClientStreamUtils:
     def _get_video_properties(self, cap: cv2.VideoCapture) -> Dict:
         """Get video properties including original FPS."""
         properties = {
-            "original_fps": cap.get(cv2.CAP_PROP_FPS),
+            "original_fps": float(round(cap.get(cv2.CAP_PROP_FPS),2)),
             "frame_count": cap.get(cv2.CAP_PROP_FRAME_COUNT),
             "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
@@ -111,14 +111,28 @@ class ClientStreamUtils:
         """Get high precision timestamp with microsecond granularity."""
         return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-    def _calculate_video_timestamp(self, stream_key: str, frame_number: int, fps: float) -> float:
-        """Calculate video timestamp from start of video (starting at 0)."""
+    def _calculate_video_timestamp(self, stream_key: str, frame_number: int, fps: float) -> str:
+        """Calculate video timestamp from start of video.
+
+        The timestamp is returned in human-readable ``HH:MM:SS:mmm`` format
+        where *mmm* represents milliseconds.  This makes it easier to locate
+        frames in recordings that are longer than 60 seconds.
+        """
+        # Lazily initialise the start-time dictionary to keep backward
+        # compatibility even though it is no longer used for formatting.
         if stream_key not in self.video_start_times:
             self.video_start_times[stream_key] = time.time()
-        
-        # Calculate timestamp based on frame number and FPS
-        video_timestamp = frame_number / fps
-        return video_timestamp
+
+        # Calculate the elapsed time in seconds since the beginning of the
+        # video based solely on frame number and FPS.
+        total_seconds = frame_number / fps if fps else 0.0
+
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        milliseconds = int(round((total_seconds - int(total_seconds)) * 1000))
+
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
 
     def _handle_frame_read_failure(
         self, input: Union[str, int], cap: cv2.VideoCapture, retry_count: int, max_retries: int,
@@ -383,10 +397,10 @@ class ClientStreamUtils:
             enhanced_metadata = {
                 "stream_info": {
                     "fps": metadata.get("fps", 30),
-                    "original_fps": str(round(float(metadata.get("original_fps", metadata.get("fps", 30))),2)),  # Added original FPS
+                    "original_fps": metadata.get("original_fps", metadata.get("fps", 30)),  # Added original FPS
                     "frame_sample_rate": metadata.get("frame_sample_rate", 1.0),  # Added frame sample rate
                     "stream_time": metadata.get("stream_time", self._get_high_precision_timestamp()),  # Use high precision timestamp
-                    "video_timestamp": str(round(float(metadata.get("video_timestamp", 0.0)),3)),  # Added video timestamp
+                    "video_timestamp": metadata.get("video_timestamp", 0.0),  # Added video timestamp
                     "input_settings": {
                         "video_file": metadata.get("video_file"),
                         "camera_id": metadata.get("camera_id"),

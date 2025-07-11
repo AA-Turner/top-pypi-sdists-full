@@ -73,6 +73,7 @@ try:
     _PACKAGE_DISTRIBUTIONS: Mapping[
         str, Sequence[str]
     ] = importlib_metadata.packages_distributions()
+
 except AttributeError:
     _PACKAGE_DISTRIBUTIONS: Mapping[str, Sequence[str]] = {}
 
@@ -89,6 +90,13 @@ try:
     AutogenRunResponse = run_response.RunResponse
 except ImportError:
     AutogenRunResponse = Any
+
+try:
+    import pydantic
+
+    BaseModel = pydantic.BaseModel
+except ImportError:
+    BaseModel = Any
 
 JsonDict = Dict[str, Any]
 
@@ -276,7 +284,7 @@ def to_json_serializable_autogen_object(
     obj: Union[
         AutogenChatResult,
         AutogenRunResponse,
-    ]
+    ],
 ) -> JsonDict:
     """Converts an Autogen object to a JSON serializable object.
 
@@ -362,28 +370,29 @@ def parse_constraints(
 def validate_requirements_or_warn(
     obj: Any,
     requirements: List[str],
+    logger: base.Logger = LOGGER,
 ) -> Mapping[str, str]:
     """Compiles the requirements into a list of requirements."""
     requirements = requirements.copy()
     try:
         current_requirements = scan_requirements(obj)
-        LOGGER.info(f"Identified the following requirements: {current_requirements}")
+        logger.info(f"Identified the following requirements: {current_requirements}")
         constraints = parse_constraints(requirements)
         missing_requirements = compare_requirements(current_requirements, constraints)
         for warning_type, warnings in missing_requirements.get(
             _WARNINGS_KEY, {}
         ).items():
             if warnings:
-                LOGGER.warning(
+                logger.warning(
                     f"The following requirements are {warning_type}: {warnings}"
                 )
         for action_type, actions in missing_requirements.get(_ACTIONS_KEY, {}).items():
             if actions and action_type == _ACTION_APPEND:
                 for action in actions:
                     requirements.append(action)
-                LOGGER.info(f"The following requirements are appended: {actions}")
+                logger.info(f"The following requirements are appended: {actions}")
     except Exception as e:
-        LOGGER.warning(f"Failed to compile requirements: {e}")
+        logger.warning(f"Failed to compile requirements: {e}")
     return requirements
 
 
@@ -606,6 +615,14 @@ def is_noop_or_proxy_tracer_provider(tracer_provider) -> bool:
     ProxyTracerProvider = opentelemetry.trace.ProxyTracerProvider
     NoOpTracerProvider = opentelemetry.trace.NoOpTracerProvider
     return isinstance(tracer_provider, (NoOpTracerProvider, ProxyTracerProvider))
+
+
+def dump_event_for_json(event: BaseModel) -> Dict[str, Any]:
+    """Dumps an ADK event to a JSON-serializable dictionary."""
+    return event.model_dump(
+        exclude_none=True,
+        exclude={"content": {"parts": {"__all__": {"thought_signature"}}}},
+    )
 
 
 def _import_cloud_storage_or_raise() -> types.ModuleType:

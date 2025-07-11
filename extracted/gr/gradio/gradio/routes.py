@@ -64,6 +64,7 @@ from starlette.responses import RedirectResponse
 
 import gradio
 from gradio import ranged_response, route_utils, utils, wasm_utils
+from gradio.brotli_middleware import BrotliMiddleware
 from gradio.context import Context
 from gradio.data_classes import (
     CancelBody,
@@ -405,6 +406,11 @@ class App(FastAPI):
 
         if not wasm_utils.IS_WASM:
             app.add_middleware(CustomCORSMiddleware, strict_cors=strict_cors)
+            app.add_middleware(
+                BrotliMiddleware,
+                quality=4,
+                excluded_handlers=[mcp_subpath],
+            )
 
         if ssr_mode:
 
@@ -459,7 +465,11 @@ class App(FastAPI):
             if (app.auth is None and app.auth_dependency is None) or user is not None:
                 return
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": "Not authenticated",
+                    "auth_message": blocks.auth_message,
+                },
             )
 
         @router.get("/token")
@@ -670,7 +680,11 @@ class App(FastAPI):
                 config["current_page"] = page
             elif app.auth_dependency:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail={
+                        "error": "Not authenticated",
+                        "auth_message": blocks.auth_message,
+                    },
                 )
             else:
                 config = {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: safir
-Version: 11.0.0
+Version: 11.1.0
 Summary: The Rubin Observatory SQuaRE framework for FastAPI services.
 Author-email: "Association of Universities for Research in Astronomy, Inc. (AURA)" <sqre-admin@lists.lsst.org>
 License-Expression: MIT

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.4.41
+Version: 0.4.42
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -44,6 +44,7 @@ Requires-Dist: bs4
 Requires-Dist: markdown
 Requires-Dist: pandas
 Requires-Dist: openpyxl
+Requires-Dist: coverage
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
@@ -149,7 +150,7 @@ next non-indented command.
    # Configure multiple projects
    web app setup-app:
        --project web.site --home reader
-       --project web.nav
+       --project web.nav --style random
        --project games.qpig --home qpig-farm
 
    # Start the server

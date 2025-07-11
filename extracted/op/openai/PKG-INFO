@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openai
-Version: 1.93.3
+Version: 1.95.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -46,7 +46,8 @@ Description-Content-Type: text/markdown
 
 # OpenAI Python API library
 
-[![PyPI version](https://github.com/openai/openai-python/tree/main/<https://img.shields.io/pypi/v/openai.svg?label=pypi%20(stable)>)](https://pypi.org/project/openai/)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/openai.svg?label=pypi%20(stable))](https://pypi.org/project/openai/)
 
 The OpenAI Python library provides convenient access to the OpenAI REST API from any Python 3.8+
 application. The library includes type definitions for all request params and response fields,

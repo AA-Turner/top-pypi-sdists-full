@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas-gbq
-Version: 0.29.1
+Version: 0.29.2
 Summary: Google BigQuery connector for pandas
 Home-page: https://github.com/googleapis/python-bigquery-pandas
 Author: pandas-gbq authors
@@ -14,15 +14,15 @@ Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 License-File: AUTHORS.md
 Requires-Dist: setuptools

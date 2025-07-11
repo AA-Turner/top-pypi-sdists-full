@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: asammdf
-Version: 8.5.4
+Version: 8.6.0
 Summary: ASAM MDF measurement data file parser
 Keywords: read,reader,edit,editor,parse,parser,asam,mdf,measurement
 Author-Email: Daniel Hrisca <daniel.hrisca@gmail.com>

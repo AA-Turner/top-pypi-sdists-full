@@ -1,10 +1,11 @@
 from math import sqrt, sin, acos, pi, cos, floor
+from math import hypot
 from panda3d.core import Vec4, LVector3f
 from ursina.vec2 import Vec2
 from ursina.vec3 import Vec3
 from ursina import color
 from ursina.color import Color
-internal_sum = sum
+_sum = sum
 
 
 def distance(a, b):
@@ -56,11 +57,21 @@ def lerp(a, b, t):
         else:
             return type(a)(*lerped)
     else:
-        print(f'''can't lerp types {type(a)} and {type(b)}''')
+        raise TypeError(f'''can't lerp types {type(a)} and {type(b)}''')
+
+def inverselerp(a, b, value):   # get *where* between a and b, value is (0.0 - 1.0)
+    if a == b:
+        return .5
+    return (value - a) / (b - a)
+
+if __name__ == '__main__':
+    from ursina.ursinastuff import _test
+    _test(inverselerp(0, 100, 50) == .5)
+    _test(lerp(0, 100, .5) == 50)
 
 
-def inverselerp(a, b, t) :
-    return (a - b) / (t - b)
+def lerp_exponential_decay(a, b, decay_rate):    # frame-rate independent lerp for use in update. use this instead of lerp(a, b, time.dt) in update.
+    return lerp(a, b, 1 - pow(0.01, decay_rate))
 
 
 def lerp_angle(start_angle, end_angle, t):
@@ -74,24 +85,29 @@ def lerp_angle(start_angle, end_angle, t):
 
 def slerp(q1, q2, t):
     costheta = q1.dot(q2)
+
+    # ensure shortest path by flipping q2 if dot product is negative
     if costheta < 0.0:
+        q2 = -q2
         costheta = -costheta
-        q1 = q1.conjugate()
-    elif costheta > 1.0:
-        costheta = 1.0
+
+    costheta = clamp(costheta, -1.0, 1.0)   # ensure valid range for acos
 
     theta = acos(costheta)
-    if abs(theta) < 0.01:
+    if abs(theta) < 0.0001:
         return q2
 
     sintheta = sqrt(1.0 - costheta * costheta)
-    if abs(sintheta) < 0.01:
-        return (q1+q2)*0.5
+    if abs(sintheta) < 0.0001:
+        return (q1 + q2) * 0.5
 
     r1 = sin((1.0 - t) * theta) / sintheta
     r2 = sin(t * theta) / sintheta
-    return (q1*r1) + (q2*r2)
+    return (q1 * r1) + (q2 * r2)
 
+
+def slerp_exponential_decay(q1, q2, decay_rate):    # frame-rate independent version of slerp for use in update.
+    return slerp(q1, q2, 1 - pow(0.01, decay_rate))
 
 
 def clamp(value, floor, ceiling):
@@ -128,7 +144,7 @@ def world_position_to_screen_position(point): # get screen position(ui space) fr
 
 def sum(l):
     try:
-        return internal_sum(l)
+        return _sum(l)
     except:
         pass
 
@@ -139,30 +155,46 @@ def sum(l):
     return total
 
 
-def make_gradient(index_color_dict):    # returns a list of 256 colors
+def make_gradient(index_value_dict):
     '''
-    given a dict of positions and colors, interpolates the colors into a list of 256 colors
+    given a dict of positions and values (usually colors), interpolates the values into a list of with the interpolated values.
     example input: {'0':color.hex('#9d9867'), '38':color.hex('#828131'), '54':color.hex('#5d5b2a'), '255':color.hex('#000000')}
     '''
-    gradient = [color.black for i in range(256)]
+    min_index = min(int(e) for e in index_value_dict.keys())
+    max_index = max(int(e) for e in index_value_dict.keys())
+    # default_value = index_value_dict.values()[0]
+    # print('-------------', tuple(index_value_dict.values())[0])
+    gradient = [None for _ in range(max_index+1-min_index)]
 
-    gradient_color_keys = tuple(index_color_dict.keys())
-    gradient_color_values = tuple(index_color_dict.values())
+    sorted_dict = [(idx, index_value_dict[str(idx)]) for idx in sorted([int(key) for key in index_value_dict.keys()])]
+    # print(sorted_dict)
 
-    for i in range(len(gradient_color_values)):
-        from_col = color.hex(gradient_color_values[i-1])
-        to_col = color.hex(gradient_color_values[i])
-
-        from_num = 0
-        if i > 0:
-            from_num = int(gradient_color_keys[i-1])
-        to_num = int(gradient_color_keys[i])
-        dist = to_num - from_num
-
-        for j in range(dist):
-            gradient[from_num+j] = lerp(from_col, to_col, j/dist)
+    for i in range(len(sorted_dict)-1):
+        start_index, start_value = sorted_dict[i]
+        next_index, next_value = sorted_dict[i+1]
+        # print(start_index, '-->', next_index, ':', start_value, '-->', next_value)
+        dist = next_index - start_index
+        for j in range(dist+1):
+            gradient[start_index+j-min_index] = lerp(start_value, next_value, j/dist)
 
     return gradient
+
+if __name__ == '__main__':
+    _test(make_gradient({'0':color.hex('#ff0000ff'), '2':color.hex('#ffffffff')}) == [
+        color.hex('#ff0000ff'),
+        lerp(color.hex('#ff0000ff'), color.hex('#ffffffff'), .5),
+        color.hex('#ffffffff'),
+        ])
+    _test(make_gradient({'0':color.hex('#ff0000ff'), '4':color.hex('#ffffffff')}) == [
+        color.hex('#ff0000ff'),
+        lerp(color.hex('#ff0000ff'), color.hex('#ffffffff'), .25),
+        lerp(color.hex('#ff0000ff'), color.hex('#ffffffff'), .5),
+        lerp(color.hex('#ff0000ff'), color.hex('#ffffffff'), .75),
+        color.hex('#ffffffff'),
+        ])
+    _test(make_gradient({'0':16, '2':0}) == [16, 8, 0])
+
+    _test(make_gradient({'6':0, '8':8}) == [0, 4, 8])
 
 
 def sample_gradient(list_of_values, t):     # distribute list_of_values equally on a line and get the interpolated value at t (0-1).
@@ -183,23 +215,39 @@ def sample_gradient(list_of_values, t):     # distribute list_of_values equally 
 
 
 
-
-
 class Bounds:
     __slots__ = ['start', 'end', 'center', 'size']
-    def __init__(self, start, end, center, size):
-        self.start = start
-        self.end = end
-        self.center = center
-        self.size = size
+
+    def __init__(self, *, start:Vec3=None, end:Vec3=None, center:Vec3=None, size:Vec3=None):
+        if start is not None and end is not None:
+            self.start = start
+            self.end = end
+            self.size = end - start
+            self.center = start + (self.size * 0.5)
+
+        elif center is not None and size is not None:
+            self.center = center
+            self.size = size
+            half = size * 0.5
+            self.start = center - half
+            self.end = center + half
+
+        else:
+            raise ValueError("Must provide either (start and end) or (center and size)")
+
+    def __repr__(self):
+        return f"Bounds(start={self.start}, end={self.end}, center={self.center}, size={self.size})"
 
 
 if __name__ == '__main__':
     from ursina import *
+    from ursinastuff import _test
     app = Ursina()
     e1 = Entity(position = (0,0,0))
     e2 = Entity(position = (0,1,1))
-    distance(e1, e2)
+    _test(distance(e1, e2) == 1.4142135623730951)
+    _test(distance_2d(Vec2(0,0), Vec2(1,1)) == 1.4142135623730951)
+
     distance_xz(e1, e2.position)
 
     between_color = lerp(color.lime, color.magenta, .5)

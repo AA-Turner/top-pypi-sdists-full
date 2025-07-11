@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dune_client
-Version: 1.7.9
+Version: 1.7.10
 Summary: A simple framework for interacting with Dune Analytics official API service.
 Home-page: https://github.com/duneanalytics/dune-client
 Author: Benjamin H. Smith & Dune Analytics

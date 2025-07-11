@@ -101,6 +101,11 @@ def handle_possible_implicit_file(implicit_file):
             "remote_path": f"/scratch/{remote_rel_dir}{remote_base}",
             "content": file_content,
         }
+    elif any(implicit_file.endswith(t) for t in UPLOAD_FILE_TYPES):
+        console.print(
+            f"[orange1]WARNING:[/orange1] {implicit_file} appears to be a filename, "
+            "but this file not found locally and will not be copied to VMs",
+        )
 
 
 def search_content_for_implicit_files(f: dict):
@@ -285,6 +290,46 @@ def get_kwargs_from_header(f: dict, click_params: list):
 )
 # batch specific options
 @click.option(
+    "--map-over-values",
+    default=None,
+    type=str,
+    help=(
+        "A list of values such that for each value, a task will be run with that value as the input. "
+        "If you specify ``--map-over-values 'first,second,third'``, then batch will run three tasks with inputs "
+        "'first', 'second', and 'third'. By default the input is passed to the task in the ``COILED_BATCH_TASK_INPUT`` "
+        "environment variable, so one task will get ``COILED_BATCH_TASK_INPUT=first`` and so on."
+    ),
+)
+@click.option(
+    "--map-over-file",
+    default=None,
+    type=str,
+    help=(
+        "Like ``--map-over--values``, but instead of specifying the string of values directly, you specify the path "
+        "to a file with the values. Note that by default, each line in the file is treated as an individual value; "
+        "this can be controlled with the ``--map-over-delimiter`` option."
+    ),
+)
+@click.option(
+    "--map-over-input-var",
+    default=None,
+    type=str,
+    help=(
+        "The value from --map-over-values or --map-over-files is exposed to the task as an environment variable. "
+        "By default, the environment variable is ``COILED_BATCH_TASK_INPUT``, but you can specify a different "
+        "name for the environment variable using this option."
+    ),
+)
+@click.option(
+    "--map-over-delimiter",
+    default=None,
+    type=str,
+    help=(
+        "Delimiter for splitting the string from ``--map-over-values`` or the file contents from ``--map-over-file`` "
+        "into individual values. By default this is ',' for ``--map-over-values`` and newline for ``--map-over-file``."
+    ),
+)
+@click.option(
     "--ntasks",
     "--n-tasks",
     default=None,
@@ -324,8 +369,11 @@ def get_kwargs_from_header(f: dict, click_params: list):
     "--max-workers",
     "-N",
     default=None,
-    type=click.IntRange(1),
-    help="Maximum number of worker nodes (by default, there will be as many worker nodes as tasks).",
+    type=click.IntRange(-1),
+    help=(
+        "Maximum number of worker nodes. "
+        "By default, there will be as many worker nodes as tasks, up to 1000; use -1 to explicitly request no limit."
+    ),
 )
 @click.option(
     "--wait-for-ready-cluster", default=False, is_flag=True, help="Only assign tasks once full cluster is ready."
@@ -395,6 +443,15 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
     # Handle command as string case (e.g. `coiled batch run "python myscript.py"`)
     if len(command) == 1:
         command = shlex.split(command[0])
+        # unescape $ so that if someone has `echo "FOO is \$FOO"` this will be run as `echo "FOO is $FOO"`
+        command = [
+            part.replace(
+                r"\$",
+                "$",
+            )
+            for part in command
+        ]
+
     # if user tries `coiled batch run foo.py --bar` they probably want to
     # run `python foo.py --bar` rather than `foo.py --bar`
     if command[0].endswith(".py"):
@@ -424,6 +481,61 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
                 kwargs[key] = val
             elif isinstance(val, list) and isinstance(kwargs[key], (list, tuple)):
                 kwargs[key] = [*kwargs[key], *val]
+
+    task_env_for_job_spec = {}
+
+    if kwargs.get("map_over_task_var_dicts"):
+        # for the Python API, you can explicitly specify multiple environment variables and values per task
+        # e.g., map_over_task_var_dicts=[{"FOO": "1", "BAR": "2"}, {"FOO": "3", "BAR": "4"}]
+        # will run two tasks, the first will have FOO=1 BAR=2, the second will have FOO=3 BAR=4
+
+        if (
+            kwargs.get("map_over_values")
+            or kwargs.get("map_over_file")
+            or kwargs["ntasks"] is not None
+            or kwargs["array"] is not None
+        ):
+            raise ValueError(
+                "`map_over_task_var_dicts` keyword argument cannot be combined with "
+                "map_over_values, map_over_file, n_tasks, or array keyword arguments"
+            )
+
+        task_env_for_job_spec = {"task_map_env_vars_and_vals": kwargs["map_over_task_var_dicts"]}
+        kwargs["ntasks"] = len(kwargs["map_over_task_var_dicts"])
+
+    elif kwargs.get("map_over_values") or kwargs.get("map_over_file") or kwargs.get("map_over_split_values"):
+        if kwargs["ntasks"] is not None:
+            raise ValueError("You cannot specify ntasks while using map-over (tasks are determined by map inputs)")
+        if kwargs["array"] is not None:
+            raise ValueError("You cannot specify array while using map-over (tasks are determined by map inputs)")
+        if (kwargs.get("map_over_values") or kwargs.get("map_over_split_values")) and kwargs.get("map_over_file"):
+            raise ValueError("You cannot specify both map-over-values and map-over-file")
+
+        if kwargs.get("map_over_split_values"):
+            # for the Python API, we get a list rather than a string that needs to be split
+            input_values = kwargs["map_over_split_values"]
+        else:
+            default_delim = ","
+            raw_map_input = kwargs.get("map_over_values")
+            if kwargs.get("map_over_file"):
+                default_delim = "\n"
+                with open(kwargs["map_over_file"]) as f:
+                    raw_map_input = f.read()
+
+            if not raw_map_input:
+                raise ValueError("No values to map over")
+
+            delim = kwargs.get("map_over_delimiter") or default_delim
+            # strip so that (eg) \n at end of a file won't result in a final empty input value
+            input_values = raw_map_input.rstrip(delim).split(delim)
+
+        input_var_name = kwargs.get("map_over_input_var") or "COILED_BATCH_TASK_INPUT"
+
+        task_env_for_job_spec = {
+            "task_map_env_var": input_var_name,
+            "task_map_env_vals": input_values,
+        }
+        kwargs["ntasks"] = len(input_values)
 
     # extra parsing/validation of options
     if kwargs["ntasks"] is not None and kwargs["array"] is not None:
@@ -457,7 +569,9 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         min_task_id = min(*job_array_ids)
         job_array_kwargs = {"task_array": job_array_ids}
 
-    max_workers = kwargs["max_workers"]
+    # default to limit of 1000 VMs, use -1 to explicitly ask for no limit
+    max_workers = None if kwargs["max_workers"] == -1 else kwargs["max_workers"] or 1000
+
     n_tasks_on_workers = n_tasks - 1 if kwargs["task_on_scheduler"] else n_tasks
     n_task_workers = n_tasks_on_workers if max_workers is None else min(n_tasks_on_workers, max_workers)
 
@@ -626,25 +740,27 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         # user explicitly requested scheduler vm type, so override whatever would be default
         cluster_kwargs["scheduler_vm_types"] = kwargs["scheduler_vm_type"]
 
+    # Create a job
+    job_spec = {
+        "user_command": " ".join(command),  # don't use shlex because we don't things like `$foo` or `&&` escaped
+        "user_files": user_files,
+        **job_array_kwargs,
+        "scheduler_task_array": scheduler_task_ids,
+        "env_vars": job_env_vars,
+        "secret_env_vars": job_secret_vars,
+        **task_env_for_job_spec,
+        "wait_for_ready_cluster": kwargs["wait_for_ready_cluster"],
+        # For non-prefect batch jobs, set workdir to the same place
+        # where user's local files are copied onto the cloud VM.
+        # Avoid possibly breaking prefect batch jobs
+        # https://github.com/coiled/platform/pull/8655#pullrequestreview-2826448869
+        "workdir": None if "flow-run-id" in tags else "/scratch/batch",
+        "host_setup": host_setup_content,
+        "job_timeout_seconds": parse_timedelta(kwargs["job_timeout"]) if kwargs["job_timeout"] else None,
+    }
+
     with coiled.Cloud(workspace=kwargs["workspace"]) as cloud:
-        # Create a job
-        job_spec = {
-            "user_command": shlex.join(command),
-            "user_files": user_files,
-            "workspace": cloud.default_workspace,
-            **job_array_kwargs,
-            "scheduler_task_array": scheduler_task_ids,
-            "env_vars": job_env_vars,
-            "secret_env_vars": job_secret_vars,
-            "wait_for_ready_cluster": kwargs["wait_for_ready_cluster"],
-            # For non-prefect batch jobs, set workdir to the same place
-            # where user's local files are copied onto the cloud VM.
-            # Avoid possibly breaking prefect batch jobs
-            # https://github.com/coiled/platform/pull/8655#pullrequestreview-2826448869
-            "workdir": None if "flow-run-id" in tags else "/scratch/batch",
-            "host_setup": host_setup_content,
-            "job_timeout_seconds": parse_timedelta(kwargs["job_timeout"]) if kwargs["job_timeout"] else None,
-        }
+        job_spec["workspace"] = cloud.default_workspace
 
         url = f"{cloud.server}/api/v2/jobs/"
         response = sync_request(
@@ -668,7 +784,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
         if logger:
             message = f"""
-Command:     {shlex.join(command)}
+Command:     {" ".join(command)}
 Cluster ID:  {cluster.cluster_id}
 URL:         {cluster.details_url}
 Tasks:       {n_tasks}
@@ -685,7 +801,7 @@ Tasks:       {n_tasks}
             else:
                 status_command = f"coiled.batch.status({cluster.cluster_id})"
             message = f"""
-[bold]Command[/]:     [bright_blue]{shlex.join(command)}[/]
+[bold]Command[/]:     [bright_blue]{" ".join(command)}[/]
 [bold]Cluster ID[/]:  [bright_blue]{cluster.cluster_id}[/]
 [bold]URL[/]:         [link][bright_blue]{cluster.details_url}[/bright_blue][/link]
 [bold]Tasks[/]:       [bright_blue]{n_tasks}[/]

@@ -213,6 +213,7 @@ class BeakerJobPriority(IntEnum):
     normal = pb2.JobPriority.JOB_PRIORITY_NORMAL
     high = pb2.JobPriority.JOB_PRIORITY_HIGH
     urgent = pb2.JobPriority.JOB_PRIORITY_URGENT
+    immediate = pb2.JobPriority.JOB_PRIORITY_IMMEDIATE
 
 
 class BeakerWorkloadType(IntEnum):

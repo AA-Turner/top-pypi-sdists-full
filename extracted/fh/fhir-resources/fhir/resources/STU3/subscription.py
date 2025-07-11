@@ -30,7 +30,7 @@ class Subscription(domainresource.DomainResource):
     __resource_type__ = "Subscription"
 
     channel: fhirtypes.SubscriptionChannelType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="channel",
         title="The channel on which to report matches to the criteria",
         description=(
@@ -39,11 +39,12 @@ class Subscription(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     contact: typing.List[fhirtypes.ContactPointType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contact",
         title="Contact details for source (e.g. troubleshooting)",
         description=(
@@ -52,11 +53,12 @@ class Subscription(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     criteria: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="criteria",
         title="Rule for server push criteria",
         description=(
@@ -65,28 +67,30 @@ class Subscription(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     criteria__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_criteria", title="Extension field for ``criteria``."
+        default=None, alias="_criteria", title="Extension field for ``criteria``."
     )
 
     end: fhirtypes.InstantType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="end",
         title="When to automatically delete the subscription",
         description="The time for the server to turn the subscription off.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     end__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_end", title="Extension field for ``end``."
+        default=None, alias="_end", title="Extension field for ``end``."
     )
 
     error: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="error",
         title="Latest error note",
         description=(
@@ -95,28 +99,30 @@ class Subscription(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     error__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_error", title="Extension field for ``error``."
+        default=None, alias="_error", title="Extension field for ``error``."
     )
 
     reason: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="reason",
         title="Description of why this subscription was created",
         description="A description of why this subscription is defined.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     reason__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_reason", title="Extension field for ``reason``."
+        default=None, alias="_reason", title="Extension field for ``reason``."
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="requested | active | error | off",
         description=(
@@ -125,6 +131,7 @@ class Subscription(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -132,11 +139,11 @@ class Subscription(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     tag: typing.List[fhirtypes.CodingType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="tag",
         title="A tag to add to matching resources",
         description=(
@@ -145,14 +152,15 @@ class Subscription(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Subscription`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Subscription`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -163,6 +171,25 @@ class Subscription(domainresource.DomainResource):
             "contained",
             "extension",
             "modifierExtension",
+            "status",
+            "contact",
+            "end",
+            "reason",
+            "criteria",
+            "error",
+            "channel",
+            "tag",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Subscription`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
             "status",
             "contact",
             "end",
@@ -202,33 +229,35 @@ class SubscriptionChannel(backboneelement.BackboneElement):
     __resource_type__ = "SubscriptionChannel"
 
     endpoint: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="endpoint",
         title="Where the channel points to",
         description="The uri that describes the actual end-point to send messages to.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     endpoint__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_endpoint", title="Extension field for ``endpoint``."
+        default=None, alias="_endpoint", title="Extension field for ``endpoint``."
     )
 
     header: typing.List[fhirtypes.StringType | None] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="header",
         title="Usage depends on the channel type",
         description="Additional headers / information to send as part of the notification.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     header__ext: typing.List[fhirtypes.FHIRPrimitiveExtensionType | None] | None = Field(  # type: ignore
-        None, alias="_header", title="Extension field for ``header``."
+        default=None, alias="_header", title="Extension field for ``header``."
     )
 
     payload: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="payload",
         title="Mimetype to send, or omit for no payload",
         description=(
@@ -238,19 +267,21 @@ class SubscriptionChannel(backboneelement.BackboneElement):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     payload__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_payload", title="Extension field for ``payload``."
+        default=None, alias="_payload", title="Extension field for ``payload``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="rest-hook | websocket | email | sms | message",
         description="The type of channel to send notifications on.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -258,14 +289,14 @@ class SubscriptionChannel(backboneelement.BackboneElement):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``SubscriptionChannel`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``SubscriptionChannel`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -276,6 +307,13 @@ class SubscriptionChannel(backboneelement.BackboneElement):
             "payload",
             "header",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``SubscriptionChannel`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension", "type", "endpoint", "payload", "header"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

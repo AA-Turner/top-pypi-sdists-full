@@ -21,15 +21,14 @@ from analytical.utils import (
 
 
 class SettingDeletedTestCase(TestCase):
-
     @override_settings(USER_ID=None)
     def test_get_required_setting(self):
         """
         Make sure using get_required_setting fails in the right place.
         """
 
-        with pytest.raises(AnalyticalException, match="USER_ID setting is not set"):
-            get_required_setting("USER_ID", r"\d+", "invalid USER_ID")
+        with pytest.raises(AnalyticalException, match='USER_ID setting is not set'):
+            get_required_setting('USER_ID', r'\d+', 'invalid USER_ID')
 
 
 class MyUser(AbstractBaseUser):
@@ -46,8 +45,31 @@ class GetIdentityTestCase(TestCase):
         get_id = get_identity(Context({}), user=MyUser(identity='fake_id'))
         assert get_id == 'fake_id'
 
+    def test_custom_identity_specific_provider(self):
+        get_id = get_identity(
+            Context(
+                {
+                    'foo_provider_identity': 'bar',
+                    'analytical_identity': 'baz',
+                }
+            ),
+            prefix='foo_provider',
+        )
+        assert get_id == 'bar'
 
-@override_settings(ANALYTICAL_DOMAIN="example.org")
+    def test_custom_identity_general(self):
+        get_id = get_identity(
+            Context(
+                {
+                    'analytical_identity': 'baz',
+                }
+            ),
+            prefix='foo_provider',
+        )
+        assert get_id == 'baz'
+
+
+@override_settings(ANALYTICAL_DOMAIN='example.org')
 class GetDomainTestCase(TestCase):
     def test_get_service_domain_from_context(self):
         context = Context({'test_domain': 'example.com'})
@@ -57,7 +79,7 @@ class GetDomainTestCase(TestCase):
         context = Context({'analytical_domain': 'example.com'})
         assert get_domain(context, 'test') == 'example.com'
 
-    @override_settings(TEST_DOMAIN="example.net")
+    @override_settings(TEST_DOMAIN='example.net')
     def test_get_service_domain_from_settings(self):
         context = Context()
         assert get_domain(context, 'test') == 'example.net'
@@ -79,7 +101,6 @@ class GetDomainTestCase(TestCase):
 
 
 class InternalIpTestCase(TestCase):
-
     @override_settings(ANALYTICAL_INTERNAL_IPS=['1.1.1.1'])
     def test_render_no_internal_ip(self):
         context = Context()

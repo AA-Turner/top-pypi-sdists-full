@@ -93,7 +93,7 @@ class NameRecord(AttrDictMixin):
 
 class WidthClass(IntEnum):
     ULTRA_CONDENSED = 1
-    EXTRA_CONDESED = 2
+    EXTRA_CONDENSED = 2
     CONDENSED = 3
     SEMI_CONDENSED = 4
     NORMAL = 5  # alias for WidthClass.MEDIUM
@@ -138,7 +138,7 @@ def _convert_WidthClass(value: int | None) -> WidthClass | None:
 
 
 def _convert_WoffMetadataExtensions(
-    values: Sequence[WoffMetadataExtension | Mapping[str, Any]] | None
+    values: Sequence[WoffMetadataExtension | Mapping[str, Any]] | None,
 ) -> list[WoffMetadataExtension] | None:
     return _convert_optional_list_of_dicts(WoffMetadataExtension, values)
 

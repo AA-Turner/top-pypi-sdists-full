@@ -24,29 +24,38 @@ class Range(element.Element):
     __resource_type__ = "Range"
 
     high: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="high",
         title="High limit",
         description="The high limit. The boundary is inclusive.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     low: fhirtypes.QuantityType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="low",
         title="Low limit",
         description="The low limit. The boundary is inclusive.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Range`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Range`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "low", "high"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Range`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["low", "high"]

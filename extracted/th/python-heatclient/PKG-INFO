@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-heatclient
-Version: 4.2.0
+Version: 4.3.0
 Summary: OpenStack Orchestration API Client Library
 Home-page: https://docs.openstack.org/python-heatclient/latest
 Author: OpenStack
@@ -14,13 +14,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: cliff>=2.8.0

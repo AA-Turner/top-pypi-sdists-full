@@ -15,7 +15,6 @@ https://arxiv.org/abs/1905.10176
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import LinearRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.dummy import DummyClassifier
@@ -25,13 +24,12 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import (StatsModelsCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
                                 ForestModelFinalCateEstimatorMixin, GenericSingleTreatmentModelFinalInference,
                                 LinearCateEstimator)
-from ...inference import StatsModelsInference
-from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, WeightedStratifiedKFold
-from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwargs,
+from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
+from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector
+from ...utilities import (add_intercept, filter_none_kwargs,
                           inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
 from ...grf import RegressionForest
-from ...dml.dml import _make_first_stage_selector, _FinalWrapper
+from ...dml.dml import _make_first_stage_selector
 from ...iv.dml import NonParamDMLIV
 from ..._shap import _shap_explain_model_cate
 
@@ -479,7 +477,9 @@ class _BaseDRIV(_OrthoLearner):
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -587,8 +587,10 @@ class _BaseDRIV(_OrthoLearner):
     @property
     def residuals_(self):
         """
-        A tuple (prel_theta, Y_res, T_res, Z_res, cov, X, W, Z), of the residuals from the first stage estimation
-        along with the associated X, W and Z. Samples are not guaranteed to be in the same
+        Get the residuals.
+
+        Returns a tuple (prel_theta, Y_res, T_res, Z_res, cov, X, W, Z), of the residuals from the first stage
+        estimationalong with the associated X, W and Z. Samples are not guaranteed to be in the same
         order as the input order.
         """
         if not hasattr(self, '_cached_values'):
@@ -602,9 +604,7 @@ class _BaseDRIV(_OrthoLearner):
 
 
 class _DRIV(_BaseDRIV):
-    """
-    Private Base class for the DRIV algorithm.
-    """
+    """Private Base class for the DRIV algorithm."""
 
     def __init__(self, *,
                  model_y_xw="auto",
@@ -704,8 +704,9 @@ class _DRIV(_BaseDRIV):
 
 class DRIV(_DRIV):
     """
-    The DRIV algorithm for estimating CATE with IVs. It is the parent of the
-    public classes {LinearDRIV, SparseLinearDRIV,ForestDRIV}
+    The DRIV algorithm for estimating CATE with IVs.
+
+    This class is the parent of the public classes {LinearDRIV, SparseLinearDRIV,ForestDRIV}
 
     Parameters
     ----------
@@ -900,7 +901,7 @@ class DRIV(_DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.15079...,  5.99291..., -2.86514...])
+    array([-4.15076...,  5.99286..., -2.86512...])
     """
 
     def __init__(self, *,
@@ -1157,55 +1158,44 @@ class DRIV(_DRIV):
 
     @property
     def nuisance_scores_y_xw(self):
-        """
-        Get the scores for y_xw model on the out-of-sample training data
-        """
+        """Get the scores for y_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_t_xw(self):
-        """
-        Get the scores for t_xw model on the out-of-sample training data
-        """
+        """Get the scores for t_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
     def nuisance_scores_z_xw(self):
-        """
-        Get the scores for z_xw model on the out-of-sample training data
-        """
+        """Get the scores for z_xw model on the out-of-sample training data."""
         if self.projection:
             raise AttributeError("Projection model is fitted for instrument! Use nuisance_scores_t_xwz.")
         return self.nuisance_scores_[2]
 
     @property
     def nuisance_scores_t_xwz(self):
-        """
-        Get the scores for z_xw model on the out-of-sample training data
-        """
+        """Get the scores for z_xw model on the out-of-sample training data."""
         if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use nuisance_scores_z_xw.")
         return self.nuisance_scores_[2]
 
     @property
     def nuisance_scores_prel_model_effect(self):
-        """
-        Get the scores for prel_model_effect model on the out-of-sample training data
-        """
+        """Get the scores for prel_model_effect model on the out-of-sample training data."""
         return self.nuisance_scores_[3]
 
     @property
     def nuisance_scores_tz_xw(self):
-        """
-        Get the scores for tz_xw model on the out-of-sample training data
-        """
+        """Get the scores for tz_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[4]
 
 
 class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     """
-    Special case of the :class:`.DRIV` where the final stage
-    is a Linear Regression. In this case, inference can be performed via the StatsModels Inference approach
+    Special case of the :class:`.DRIV` where the final stage is a Linear Regression.
+
+    In this case, inference can be performed via the StatsModels Inference approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
     ``inference='statsmodels'`` at fit time to enable inference via asymptotic normality.
@@ -1400,19 +1390,19 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.27803...,  5.84999..., -2.98296...])
+    array([-4.27796...,  5.84996..., -2.98291...])
     >>> est.effect_interval(X[:3])
-    (array([-7.16141...,  1.71887..., -5.41441...]),
-    array([-1.39465...,  9.98110..., -0.55151...]))
+    (array([-7.16134...,  1.71884..., -5.41437...]),
+    array([-1.39458...,  9.98108..., -0.55145...]))
     >>> est.coef_
-    array([ 4.65225...,  0.93347...,  0.23315...,  0.22843..., -0.42850...])
+    array([ 4.65222...,  0.93348...,  0.23315...,  0.22842..., -0.42849...])
     >>> est.coef__interval()
-    (array([ 3.40045..., -0.19165..., -0.95122..., -0.88662..., -1.56024...]),
-    array([5.90404..., 2.05861..., 1.41753..., 1.34349..., 0.70324...]))
+    (array([ 3.40043..., -0.19165..., -0.95122...  , -0.88663...  , -1.56023...]),
+    array([5.90402..., 2.05861... , 1.41753..., 1.34348..., 0.70325...]))
     >>> est.intercept_
-    -0.12823...
+    -0.12819...
     >>> est.intercept__interval()
-    (-1.27155..., 1.01508...)
+    (-1.27151..., 1.01512...)
     """
 
     def __init__(self, *,
@@ -1542,8 +1532,9 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
 
 class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     """
-    Special case of the :class:`.DRIV` where the final stage
-    is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
+    Special case of the :class:`.DRIV` where the final stage is a Debiased Lasso Regression.
+
+    In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
     ``inference='debiasedlasso'`` at fit time to enable inference via asymptotic normality.
@@ -1768,19 +1759,19 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.23929...,  5.89223..., -3.01208...])
+    array([-4.23922...,  5.89221..., -3.01203...])
     >>> est.effect_interval(X[:3])
-    (array([-6.99789...,  1.96351..., -5.41963...]),
-    array([-1.48069...,  9.82096..., -0.60454...]))
+    (array([-6.99782...,  1.96348..., -5.41958...]),
+    array([-1.48062...,  9.82093..., -0.60449...]))
     >>> est.coef_
-    array([ 4.65819...,  0.94689...,  0.18314...,  0.23012..., -0.40375...])
+    array([ 4.65817...,  0.94689... ,  0.18314... ,  0.23012..., -0.40375...])
     >>> est.coef__interval()
-    (array([ 3.51647..., -0.20839..., -0.99568..., -0.89394..., -1.58518...]),
-    array([5.79991..., 2.10218... , 1.36197..., 1.35420... , 0.77767...]))
+    (array([ 3.51645..., -0.20838..., -0.99568..., -0.89395..., -1.58517...]),
+    array([5.79989..., 2.10218..., 1.36197..., 1.35419..., 0.77767...]))
     >>> est.intercept_
-    -0.06539...
+    -0.06535...
     >>> est.intercept__interval()
-    (-1.20716..., 1.07637...)
+    (-1.20712..., 1.07641...)
     """
 
     def __init__(self, *,
@@ -1929,8 +1920,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
 
 
 class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
-    """ Instance of DRIV with a :class:`~econml.grf.RegressionForest`
-    as a final model, so as to enable non-parametric inference.
+    """
+    Instance of DRIV with a :class:`~econml.grf.RegressionForest` as a final model.
+
+    Enables non-parametric inference.
 
     Parameters
     ----------
@@ -2224,10 +2217,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-2.11667...,  6.31903..., -3.65700...])
+    array([-2.09730...,  6.31097..., -3.65892...])
     >>> est.effect_interval(X[:3])
-    (array([-5.53359...,  2.40420..., -7.14977...]),
-    array([ 1.30025..., 10.23385..., -0.16424...]))
+    (array([-5.56445...,  2.38627..., -7.13980...]),
+    array([ 1.36983..., 10.23568..., -0.17805...]))
     """
 
     def __init__(self, *,
@@ -2457,7 +2450,7 @@ class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
 
 class _DummyClassifier:
     """
-    A dummy classifier that always returns the prior ratio
+    A dummy classifier that always returns the prior ratio.
 
     Parameters
     ----------
@@ -2477,9 +2470,7 @@ class _DummyClassifier:
 
 
 class _IntentToTreatDRIV(_BaseDRIV):
-    """
-    Base class for the DRIV algorithm for the intent-to-treat A/B test setting
-    """
+    """Base class for the DRIV algorithm for the intent-to-treat A/B test setting."""
 
     def __init__(self, *,
                  model_y_xw="auto",
@@ -2544,9 +2535,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
 
 
 class _DummyCATE:
-    """
-    A dummy cate effect model that always returns zero effect
-    """
+    """A dummy cate effect model that always returns zero effect."""
 
     def __init__(self):
         return
@@ -2562,7 +2551,7 @@ class _DummyCATE:
 
 class IntentToTreatDRIV(_IntentToTreatDRIV):
     """
-    Implements the DRIV algorithm for the intent-to-treat A/B test setting
+    Implements the DRIV algorithm for the intent-to-treat A/B test setting.
 
     Parameters
     ----------
@@ -2712,7 +2701,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.52641...,  6.38726..., -2.67055...])
+    array([-4.52684...,  6.38767..., -2.67082...])
     """
 
     def __init__(self, *,
@@ -2847,29 +2836,23 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     @property
     def nuisance_scores_y_xw(self):
-        """
-        Get the scores for y_xw model on the out-of-sample training data
-        """
+        """Get the scores for y_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_t_xwz(self):
-        """
-        Get the scores for t_xw model on the out-of-sample training data
-        """
+        """Get the scores for t_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
     def nuisance_scores_prel_model_effect(self):
-        """
-        Get the scores for prel_model_effect model on the out-of-sample training data
-        """
+        """Get the scores for prel_model_effect model on the out-of-sample training data."""
         return self.nuisance_scores_[2]
 
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     """
-    Implements the DRIV algorithm for the Linear Intent-to-Treat A/B test setting
+    Implements the DRIV algorithm for the Linear Intent-to-Treat A/B test setting.
 
     Parameters
     ----------
@@ -3020,19 +3003,19 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.80489...,  6.10521... , -2.94904...])
+    array([-4.80543...,  6.10553..., -2.94941...])
     >>> est.effect_interval(X[:3])
-    (array([-9.20176..., -0.47031... , -6.67354...]),
-    array([-0.40802..., 12.68073...,  0.77546...]))
+    (array([-9.20288..., -0.47079..., -6.67443...]),
+    array([-0.40797..., 12.68185...,  0.77560...]))
     >>> est.coef_
-    array([ 5.52418...,  0.96276...,  0.68158..., -0.16803..., -0.13056...])
+    array([ 5.52457...,  0.96284...,  0.68162..., -0.16799..., -0.13048...])
     >>> est.coef__interval()
-    (array([ 3.61373..., -0.81856..., -1.12589..., -1.90193... , -1.92331...]),
-    array([7.43462..., 2.74409... , 2.48906..., 1.56587..., 1.66218...]))
+    (array([ 3.61389..., -0.81869..., -1.12607..., -1.90211..., -1.92346...]),
+    array([7.43525..., 2.74438..., 2.48932..., 1.56613..., 1.66248...]))
     >>> est.intercept_
-    -0.28940...
+    -0.28950...
     >>> est.intercept__interval()
-    (-2.07653..., 1.49771...)
+    (-2.07685..., 1.49784...)
     """
 
     def __init__(self, *,

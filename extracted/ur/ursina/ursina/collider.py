@@ -1,7 +1,7 @@
-from panda3d.core import CollisionNode, CollisionBox, CollisionSphere, CollisionCapsule, CollisionPolygon
-from panda3d.core import NodePath
-from ursina.vec3 import Vec3
+from panda3d.core import CollisionBox, CollisionCapsule, CollisionNode, CollisionPolygon, CollisionSphere, NodePath
+
 from ursina.mesh import Mesh
+from ursina.vec3 import Vec3
 
 
 class Collider(NodePath):
@@ -12,7 +12,7 @@ class Collider(NodePath):
         self.shape = shape
         self.node_path = entity.attachNewNode(self.collision_node)
 
-        if isinstance(shape, (list, tuple)):
+        if isinstance(shape, list | tuple):
             for e in shape:
                 self.node_path.node().addSolid(e)
         else:
@@ -20,10 +20,11 @@ class Collider(NodePath):
 
 
     def remove(self):
-        self.node_path.node().clearSolids()
-        self.node_path.removeNode()
-        self.node_path = None
-        # print('remove  collider')
+        if self.node_path is not None:
+            self.node_path.node().clearSolids()
+            self.node_path.removeNode()
+            self.node_path = None
+            # print('remove  collider')
 
 
     @property
@@ -85,7 +86,6 @@ class MeshCollider(Collider):
                     self.collision_polygons.append(poly)
 
             elif mesh.mode == 'ngon':
-                # NOTE: does not support vertices len < 3. Is already being intercepted by pandas3D.
                 for i in range(2, len(mesh.vertices)):
                     poly = CollisionPolygon(
                         Vec3(*mesh.vertices[i]),
@@ -136,7 +136,7 @@ class MeshCollider(Collider):
 
 if __name__ == '__main__':
     from ursina import *
-    from ursina import Ursina, Entity, Pipe, Circle, Button, scene, EditorCamera, color
+    from ursina import Button, Circle, EditorCamera, Pipe, Ursina, color, scene
     app = Ursina()
 
     e = Button(parent=scene, model='sphere', x=2)
@@ -144,8 +144,8 @@ if __name__ == '__main__':
     e.collider = 'sphere'       # add SphereCollider based on entity's bounds.
     e.collider = 'capsule'      # add CapsuleCollider based on entity's bounds.
     e.collider = 'mesh'         # add MeshCollider matching the entity's model.
-    e.collider = 'file_name'    # load a model and us it as MeshCollider.
     e.collider = e.model        # copy target model/Mesh and use it as MeshCollider.
+    e.collider = load_model('icosphere')    # load a model by name and use it as MeshCollider.
 
     e.collider = BoxCollider(e, center=Vec3(0,0,0), size=Vec3(1,1,1))   # add BoxCollider at custom positions and size.
     e.collider = SphereCollider(e, center=Vec3(0,0,0), radius=.75)      # add SphereCollider at custom positions and size.

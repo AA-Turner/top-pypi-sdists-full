@@ -3,10 +3,9 @@ import ipaddress
 import re
 from typing import Dict, List
 from flask import request
-from flask_babel import lazy_gettext as _
+
 from sqlalchemy.orm import backref
 from strenum import StrEnum
-from sqlalchemy_serializer import SerializerMixin
 
 
 from hiddifypanel.database import db
@@ -21,10 +20,15 @@ class DomainType(StrEnum):
     cdn = auto()
     auto_cdn_ip = auto()
     relay = auto()
-    reality = auto()
-    old_xtls_direct = auto()
     worker = auto()
     fake = auto()
+
+    reality = auto() #deprecated
+    special_reality_tcp = auto()
+    special_reality_xhttp = auto()
+    special_reality_grpc = auto()
+    old_xtls_direct = auto() #deprecated
+    # special_shadowtls = auto()
 
     # fake_cdn = "fake_cdn"
     # telegram_faketls = "telegram_faketls"
@@ -37,7 +41,8 @@ ShowDomain = db.Table('show_domain',
                       )
 
 
-class Domain(db.Model, SerializerMixin):
+
+class Domain(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     child_id = db.Column(db.Integer, db.ForeignKey('child.id'), default=0)
     domain = db.Column(db.String(200), nullable=True, unique=False)
@@ -54,6 +59,8 @@ class Domain(db.Model, SerializerMixin):
                                    secondaryjoin=id == ShowDomain.c.related_id,
                                    backref=backref('showed_by_domains', lazy='dynamic')
                                    )
+    download_domain_id= db.Column(db.Integer, db.ForeignKey('domain.id', ondelete='SET NULL'), default=None,nullable=True)
+    download_domain = db.relationship('Domain',remote_side=[id],    foreign_keys=[download_domain_id])
     extra_params = db.Column(db.String(200), nullable=True, default='')
 
     def __repr__(self):
@@ -79,6 +86,7 @@ class Domain(db.Model, SerializerMixin):
             'cdn_ip': self.cdn_ip,
             'servernames': self.servernames,
             'grpc': self.grpc,
+            'download_domain':self.download_domain.domain if self.download_domain else "",
             'show_domains': [dd.domain for dd in self.show_domains],  # type: ignore
         }
         if dump_child_id:
@@ -86,7 +94,7 @@ class Domain(db.Model, SerializerMixin):
         if dump_ports:
             data["internal_port_hysteria2"] = self.internal_port_hysteria2
             data["internal_port_tuic"] = self.internal_port_tuic
-            data["internal_port_reality"] = self.internal_port_reality
+            data["internal_port_special"] = self.internal_port_special
             data["need_valid_ssl"] = self.need_valid_ssl
 
         return data
@@ -99,6 +107,13 @@ class Domain(db.Model, SerializerMixin):
         domain_dict = self.to_dict()
         from hiddifypanel.panel.commercial.restapi.v2.parent.schema import DomainSchema
         return DomainSchema().load(domain_dict)
+
+
+    def auto_cdn_ip(self):
+        from hiddifypanel import hutils
+        if self.cdn_ip:
+            return hutils.network.auto_ip_selector.get_clean_ip(self.cdn_ip)
+        return None
 
     @property
     def need_valid_ssl(self):
@@ -124,11 +139,11 @@ class Domain(db.Model, SerializerMixin):
         return int(hconfig(ConfigEnum.tuic_port, self.child_id)) + self.port_index
 
     @property
-    def internal_port_reality(self):
-        if self.mode != DomainType.reality:
+    def internal_port_special(self):
+        if self.mode != DomainType.reality and "special" not in self.mode.value:
             return 0
         # TODO: check validity of the range of the port
-        return int(hconfig(ConfigEnum.reality_port, self.child_id)) + self.port_index
+        return int(hconfig(ConfigEnum.special_port, self.child_id)) + self.port_index
 
     @classmethod
     def by_mode(cls, mode: DomainType) -> List['Domain']:
@@ -161,9 +176,9 @@ class Domain(db.Model, SerializerMixin):
     def get_domains(cls, always_add_ip=False, always_add_all_domains=False) -> List['Domain']:
         from hiddifypanel import hutils
         domains = []
-        domains = Domain.query.filter(Domain.mode == DomainType.sub_link_only, Domain.child_id == Child.current().id).all()
+        domains = db.session.query(Domain).filter(Domain.mode == DomainType.sub_link_only, Domain.child_id == Child.current().id).all()
         if not len(domains) or always_add_all_domains:
-            domains = Domain.query.filter(Domain.mode.notin_([DomainType.fake, DomainType.reality])).all()
+            domains = db.session.query(Domain).filter(Domain.mode.notin_([DomainType.fake, DomainType.reality,DomainType.special_reality_tcp,DomainType.special_reality_xhttp,DomainType.special_reality_grpc])).all()
 
         if len(domains) == 0 and request:
             domains = [Domain(domain=request.host)]  # type: ignore
@@ -188,6 +203,16 @@ class Domain(db.Model, SerializerMixin):
         dbdomain.servernames = domain.get('servernames', '')
         show_domains = domain.get('show_domains', [])
         dbdomain.show_domains = Domain.query.filter(Domain.domain.in_(show_domains)).all()
+        dl_domain=domain.get("download_domain")
+        if dl_domain:
+            dbdldomain = Domain.query.filter(Domain.domain == dl_domain).first()
+            if not dbdldomain:
+                dbdldomain = Domain(domain=dl_domain)  # type: ignore
+                db.session.add(dbdldomain)
+                db.session.commit()
+                dbdldomain=Domain.query.filter(Domain.domain == dl_domain).first()
+            assert dbdldomain
+            dbdomain.download_domain_id=dbdldomain.id
         if commit:
             db.session.commit()
 

@@ -167,6 +167,8 @@ __protobuf__ = proto.module(
         "BackendServiceLocalityLoadBalancingPolicyConfigPolicy",
         "BackendServiceLogConfig",
         "BackendServiceReference",
+        "BackendServiceTlsSettings",
+        "BackendServiceTlsSettingsSubjectAltName",
         "BackendServiceUsedBy",
         "BackendServicesScopedList",
         "BfdPacket",
@@ -1111,6 +1113,7 @@ __protobuf__ = proto.module(
         "PerformMaintenanceNodeGroupRequest",
         "PerformMaintenanceReservationBlockRequest",
         "PerformMaintenanceReservationRequest",
+        "PerformMaintenanceReservationSubBlockRequest",
         "Policy",
         "PreconfiguredWafSet",
         "PreservedState",
@@ -15671,6 +15674,12 @@ class BackendService(proto.Message):
             set to true. Instead, use maxStreamDuration.
 
             This field is a member of `oneof`_ ``_timeout_sec``.
+        tls_settings (google.cloud.compute_v1.types.BackendServiceTlsSettings):
+            Configuration for Backend Authenticated TLS
+            and mTLS. May only be specified when the backend
+            protocol is SSL, HTTPS or HTTP2.
+
+            This field is a member of `oneof`_ ``_tls_settings``.
         used_by (MutableSequence[google.cloud.compute_v1.types.BackendServiceUsedBy]):
             [Output Only] List of resources referencing given backend
             service.
@@ -16289,6 +16298,12 @@ class BackendService(proto.Message):
         proto.INT32,
         number=79994995,
         optional=True,
+    )
+    tls_settings: "BackendServiceTlsSettings" = proto.Field(
+        proto.MESSAGE,
+        number=81794791,
+        optional=True,
+        message="BackendServiceTlsSettings",
     )
     used_by: MutableSequence["BackendServiceUsedBy"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -17756,6 +17771,98 @@ class BackendServiceReference(proto.Message):
     backend_service: str = proto.Field(
         proto.STRING,
         number=306946058,
+        optional=True,
+    )
+
+
+class BackendServiceTlsSettings(proto.Message):
+    r"""
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        authentication_config (str):
+            Reference to the BackendAuthenticationConfig
+            resource from the networksecurity.googleapis.com
+            namespace. Can be used in authenticating TLS
+            connections to the backend, as specified by the
+            authenticationMode field. Can only be specified
+            if authenticationMode is not NONE.
+
+            This field is a member of `oneof`_ ``_authentication_config``.
+        sni (str):
+            Server Name Indication - see RFC3546 section 3.1. If set,
+            the load balancer sends this string as the SNI hostname in
+            the TLS connection to the backend, and requires that this
+            string match a Subject Alternative Name (SAN) in the
+            backend's server certificate. With a Regional Internet NEG
+            backend, if the SNI is specified here, the load balancer
+            uses it regardless of whether the Regional Internet NEG is
+            specified with FQDN or IP address and port. When both sni
+            and subjectAltNames[] are specified, the load balancer
+            matches the backend certificate's SAN only to
+            subjectAltNames[].
+
+            This field is a member of `oneof`_ ``_sni``.
+        subject_alt_names (MutableSequence[google.cloud.compute_v1.types.BackendServiceTlsSettingsSubjectAltName]):
+            A list of Subject Alternative Names (SANs) that the Load
+            Balancer verifies during a TLS handshake with the backend.
+            When the server presents its X.509 certificate to the Load
+            Balancer, the Load Balancer inspects the certificate's SAN
+            field, and requires that at least one SAN match one of the
+            subjectAltNames in the list. This field is limited to 5
+            entries. When both sni and subjectAltNames[] are specified,
+            the load balancer matches the backend certificate's SAN only
+            to subjectAltNames[].
+    """
+
+    authentication_config: str = proto.Field(
+        proto.STRING,
+        number=408053481,
+        optional=True,
+    )
+    sni: str = proto.Field(
+        proto.STRING,
+        number=114030,
+        optional=True,
+    )
+    subject_alt_names: MutableSequence[
+        "BackendServiceTlsSettingsSubjectAltName"
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=330029535,
+        message="BackendServiceTlsSettingsSubjectAltName",
+    )
+
+
+class BackendServiceTlsSettingsSubjectAltName(proto.Message):
+    r"""A Subject Alternative Name that the load balancer matches
+    against the SAN field in the TLS certificate provided by the
+    backend, specified as either a DNS name or a URI, in accordance
+    with RFC 5280 4.2.1.6
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        dns_name (str):
+            The SAN specified as a DNS Name.
+
+            This field is a member of `oneof`_ ``_dns_name``.
+        uniform_resource_identifier (str):
+            The SAN specified as a URI.
+
+            This field is a member of `oneof`_ ``_uniform_resource_identifier``.
+    """
+
+    dns_name: str = proto.Field(
+        proto.STRING,
+        number=411992033,
+        optional=True,
+    )
+    uniform_resource_identifier: str = proto.Field(
+        proto.STRING,
+        number=491409007,
         optional=True,
     )
 
@@ -36450,6 +36557,16 @@ class GroupMaintenanceInfo(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
+        instance_maintenance_ongoing_count (int):
+            Describes number of instances that have
+            ongoing maintenance.
+
+            This field is a member of `oneof`_ ``_instance_maintenance_ongoing_count``.
+        instance_maintenance_pending_count (int):
+            Describes number of instances that have
+            pending maintenance.
+
+            This field is a member of `oneof`_ ``_instance_maintenance_pending_count``.
         maintenance_ongoing_count (int):
             Progress for ongoing maintenance for this
             group of VMs/hosts. Describes number of hosts in
@@ -36468,6 +36585,24 @@ class GroupMaintenanceInfo(proto.Message):
             possible values.
 
             This field is a member of `oneof`_ ``_scheduling_type``.
+        subblock_infra_maintenance_ongoing_count (int):
+            Describes number of subblock Infrastructure
+            that has ongoing maintenance. Here, Subblock
+            Infrastructure Maintenance pertains to upstream
+            hardware contained in the Subblock that is
+            necessary for a VM Family(e.g. NVLink Domains).
+            Not all VM Families will support this field.
+
+            This field is a member of `oneof`_ ``_subblock_infra_maintenance_ongoing_count``.
+        subblock_infra_maintenance_pending_count (int):
+            Describes number of subblock Infrastructure
+            that has pending maintenance. Here, Subblock
+            Infrastructure Maintenance pertains to upstream
+            hardware contained in the Subblock that is
+            necessary for a VM Family (e.g. NVLink Domains).
+            Not all VM Families will support this field.
+
+            This field is a member of `oneof`_ ``_subblock_infra_maintenance_pending_count``.
         upcoming_group_maintenance (google.cloud.compute_v1.types.UpcomingMaintenance):
             Maintenance information on this group of VMs.
 
@@ -36496,6 +36631,16 @@ class GroupMaintenanceInfo(proto.Message):
         GROUP_MAINTENANCE_TYPE_UNSPECIFIED = 447183678
         INDEPENDENT = 127011674
 
+    instance_maintenance_ongoing_count: int = proto.Field(
+        proto.INT32,
+        number=137611253,
+        optional=True,
+    )
+    instance_maintenance_pending_count: int = proto.Field(
+        proto.INT32,
+        number=76612881,
+        optional=True,
+    )
     maintenance_ongoing_count: int = proto.Field(
         proto.INT32,
         number=219781919,
@@ -36509,6 +36654,16 @@ class GroupMaintenanceInfo(proto.Message):
     scheduling_type: str = proto.Field(
         proto.STRING,
         number=199835397,
+        optional=True,
+    )
+    subblock_infra_maintenance_ongoing_count: int = proto.Field(
+        proto.INT32,
+        number=366161790,
+        optional=True,
+    )
+    subblock_infra_maintenance_pending_count: int = proto.Field(
+        proto.INT32,
+        number=305163418,
         optional=True,
     )
     upcoming_group_maintenance: "UpcomingMaintenance" = proto.Field(
@@ -85682,6 +85837,70 @@ class PerformMaintenanceReservationRequest(proto.Message):
     )
 
 
+class PerformMaintenanceReservationSubBlockRequest(proto.Message):
+    r"""A request message for
+    ReservationSubBlocks.PerformMaintenance. See the method
+    description for details.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        parent_name (str):
+            The name of the parent reservation and parent block. In the
+            format of
+            reservations/{reservation_name}/reservationBlocks/{reservation_block_name}
+        project (str):
+            Project ID for this request.
+        request_id (str):
+            An optional request ID to identify requests.
+            Specify a unique request ID so that if you must
+            retry your request, the server will know to
+            ignore the request if it has already been
+            completed. For example, consider a situation
+            where you make an initial request and the
+            request times out. If you make the request again
+            with the same request ID, the server can check
+            if original operation with the same request ID
+            was received, and if so, will ignore the second
+            request. This prevents clients from accidentally
+            creating duplicate commitments. The request ID
+            must be a valid UUID with the exception that
+            zero UUID is not supported (
+            00000000-0000-0000-0000-000000000000).
+
+            This field is a member of `oneof`_ ``_request_id``.
+        reservation_sub_block (str):
+            The name of the reservation subBlock. Name
+            should conform to RFC1035 or be a resource ID.
+        zone (str):
+            Name of the zone for this request. Zone name
+            should conform to RFC1035.
+    """
+
+    parent_name: str = proto.Field(
+        proto.STRING,
+        number=478151936,
+    )
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=37109963,
+        optional=True,
+    )
+    reservation_sub_block: str = proto.Field(
+        proto.STRING,
+        number=22750491,
+    )
+    zone: str = proto.Field(
+        proto.STRING,
+        number=3744684,
+    )
+
+
 class Policy(proto.Message):
     r"""An Identity and Access Management (IAM) policy, which specifies
     access controls for Google Cloud resources. A ``Policy`` is a
@@ -92047,6 +92266,11 @@ class ReservationSubBlock(proto.Message):
             subBlock.
 
             This field is a member of `oneof`_ ``_physical_topology``.
+        reservation_sub_block_maintenance (google.cloud.compute_v1.types.GroupMaintenanceInfo):
+            Maintenance information for this reservation
+            subBlock.
+
+            This field is a member of `oneof`_ ``_reservation_sub_block_maintenance``.
         self_link (str):
             [Output Only] Server-defined fully-qualified URL for this
             resource.
@@ -92129,6 +92353,12 @@ class ReservationSubBlock(proto.Message):
         number=279778519,
         optional=True,
         message="ReservationSubBlockPhysicalTopology",
+    )
+    reservation_sub_block_maintenance: "GroupMaintenanceInfo" = proto.Field(
+        proto.MESSAGE,
+        number=377005551,
+        optional=True,
+        message="GroupMaintenanceInfo",
     )
     self_link: str = proto.Field(
         proto.STRING,

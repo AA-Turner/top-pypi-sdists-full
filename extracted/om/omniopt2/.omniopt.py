@@ -3289,13 +3289,11 @@ def get_results(input_string: Optional[Union[int, str]]) -> Optional[Union[Dict[
 
     return None
 
-
 @beartype
 def add_to_csv(file_path: str, new_heading: list, new_data: list) -> None:
     new_data = [helpers.to_int_when_possible(x) for x in new_data]
     formatted_data = _add_to_csv_format_data(new_data)
     _add_to_csv_with_lock(file_path, new_heading, formatted_data)
-
 
 @beartype
 def _add_to_csv_format_data(new_data: List[object]) -> List[object]:
@@ -3303,7 +3301,6 @@ def _add_to_csv_format_data(new_data: List[object]) -> List[object]:
         ("{:.20f}".format(x).rstrip('0').rstrip('.')) if isinstance(x, float) else x
         for x in new_data
     ]
-
 
 @beartype
 def _add_to_csv_with_lock(file_path: str, new_heading: list, formatted_data: list) -> None:
@@ -3314,7 +3311,6 @@ def _add_to_csv_with_lock(file_path: str, new_heading: list, formatted_data: lis
         _add_to_csv_handle_file(file_path, new_heading, formatted_data)
     finally:
         _add_to_csv_release_lock(lockfile)
-
 
 @beartype
 def _add_to_csv_acquire_lock(lockfile: str, dir_path: str) -> bool:
@@ -3335,14 +3331,12 @@ def _add_to_csv_acquire_lock(lockfile: str, dir_path: str) -> bool:
             return False
     return False
 
-
 @beartype
 def _add_to_csv_release_lock(lockfile: str) -> None:
     try:
         os.unlink(lockfile)
     except FileNotFoundError:
         pass
-
 
 @beartype
 def _add_to_csv_handle_file(file_path: str, new_heading: list, formatted_data: list) -> None:
@@ -3361,7 +3355,6 @@ def _add_to_csv_handle_file(file_path: str, new_heading: list, formatted_data: l
     else:
         _add_to_csv_append_row(file_path, existing_heading, new_heading, formatted_data)
 
-
 @beartype
 def _add_to_csv_create_new_file(file_path: str, heading: list, data: list) -> None:
     with open(file_path, 'w', encoding="utf-8", newline='') as f:
@@ -3369,10 +3362,8 @@ def _add_to_csv_create_new_file(file_path: str, heading: list, data: list) -> No
         writer.writerow(heading)
         writer.writerow(data)
 
-
 @beartype
-def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading: list,
-                             all_headings: list, new_heading: list, formatted_data: list) -> None:
+def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading: list, all_headings: list, new_heading: list, formatted_data: list) -> None:
     tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".csv")
     with os.fdopen(tmp_fd, 'w', encoding="utf-8", newline='') as tmp_file:
         writer = csv.writer(tmp_file)
@@ -3388,10 +3379,8 @@ def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading:
         ])
     shutil.move(tmp_path, file_path)
 
-
 @beartype
-def _add_to_csv_append_row(file_path: str, existing_heading: list,
-                           new_heading: list, formatted_data: list) -> None:
+def _add_to_csv_append_row(file_path: str, existing_heading: list, new_heading: list, formatted_data: list) -> None:
     with open(file_path, 'a', encoding="utf-8", newline='') as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -3763,10 +3752,7 @@ def _write_job_infos_csv_result_to_strlist(result: Optional[Union[Dict[str, Opti
     return result_values
 
 @beartype
-def _write_job_infos_csv_build_values(start_time: Union[int, float], end_time: Union[int, float], run_time: Union[float, int],
-                                      program_string_with_params: str, str_parameters_values: List[str],
-                                      result_values: List[str], exit_code: Optional[int], _signal: Optional[int],
-                                      extra_vars_values: List[str]) -> List[str]:
+def _write_job_infos_csv_build_values(start_time: Union[int, float], end_time: Union[int, float], run_time: Union[float, int], program_string_with_params: str, str_parameters_values: List[str], result_values: List[str], exit_code: Optional[int], _signal: Optional[int], extra_vars_values: List[str]) -> List[str]:
     return [
         str(int(start_time)),
         str(int(end_time)),
@@ -4187,6 +4173,8 @@ def disable_logging() -> None:
             "ax.service.utils.report_utils",
             "ax.service.utils.best_point",
             "ax.service.utils.with_db_settings_base",
+
+            "ax.storage.sqa_store.save",
 
             "botorch.optim.fit",
             "botorch.models.utils.assorted",
@@ -7386,6 +7374,10 @@ def handle_failed_job(error: Union[None, Exception, str], trial_index: int, new_
     else:
         print_red(f"\n⚠ FAILED: {error}")
 
+        if "CPU count per node can not be satisfied" in f"{error}":
+            print_red("Cannot continue. This can happen when you have too requested much memory.")
+            my_exit(144)
+
     if new_job is None:
         print_red("handle_failed_job: job is None")
 
@@ -7448,6 +7440,7 @@ def show_debug_table_for_break_run_search(_name: str, _max_eval: Optional[int], 
         ("args.max_failed_jobs", args.max_failed_jobs),
         ("succeeded_jobs()", succeeded_jobs()),
         ("submitted_jobs()", submitted_jobs()),
+        ("failed_jobs()", failed_jobs()),
         ("count_done_jobs()", count_done_jobs()),
         ("_max_eval", _max_eval),
         ("_progress_bar.total", _progress_bar.total),
@@ -7615,7 +7608,7 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         if not new_arms:
             print_debug("_fetch_next_trials: No new arms were generated in this attempt.")
         else:
-            print_debug(f"_fetch_next_trials: Generated {len(new_arms)} new arm(s).")
+            print_debug(f"_fetch_next_trials: Generated {len(new_arms)} new arm(s), wanted {nr_of_jobs_to_get}.")
 
         batched_arms.extend(new_arms)
         attempts += 1
@@ -7791,6 +7784,7 @@ def get_model_gen_kwargs() -> dict:
         "normalize_y": not args.no_normalize_y,
         "transform_inputs": not args.no_transform_inputs,
         "optimizer_kwargs": get_optimizer_kwargs(),
+        "enforce_num_trials": True,
         "torch_device": get_torch_device_str(),
         "random_seed": args.seed,
         "check_duplicates": True,
@@ -8425,6 +8419,7 @@ def create_systematic_step(model: Any, _num_trials: int = -1, index: Optional[in
         model_kwargs=get_model_kwargs(),
         model_gen_kwargs=get_model_gen_kwargs(),
         should_deduplicate=True,
+        enforce_num_trials=True,
         index=index
     )
 
@@ -8632,8 +8627,7 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
     return _create_and_execute_next_runs_return_value(trial_index_to_param)
 
 @beartype
-def _create_and_execute_next_runs_run_loop(next_nr_steps: int, _max_eval: Optional[int], phase: Optional[str], _progress_bar: Any
-                                          ) -> Tuple[bool, Optional[Dict], List]:
+def _create_and_execute_next_runs_run_loop(next_nr_steps: int, _max_eval: Optional[int], phase: Optional[str], _progress_bar: Any) -> Tuple[bool, Optional[Dict], List]:
     done_optimizing = False
     trial_index_to_param: Optional[Dict] = None
     results: List = []
@@ -9098,8 +9092,7 @@ def _pareto_front_table_add_headers(table: Table, param_cols: List[str], result_
         table.add_column(Text(f"{col}", style="cyan"), justify="center")
 
 @beartype
-def _pareto_front_table_add_rows(table: Table, rows: List[Dict[str, str]],
-                                 param_cols: List[str], result_cols: List[str]) -> None:
+def _pareto_front_table_add_rows(table: Table, rows: List[Dict[str, str]], param_cols: List[str], result_cols: List[str]) -> None:
     for row in rows:
         values = [str(helpers.to_int_when_possible(row[col])) for col in param_cols]
         result_values = [Text(str(helpers.to_int_when_possible(row[col])), style="cyan") for col in result_cols]

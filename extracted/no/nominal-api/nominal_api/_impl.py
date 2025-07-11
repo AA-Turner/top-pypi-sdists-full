@@ -14250,6 +14250,59 @@ module_CreateModuleRequest.__qualname__ = "CreateModuleRequest"
 module_CreateModuleRequest.__module__ = "nominal_api.module"
 
 
+class module_DerivedSeriesMetadata(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'function_name': ConjureFieldDefinition('functionName', str),
+            'function_description': ConjureFieldDefinition('functionDescription', str),
+            'module_name': ConjureFieldDefinition('moduleName', str),
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'data_type': ConjureFieldDefinition('dataType', module_ValueType)
+        }
+
+    __slots__: List[str] = ['_function_name', '_function_description', '_module_name', '_module_rid', '_asset_rid', '_data_type']
+
+    def __init__(self, asset_rid: str, data_type: "module_ValueType", function_description: str, function_name: str, module_name: str, module_rid: str) -> None:
+        self._function_name = function_name
+        self._function_description = function_description
+        self._module_name = module_name
+        self._module_rid = module_rid
+        self._asset_rid = asset_rid
+        self._data_type = data_type
+
+    @builtins.property
+    def function_name(self) -> str:
+        return self._function_name
+
+    @builtins.property
+    def function_description(self) -> str:
+        return self._function_description
+
+    @builtins.property
+    def module_name(self) -> str:
+        return self._module_name
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+    @builtins.property
+    def data_type(self) -> "module_ValueType":
+        return self._data_type
+
+
+module_DerivedSeriesMetadata.__name__ = "DerivedSeriesMetadata"
+module_DerivedSeriesMetadata.__qualname__ = "DerivedSeriesMetadata"
+module_DerivedSeriesMetadata.__module__ = "nominal_api.module"
+
+
 class module_Function(ConjureBeanType):
 
     @builtins.classmethod
@@ -14433,6 +14486,86 @@ For now, this is required for all parameters.
 module_FunctionParameter.__name__ = "FunctionParameter"
 module_FunctionParameter.__qualname__ = "FunctionParameter"
 module_FunctionParameter.__module__ = "nominal_api.module"
+
+
+class module_GetDerivedSeriesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'exact_match': ConjureFieldDefinition('exactMatch', OptionalTypeWrapper[str]),
+            'return_types': ConjureFieldDefinition('returnTypes', OptionalTypeWrapper[List[module_ValueType]]),
+            'page_size': ConjureFieldDefinition('pageSize', int),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_asset_rid', '_exact_match', '_return_types', '_page_size', '_next_page_token']
+
+    def __init__(self, asset_rid: str, page_size: int, exact_match: Optional[str] = None, next_page_token: Optional[str] = None, return_types: Optional[List["module_ValueType"]] = None) -> None:
+        self._asset_rid = asset_rid
+        self._exact_match = exact_match
+        self._return_types = return_types
+        self._page_size = page_size
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+    @builtins.property
+    def exact_match(self) -> Optional[str]:
+        """Search text which will be checked for exact matches with the derived channel names.
+        """
+        return self._exact_match
+
+    @builtins.property
+    def return_types(self) -> Optional[List["module_ValueType"]]:
+        """Optional filter to limit the returned derived channels to those with specified return data type.
+        """
+        return self._return_types
+
+    @builtins.property
+    def page_size(self) -> int:
+        return self._page_size
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+module_GetDerivedSeriesRequest.__name__ = "GetDerivedSeriesRequest"
+module_GetDerivedSeriesRequest.__qualname__ = "GetDerivedSeriesRequest"
+module_GetDerivedSeriesRequest.__module__ = "nominal_api.module"
+
+
+class module_GetDerivedSeriesResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[module_DerivedSeriesMetadata]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_results', '_next_page_token']
+
+    def __init__(self, results: List["module_DerivedSeriesMetadata"], next_page_token: Optional[str] = None) -> None:
+        self._results = results
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def results(self) -> List["module_DerivedSeriesMetadata"]:
+        return self._results
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+module_GetDerivedSeriesResponse.__name__ = "GetDerivedSeriesResponse"
+module_GetDerivedSeriesResponse.__qualname__ = "GetDerivedSeriesResponse"
+module_GetDerivedSeriesResponse.__module__ = "nominal_api.module"
 
 
 class module_GetModuleRequest(ConjureBeanType):
@@ -14931,6 +15064,38 @@ to assets. The Modules Service provides the api for managing these collections a
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_SearchModuleApplicationsResponse, self._return_none_for_unknown_union_types)
 
+    def get_derived_series(self, auth_header: str, request: "module_GetDerivedSeriesRequest") -> "module_GetDerivedSeriesResponse":
+        """Get the derived series from modules applied to an asset.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/module/derived-series/get'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), module_GetDerivedSeriesResponse, self._return_none_for_unknown_union_types)
+
 
 module_ModuleService.__name__ = "ModuleService"
 module_ModuleService.__qualname__ = "ModuleService"
@@ -15074,44 +15239,187 @@ module_ModuleVersionMetadata.__qualname__ = "ModuleVersionMetadata"
 module_ModuleVersionMetadata.__module__ = "nominal_api.module"
 
 
+class module_SearchModuleApplicationsQuery(ConjureUnionType):
+    _module_rid: Optional[str] = None
+    _asset_rid: Optional[str] = None
+    _workspace: Optional[str] = None
+    _and_: Optional[List["module_SearchModuleApplicationsQuery"]] = None
+    _or_: Optional[List["module_SearchModuleApplicationsQuery"]] = None
+    _not_: Optional["module_SearchModuleApplicationsQuery"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'and_': ConjureFieldDefinition('and', List[module_SearchModuleApplicationsQuery]),
+            'or_': ConjureFieldDefinition('or', List[module_SearchModuleApplicationsQuery]),
+            'not_': ConjureFieldDefinition('not', module_SearchModuleApplicationsQuery)
+        }
+
+    def __init__(
+            self,
+            module_rid: Optional[str] = None,
+            asset_rid: Optional[str] = None,
+            workspace: Optional[str] = None,
+            and_: Optional[List["module_SearchModuleApplicationsQuery"]] = None,
+            or_: Optional[List["module_SearchModuleApplicationsQuery"]] = None,
+            not_: Optional["module_SearchModuleApplicationsQuery"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (module_rid is not None) + (asset_rid is not None) + (workspace is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if module_rid is not None:
+                self._module_rid = module_rid
+                self._type = 'moduleRid'
+            if asset_rid is not None:
+                self._asset_rid = asset_rid
+                self._type = 'assetRid'
+            if workspace is not None:
+                self._workspace = workspace
+                self._type = 'workspace'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
+
+        elif type_of_union == 'moduleRid':
+            if module_rid is None:
+                raise ValueError('a union value must not be None')
+            self._module_rid = module_rid
+            self._type = 'moduleRid'
+        elif type_of_union == 'assetRid':
+            if asset_rid is None:
+                raise ValueError('a union value must not be None')
+            self._asset_rid = asset_rid
+            self._type = 'assetRid'
+        elif type_of_union == 'workspace':
+            if workspace is None:
+                raise ValueError('a union value must not be None')
+            self._workspace = workspace
+            self._type = 'workspace'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
+
+    @builtins.property
+    def module_rid(self) -> Optional[str]:
+        return self._module_rid
+
+    @builtins.property
+    def asset_rid(self) -> Optional[str]:
+        return self._asset_rid
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        return self._workspace
+
+    @builtins.property
+    def and_(self) -> Optional[List["module_SearchModuleApplicationsQuery"]]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional[List["module_SearchModuleApplicationsQuery"]]:
+        return self._or_
+
+    @builtins.property
+    def not_(self) -> Optional["module_SearchModuleApplicationsQuery"]:
+        return self._not_
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, module_SearchModuleApplicationsQueryVisitor):
+            raise ValueError('{} is not an instance of module_SearchModuleApplicationsQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'moduleRid' and self.module_rid is not None:
+            return visitor._module_rid(self.module_rid)
+        if self._type == 'assetRid' and self.asset_rid is not None:
+            return visitor._asset_rid(self.asset_rid)
+        if self._type == 'workspace' and self.workspace is not None:
+            return visitor._workspace(self.workspace)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
+
+
+module_SearchModuleApplicationsQuery.__name__ = "SearchModuleApplicationsQuery"
+module_SearchModuleApplicationsQuery.__qualname__ = "SearchModuleApplicationsQuery"
+module_SearchModuleApplicationsQuery.__module__ = "nominal_api.module"
+
+
+class module_SearchModuleApplicationsQueryVisitor:
+
+    @abstractmethod
+    def _module_rid(self, module_rid: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _asset_rid(self, asset_rid: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: List["module_SearchModuleApplicationsQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: List["module_SearchModuleApplicationsQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "module_SearchModuleApplicationsQuery") -> Any:
+        pass
+
+
+module_SearchModuleApplicationsQueryVisitor.__name__ = "SearchModuleApplicationsQueryVisitor"
+module_SearchModuleApplicationsQueryVisitor.__qualname__ = "SearchModuleApplicationsQueryVisitor"
+module_SearchModuleApplicationsQueryVisitor.__module__ = "nominal_api.module"
+
+
 class module_SearchModuleApplicationsRequest(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'search_text': ConjureFieldDefinition('searchText', str),
-            'asset_rids': ConjureFieldDefinition('assetRids', OptionalTypeWrapper[List[scout_rids_api_AssetRid]]),
-            'module_rids': ConjureFieldDefinition('moduleRids', OptionalTypeWrapper[List[modules_api_ModuleRid]]),
-            'workspaces': ConjureFieldDefinition('workspaces', OptionalTypeWrapper[List[api_rids_WorkspaceRid]]),
+            'query': ConjureFieldDefinition('query', module_SearchModuleApplicationsQuery),
             'page_size': ConjureFieldDefinition('pageSize', int),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
         }
 
-    __slots__: List[str] = ['_search_text', '_asset_rids', '_module_rids', '_workspaces', '_page_size', '_next_page_token']
+    __slots__: List[str] = ['_query', '_page_size', '_next_page_token']
 
-    def __init__(self, page_size: int, search_text: str, asset_rids: Optional[List[str]] = None, module_rids: Optional[List[str]] = None, next_page_token: Optional[str] = None, workspaces: Optional[List[str]] = None) -> None:
-        self._search_text = search_text
-        self._asset_rids = asset_rids
-        self._module_rids = module_rids
-        self._workspaces = workspaces
+    def __init__(self, page_size: int, query: "module_SearchModuleApplicationsQuery", next_page_token: Optional[str] = None) -> None:
+        self._query = query
         self._page_size = page_size
         self._next_page_token = next_page_token
 
     @builtins.property
-    def search_text(self) -> str:
-        return self._search_text
-
-    @builtins.property
-    def asset_rids(self) -> Optional[List[str]]:
-        return self._asset_rids
-
-    @builtins.property
-    def module_rids(self) -> Optional[List[str]]:
-        return self._module_rids
-
-    @builtins.property
-    def workspaces(self) -> Optional[List[str]]:
-        return self._workspaces
+    def query(self) -> "module_SearchModuleApplicationsQuery":
+        return self._query
 
     @builtins.property
     def page_size(self) -> int:
@@ -15344,20 +15652,28 @@ class module_SearchModulesRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'query': ConjureFieldDefinition('query', module_SearchModulesQuery),
+            'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[module_SearchModulesSortOptions]),
             'page_size': ConjureFieldDefinition('pageSize', int),
-            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
+            'archived_statuses': ConjureFieldDefinition('archivedStatuses', OptionalTypeWrapper[List[api_ArchivedStatus]])
         }
 
-    __slots__: List[str] = ['_query', '_page_size', '_next_page_token']
+    __slots__: List[str] = ['_query', '_sort', '_page_size', '_next_page_token', '_archived_statuses']
 
-    def __init__(self, page_size: int, query: "module_SearchModulesQuery", next_page_token: Optional[str] = None) -> None:
+    def __init__(self, page_size: int, query: "module_SearchModulesQuery", archived_statuses: Optional[List["api_ArchivedStatus"]] = None, next_page_token: Optional[str] = None, sort: Optional["module_SearchModulesSortOptions"] = None) -> None:
         self._query = query
+        self._sort = sort
         self._page_size = page_size
         self._next_page_token = next_page_token
+        self._archived_statuses = archived_statuses
 
     @builtins.property
     def query(self) -> "module_SearchModulesQuery":
         return self._query
+
+    @builtins.property
+    def sort(self) -> Optional["module_SearchModulesSortOptions"]:
+        return self._sort
 
     @builtins.property
     def page_size(self) -> int:
@@ -15366,6 +15682,12 @@ class module_SearchModulesRequest(ConjureBeanType):
     @builtins.property
     def next_page_token(self) -> Optional[str]:
         return self._next_page_token
+
+    @builtins.property
+    def archived_statuses(self) -> Optional[List["api_ArchivedStatus"]]:
+        """Default search status is NOT_ARCHIVED if none are provided. Allows for including archived modules in search.
+        """
+        return self._archived_statuses
 
 
 module_SearchModulesRequest.__name__ = "SearchModulesRequest"
@@ -15400,6 +15722,57 @@ class module_SearchModulesResponse(ConjureBeanType):
 module_SearchModulesResponse.__name__ = "SearchModulesResponse"
 module_SearchModulesResponse.__qualname__ = "SearchModulesResponse"
 module_SearchModulesResponse.__module__ = "nominal_api.module"
+
+
+class module_SearchModulesSortField(ConjureEnumType):
+
+    NAME = 'NAME'
+    '''NAME'''
+    LAST_UPDATED_AT = 'LAST_UPDATED_AT'
+    '''LAST_UPDATED_AT'''
+    CREATED_AT = 'CREATED_AT'
+    '''CREATED_AT'''
+    ARCHIVED_AT = 'ARCHIVED_AT'
+    '''ARCHIVED_AT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+module_SearchModulesSortField.__name__ = "SearchModulesSortField"
+module_SearchModulesSortField.__qualname__ = "SearchModulesSortField"
+module_SearchModulesSortField.__module__ = "nominal_api.module"
+
+
+class module_SearchModulesSortOptions(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'is_descending': ConjureFieldDefinition('isDescending', bool),
+            'field': ConjureFieldDefinition('field', module_SearchModulesSortField)
+        }
+
+    __slots__: List[str] = ['_is_descending', '_field']
+
+    def __init__(self, field: "module_SearchModulesSortField", is_descending: bool) -> None:
+        self._is_descending = is_descending
+        self._field = field
+
+    @builtins.property
+    def is_descending(self) -> bool:
+        return self._is_descending
+
+    @builtins.property
+    def field(self) -> "module_SearchModulesSortField":
+        return self._field
+
+
+module_SearchModulesSortOptions.__name__ = "SearchModulesSortOptions"
+module_SearchModulesSortOptions.__qualname__ = "SearchModulesSortOptions"
+module_SearchModulesSortOptions.__module__ = "nominal_api.module"
 
 
 class module_SemanticVersion(ConjureBeanType):
@@ -31893,12 +32266,12 @@ class scout_checks_api_CheckContext(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_VariableLocator]),
-            'sub_function_variables': ConjureFieldDefinition('subFunctionVariables', Dict[scout_compute_api_FunctionReference, scout_checks_api_CheckContext])
+            'sub_function_variables': ConjureFieldDefinition('subFunctionVariables', OptionalTypeWrapper[Dict[scout_compute_api_FunctionReference, scout_checks_api_CheckContext]])
         }
 
     __slots__: List[str] = ['_variables', '_sub_function_variables']
 
-    def __init__(self, sub_function_variables: Dict[str, "scout_checks_api_CheckContext"], variables: Dict[str, "scout_checks_api_VariableLocator"]) -> None:
+    def __init__(self, variables: Dict[str, "scout_checks_api_VariableLocator"], sub_function_variables: Optional[Dict[str, "scout_checks_api_CheckContext"]] = None) -> None:
         self._variables = variables
         self._sub_function_variables = sub_function_variables
 
@@ -31907,7 +32280,7 @@ class scout_checks_api_CheckContext(ConjureBeanType):
         return self._variables
 
     @builtins.property
-    def sub_function_variables(self) -> Dict[str, "scout_checks_api_CheckContext"]:
+    def sub_function_variables(self) -> Optional[Dict[str, "scout_checks_api_CheckContext"]]:
         return self._sub_function_variables
 
 
@@ -32443,11 +32816,11 @@ scout_checks_api_ChecklistSearchQueryVisitor.__module__ = "nominal_api.scout_che
 
 class scout_checks_api_ChecklistService(Service):
     """The Checklist Service is responsible for managing checklists and checks.
-A checklist is a collection of checks and functions that can be executed against a set of data sources.
+A checklist is a collection of checks that can be executed against a set of data sources.
     """
 
     def create(self, auth_header: str, request: "scout_checks_api_CreateChecklistRequest") -> "scout_checks_api_VersionedChecklist":
-        """Creates a new checklist with the provided checks and functions.
+        """Creates a new checklist with the provided checks.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -32996,17 +33369,15 @@ class scout_checks_api_CommitChecklistRequest(ConjureBeanType):
         return {
             'commit_message': ConjureFieldDefinition('commitMessage', str),
             'checks': ConjureFieldDefinition('checks', List[scout_checks_api_UpdateChecklistEntryRequest]),
-            'functions': ConjureFieldDefinition('functions', Dict[scout_compute_api_FunctionReference, scout_checks_api_UpdateFunctionEntryRequest]),
             'checklist_variables': ConjureFieldDefinition('checklistVariables', List[scout_checks_api_UnresolvedChecklistVariable]),
             'latest_commit': ConjureFieldDefinition('latestCommit', OptionalTypeWrapper[scout_versioning_api_CommitId])
         }
 
-    __slots__: List[str] = ['_commit_message', '_checks', '_functions', '_checklist_variables', '_latest_commit']
+    __slots__: List[str] = ['_commit_message', '_checks', '_checklist_variables', '_latest_commit']
 
-    def __init__(self, checklist_variables: List["scout_checks_api_UnresolvedChecklistVariable"], checks: List["scout_checks_api_UpdateChecklistEntryRequest"], commit_message: str, functions: Dict[str, "scout_checks_api_UpdateFunctionEntryRequest"], latest_commit: Optional[str] = None) -> None:
+    def __init__(self, checklist_variables: List["scout_checks_api_UnresolvedChecklistVariable"], checks: List["scout_checks_api_UpdateChecklistEntryRequest"], commit_message: str, latest_commit: Optional[str] = None) -> None:
         self._commit_message = commit_message
         self._checks = checks
-        self._functions = functions
         self._checklist_variables = checklist_variables
         self._latest_commit = latest_commit
 
@@ -33019,14 +33390,8 @@ class scout_checks_api_CommitChecklistRequest(ConjureBeanType):
         return self._checks
 
     @builtins.property
-    def functions(self) -> Dict[str, "scout_checks_api_UpdateFunctionEntryRequest"]:
-        """The keys of the map are references that can be used for checks to reference functions in the same request, before the function RIDs have been created.
-        """
-        return self._functions
-
-    @builtins.property
     def checklist_variables(self) -> List["scout_checks_api_UnresolvedChecklistVariable"]:
-        """Variables that can be used in checks and functions. Variables are resolved in order of declaration.
+        """Variables that can be used in checks. Variables are resolved in order of declaration.
 If variable `a` depends on variable `b`, then `b` must be defined before `a` in the list.
         """
         return self._checklist_variables
@@ -33120,13 +33485,12 @@ class scout_checks_api_CreateCheckRequest(ConjureBeanType):
             'auto_generated_description': ConjureFieldDefinition('autoGeneratedDescription', OptionalTypeWrapper[str]),
             'priority': ConjureFieldDefinition('priority', scout_api_Priority),
             'generated_event_type': ConjureFieldDefinition('generatedEventType', OptionalTypeWrapper[event_EventType]),
-            'chart': ConjureFieldDefinition('chart', OptionalTypeWrapper[scout_rids_api_VersionedVizId]),
             'condition': ConjureFieldDefinition('condition', OptionalTypeWrapper[scout_checks_api_UnresolvedCheckCondition])
         }
 
-    __slots__: List[str] = ['_check_lineage_rid', '_title', '_description', '_auto_generated_title', '_auto_generated_description', '_priority', '_generated_event_type', '_chart', '_condition']
+    __slots__: List[str] = ['_check_lineage_rid', '_title', '_description', '_auto_generated_title', '_auto_generated_description', '_priority', '_generated_event_type', '_condition']
 
-    def __init__(self, description: str, priority: "scout_api_Priority", title: str, auto_generated_description: Optional[str] = None, auto_generated_title: Optional[str] = None, chart: Optional["scout_rids_api_VersionedVizId"] = None, check_lineage_rid: Optional[str] = None, condition: Optional["scout_checks_api_UnresolvedCheckCondition"] = None, generated_event_type: Optional["event_EventType"] = None) -> None:
+    def __init__(self, description: str, priority: "scout_api_Priority", title: str, auto_generated_description: Optional[str] = None, auto_generated_title: Optional[str] = None, check_lineage_rid: Optional[str] = None, condition: Optional["scout_checks_api_UnresolvedCheckCondition"] = None, generated_event_type: Optional["event_EventType"] = None) -> None:
         self._check_lineage_rid = check_lineage_rid
         self._title = title
         self._description = description
@@ -33134,7 +33498,6 @@ class scout_checks_api_CreateCheckRequest(ConjureBeanType):
         self._auto_generated_description = auto_generated_description
         self._priority = priority
         self._generated_event_type = generated_event_type
-        self._chart = chart
         self._condition = condition
 
     @builtins.property
@@ -33169,12 +33532,8 @@ This is named checkLineageRid for historical reasons but is actually a UUID.
         return self._generated_event_type
 
     @builtins.property
-    def chart(self) -> Optional["scout_rids_api_VersionedVizId"]:
-        return self._chart
-
-    @builtins.property
     def condition(self) -> Optional["scout_checks_api_UnresolvedCheckCondition"]:
-        """If omitted, this check represents a manual check.
+        """This field should not be omitted.
         """
         return self._condition
 
@@ -33249,7 +33608,6 @@ class scout_checks_api_CreateChecklistRequest(ConjureBeanType):
             'assignee_rid': ConjureFieldDefinition('assigneeRid', scout_rids_api_UserRid),
             'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', str),
-            'functions': ConjureFieldDefinition('functions', Dict[scout_compute_api_FunctionReference, scout_checks_api_CreateFunctionRequest]),
             'checks': ConjureFieldDefinition('checks', List[scout_checks_api_CreateChecklistEntryRequest]),
             'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
             'labels': ConjureFieldDefinition('labels', List[api_Label]),
@@ -33258,14 +33616,13 @@ class scout_checks_api_CreateChecklistRequest(ConjureBeanType):
             'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
         }
 
-    __slots__: List[str] = ['_commit_message', '_assignee_rid', '_title', '_description', '_functions', '_checks', '_properties', '_labels', '_checklist_variables', '_is_published', '_workspace']
+    __slots__: List[str] = ['_commit_message', '_assignee_rid', '_title', '_description', '_checks', '_properties', '_labels', '_checklist_variables', '_is_published', '_workspace']
 
-    def __init__(self, assignee_rid: str, checklist_variables: List["scout_checks_api_UnresolvedChecklistVariable"], checks: List["scout_checks_api_CreateChecklistEntryRequest"], commit_message: str, description: str, functions: Dict[str, "scout_checks_api_CreateFunctionRequest"], labels: List[str], properties: Dict[str, str], title: str, is_published: Optional[bool] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, assignee_rid: str, checklist_variables: List["scout_checks_api_UnresolvedChecklistVariable"], checks: List["scout_checks_api_CreateChecklistEntryRequest"], commit_message: str, description: str, labels: List[str], properties: Dict[str, str], title: str, is_published: Optional[bool] = None, workspace: Optional[str] = None) -> None:
         self._commit_message = commit_message
         self._assignee_rid = assignee_rid
         self._title = title
         self._description = description
-        self._functions = functions
         self._checks = checks
         self._properties = properties
         self._labels = labels
@@ -33290,12 +33647,6 @@ class scout_checks_api_CreateChecklistRequest(ConjureBeanType):
         return self._description
 
     @builtins.property
-    def functions(self) -> Dict[str, "scout_checks_api_CreateFunctionRequest"]:
-        """The keys of the map are references that can be used for checks to reference functions in the same request, before the function RIDs have been created.
-        """
-        return self._functions
-
-    @builtins.property
     def checks(self) -> List["scout_checks_api_CreateChecklistEntryRequest"]:
         return self._checks
 
@@ -33309,7 +33660,7 @@ class scout_checks_api_CreateChecklistRequest(ConjureBeanType):
 
     @builtins.property
     def checklist_variables(self) -> List["scout_checks_api_UnresolvedChecklistVariable"]:
-        """Variables that can be used in checks and functions. Variables are resolved in order of declaration.
+        """Variables that can be used in checks. Variables are resolved in order of declaration.
 If variable `a` depends on variable `b`, then `b` must be defined before `a` in the list.
         """
         return self._checklist_variables
@@ -33331,61 +33682,6 @@ the user's organization, if the default workspace for the organization is config
 scout_checks_api_CreateChecklistRequest.__name__ = "CreateChecklistRequest"
 scout_checks_api_CreateChecklistRequest.__qualname__ = "CreateChecklistRequest"
 scout_checks_api_CreateChecklistRequest.__module__ = "nominal_api.scout_checks_api"
-
-
-class scout_checks_api_CreateFunctionRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'function_lineage_rid': ConjureFieldDefinition('functionLineageRid', OptionalTypeWrapper[scout_rids_api_FunctionLineageRid]),
-            'title': ConjureFieldDefinition('title', str),
-            'description': ConjureFieldDefinition('description', str),
-            'auto_generated_title': ConjureFieldDefinition('autoGeneratedTitle', OptionalTypeWrapper[str]),
-            'auto_generated_description': ConjureFieldDefinition('autoGeneratedDescription', OptionalTypeWrapper[str]),
-            'node': ConjureFieldDefinition('node', scout_checks_api_FunctionNode)
-        }
-
-    __slots__: List[str] = ['_function_lineage_rid', '_title', '_description', '_auto_generated_title', '_auto_generated_description', '_node']
-
-    def __init__(self, description: str, node: "scout_checks_api_FunctionNode", title: str, auto_generated_description: Optional[str] = None, auto_generated_title: Optional[str] = None, function_lineage_rid: Optional[str] = None) -> None:
-        self._function_lineage_rid = function_lineage_rid
-        self._title = title
-        self._description = description
-        self._auto_generated_title = auto_generated_title
-        self._auto_generated_description = auto_generated_description
-        self._node = node
-
-    @builtins.property
-    def function_lineage_rid(self) -> Optional[str]:
-        """Identifies the lineage of functions this function belongs to. If not specified, a new lineage will be created.
-        """
-        return self._function_lineage_rid
-
-    @builtins.property
-    def title(self) -> str:
-        return self._title
-
-    @builtins.property
-    def description(self) -> str:
-        return self._description
-
-    @builtins.property
-    def auto_generated_title(self) -> Optional[str]:
-        return self._auto_generated_title
-
-    @builtins.property
-    def auto_generated_description(self) -> Optional[str]:
-        return self._auto_generated_description
-
-    @builtins.property
-    def node(self) -> "scout_checks_api_FunctionNode":
-        return self._node
-
-
-scout_checks_api_CreateFunctionRequest.__name__ = "CreateFunctionRequest"
-scout_checks_api_CreateFunctionRequest.__qualname__ = "CreateFunctionRequest"
-scout_checks_api_CreateFunctionRequest.__module__ = "nominal_api.scout_checks_api"
 
 
 class scout_checks_api_DeprecatedCheckJobSpec(ConjureBeanType):
@@ -33483,6 +33779,8 @@ scout_checks_api_Failed.__module__ = "nominal_api.scout_checks_api"
 
 
 class scout_checks_api_Function(ConjureBeanType):
+    """This function type is unsupported.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -34094,12 +34392,12 @@ class scout_checks_api_NumRangesConditionV3(ConjureBeanType):
             'threshold': ConjureFieldDefinition('threshold', int),
             'operator': ConjureFieldDefinition('operator', scout_compute_api_ThresholdOperator),
             'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_VariableLocator]),
-            'function_variables': ConjureFieldDefinition('functionVariables', Dict[scout_compute_api_FunctionReference, scout_checks_api_CheckContext])
+            'function_variables': ConjureFieldDefinition('functionVariables', OptionalTypeWrapper[Dict[scout_compute_api_FunctionReference, scout_checks_api_CheckContext]])
         }
 
     __slots__: List[str] = ['_ranges', '_function_spec', '_threshold', '_operator', '_variables', '_function_variables']
 
-    def __init__(self, function_spec: Any, function_variables: Dict[str, "scout_checks_api_CheckContext"], operator: "scout_compute_api_ThresholdOperator", ranges: "scout_compute_api_RangeSeries", threshold: int, variables: Dict[str, "scout_checks_api_VariableLocator"]) -> None:
+    def __init__(self, function_spec: Any, operator: "scout_compute_api_ThresholdOperator", ranges: "scout_compute_api_RangeSeries", threshold: int, variables: Dict[str, "scout_checks_api_VariableLocator"], function_variables: Optional[Dict[str, "scout_checks_api_CheckContext"]] = None) -> None:
         self._ranges = ranges
         self._function_spec = function_spec
         self._threshold = threshold
@@ -34128,10 +34426,7 @@ class scout_checks_api_NumRangesConditionV3(ConjureBeanType):
         return self._variables
 
     @builtins.property
-    def function_variables(self) -> Dict[str, "scout_checks_api_CheckContext"]:
-        """The variables to be passed into functions referenced by the check condition. The function reference key
-should match the FunctionReference in the function node definition.
-        """
+    def function_variables(self) -> Optional[Dict[str, "scout_checks_api_CheckContext"]]:
         return self._function_variables
 
 
@@ -34209,16 +34504,14 @@ class scout_checks_api_SaveChecklistRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'checks': ConjureFieldDefinition('checks', List[scout_checks_api_UpdateChecklistEntryRequest]),
-            'functions': ConjureFieldDefinition('functions', Dict[scout_compute_api_FunctionReference, scout_checks_api_UpdateFunctionEntryRequest]),
             'checklist_variables': ConjureFieldDefinition('checklistVariables', List[scout_checks_api_UnresolvedChecklistVariable]),
             'latest_commit': ConjureFieldDefinition('latestCommit', OptionalTypeWrapper[scout_versioning_api_CommitId])
         }
 
-    __slots__: List[str] = ['_checks', '_functions', '_checklist_variables', '_latest_commit']
+    __slots__: List[str] = ['_checks', '_checklist_variables', '_latest_commit']
 
-    def __init__(self, checklist_variables: List["scout_checks_api_UnresolvedChecklistVariable"], checks: List["scout_checks_api_UpdateChecklistEntryRequest"], functions: Dict[str, "scout_checks_api_UpdateFunctionEntryRequest"], latest_commit: Optional[str] = None) -> None:
+    def __init__(self, checklist_variables: List["scout_checks_api_UnresolvedChecklistVariable"], checks: List["scout_checks_api_UpdateChecklistEntryRequest"], latest_commit: Optional[str] = None) -> None:
         self._checks = checks
-        self._functions = functions
         self._checklist_variables = checklist_variables
         self._latest_commit = latest_commit
 
@@ -34227,14 +34520,8 @@ class scout_checks_api_SaveChecklistRequest(ConjureBeanType):
         return self._checks
 
     @builtins.property
-    def functions(self) -> Dict[str, "scout_checks_api_UpdateFunctionEntryRequest"]:
-        """The keys of the map are references that can be used for checks to reference functions in the same request, before the function RIDs have been created.
-        """
-        return self._functions
-
-    @builtins.property
     def checklist_variables(self) -> List["scout_checks_api_UnresolvedChecklistVariable"]:
-        """Variables that can be used in checks and functions. Variables are resolved in order of declaration.
+        """Variables that can be used in checks. Variables are resolved in order of declaration.
 If variable `a` depends on variable `b`, then `b` must be defined before `a` in the list.
         """
         return self._checklist_variables
@@ -34686,19 +34973,17 @@ class scout_checks_api_UnresolvedNumRangesConditionV3(ConjureBeanType):
             'function_spec': ConjureFieldDefinition('functionSpec', object),
             'threshold': ConjureFieldDefinition('threshold', int),
             'operator': ConjureFieldDefinition('operator', scout_compute_api_ThresholdOperator),
-            'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_UnresolvedVariableLocator]),
-            'function_variables': ConjureFieldDefinition('functionVariables', Dict[scout_compute_api_FunctionReference, scout_checks_api_UnresolvedVariables])
+            'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_UnresolvedVariableLocator])
         }
 
-    __slots__: List[str] = ['_ranges', '_function_spec', '_threshold', '_operator', '_variables', '_function_variables']
+    __slots__: List[str] = ['_ranges', '_function_spec', '_threshold', '_operator', '_variables']
 
-    def __init__(self, function_spec: Any, function_variables: Dict[str, "scout_checks_api_UnresolvedVariables"], operator: "scout_compute_api_ThresholdOperator", ranges: "scout_compute_api_RangeSeries", threshold: int, variables: Dict[str, "scout_checks_api_UnresolvedVariableLocator"]) -> None:
+    def __init__(self, function_spec: Any, operator: "scout_compute_api_ThresholdOperator", ranges: "scout_compute_api_RangeSeries", threshold: int, variables: Dict[str, "scout_checks_api_UnresolvedVariableLocator"]) -> None:
         self._ranges = ranges
         self._function_spec = function_spec
         self._threshold = threshold
         self._operator = operator
         self._variables = variables
-        self._function_variables = function_variables
 
     @builtins.property
     def ranges(self) -> "scout_compute_api_RangeSeries":
@@ -34722,14 +35007,6 @@ class scout_checks_api_UnresolvedNumRangesConditionV3(ConjureBeanType):
 at checklist execution time.
         """
         return self._variables
-
-    @builtins.property
-    def function_variables(self) -> Dict[str, "scout_checks_api_UnresolvedVariables"]:
-        """The variables to be passed into functions referenced by the check condition. The function reference key
-should match the FunctionReference in the function node definition. These variables can be overridden
-at checklist execution time.
-        """
-        return self._function_variables
 
 
 scout_checks_api_UnresolvedNumRangesConditionV3.__name__ = "UnresolvedNumRangesConditionV3"
@@ -34770,7 +35047,6 @@ scout_checks_api_UnresolvedParameterizedNumRangesConditionV1.__module__ = "nomin
 
 
 class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
-    _checklist_function: Optional[str] = None
     _checklist_variable: Optional[str] = None
     _compute_node: Optional["scout_checks_api_UnresolvedComputeNodeWithContext"] = None
     _series: Optional["scout_api_ChannelLocator"] = None
@@ -34779,7 +35055,6 @@ class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'checklist_function': ConjureFieldDefinition('checklistFunction', scout_compute_api_FunctionReference),
             'checklist_variable': ConjureFieldDefinition('checklistVariable', scout_compute_api_VariableName),
             'compute_node': ConjureFieldDefinition('computeNode', scout_checks_api_UnresolvedComputeNodeWithContext),
             'series': ConjureFieldDefinition('series', scout_api_ChannelLocator),
@@ -34788,7 +35063,6 @@ class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
 
     def __init__(
             self,
-            checklist_function: Optional[str] = None,
             checklist_variable: Optional[str] = None,
             compute_node: Optional["scout_checks_api_UnresolvedComputeNodeWithContext"] = None,
             series: Optional["scout_api_ChannelLocator"] = None,
@@ -34796,12 +35070,9 @@ class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (checklist_function is not None) + (checklist_variable is not None) + (compute_node is not None) + (series is not None) + (timestamp is not None) != 1:
+            if (checklist_variable is not None) + (compute_node is not None) + (series is not None) + (timestamp is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if checklist_function is not None:
-                self._checklist_function = checklist_function
-                self._type = 'checklistFunction'
             if checklist_variable is not None:
                 self._checklist_variable = checklist_variable
                 self._type = 'checklistVariable'
@@ -34815,11 +35086,6 @@ class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
                 self._timestamp = timestamp
                 self._type = 'timestamp'
 
-        elif type_of_union == 'checklistFunction':
-            if checklist_function is None:
-                raise ValueError('a union value must not be None')
-            self._checklist_function = checklist_function
-            self._type = 'checklistFunction'
         elif type_of_union == 'checklistVariable':
             if checklist_variable is None:
                 raise ValueError('a union value must not be None')
@@ -34842,10 +35108,6 @@ class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
             self._type = 'timestamp'
 
     @builtins.property
-    def checklist_function(self) -> Optional[str]:
-        return self._checklist_function
-
-    @builtins.property
     def checklist_variable(self) -> Optional[str]:
         """A pointer to a variable in the checklist.
         """
@@ -34866,8 +35128,6 @@ class scout_checks_api_UnresolvedVariableLocator(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_checks_api_UnresolvedVariableLocatorVisitor):
             raise ValueError('{} is not an instance of scout_checks_api_UnresolvedVariableLocatorVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'checklistFunction' and self.checklist_function is not None:
-            return visitor._checklist_function(self.checklist_function)
         if self._type == 'checklistVariable' and self.checklist_variable is not None:
             return visitor._checklist_variable(self.checklist_variable)
         if self._type == 'computeNode' and self.compute_node is not None:
@@ -34884,10 +35144,6 @@ scout_checks_api_UnresolvedVariableLocator.__module__ = "nominal_api.scout_check
 
 
 class scout_checks_api_UnresolvedVariableLocatorVisitor:
-
-    @abstractmethod
-    def _checklist_function(self, checklist_function: str) -> Any:
-        pass
 
     @abstractmethod
     def _checklist_variable(self, checklist_variable: str) -> Any:
@@ -34916,23 +35172,17 @@ class scout_checks_api_UnresolvedVariables(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_UnresolvedVariableLocator]),
-            'sub_function_variables': ConjureFieldDefinition('subFunctionVariables', Dict[scout_compute_api_FunctionReference, scout_checks_api_UnresolvedVariables])
+            'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_UnresolvedVariableLocator])
         }
 
-    __slots__: List[str] = ['_variables', '_sub_function_variables']
+    __slots__: List[str] = ['_variables']
 
-    def __init__(self, sub_function_variables: Dict[str, "scout_checks_api_UnresolvedVariables"], variables: Dict[str, "scout_checks_api_UnresolvedVariableLocator"]) -> None:
+    def __init__(self, variables: Dict[str, "scout_checks_api_UnresolvedVariableLocator"]) -> None:
         self._variables = variables
-        self._sub_function_variables = sub_function_variables
 
     @builtins.property
     def variables(self) -> Dict[str, "scout_checks_api_UnresolvedVariableLocator"]:
         return self._variables
-
-    @builtins.property
-    def sub_function_variables(self) -> Dict[str, "scout_checks_api_UnresolvedVariables"]:
-        return self._sub_function_variables
 
 
 scout_checks_api_UnresolvedVariables.__name__ = "UnresolvedVariables"
@@ -35070,87 +35320,9 @@ scout_checks_api_UpdateChecklistMetadataRequest.__qualname__ = "UpdateChecklistM
 scout_checks_api_UpdateChecklistMetadataRequest.__module__ = "nominal_api.scout_checks_api"
 
 
-class scout_checks_api_UpdateFunctionEntryRequest(ConjureUnionType):
-    _create_function: Optional["scout_checks_api_CreateFunctionRequest"] = None
-    _function: Optional[str] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'create_function': ConjureFieldDefinition('createFunction', scout_checks_api_CreateFunctionRequest),
-            'function': ConjureFieldDefinition('function', scout_rids_api_FunctionRid)
-        }
-
-    def __init__(
-            self,
-            create_function: Optional["scout_checks_api_CreateFunctionRequest"] = None,
-            function: Optional[str] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (create_function is not None) + (function is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if create_function is not None:
-                self._create_function = create_function
-                self._type = 'createFunction'
-            if function is not None:
-                self._function = function
-                self._type = 'function'
-
-        elif type_of_union == 'createFunction':
-            if create_function is None:
-                raise ValueError('a union value must not be None')
-            self._create_function = create_function
-            self._type = 'createFunction'
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
-
-    @builtins.property
-    def create_function(self) -> Optional["scout_checks_api_CreateFunctionRequest"]:
-        return self._create_function
-
-    @builtins.property
-    def function(self) -> Optional[str]:
-        return self._function
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_checks_api_UpdateFunctionEntryRequestVisitor):
-            raise ValueError('{} is not an instance of scout_checks_api_UpdateFunctionEntryRequestVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'createFunction' and self.create_function is not None:
-            return visitor._create_function(self.create_function)
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
-
-
-scout_checks_api_UpdateFunctionEntryRequest.__name__ = "UpdateFunctionEntryRequest"
-scout_checks_api_UpdateFunctionEntryRequest.__qualname__ = "UpdateFunctionEntryRequest"
-scout_checks_api_UpdateFunctionEntryRequest.__module__ = "nominal_api.scout_checks_api"
-
-
-class scout_checks_api_UpdateFunctionEntryRequestVisitor:
-
-    @abstractmethod
-    def _create_function(self, create_function: "scout_checks_api_CreateFunctionRequest") -> Any:
-        pass
-
-    @abstractmethod
-    def _function(self, function: str) -> Any:
-        pass
-
-
-scout_checks_api_UpdateFunctionEntryRequestVisitor.__name__ = "UpdateFunctionEntryRequestVisitor"
-scout_checks_api_UpdateFunctionEntryRequestVisitor.__qualname__ = "UpdateFunctionEntryRequestVisitor"
-scout_checks_api_UpdateFunctionEntryRequestVisitor.__module__ = "nominal_api.scout_checks_api"
-
-
 class scout_checks_api_VariableLocator(ConjureUnionType):
     _checklist_variable: Optional[str] = None
     _compute_node: Optional["scout_checks_api_ComputeNodeWithContext"] = None
-    _function_rid: Optional[str] = None
     _series: Optional["scout_api_ChannelLocator"] = None
     _timestamp: Optional["scout_checks_api_TimestampLocator"] = None
 
@@ -35159,7 +35331,6 @@ class scout_checks_api_VariableLocator(ConjureUnionType):
         return {
             'checklist_variable': ConjureFieldDefinition('checklistVariable', scout_compute_api_VariableName),
             'compute_node': ConjureFieldDefinition('computeNode', scout_checks_api_ComputeNodeWithContext),
-            'function_rid': ConjureFieldDefinition('functionRid', scout_rids_api_FunctionRid),
             'series': ConjureFieldDefinition('series', scout_api_ChannelLocator),
             'timestamp': ConjureFieldDefinition('timestamp', scout_checks_api_TimestampLocator)
         }
@@ -35168,13 +35339,12 @@ class scout_checks_api_VariableLocator(ConjureUnionType):
             self,
             checklist_variable: Optional[str] = None,
             compute_node: Optional["scout_checks_api_ComputeNodeWithContext"] = None,
-            function_rid: Optional[str] = None,
             series: Optional["scout_api_ChannelLocator"] = None,
             timestamp: Optional["scout_checks_api_TimestampLocator"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (checklist_variable is not None) + (compute_node is not None) + (function_rid is not None) + (series is not None) + (timestamp is not None) != 1:
+            if (checklist_variable is not None) + (compute_node is not None) + (series is not None) + (timestamp is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if checklist_variable is not None:
@@ -35183,9 +35353,6 @@ class scout_checks_api_VariableLocator(ConjureUnionType):
             if compute_node is not None:
                 self._compute_node = compute_node
                 self._type = 'computeNode'
-            if function_rid is not None:
-                self._function_rid = function_rid
-                self._type = 'functionRid'
             if series is not None:
                 self._series = series
                 self._type = 'series'
@@ -35203,11 +35370,6 @@ class scout_checks_api_VariableLocator(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._compute_node = compute_node
             self._type = 'computeNode'
-        elif type_of_union == 'functionRid':
-            if function_rid is None:
-                raise ValueError('a union value must not be None')
-            self._function_rid = function_rid
-            self._type = 'functionRid'
         elif type_of_union == 'series':
             if series is None:
                 raise ValueError('a union value must not be None')
@@ -35230,10 +35392,6 @@ class scout_checks_api_VariableLocator(ConjureUnionType):
         return self._compute_node
 
     @builtins.property
-    def function_rid(self) -> Optional[str]:
-        return self._function_rid
-
-    @builtins.property
     def series(self) -> Optional["scout_api_ChannelLocator"]:
         return self._series
 
@@ -35248,8 +35406,6 @@ class scout_checks_api_VariableLocator(ConjureUnionType):
             return visitor._checklist_variable(self.checklist_variable)
         if self._type == 'computeNode' and self.compute_node is not None:
             return visitor._compute_node(self.compute_node)
-        if self._type == 'functionRid' and self.function_rid is not None:
-            return visitor._function_rid(self.function_rid)
         if self._type == 'series' and self.series is not None:
             return visitor._series(self.series)
         if self._type == 'timestamp' and self.timestamp is not None:
@@ -35269,10 +35425,6 @@ class scout_checks_api_VariableLocatorVisitor:
 
     @abstractmethod
     def _compute_node(self, compute_node: "scout_checks_api_ComputeNodeWithContext") -> Any:
-        pass
-
-    @abstractmethod
-    def _function_rid(self, function_rid: str) -> Any:
         pass
 
     @abstractmethod
@@ -35297,14 +35449,14 @@ class scout_checks_api_VersionedChecklist(ConjureBeanType):
             'rid': ConjureFieldDefinition('rid', scout_rids_api_ChecklistRid),
             'metadata': ConjureFieldDefinition('metadata', scout_checks_api_ChecklistMetadata),
             'commit': ConjureFieldDefinition('commit', scout_versioning_api_Commit),
-            'functions': ConjureFieldDefinition('functions', List[scout_checks_api_Function]),
+            'functions': ConjureFieldDefinition('functions', OptionalTypeWrapper[List[scout_checks_api_Function]]),
             'checks': ConjureFieldDefinition('checks', List[scout_checks_api_ChecklistEntry]),
             'checklist_variables': ConjureFieldDefinition('checklistVariables', List[scout_checks_api_ChecklistVariable])
         }
 
     __slots__: List[str] = ['_rid', '_metadata', '_commit', '_functions', '_checks', '_checklist_variables']
 
-    def __init__(self, checklist_variables: List["scout_checks_api_ChecklistVariable"], checks: List["scout_checks_api_ChecklistEntry"], commit: "scout_versioning_api_Commit", functions: List["scout_checks_api_Function"], metadata: "scout_checks_api_ChecklistMetadata", rid: str) -> None:
+    def __init__(self, checklist_variables: List["scout_checks_api_ChecklistVariable"], checks: List["scout_checks_api_ChecklistEntry"], commit: "scout_versioning_api_Commit", metadata: "scout_checks_api_ChecklistMetadata", rid: str, functions: Optional[List["scout_checks_api_Function"]] = None) -> None:
         self._rid = rid
         self._metadata = metadata
         self._commit = commit
@@ -35325,9 +35477,7 @@ class scout_checks_api_VersionedChecklist(ConjureBeanType):
         return self._commit
 
     @builtins.property
-    def functions(self) -> List["scout_checks_api_Function"]:
-        """A list of functions that are available to be used by checks in this checklist.
-        """
+    def functions(self) -> Optional[List["scout_checks_api_Function"]]:
         return self._functions
 
     @builtins.property
@@ -35336,7 +35486,7 @@ class scout_checks_api_VersionedChecklist(ConjureBeanType):
 
     @builtins.property
     def checklist_variables(self) -> List["scout_checks_api_ChecklistVariable"]:
-        """Variables that can be used in checks and functions. Variables are resolved in order of declaration.
+        """Variables that can be used in checks. Variables are resolved in order of declaration.
 If variable `a` depends on variable `b`, then `b` must be defined before `a` in the list.
         """
         return self._checklist_variables
@@ -40505,12 +40655,12 @@ class scout_compute_api_Context(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_compute_api_VariableValue]),
-            'function_variables': ConjureFieldDefinition('functionVariables', Dict[scout_compute_api_FunctionReference, scout_compute_api_FunctionVariables])
+            'function_variables': ConjureFieldDefinition('functionVariables', OptionalTypeWrapper[Dict[scout_compute_api_FunctionReference, scout_compute_api_FunctionVariables]])
         }
 
     __slots__: List[str] = ['_variables', '_function_variables']
 
-    def __init__(self, function_variables: Dict[str, "scout_compute_api_FunctionVariables"], variables: Dict[str, "scout_compute_api_VariableValue"]) -> None:
+    def __init__(self, variables: Dict[str, "scout_compute_api_VariableValue"], function_variables: Optional[Dict[str, "scout_compute_api_FunctionVariables"]] = None) -> None:
         self._variables = variables
         self._function_variables = function_variables
 
@@ -40519,11 +40669,7 @@ class scout_compute_api_Context(ConjureBeanType):
         return self._variables
 
     @builtins.property
-    def function_variables(self) -> Dict[str, "scout_compute_api_FunctionVariables"]:
-        """Map of function references to their variables. The function reference is defined in the FunctionNode definition.
-If a function references another function, the variables for the referenced function should be in the
-subFunctionVariables field of the FunctionVariables.
-        """
+    def function_variables(self) -> Optional[Dict[str, "scout_compute_api_FunctionVariables"]]:
         return self._function_variables
 
 
@@ -41894,7 +42040,6 @@ scout_compute_api_EnumResampleSeries.__module__ = "nominal_api.scout_compute_api
 
 class scout_compute_api_EnumSeries(ConjureUnionType):
     _aggregate: Optional["scout_compute_api_AggregateEnumSeries"] = None
-    _function: Optional["scout_compute_api_EnumSeriesFunction"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _resample: Optional["scout_compute_api_EnumResampleSeries"] = None
@@ -41909,7 +42054,6 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'aggregate': ConjureFieldDefinition('aggregate', scout_compute_api_AggregateEnumSeries),
-            'function': ConjureFieldDefinition('function', scout_compute_api_EnumSeriesFunction),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
             'resample': ConjureFieldDefinition('resample', scout_compute_api_EnumResampleSeries),
@@ -41924,7 +42068,6 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     def __init__(
             self,
             aggregate: Optional["scout_compute_api_AggregateEnumSeries"] = None,
-            function: Optional["scout_compute_api_EnumSeriesFunction"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
             resample: Optional["scout_compute_api_EnumResampleSeries"] = None,
@@ -41937,15 +42080,12 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (function is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) != 1:
+            if (aggregate is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
                 self._aggregate = aggregate
                 self._type = 'aggregate'
-            if function is not None:
-                self._function = function
-                self._type = 'function'
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
@@ -41979,11 +42119,6 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._aggregate = aggregate
             self._type = 'aggregate'
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
         elif type_of_union == 'raw':
             if raw is None:
                 raise ValueError('a union value must not be None')
@@ -42035,10 +42170,6 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
         return self._aggregate
 
     @builtins.property
-    def function(self) -> Optional["scout_compute_api_EnumSeriesFunction"]:
-        return self._function
-
-    @builtins.property
     def raw(self) -> Optional["scout_compute_api_Reference"]:
         return self._raw
 
@@ -42079,8 +42210,6 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_api_EnumSeriesVisitor'.format(visitor.__class__.__name__))
         if self._type == 'aggregate' and self.aggregate is not None:
             return visitor._aggregate(self.aggregate)
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
         if self._type == 'channel' and self.channel is not None:
@@ -42110,10 +42239,6 @@ class scout_compute_api_EnumSeriesVisitor:
 
     @abstractmethod
     def _aggregate(self, aggregate: "scout_compute_api_AggregateEnumSeries") -> Any:
-        pass
-
-    @abstractmethod
-    def _function(self, function: "scout_compute_api_EnumSeriesFunction") -> Any:
         pass
 
     @abstractmethod
@@ -42201,41 +42326,6 @@ class scout_compute_api_EnumSeriesEqualityRanges(ConjureBeanType):
 scout_compute_api_EnumSeriesEqualityRanges.__name__ = "EnumSeriesEqualityRanges"
 scout_compute_api_EnumSeriesEqualityRanges.__qualname__ = "EnumSeriesEqualityRanges"
 scout_compute_api_EnumSeriesEqualityRanges.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_EnumSeriesFunction(ConjureBeanType):
-    """A function reference that outputs an enum series.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'function_reference': ConjureFieldDefinition('functionReference', scout_compute_api_FunctionReference),
-            'function_identifier': ConjureFieldDefinition('functionIdentifier', scout_compute_api_FunctionVariable)
-        }
-
-    __slots__: List[str] = ['_function_reference', '_function_identifier']
-
-    def __init__(self, function_identifier: "scout_compute_api_FunctionVariable", function_reference: str) -> None:
-        self._function_reference = function_reference
-        self._function_identifier = function_identifier
-
-    @builtins.property
-    def function_reference(self) -> str:
-        """A reference to identify the function node for substituting variables used within the function.
-        """
-        return self._function_reference
-
-    @builtins.property
-    def function_identifier(self) -> "scout_compute_api_FunctionVariable":
-        """The variable that needs to be substituted with the function RID.
-        """
-        return self._function_identifier
-
-
-scout_compute_api_EnumSeriesFunction.__name__ = "EnumSeriesFunction"
-scout_compute_api_EnumSeriesFunction.__qualname__ = "EnumSeriesFunction"
-scout_compute_api_EnumSeriesFunction.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_EnumTimeRangeFilterSeries(ConjureBeanType):
@@ -42667,62 +42757,6 @@ class scout_compute_api_FrequencyDomainPlot(ConjureBeanType):
 scout_compute_api_FrequencyDomainPlot.__name__ = "FrequencyDomainPlot"
 scout_compute_api_FrequencyDomainPlot.__qualname__ = "FrequencyDomainPlot"
 scout_compute_api_FrequencyDomainPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_FunctionVariable(ConjureUnionType):
-    _variable: Optional[str] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'variable': ConjureFieldDefinition('variable', scout_compute_api_VariableName)
-        }
-
-    def __init__(
-            self,
-            variable: Optional[str] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (variable is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if variable is not None:
-                self._variable = variable
-                self._type = 'variable'
-
-        elif type_of_union == 'variable':
-            if variable is None:
-                raise ValueError('a union value must not be None')
-            self._variable = variable
-            self._type = 'variable'
-
-    @builtins.property
-    def variable(self) -> Optional[str]:
-        return self._variable
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_compute_api_FunctionVariableVisitor):
-            raise ValueError('{} is not an instance of scout_compute_api_FunctionVariableVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'variable' and self.variable is not None:
-            return visitor._variable(self.variable)
-
-
-scout_compute_api_FunctionVariable.__name__ = "FunctionVariable"
-scout_compute_api_FunctionVariable.__qualname__ = "FunctionVariable"
-scout_compute_api_FunctionVariable.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_FunctionVariableVisitor:
-
-    @abstractmethod
-    def _variable(self, variable: str) -> Any:
-        pass
-
-
-scout_compute_api_FunctionVariableVisitor.__name__ = "FunctionVariableVisitor"
-scout_compute_api_FunctionVariableVisitor.__qualname__ = "FunctionVariableVisitor"
-scout_compute_api_FunctionVariableVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_FunctionVariables(ConjureBeanType):
@@ -45063,7 +45097,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None
     _cumulative_sum: Optional["scout_compute_api_CumulativeSumSeries"] = None
     _derivative: Optional["scout_compute_api_DerivativeSeries"] = None
-    _function: Optional["scout_compute_api_NumericSeriesFunction"] = None
     _integral: Optional["scout_compute_api_IntegralSeries"] = None
     _max: Optional["scout_compute_api_MaxSeries"] = None
     _mean: Optional["scout_compute_api_MeanSeries"] = None
@@ -45100,7 +45133,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'count_duplicate': ConjureFieldDefinition('countDuplicate', scout_compute_api_EnumCountDuplicateSeries),
             'cumulative_sum': ConjureFieldDefinition('cumulativeSum', scout_compute_api_CumulativeSumSeries),
             'derivative': ConjureFieldDefinition('derivative', scout_compute_api_DerivativeSeries),
-            'function': ConjureFieldDefinition('function', scout_compute_api_NumericSeriesFunction),
             'integral': ConjureFieldDefinition('integral', scout_compute_api_IntegralSeries),
             'max': ConjureFieldDefinition('max', scout_compute_api_MaxSeries),
             'mean': ConjureFieldDefinition('mean', scout_compute_api_MeanSeries),
@@ -45137,7 +45169,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None,
             cumulative_sum: Optional["scout_compute_api_CumulativeSumSeries"] = None,
             derivative: Optional["scout_compute_api_DerivativeSeries"] = None,
-            function: Optional["scout_compute_api_NumericSeriesFunction"] = None,
             integral: Optional["scout_compute_api_IntegralSeries"] = None,
             max: Optional["scout_compute_api_MaxSeries"] = None,
             mean: Optional["scout_compute_api_MeanSeries"] = None,
@@ -45167,7 +45198,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (function is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) != 1:
+            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -45188,9 +45219,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if derivative is not None:
                 self._derivative = derivative
                 self._type = 'derivative'
-            if function is not None:
-                self._function = function
-                self._type = 'function'
             if integral is not None:
                 self._integral = integral
                 self._type = 'integral'
@@ -45300,11 +45328,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._derivative = derivative
             self._type = 'derivative'
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
         elif type_of_union == 'integral':
             if integral is None:
                 raise ValueError('a union value must not be None')
@@ -45461,10 +45484,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._derivative
 
     @builtins.property
-    def function(self) -> Optional["scout_compute_api_NumericSeriesFunction"]:
-        return self._function
-
-    @builtins.property
     def integral(self) -> Optional["scout_compute_api_IntegralSeries"]:
         return self._integral
 
@@ -45583,8 +45602,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._cumulative_sum(self.cumulative_sum)
         if self._type == 'derivative' and self.derivative is not None:
             return visitor._derivative(self.derivative)
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
         if self._type == 'integral' and self.integral is not None:
             return visitor._integral(self.integral)
         if self._type == 'max' and self.max is not None:
@@ -45668,10 +45685,6 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _derivative(self, derivative: "scout_compute_api_DerivativeSeries") -> Any:
-        pass
-
-    @abstractmethod
-    def _function(self, function: "scout_compute_api_NumericSeriesFunction") -> Any:
         pass
 
     @abstractmethod
@@ -45782,41 +45795,6 @@ class scout_compute_api_NumericSeriesVisitor:
 scout_compute_api_NumericSeriesVisitor.__name__ = "NumericSeriesVisitor"
 scout_compute_api_NumericSeriesVisitor.__qualname__ = "NumericSeriesVisitor"
 scout_compute_api_NumericSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_NumericSeriesFunction(ConjureBeanType):
-    """A function reference that outputs a numeric series.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'function_reference': ConjureFieldDefinition('functionReference', scout_compute_api_FunctionReference),
-            'function_identifier': ConjureFieldDefinition('functionIdentifier', scout_compute_api_FunctionVariable)
-        }
-
-    __slots__: List[str] = ['_function_reference', '_function_identifier']
-
-    def __init__(self, function_identifier: "scout_compute_api_FunctionVariable", function_reference: str) -> None:
-        self._function_reference = function_reference
-        self._function_identifier = function_identifier
-
-    @builtins.property
-    def function_reference(self) -> str:
-        """A reference to identify the function node for substituting variables used within the function.
-        """
-        return self._function_reference
-
-    @builtins.property
-    def function_identifier(self) -> "scout_compute_api_FunctionVariable":
-        """The variable that needs to be substituted with the function RID.
-        """
-        return self._function_identifier
-
-
-scout_compute_api_NumericSeriesFunction.__name__ = "NumericSeriesFunction"
-scout_compute_api_NumericSeriesFunction.__qualname__ = "NumericSeriesFunction"
-scout_compute_api_NumericSeriesFunction.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_NumericThresholdFilterSeries(ConjureBeanType):
@@ -46335,28 +46313,18 @@ class scout_compute_api_ParameterInput(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_compute_api_VariableValue]),
-            'function_variables': ConjureFieldDefinition('functionVariables', Dict[scout_compute_api_FunctionReference, scout_compute_api_FunctionVariables]),
             'time_range': ConjureFieldDefinition('timeRange', OptionalTypeWrapper[scout_compute_api_Range])
         }
 
-    __slots__: List[str] = ['_variables', '_function_variables', '_time_range']
+    __slots__: List[str] = ['_variables', '_time_range']
 
-    def __init__(self, function_variables: Dict[str, "scout_compute_api_FunctionVariables"], variables: Dict[str, "scout_compute_api_VariableValue"], time_range: Optional["scout_compute_api_Range"] = None) -> None:
+    def __init__(self, variables: Dict[str, "scout_compute_api_VariableValue"], time_range: Optional["scout_compute_api_Range"] = None) -> None:
         self._variables = variables
-        self._function_variables = function_variables
         self._time_range = time_range
 
     @builtins.property
     def variables(self) -> Dict[str, "scout_compute_api_VariableValue"]:
         return self._variables
-
-    @builtins.property
-    def function_variables(self) -> Dict[str, "scout_compute_api_FunctionVariables"]:
-        """Map of function references to their variables. The function reference is defined in the FunctionNode definition.
-If a function references another function, the variables for the referenced function should be in the
-subFunctionVariables field of the FunctionVariables.
-        """
-        return self._function_variables
 
     @builtins.property
     def time_range(self) -> Optional["scout_compute_api_Range"]:
@@ -47060,7 +47028,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     _enum_filter: Optional["scout_compute_api_EnumFilterRanges"] = None
     _enum_series_equality_ranges_node: Optional["scout_compute_api_EnumSeriesEqualityRanges"] = None
     _events_search: Optional["scout_compute_api_EventsSearchRanges"] = None
-    _function: Optional["scout_compute_api_RangesFunction"] = None
     _intersect_range: Optional["scout_compute_api_IntersectRanges"] = None
     _literal_ranges: Optional["scout_compute_api_LiteralRanges"] = None
     _min_max_threshold: Optional["scout_compute_api_MinMaxThresholdRanges"] = None
@@ -47084,7 +47051,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             'enum_filter': ConjureFieldDefinition('enumFilter', scout_compute_api_EnumFilterRanges),
             'enum_series_equality_ranges_node': ConjureFieldDefinition('enumSeriesEqualityRangesNode', scout_compute_api_EnumSeriesEqualityRanges),
             'events_search': ConjureFieldDefinition('eventsSearch', scout_compute_api_EventsSearchRanges),
-            'function': ConjureFieldDefinition('function', scout_compute_api_RangesFunction),
             'intersect_range': ConjureFieldDefinition('intersectRange', scout_compute_api_IntersectRanges),
             'literal_ranges': ConjureFieldDefinition('literalRanges', scout_compute_api_LiteralRanges),
             'min_max_threshold': ConjureFieldDefinition('minMaxThreshold', scout_compute_api_MinMaxThresholdRanges),
@@ -47108,7 +47074,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             enum_filter: Optional["scout_compute_api_EnumFilterRanges"] = None,
             enum_series_equality_ranges_node: Optional["scout_compute_api_EnumSeriesEqualityRanges"] = None,
             events_search: Optional["scout_compute_api_EventsSearchRanges"] = None,
-            function: Optional["scout_compute_api_RangesFunction"] = None,
             intersect_range: Optional["scout_compute_api_IntersectRanges"] = None,
             literal_ranges: Optional["scout_compute_api_LiteralRanges"] = None,
             min_max_threshold: Optional["scout_compute_api_MinMaxThresholdRanges"] = None,
@@ -47126,7 +47091,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (function is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
+            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if approximate_threshold is not None:
@@ -47144,9 +47109,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             if events_search is not None:
                 self._events_search = events_search
                 self._type = 'eventsSearch'
-            if function is not None:
-                self._function = function
-                self._type = 'function'
             if intersect_range is not None:
                 self._intersect_range = intersect_range
                 self._type = 'intersectRange'
@@ -47215,11 +47177,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._events_search = events_search
             self._type = 'eventsSearch'
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
         elif type_of_union == 'intersectRange':
             if intersect_range is None:
                 raise ValueError('a union value must not be None')
@@ -47312,10 +47269,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
         return self._events_search
 
     @builtins.property
-    def function(self) -> Optional["scout_compute_api_RangesFunction"]:
-        return self._function
-
-    @builtins.property
     def intersect_range(self) -> Optional["scout_compute_api_IntersectRanges"]:
         return self._intersect_range
 
@@ -47388,8 +47341,6 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             return visitor._enum_series_equality_ranges_node(self.enum_series_equality_ranges_node)
         if self._type == 'eventsSearch' and self.events_search is not None:
             return visitor._events_search(self.events_search)
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
         if self._type == 'intersectRange' and self.intersect_range is not None:
             return visitor._intersect_range(self.intersect_range)
         if self._type == 'literalRanges' and self.literal_ranges is not None:
@@ -47445,10 +47396,6 @@ class scout_compute_api_RangeSeriesVisitor:
 
     @abstractmethod
     def _events_search(self, events_search: "scout_compute_api_EventsSearchRanges") -> Any:
-        pass
-
-    @abstractmethod
-    def _function(self, function: "scout_compute_api_RangesFunction") -> Any:
         pass
 
     @abstractmethod
@@ -47644,41 +47591,6 @@ class scout_compute_api_RangeValueVisitor:
 scout_compute_api_RangeValueVisitor.__name__ = "RangeValueVisitor"
 scout_compute_api_RangeValueVisitor.__qualname__ = "RangeValueVisitor"
 scout_compute_api_RangeValueVisitor.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_RangesFunction(ConjureBeanType):
-    """A function reference that outputs a ranges series.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'function_reference': ConjureFieldDefinition('functionReference', scout_compute_api_FunctionReference),
-            'function_identifier': ConjureFieldDefinition('functionIdentifier', scout_compute_api_FunctionVariable)
-        }
-
-    __slots__: List[str] = ['_function_reference', '_function_identifier']
-
-    def __init__(self, function_identifier: "scout_compute_api_FunctionVariable", function_reference: str) -> None:
-        self._function_reference = function_reference
-        self._function_identifier = function_identifier
-
-    @builtins.property
-    def function_reference(self) -> str:
-        """A reference to identify the function node for substituting variables used within the function.
-        """
-        return self._function_reference
-
-    @builtins.property
-    def function_identifier(self) -> "scout_compute_api_FunctionVariable":
-        """The variable that needs to be substituted with the function RID.
-        """
-        return self._function_identifier
-
-
-scout_compute_api_RangesFunction.__name__ = "RangesFunction"
-scout_compute_api_RangesFunction.__qualname__ = "RangesFunction"
-scout_compute_api_RangesFunction.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RangesNumericAggregation(ConjureBeanType):
@@ -50612,7 +50524,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
     _double: Optional[float] = None
     _compute_node: Optional["scout_compute_api_ComputeNodeWithContext"] = None
     _duration: Optional["scout_run_api_Duration"] = None
-    _function_rid: Optional[str] = None
     _integer: Optional[int] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _series: Optional["scout_compute_api_SeriesSpec"] = None
@@ -50626,7 +50537,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             'double': ConjureFieldDefinition('double', float),
             'compute_node': ConjureFieldDefinition('computeNode', scout_compute_api_ComputeNodeWithContext),
             'duration': ConjureFieldDefinition('duration', scout_run_api_Duration),
-            'function_rid': ConjureFieldDefinition('functionRid', scout_rids_api_FunctionRid),
             'integer': ConjureFieldDefinition('integer', int),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
             'series': ConjureFieldDefinition('series', scout_compute_api_SeriesSpec),
@@ -50640,7 +50550,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             double: Optional[float] = None,
             compute_node: Optional["scout_compute_api_ComputeNodeWithContext"] = None,
             duration: Optional["scout_run_api_Duration"] = None,
-            function_rid: Optional[str] = None,
             integer: Optional[int] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
             series: Optional["scout_compute_api_SeriesSpec"] = None,
@@ -50650,7 +50559,7 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (double is not None) + (compute_node is not None) + (duration is not None) + (function_rid is not None) + (integer is not None) + (channel is not None) + (series is not None) + (string is not None) + (string_set is not None) + (timestamp is not None) != 1:
+            if (double is not None) + (compute_node is not None) + (duration is not None) + (integer is not None) + (channel is not None) + (series is not None) + (string is not None) + (string_set is not None) + (timestamp is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if double is not None:
@@ -50662,9 +50571,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             if duration is not None:
                 self._duration = duration
                 self._type = 'duration'
-            if function_rid is not None:
-                self._function_rid = function_rid
-                self._type = 'functionRid'
             if integer is not None:
                 self._integer = integer
                 self._type = 'integer'
@@ -50699,11 +50605,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._duration = duration
             self._type = 'duration'
-        elif type_of_union == 'functionRid':
-            if function_rid is None:
-                raise ValueError('a union value must not be None')
-            self._function_rid = function_rid
-            self._type = 'functionRid'
         elif type_of_union == 'integer':
             if integer is None:
                 raise ValueError('a union value must not be None')
@@ -50748,10 +50649,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
         return self._duration
 
     @builtins.property
-    def function_rid(self) -> Optional[str]:
-        return self._function_rid
-
-    @builtins.property
     def integer(self) -> Optional[int]:
         return self._integer
 
@@ -50784,8 +50681,6 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             return visitor._compute_node(self.compute_node)
         if self._type == 'duration' and self.duration is not None:
             return visitor._duration(self.duration)
-        if self._type == 'functionRid' and self.function_rid is not None:
-            return visitor._function_rid(self.function_rid)
         if self._type == 'integer' and self.integer is not None:
             return visitor._integer(self.integer)
         if self._type == 'channel' and self.channel is not None:
@@ -50817,10 +50712,6 @@ class scout_compute_api_VariableValueVisitor:
 
     @abstractmethod
     def _duration(self, duration: "scout_run_api_Duration") -> Any:
-        pass
-
-    @abstractmethod
-    def _function_rid(self, function_rid: str) -> Any:
         pass
 
     @abstractmethod
@@ -51399,7 +51290,6 @@ scout_compute_api_deprecated_EnumFilterRangesNode.__module__ = "nominal_api.scou
 
 class scout_compute_api_deprecated_EnumSeriesNode(ConjureUnionType):
     _raw: Optional["scout_compute_api_Reference"] = None
-    _function: Optional["scout_compute_api_EnumSeriesFunction"] = None
     _time_range_filter: Optional["scout_compute_api_deprecated_EnumTimeRangeFilterSeriesNode"] = None
     _time_shift: Optional["scout_compute_api_deprecated_EnumTimeShiftSeriesNode"] = None
     _union: Optional["scout_compute_api_deprecated_EnumUnionSeriesNode"] = None
@@ -51408,7 +51298,6 @@ class scout_compute_api_deprecated_EnumSeriesNode(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
-            'function': ConjureFieldDefinition('function', scout_compute_api_EnumSeriesFunction),
             'time_range_filter': ConjureFieldDefinition('timeRangeFilter', scout_compute_api_deprecated_EnumTimeRangeFilterSeriesNode),
             'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_deprecated_EnumTimeShiftSeriesNode),
             'union': ConjureFieldDefinition('union', scout_compute_api_deprecated_EnumUnionSeriesNode)
@@ -51417,22 +51306,18 @@ class scout_compute_api_deprecated_EnumSeriesNode(ConjureUnionType):
     def __init__(
             self,
             raw: Optional["scout_compute_api_Reference"] = None,
-            function: Optional["scout_compute_api_EnumSeriesFunction"] = None,
             time_range_filter: Optional["scout_compute_api_deprecated_EnumTimeRangeFilterSeriesNode"] = None,
             time_shift: Optional["scout_compute_api_deprecated_EnumTimeShiftSeriesNode"] = None,
             union: Optional["scout_compute_api_deprecated_EnumUnionSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (function is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) != 1:
+            if (raw is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
-            if function is not None:
-                self._function = function
-                self._type = 'function'
             if time_range_filter is not None:
                 self._time_range_filter = time_range_filter
                 self._type = 'timeRangeFilter'
@@ -51448,11 +51333,6 @@ class scout_compute_api_deprecated_EnumSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._raw = raw
             self._type = 'raw'
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
         elif type_of_union == 'timeRangeFilter':
             if time_range_filter is None:
                 raise ValueError('a union value must not be None')
@@ -51474,10 +51354,6 @@ class scout_compute_api_deprecated_EnumSeriesNode(ConjureUnionType):
         return self._raw
 
     @builtins.property
-    def function(self) -> Optional["scout_compute_api_EnumSeriesFunction"]:
-        return self._function
-
-    @builtins.property
     def time_range_filter(self) -> Optional["scout_compute_api_deprecated_EnumTimeRangeFilterSeriesNode"]:
         return self._time_range_filter
 
@@ -51494,8 +51370,6 @@ class scout_compute_api_deprecated_EnumSeriesNode(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_api_deprecated_EnumSeriesNodeVisitor'.format(visitor.__class__.__name__))
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
         if self._type == 'timeRangeFilter' and self.time_range_filter is not None:
             return visitor._time_range_filter(self.time_range_filter)
         if self._type == 'timeShift' and self.time_shift is not None:
@@ -51513,10 +51387,6 @@ class scout_compute_api_deprecated_EnumSeriesNodeVisitor:
 
     @abstractmethod
     def _raw(self, raw: "scout_compute_api_Reference") -> Any:
-        pass
-
-    @abstractmethod
-    def _function(self, function: "scout_compute_api_EnumSeriesFunction") -> Any:
         pass
 
     @abstractmethod
@@ -51737,7 +51607,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
     _arithmetic: Optional["scout_compute_api_deprecated_ArithmeticSeriesNode"] = None
     _bit_operation: Optional["scout_compute_api_deprecated_BitOperationSeriesNode"] = None
     _cumulative_sum: Optional["scout_compute_api_deprecated_CumulativeSumSeriesNode"] = None
-    _function: Optional["scout_compute_api_NumericSeriesFunction"] = None
     _derivative: Optional["scout_compute_api_deprecated_DerivativeSeriesNode"] = None
     _rolling_operation: Optional["scout_compute_api_deprecated_RollingOperationSeriesNode"] = None
     _unary_arithmetic: Optional["scout_compute_api_deprecated_UnaryArithmeticSeriesNode"] = None
@@ -51754,7 +51623,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
             'arithmetic': ConjureFieldDefinition('arithmetic', scout_compute_api_deprecated_ArithmeticSeriesNode),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_api_deprecated_BitOperationSeriesNode),
             'cumulative_sum': ConjureFieldDefinition('cumulativeSum', scout_compute_api_deprecated_CumulativeSumSeriesNode),
-            'function': ConjureFieldDefinition('function', scout_compute_api_NumericSeriesFunction),
             'derivative': ConjureFieldDefinition('derivative', scout_compute_api_deprecated_DerivativeSeriesNode),
             'rolling_operation': ConjureFieldDefinition('rollingOperation', scout_compute_api_deprecated_RollingOperationSeriesNode),
             'unary_arithmetic': ConjureFieldDefinition('unaryArithmetic', scout_compute_api_deprecated_UnaryArithmeticSeriesNode),
@@ -51771,7 +51639,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
             arithmetic: Optional["scout_compute_api_deprecated_ArithmeticSeriesNode"] = None,
             bit_operation: Optional["scout_compute_api_deprecated_BitOperationSeriesNode"] = None,
             cumulative_sum: Optional["scout_compute_api_deprecated_CumulativeSumSeriesNode"] = None,
-            function: Optional["scout_compute_api_NumericSeriesFunction"] = None,
             derivative: Optional["scout_compute_api_deprecated_DerivativeSeriesNode"] = None,
             rolling_operation: Optional["scout_compute_api_deprecated_RollingOperationSeriesNode"] = None,
             unary_arithmetic: Optional["scout_compute_api_deprecated_UnaryArithmeticSeriesNode"] = None,
@@ -51783,7 +51650,7 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (arithmetic is not None) + (bit_operation is not None) + (cumulative_sum is not None) + (function is not None) + (derivative is not None) + (rolling_operation is not None) + (unary_arithmetic is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (value_difference is not None) != 1:
+            if (raw is not None) + (arithmetic is not None) + (bit_operation is not None) + (cumulative_sum is not None) + (derivative is not None) + (rolling_operation is not None) + (unary_arithmetic is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (value_difference is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
@@ -51798,9 +51665,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
             if cumulative_sum is not None:
                 self._cumulative_sum = cumulative_sum
                 self._type = 'cumulativeSum'
-            if function is not None:
-                self._function = function
-                self._type = 'function'
             if derivative is not None:
                 self._derivative = derivative
                 self._type = 'derivative'
@@ -51846,11 +51710,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._cumulative_sum = cumulative_sum
             self._type = 'cumulativeSum'
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
         elif type_of_union == 'derivative':
             if derivative is None:
                 raise ValueError('a union value must not be None')
@@ -51909,10 +51768,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
         return self._cumulative_sum
 
     @builtins.property
-    def function(self) -> Optional["scout_compute_api_NumericSeriesFunction"]:
-        return self._function
-
-    @builtins.property
     def derivative(self) -> Optional["scout_compute_api_deprecated_DerivativeSeriesNode"]:
         return self._derivative
 
@@ -51955,8 +51810,6 @@ class scout_compute_api_deprecated_NumericSeriesNode(ConjureUnionType):
             return visitor._bit_operation(self.bit_operation)
         if self._type == 'cumulativeSum' and self.cumulative_sum is not None:
             return visitor._cumulative_sum(self.cumulative_sum)
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
         if self._type == 'derivative' and self.derivative is not None:
             return visitor._derivative(self.derivative)
         if self._type == 'rollingOperation' and self.rolling_operation is not None:
@@ -51996,10 +51849,6 @@ class scout_compute_api_deprecated_NumericSeriesNodeVisitor:
 
     @abstractmethod
     def _cumulative_sum(self, cumulative_sum: "scout_compute_api_deprecated_CumulativeSumSeriesNode") -> Any:
-        pass
-
-    @abstractmethod
-    def _function(self, function: "scout_compute_api_NumericSeriesFunction") -> Any:
         pass
 
     @abstractmethod
@@ -52192,7 +52041,6 @@ scout_compute_api_deprecated_PersistenceWindowConfiguration.__module__ = "nomina
 
 
 class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
-    _function: Optional["scout_compute_api_RangesFunction"] = None
     _on_change: Optional["scout_compute_api_deprecated_OnChangeRangesNode"] = None
     _enum_filter: Optional["scout_compute_api_deprecated_EnumFilterRangesNode"] = None
     _threshold: Optional["scout_compute_api_deprecated_ThresholdingRangesNode"] = None
@@ -52202,7 +52050,6 @@ class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'function': ConjureFieldDefinition('function', scout_compute_api_RangesFunction),
             'on_change': ConjureFieldDefinition('onChange', scout_compute_api_deprecated_OnChangeRangesNode),
             'enum_filter': ConjureFieldDefinition('enumFilter', scout_compute_api_deprecated_EnumFilterRangesNode),
             'threshold': ConjureFieldDefinition('threshold', scout_compute_api_deprecated_ThresholdingRangesNode),
@@ -52212,7 +52059,6 @@ class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
 
     def __init__(
             self,
-            function: Optional["scout_compute_api_RangesFunction"] = None,
             on_change: Optional["scout_compute_api_deprecated_OnChangeRangesNode"] = None,
             enum_filter: Optional["scout_compute_api_deprecated_EnumFilterRangesNode"] = None,
             threshold: Optional["scout_compute_api_deprecated_ThresholdingRangesNode"] = None,
@@ -52221,12 +52067,9 @@ class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (function is not None) + (on_change is not None) + (enum_filter is not None) + (threshold is not None) + (union_range is not None) + (intersect_range is not None) != 1:
+            if (on_change is not None) + (enum_filter is not None) + (threshold is not None) + (union_range is not None) + (intersect_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if function is not None:
-                self._function = function
-                self._type = 'function'
             if on_change is not None:
                 self._on_change = on_change
                 self._type = 'onChange'
@@ -52243,11 +52086,6 @@ class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
                 self._intersect_range = intersect_range
                 self._type = 'intersectRange'
 
-        elif type_of_union == 'function':
-            if function is None:
-                raise ValueError('a union value must not be None')
-            self._function = function
-            self._type = 'function'
         elif type_of_union == 'onChange':
             if on_change is None:
                 raise ValueError('a union value must not be None')
@@ -52275,10 +52113,6 @@ class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
             self._type = 'intersectRange'
 
     @builtins.property
-    def function(self) -> Optional["scout_compute_api_RangesFunction"]:
-        return self._function
-
-    @builtins.property
     def on_change(self) -> Optional["scout_compute_api_deprecated_OnChangeRangesNode"]:
         return self._on_change
 
@@ -52301,8 +52135,6 @@ class scout_compute_api_deprecated_RangesNode(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_deprecated_RangesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_deprecated_RangesNodeVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'function' and self.function is not None:
-            return visitor._function(self.function)
         if self._type == 'onChange' and self.on_change is not None:
             return visitor._on_change(self.on_change)
         if self._type == 'enumFilter' and self.enum_filter is not None:
@@ -52321,10 +52153,6 @@ scout_compute_api_deprecated_RangesNode.__module__ = "nominal_api.scout_compute_
 
 
 class scout_compute_api_deprecated_RangesNodeVisitor:
-
-    @abstractmethod
-    def _function(self, function: "scout_compute_api_RangesFunction") -> Any:
-        pass
 
     @abstractmethod
     def _on_change(self, on_change: "scout_compute_api_deprecated_OnChangeRangesNode") -> Any:
@@ -55823,6 +55651,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _unit_conversion: Optional["scout_compute_resolved_api_UnitConversionSeriesNode"] = None
     _value_difference: Optional["scout_compute_resolved_api_ValueDifferenceSeriesNode"] = None
     _filter_transformation: Optional["scout_compute_resolved_api_NumericFilterTransformationSeriesNode"] = None
+    _threshold_filter: Optional["scout_compute_resolved_api_NumericThresholdFilterSeriesNode"] = None
     _array_select: Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"] = None
     _absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None
 
@@ -55856,6 +55685,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'unit_conversion': ConjureFieldDefinition('unitConversion', scout_compute_resolved_api_UnitConversionSeriesNode),
             'value_difference': ConjureFieldDefinition('valueDifference', scout_compute_resolved_api_ValueDifferenceSeriesNode),
             'filter_transformation': ConjureFieldDefinition('filterTransformation', scout_compute_resolved_api_NumericFilterTransformationSeriesNode),
+            'threshold_filter': ConjureFieldDefinition('thresholdFilter', scout_compute_resolved_api_NumericThresholdFilterSeriesNode),
             'array_select': ConjureFieldDefinition('arraySelect', scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode),
             'absolute_timestamp': ConjureFieldDefinition('absoluteTimestamp', scout_compute_resolved_api_AbsoluteTimestampSeriesNode)
         }
@@ -55889,12 +55719,13 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             unit_conversion: Optional["scout_compute_resolved_api_UnitConversionSeriesNode"] = None,
             value_difference: Optional["scout_compute_resolved_api_ValueDifferenceSeriesNode"] = None,
             filter_transformation: Optional["scout_compute_resolved_api_NumericFilterTransformationSeriesNode"] = None,
+            threshold_filter: Optional["scout_compute_resolved_api_NumericThresholdFilterSeriesNode"] = None,
             array_select: Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"] = None,
             absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (array_select is not None) + (absolute_timestamp is not None) != 1:
+            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if arithmetic is not None:
@@ -55978,6 +55809,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if filter_transformation is not None:
                 self._filter_transformation = filter_transformation
                 self._type = 'filterTransformation'
+            if threshold_filter is not None:
+                self._threshold_filter = threshold_filter
+                self._type = 'thresholdFilter'
             if array_select is not None:
                 self._array_select = array_select
                 self._type = 'arraySelect'
@@ -56120,6 +55954,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._filter_transformation = filter_transformation
             self._type = 'filterTransformation'
+        elif type_of_union == 'thresholdFilter':
+            if threshold_filter is None:
+                raise ValueError('a union value must not be None')
+            self._threshold_filter = threshold_filter
+            self._type = 'thresholdFilter'
         elif type_of_union == 'arraySelect':
             if array_select is None:
                 raise ValueError('a union value must not be None')
@@ -56240,6 +56079,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
         return self._filter_transformation
 
     @builtins.property
+    def threshold_filter(self) -> Optional["scout_compute_resolved_api_NumericThresholdFilterSeriesNode"]:
+        return self._threshold_filter
+
+    @builtins.property
     def array_select(self) -> Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"]:
         return self._array_select
 
@@ -56304,6 +56147,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._value_difference(self.value_difference)
         if self._type == 'filterTransformation' and self.filter_transformation is not None:
             return visitor._filter_transformation(self.filter_transformation)
+        if self._type == 'thresholdFilter' and self.threshold_filter is not None:
+            return visitor._threshold_filter(self.threshold_filter)
         if self._type == 'arraySelect' and self.array_select is not None:
             return visitor._array_select(self.array_select)
         if self._type == 'absoluteTimestamp' and self.absolute_timestamp is not None:
@@ -56426,6 +56271,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
         pass
 
     @abstractmethod
+    def _threshold_filter(self, threshold_filter: "scout_compute_resolved_api_NumericThresholdFilterSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
     def _array_select(self, array_select: "scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode") -> Any:
         pass
 
@@ -56437,6 +56286,44 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__name__ = "NumericSeriesNodeVisitor"
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__qualname__ = "NumericSeriesNodeVisitor"
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_NumericThresholdFilterSeriesNode(ConjureBeanType):
+    """Even though this could be implementing using a filter transformation, handling it alone gives
+easier pushdown instead of indirecting through ranges nodes
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'threshold': ConjureFieldDefinition('threshold', float),
+            'threshold_operator': ConjureFieldDefinition('thresholdOperator', scout_compute_api_ThresholdOperator)
+        }
+
+    __slots__: List[str] = ['_input', '_threshold', '_threshold_operator']
+
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", threshold: float, threshold_operator: "scout_compute_api_ThresholdOperator") -> None:
+        self._input = input
+        self._threshold = threshold
+        self._threshold_operator = threshold_operator
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._input
+
+    @builtins.property
+    def threshold(self) -> float:
+        return self._threshold
+
+    @builtins.property
+    def threshold_operator(self) -> "scout_compute_api_ThresholdOperator":
+        return self._threshold_operator
+
+
+scout_compute_resolved_api_NumericThresholdFilterSeriesNode.__name__ = "NumericThresholdFilterSeriesNode"
+scout_compute_resolved_api_NumericThresholdFilterSeriesNode.__qualname__ = "NumericThresholdFilterSeriesNode"
+scout_compute_resolved_api_NumericThresholdFilterSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode(ConjureBeanType):
@@ -86581,6 +86468,8 @@ scout_channelvariables_api_WorkbookChannelVariableMap = Dict[scout_channelvariab
 
 scout_rids_api_TypeRid = str
 
+scout_compute_api_FunctionReference = str
+
 api_rids_AutomaticCheckEvaluationRid = str
 
 scout_rids_api_TemplateRid = str
@@ -86594,8 +86483,6 @@ ingest_api_DataSourceRefName = str
 api_ErrorType = str
 
 scout_compute_api_ComputeWithUnitsRequest = scout_compute_api_ComputeNodeRequest
-
-scout_compute_api_FunctionReference = str
 
 scout_rids_api_Version = int
 

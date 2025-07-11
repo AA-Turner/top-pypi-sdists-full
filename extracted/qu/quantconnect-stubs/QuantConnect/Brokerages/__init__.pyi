@@ -3714,12 +3714,20 @@ class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageM
 
     @property
     def supported_time_in_forces(self) -> typing.List[typing.Type]:
-        """This property is protected."""
+        """
+        Supported time in force
+        
+        This property is protected.
+        """
         ...
 
     @property
     def supported_order_types(self) -> System.Collections.Generic.HashSet[QuantConnect.Orders.OrderType]:
-        """This property is protected."""
+        """
+        Supported order types
+        
+        This property is protected.
+        """
         ...
 
     @property
@@ -3805,12 +3813,20 @@ class InteractiveBrokersFixModel(QuantConnect.Brokerages.InteractiveBrokersBroke
 
     @property
     def supported_time_in_forces(self) -> typing.List[typing.Type]:
-        """This property is protected."""
+        """
+        Supported time in force
+        
+        This property is protected.
+        """
         ...
 
     @property
     def supported_order_types(self) -> System.Collections.Generic.HashSet[QuantConnect.Orders.OrderType]:
-        """This property is protected."""
+        """
+        Supported order types
+        
+        This property is protected.
+        """
         ...
 
     def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
@@ -3818,6 +3834,18 @@ class InteractiveBrokersFixModel(QuantConnect.Brokerages.InteractiveBrokersBroke
         Initializes a new instance of the InteractiveBrokersFixModel class
         
         :param account_type: The type of account to be modelled, defaults to AccountType.Margin
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order. This takes into account
+        order type, security type, and order size limits.
+        
+        :param security: The security being ordered
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: True if the brokerage could process the order, false otherwise.
         """
         ...
 

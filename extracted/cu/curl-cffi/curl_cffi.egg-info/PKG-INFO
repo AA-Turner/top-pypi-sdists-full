@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curl_cffi
-Version: 0.11.4
+Version: 0.12.0
 Summary: libcurl ffi bindings for Python, with impersonation support.
 Author-email: lexiforest <infinitesheldon@gmail.com>
 License: MIT License
@@ -70,8 +70,9 @@ Dynamic: license-file
 Python binding for [curl-impersonate fork](https://github.com/lexiforest/curl-impersonate)
 via [cffi](https://cffi.readthedocs.io/en/latest/). For commercial support, visit [impersonate.pro](https://impersonate.pro).
 
-Unlike other pure python http clients like `httpx` or `requests`, `curl_cffi` can
-impersonate browsers' TLS/JA3 and HTTP/2 fingerprints. If you are blocked by some
+`curl_cffi` is the most popular Python binding for `curl`. Unlike other pure
+python http clients like `httpx` or `requests`, `curl_cffi` can impersonate
+browsers' TLS/JA3 and HTTP/2 fingerprints. If you are blocked by some
 website for no obvious reason, you can give `curl_cffi` a try.
 
 Python 3.9 is the minimum supported version since v0.10.
@@ -100,13 +101,14 @@ to register: https://yescaptcha.com/i/stfnIO
 
 ### Easy Captcha Bypass for Scraping
 
-<a href="https://www.capsolver.com/?utm_source=github&utm_medium=banner_repo&utm_campaign=scraping&utm_term=curl_cffi" target="_blank"><img src="https://raw.githubusercontent.com/lexiforest/curl_cffi/main/assets/capsolver.jpg" alt="CapSolver" height="50" width="178"></a>
+<a href="https://dashboard.capsolver.com/passport/register?inviteCode=0FLEay4iroNC" target="_blank"><img src="https://raw.githubusercontent.com/lexiforest/curl_cffi/main/assets/capsolver.jpg" alt="CapSolver" height="50" width="178"></a>
 
-[CapSolver](https://www.capsolver.com/?utm_source=github&utm_medium=banner_repo&utm_campaign=scraping&utm_term=curl_cffi)
+[CapSolver](https://dashboard.capsolver.com/passport/register?inviteCode=0FLEay4iroNC)
 is an AI-powered tool that easily bypasses Captchas, allowing uninterrupted access to
 public data. It supports a variety of Captchas and works seamlessly with `curl_cffi`,
 Puppeteer, Playwright, and more. Fast, reliable, and cost-effective. Plus, `curl_cffi`
-users can use the code **"CURL"** to get an extra 6% balance! and register [here](https://dashboard.capsolver.com/passport/?utm_source=github&utm_medium=banner_repo&utm_campaign=scraping&utm_term=curl_cffi).
+users can use the code **"CURL"** to get an extra 6% balance! and register
+[here](https://dashboard.capsolver.com/passport/register?inviteCode=0FLEay4iroNC).
 
 ------
 
@@ -119,6 +121,7 @@ users can use the code **"CURL"** to get an extra 6% balance! and register [here
 - Supports `asyncio` with proxy rotation on each request.
 - Supports http 2.0 & 3.0, which requests does not.
 - Supports websocket.
+- MIT licensed.
 
 ||requests|aiohttp|httpx|pycurl|curl_cffi|
 |---|---|---|---|---|---|
@@ -252,8 +255,8 @@ to specify your own customized fingerprints. See the [docs on impersonation](htt
 |Chrome|chrome99, chrome100, chrome101, chrome104, chrome107, chrome110, chrome116<sup>[1]</sup>, chrome119<sup>[1]</sup>, chrome120<sup>[1]</sup>, chrome123<sup>[3]</sup>, chrome124<sup>[3]</sup>, chrome131<sup>[4]</sup>, chrome133a<sup>[5][6]</sup>, chrome136<sup>[6]</sup>|chrome132, chrome134, chrome135|
 |Chrome Android| chrome99_android, chrome131_android <sup>[4]</sup>|chrome132_android, chrome133_android, chrome134_android, chrome135_android|
 |Chrome iOS|N/A|coming soon|
-|Safari <sup>[7]</sup>|safari15_3 <sup>[2]</sup>, safari15_5 <sup>[2]</sup>, safari17_0 <sup>[1]</sup>, safari18_0 <sup>[4]</sup>, safari18_4 <sup>[6]</sup>|coming soon|
-|Safari iOS <sup>[7]</sup>| safari17_2_ios<sup>[1]</sup>, safari18_0_ios<sup>[4]</sup>, safari18_4_ios <sup>[6]</sup>|coming soon|
+|Safari <sup>[7]</sup>|safari153 <sup>[2]</sup>, safari155 <sup>[2]</sup>, safari170 <sup>[1]</sup>, safari180 <sup>[4]</sup>, safari184 <sup>[6]</sup>, safari260 <sup>[8]</sup>|coming soon|
+|Safari iOS <sup>[7]</sup>| safari172_ios<sup>[1]</sup>, safari180_ios<sup>[4]</sup>, safari184_ios <sup>[6]</sup>, safari260_ios <sup>[8]</sup>|coming soon|
 |Firefox|firefox133<sup>[5]</sup>, firefox135<sup>[7]</sup>|coming soon|
 |Firefox Android|N/A|firefox135_android|
 |Tor|tor145 <sup>[7]</sup>|coming soon|
@@ -272,6 +275,7 @@ Notes:
 5. Added in version `0.10.0`.
 6. Added in version `0.11.0`.
 7. Since `0.11.0`, the format `safari184_ios` is preferred over `safari18_4_ios`, both are supported, but the latter is quite confusing and hard to parse.
+8. Added in  `0.12.0`.
 
 ### Asyncio
 
@@ -333,7 +337,7 @@ async with AsyncSession() as s:
 
 ## Ecosystem
 
-- Integrating with Scrapy: [jxlil/scrapy-impersonate](https://github.com/jxlil/scrapy-impersonate) and [tieyongjie/scrapy-fingerprint](https://github.com/tieyongjie/scrapy-fingerprint).
+- Integrating with Scrapy: [divtiply/scrapy-curl-cffi](https://github.com/divtiply/scrapy-curl-cffi), [jxlil/scrapy-impersonate](https://github.com/jxlil/scrapy-impersonate) and [tieyongjie/scrapy-fingerprint](https://github.com/tieyongjie/scrapy-fingerprint).
 - Integrating with [requests](https://github.com/el1s7/curl-adapter), [httpx](https://github.com/vgavro/httpx-curl-cffi) as adapter.
 - Integrating with captcha resolvers: [CapSolver](https://docs.capsolver.com/en/api/), [YesCaptcha](https://yescaptcha.atlassian.net/wiki/spaces/YESCAPTCHA/overview). Please see the head area for promo code and link.
 

@@ -27,7 +27,7 @@ class Binary(resource.Resource):
     __resource_type__ = "Binary"
 
     content: fhirtypes.Base64BinaryType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="content",
         title="The actual content",
         description="The actual content, base64 encoded.",
@@ -37,11 +37,11 @@ class Binary(resource.Resource):
         },
     )
     content__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_content", title="Extension field for ``content``."
+        default=None, alias="_content", title="Extension field for ``content``."
     )
 
     contentType: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contentType",
         title="MimeType of the binary content",
         description=(
@@ -50,15 +50,16 @@ class Binary(resource.Resource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     contentType__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_contentType", title="Extension field for ``contentType``."
+        default=None, alias="_contentType", title="Extension field for ``contentType``."
     )
 
     securityContext: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="securityContext",
         title="Access Control Management",
         description=(
@@ -67,6 +68,7 @@ class Binary(resource.Resource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Resource"],
         },
@@ -74,9 +76,9 @@ class Binary(resource.Resource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Binary`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Binary`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -87,6 +89,13 @@ class Binary(resource.Resource):
             "securityContext",
             "content",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Binary`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["id", "meta", "implicitRules", "contentType", "securityContext"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

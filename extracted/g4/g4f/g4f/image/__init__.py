@@ -222,13 +222,13 @@ def process_image(image: Image.Image, new_width: int = 800, new_height: int = 40
     # Remove transparency
     if image.mode == "RGBA":
         image.load()
-        white = Image.open('RGB', image.size, (255, 255, 255))
+        white = Image.new('RGB', image.size, (255, 255, 255))
         white.paste(image, mask=image.split()[-1])
-        return white
+        image = white
     # Convert to RGB for jpg format
     elif image.mode != "RGB":
         image = image.convert("RGB")
-    elif save is not None:
+    if save is not None:
         image.save(save, exif=b"")
     return image
 
@@ -251,7 +251,7 @@ def to_bytes(image: ImageType) -> bytes:
         elif image.startswith("http://") or image.startswith("https://"):
             path: str = urlparse(image).path
             if path.startswith("/files/"):
-                path = get_bucket_dir(path.split(path, "/")[1:])
+                path = get_bucket_dir(*path.split("/")[2:])
                 if os.path.exists(path):
                     return Path(path).read_bytes()
                 else:

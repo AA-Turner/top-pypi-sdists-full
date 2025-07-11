@@ -1,6 +1,9 @@
-from ursina import *
+from ursina import color
+from ursina.shader import Shader
+from ursina.vec2 import Vec2
+from ursina.vec3 import Vec3
 
-texture_blend_shader = Shader(name='texture_blend_shader', language=Shader.GLSL, 
+texture_blend_shader = Shader(name='texture_blend_shader', language=Shader.GLSL,
 fragment='''
 #version 430
 
@@ -62,12 +65,14 @@ if __name__ == '__main__':
     app = Ursina(vsync=False)
 
     e = Entity(model='plane', shader=texture_blend_shader, texture='shore')
-    e.set_shader_input('red_texture', load_texture('dirt'))
+    e.set_shader_input('red_texture', load_texture('grass_tintable'))
+    e.set_shader_input('red_tint', color.hex('#7e722e'))
     e.set_shader_input('green_texture', load_texture('grass_tintable.tif'))
     e.set_shader_input('green_tint', color.hex('#6f6d24'))
+    # e.set_shader_input('green_uv', Vec2(3))
     # e.set_shader_input('green_tint', color.hsv(78,59,50))
     e.set_shader_input('blue_texture', load_texture('cobblestone.tif'))
-    blend_map = load_texture('texture_blend_map_example')
+    blend_map = load_texture('blend_map_example')
     e.set_shader_input('blend_map', blend_map)
     e.scale_x = blend_map.width / blend_map.height
     e.scale *= 200
@@ -94,10 +99,16 @@ if __name__ == '__main__':
     #e.shader = None
     #e.texture = blend_map
     def update():
-        if mouse.left and mouse.hovered_entity == e:
+        if mouse.hovered_entity == e and mouse.left:
             x, _, y = mouse.point + Vec3(.5)
             print(x, y)
-            blend_map.set_pixel(int(x*blend_map.width), int(y*blend_map.height), color.green)
+            target_color = color.green
+            if held_keys['control']:
+                target_color = color.red
+            if held_keys['shift']:
+                target_color = color.blue
+
+            blend_map.set_pixel(int(x*blend_map.width), int(y*blend_map.height), target_color)
             blend_map.apply()
 
 

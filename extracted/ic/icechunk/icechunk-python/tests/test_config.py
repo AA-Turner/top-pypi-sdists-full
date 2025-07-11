@@ -124,31 +124,22 @@ def test_virtual_chunk_containers() -> None:
         allow_http=True,
         s3_compatible=True,
     )
-    container = icechunk.VirtualChunkContainer("custom", "s3://", store_config)
+    container = icechunk.VirtualChunkContainer("s3://testbucket", store_config)
     config.set_virtual_chunk_container(container)
     assert re.match(
         r"RepositoryConfig\(inline_chunk_threshold_bytes=None, get_partial_values_concurrency=None, compression=None, caching=None, storage=None, manifest=.*\)",
         repr(config),
     )
     assert config.virtual_chunk_containers
-    assert len(config.virtual_chunk_containers) > 1
-    found_cont = [
-        cont
-        for (name, cont) in config.virtual_chunk_containers.items()
-        if name == "custom"
-    ]
-    assert found_cont[0] == container
+    assert len(config.virtual_chunk_containers) == 1
+    assert config.virtual_chunk_containers["s3://testbucket"] == container
 
     config.clear_virtual_chunk_containers()
     assert {} == config.virtual_chunk_containers
 
     config.set_virtual_chunk_container(container)
-    found_cont = [
-        cont
-        for (name, cont) in config.virtual_chunk_containers.items()
-        if name == "custom"
-    ]
-    assert found_cont == [container]
+    assert len(config.virtual_chunk_containers) == 1
+    assert config.virtual_chunk_containers["s3://testbucket"] == container
 
 
 def test_can_change_deep_config_values() -> None:
@@ -202,6 +193,7 @@ def test_can_change_deep_config_values() -> None:
     assert stored_config.storage
     assert stored_config.storage.concurrency
     assert stored_config.storage.concurrency.ideal_concurrent_request_size == 1_000_000
+    assert stored_config.storage.retries
     assert stored_config.storage.retries.max_tries == 42
     assert stored_config.storage.retries.initial_backoff_ms == 500
     assert stored_config.storage.retries.max_backoff_ms == 600
@@ -219,5 +211,28 @@ def test_can_change_deep_config_values() -> None:
     )
 
 
-def test_spec_version():
+def test_manifest_preload_magic_methods() -> None:
+    assert (
+        icechunk.ManifestPreloadCondition.and_conditions(
+            [
+                icechunk.ManifestPreloadCondition.true(),
+                icechunk.ManifestPreloadCondition.name_matches("foo"),
+            ]
+        )
+        == icechunk.ManifestPreloadCondition.true()
+        & icechunk.ManifestPreloadCondition.name_matches("foo")
+    )
+    assert (
+        icechunk.ManifestPreloadCondition.or_conditions(
+            [
+                icechunk.ManifestPreloadCondition.true(),
+                icechunk.ManifestPreloadCondition.name_matches("foo"),
+            ]
+        )
+        == icechunk.ManifestPreloadCondition.true()
+        | icechunk.ManifestPreloadCondition.name_matches("foo")
+    )
+
+
+def test_spec_version() -> None:
     assert icechunk.spec_version() >= 1

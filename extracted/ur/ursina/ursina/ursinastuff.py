@@ -11,6 +11,24 @@ class Empty():
         for key, value in kwargs.items():
             setattr(self, key ,value)
 
+class DotDict(dict):
+    """Custom dictionary class to allow dot notation access."""
+    def __getattr__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError(f"'DotDict' object has no attribute '{attr}'")
+
+    def __setattr__(self, attr, value):
+        self[attr] = value
+
+    def __delattr__(self, attr):
+        try:
+            del self[attr]
+        except KeyError:
+            raise AttributeError(f"'DotDict' object has no attribute '{attr}'")
+
+
 class Default:
     pass
 
@@ -35,21 +53,18 @@ def invoke(function, *args, **kwargs):  # reserved keywords: 'delay', 'unscaled'
         function(*args, **kwargs)
         return None
 
-    s = Sequence(
+    if ignore_paused:
+        unscaled = True
+
+    return Sequence(
         Wait(delay),
-        Func(function, *args, **kwargs)
+        Func(function, *args, **kwargs),
+        auto_destroy=True, ignore_paused=ignore_paused, unscaled=unscaled, started=True,
     )
-    s.ignore_paused = ignore_paused
-    s.unscaled = unscaled
-    if s.ignore_paused:
-        s.unscaled = True
-
-    s.start()
-    return s
 
 
-def after(delay, unscaled=True):
-    '''@after  decorator for calling a function after some time.
+def after(delay, unscaled=True, ignore_paused=False, entity=None):    # function for @after decorator. Use the decorator, not this.
+    '''@after decorator for calling a function after some time.
 
         example:
         @after(.4)
@@ -57,109 +72,17 @@ def after(delay, unscaled=True):
             self.on_cooldown = False
             self.color = color.green
     '''
-    def decorator(func):
+    def _decorator(func):
         def wrapper(*args, **kwargs):
-            invoke(func, *args, **kwargs, delay=delay, unscaled=unscaled)
+            sequence = invoke(func, *args, **kwargs, delay=delay, unscaled=unscaled, ignore_paused=ignore_paused)
+            if entity is not None:
+                entity.animations.append(sequence)
+
         return wrapper()
-    return decorator
+    return _decorator
 
 
-
-def destroy(entity, delay=0):
-    if delay == 0:
-        _destroy(entity)
-        return
-
-    s = Sequence(Wait(delay), Func(_destroy, entity))
-    s.start()
-    return s
-
-def _destroy(entity, force_destroy=False):
-    from ursina import camera
-    if not entity or entity == camera:
-        return
-
-    if entity.eternal and not force_destroy:
-        return
-
-    for child in entity.children:
-        _destroy(child)
-
-    if entity.collider:
-        entity.collider.remove()
-
-    if hasattr(entity, 'clip') and hasattr(entity, 'stop'): # stop audio
-        entity.stop(False)
-
-    if hasattr(entity, 'on_destroy'):
-        entity.on_destroy()
-
-    if entity in scene.entities:
-        scene.entities.remove(entity)
-
-    if entity in scene.collidables:
-        scene.collidables.remove(entity)
-
-    if hasattr(entity, '_parent') and entity._parent and hasattr(entity._parent, '_children') and entity in entity._parent._children:
-        entity._parent._children.remove(entity)
-
-    if hasattr(entity, '_loose_parent') and entity._loose_parent and hasattr(entity._loose_parent, '_loose_children') and entity in entity._loose_parent._loose_children:
-        entity._loose_parent._loose_children.remove(entity)
-
-    if hasattr(entity, 'scripts'):
-        for s in entity.scripts:
-            del s
-
-    if hasattr(entity, 'animations'):
-        for anim in entity.animations:
-            anim.finish()
-            anim.kill()
-
-    if hasattr(entity, 'tooltip'):
-        _destroy(entity.tooltip)
-
-    if hasattr(entity, '_on_click') and isinstance(entity._on_click, Sequence):
-        entity._on_click.kill()
-
-    if entity.hasPythonTag("Entity"):
-        entity.clearPythonTag("Entity")
-
-    entity.removeNode()
-    #unload texture
-    # if hasattr(entity, 'texture') and entity.texture != None:
-    #     entity.texture.releaseAll()
-
-    del entity
-
-
-
-def chunk_list(target_list, chunk_size):
-    # yield successive chunks from list
-    for i in range(0, len(target_list), chunk_size):
-        yield target_list[i:i + chunk_size]
-
-
-def flatten_list(target_list):
-    # return [item for sublist in l for item in sublist]
-    import itertools
-    return list(itertools.chain(*target_list))
-
-def flatten_completely(container):
-    for i in container:
-        if isinstance(i, (list, tuple)):
-            for j in flatten_list(i):
-                yield j
-        else:
-            yield i
-
-
-def enumerate_2d(array):
-    for x, line in enumerate(array):
-        for y, value in enumerate(line):
-            yield (x, y), value
-
-
-def size_list():    #return a list of current python objects sorted by size
+def size_list():    # return a list of current python objects sorted by size
     import operator
 
     globals_list = []
@@ -213,15 +136,86 @@ def import_all_classes(path=application.asset_folder, debug=False):
     return imported_successfully
 
 
-def print_on_screen(text, position=(0,0), origin=(-.5,.5), scale=1, duration=1):
+def print_on_screen(text, position=(0,0), origin=(-.5,.5), scale=1, duration=1, color=(1,1,1,1)):
     from ursina.text import Text
-    text_entity = Text(text=text, position=position, origin=origin, scale=scale)
+    from ursina import destroy
+    text_entity = Text(text=text, position=position, origin=origin, scale=scale, color=color)
     destroy(text_entity, delay=duration)
 
 
-class LoopingList(list):
-    def __getitem__(self, i):
-        return super().__getitem__(i % len(self))
+import traceback
+from inspect import getframeinfo, stack
+import ast
+import textwrap
+import inspect
+
+def _test(result):
+    if callable(result):
+        result = result()
+
+    caller_frame = stack()[1][0]
+    caller_info = getframeinfo(caller_frame)
+    filename, lineno = caller_info.filename, caller_info.lineno
+
+    # Get full multi-line _test call source
+    source_lines, starting_line_no = inspect.getsourcelines(caller_frame)
+    rel_lineno = lineno - starting_line_no
+    lines = source_lines[rel_lineno:]
+    call_text = ""
+    parens = 0
+    started = False
+    for line in lines:
+        stripped = line.strip()
+        if not started and stripped.startswith("_test"):
+            started = True
+        if started:
+            call_text += line
+            parens += line.count("(") - line.count(")")
+            if parens <= 0:
+                break
+    call_text = textwrap.dedent(call_text)
+
+    try:
+        tree = ast.parse(call_text, mode='exec')
+        call = tree.body[0].value  # _test(...)
+        arg_source = ast.unparse(call.args[0])
+    except Exception:
+        arg_source = "<expression>"
+
+    def extract_func_name(expr_ast):
+        if isinstance(expr_ast, ast.Call):
+            return extract_func_name(expr_ast.func)
+        elif isinstance(expr_ast, ast.Attribute):
+            value = extract_func_name(expr_ast.value)
+            return f"{value}.{expr_ast.attr}"
+        elif isinstance(expr_ast, ast.Name):
+            return expr_ast.id
+        else:
+            return "<unknown>"
+
+    try:
+        expr_ast = ast.parse(arg_source, mode='eval').body
+        if isinstance(expr_ast, ast.Compare):
+            func_name = extract_func_name(expr_ast.left)
+        else:
+            func_name = extract_func_name(expr_ast)
+    except Exception:
+        func_name = "<unknown>"
+
+    MAX_LEN = 32
+    display_expr = (arg_source[:MAX_LEN] + '...') if len(arg_source) > MAX_LEN else arg_source
+
+    if result:
+        print(f'\33[42mPASSED\033[0m {func_name} {display_expr}')
+        return True
+    else:
+        print(f'\33[41mFAILED\033[0m {func_name} {display_expr}')
+        print(f' --> {filename}:{lineno}')
+        print("Stack trace (most recent call last):")
+        traceback.print_stack(f=caller_frame)
+        return False
+
+
 
 
 # define a new metaclass which overrides the "__call__" function
@@ -238,5 +232,10 @@ if __name__ == '__main__':
 
 
 
+
+
+    a = Audio('sine')
+    a.play()
+    destroy(a, delay=1)
     # Player()
     app.run()

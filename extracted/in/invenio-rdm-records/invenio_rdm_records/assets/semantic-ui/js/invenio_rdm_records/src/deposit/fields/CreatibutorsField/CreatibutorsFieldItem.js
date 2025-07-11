@@ -30,6 +30,9 @@ export const CreatibutorsFieldItem = ({
   roleOptions,
   schema,
   autocompleteNames,
+  serializeSuggestions,
+  serializeCreatibutor,
+  deserializeCreatibutor,
 }) => {
   const dropRef = React.useRef(null);
   // eslint-disable-next-line no-unused-vars
@@ -78,6 +81,9 @@ export const CreatibutorsFieldItem = ({
         className={hidden ? "deposit-drag-listitem hidden" : "deposit-drag-listitem"}
       >
         <List.Content floated="right">
+          <Button size="mini" type="button" onClick={() => removeCreatibutor(index)}>
+            {i18next.t("Remove")}
+          </Button>
           <CreatibutorsModal
             addLabel={addLabel}
             editLabel={editLabel}
@@ -94,10 +100,10 @@ export const CreatibutorsFieldItem = ({
                 {i18next.t("Edit")}
               </Button>
             }
+            serializeSuggestions={serializeSuggestions}
+            serializeCreatibutor={serializeCreatibutor}
+            deserializeCreatibutor={deserializeCreatibutor}
           />
-          <Button size="mini" type="button" onClick={() => removeCreatibutor(index)}>
-            {i18next.t("Remove")}
-          </Button>
         </List.Content>
         <Ref innerRef={drag}>
           <List.Icon name="bars" className="drag-anchor" />
@@ -166,6 +172,9 @@ CreatibutorsFieldItem.propTypes = {
   roleOptions: PropTypes.array.isRequired,
   schema: PropTypes.string.isRequired,
   autocompleteNames: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
+  serializeSuggestions: PropTypes.func,
+  serializeCreatibutor: PropTypes.func,
+  deserializeCreatibutor: PropTypes.func,
 };
 
 CreatibutorsFieldItem.defaultProps = {
@@ -174,4 +183,7 @@ CreatibutorsFieldItem.defaultProps = {
   editLabel: undefined,
   displayName: undefined,
   autocompleteNames: undefined,
+  serializeSuggestions: undefined,
+  serializeCreatibutor: undefined,
+  deserializeCreatibutor: undefined,
 };

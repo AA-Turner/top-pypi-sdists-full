@@ -12,6 +12,7 @@ from ursina.scene import instance as scene
 from ursina.camera import instance as camera
 from ursina.mouse import instance as mouse
 from ursina import entity
+from ursina import shader
 
 
 import __main__
@@ -23,7 +24,7 @@ keyboard_keys = '1234567890qwertyuiopasdfghjklzxcvbnm'
 from ursina.scripts.singleton_decorator import singleton
 @singleton
 class Ursina(ShowBase):
-    def __init__(self, title='ursina', icon='textures/ursina.ico', borderless=True, fullscreen=False, size=None, forced_aspect_ratio=None, position=None, vsync=True, editor_ui_enabled=True, window_type='onscreen', development_mode=True, render_mode=None, show_ursina_splash=False, **kwargs):
+    def __init__(self, title='ursina', icon='textures/ursina.ico', borderless:bool=None, fullscreen:bool=None, size=None, forced_aspect_ratio=None, position=None, vsync=True, editor_ui_enabled:bool=None, window_type='onscreen', development_mode:bool=None, render_mode=None, show_ursina_splash=False, use_ingame_console=False, **kwargs):
         """The main class of Ursina. This class is a singleton, so you can only have one instance of it.
 
         Keyword Args (optional):
@@ -31,7 +32,7 @@ class Ursina(ShowBase):
             fullscreen (bool): Whether the window should be fullscreen or not.\n
             size (tuple(int, int)): The size of the window.\n
             forced_aspect_ratio (bool): Whether the window should have a forced aspect ratio or not.\n
-            position (tuple(int, int)): The position of the window.\n
+            position (tuple(int, int)): The position of the window. Defaults to center of main monitor.\n
             vsync (bool): Whether the window should have vsync enabled or not.\n
             borderless (bool): Whether the window should be borderless or not.\n
             show_ursina_splash (bool): Whether the Ursina splash should be shown or not.\n
@@ -43,7 +44,9 @@ class Ursina(ShowBase):
         entity._warn_if_ursina_not_instantiated = False
         application.window_type = window_type
         application.base = self
-        application.development_mode = development_mode
+        if development_mode is not None:
+            application.development_mode = development_mode
+
         application.show_ursina_splash = show_ursina_splash
 
         try:
@@ -55,10 +58,15 @@ class Ursina(ShowBase):
         if 'gltf_no_srgb' in kwargs:
             application.gltf_no_srgb = kwargs['gltf_no_srgb']
 
-        if not application.development_mode:
-            fullscreen = True
+        if editor_ui_enabled is None:
+            editor_ui_enabled = bool(application.development_mode)
 
-        window.ready(title=title, icon=icon,
+        if fullscreen is None and not application.development_mode:
+            fullscreen = True
+            if borderless is None:
+                borderless = True
+
+        window._ready(title=title, icon=icon,
             borderless=borderless, fullscreen=fullscreen, size=size, forced_aspect_ratio=forced_aspect_ratio, position=position, vsync=vsync, window_type=window_type,
             editor_ui_enabled=editor_ui_enabled, render_mode=render_mode)
 
@@ -71,7 +79,7 @@ class Ursina(ShowBase):
             camera.render = self.render
             camera.position = (0, 0, -20)
             scene.camera = camera
-            camera.set_up()
+            camera._set_up()
 
         # input
         if application.window_type == 'onscreen':
@@ -88,6 +96,8 @@ class Ursina(ShowBase):
             'control-mouse1' : 'left mouse down', 'control-mouse2' : 'middle mouse down', 'control-mouse3' : 'right mouse down',
             'shift-mouse1' : 'left mouse down', 'shift-mouse2' : 'middle mouse down', 'shift-mouse3' : 'right mouse down',
             'alt-mouse1' : 'left mouse down', 'alt-mouse2' : 'middle mouse down', 'alt-mouse3' : 'right mouse down',
+            'control-alt-mouse1' : 'left mouse down', 'control-alt-mouse2' : 'middle mouse down', 'control-alt-mouse3' : 'right mouse down',
+            'shift-control-alt-mouse1' : 'left mouse down', 'shift-control-alt-mouse2' : 'middle mouse down', 'shift-control-alt-mouse3' : 'right mouse down',
             'page_down' : 'page down', 'page_down up' : 'page down up', 'page_up' : 'page up', 'page_up up' : 'page up up',
             }
 
@@ -107,8 +117,7 @@ class Ursina(ShowBase):
         mouse.enabled = True
         self.mouse = mouse
 
-        scene.set_up()
-        self._update_task = self.taskMgr.add(self._update, "update")
+        scene._set_up()
 
         # try to load settings that need to be applied before entity creation
         application.load_settings()
@@ -123,11 +132,11 @@ class Ursina(ShowBase):
 
         if application.window_type != 'none':
             window.make_editor_gui()
-            if 'use_ingame_console' in kwargs and kwargs['use_ingame_console']:
+            if use_ingame_console:
                 import builtins
                 from ursina import Entity, TextField, color
                 window.console = Entity(parent=window.editor_ui, position=window.top_left, z=-999, eternal=True)
-                window.console.text_field = TextField(parent=window.console, scale=.75, font='VeraMono.ttf', max_lines=20, position=(0,0), register_mouse_input=True, text_input=None, eternal=True)
+                window.console.text_field = TextField(parent=window.console, scale=.75, max_lines=20, position=(0,0), register_mouse_input=True, text_input=None, eternal=True)
                 window.console.text_field.bg.color = color.black66
                 window.console.text_field.bg.scale_x = 1.5
                 def _custom_print(*args, **kwargs):  # makes print() poutput to the in-game console instead of the terminal if use_ingame_console is True
@@ -146,14 +155,24 @@ class Ursina(ShowBase):
                         window.console.text_field.enabled = not window.console.text_field.enabled
                 window.console.text_input = _console_text_input
 
-
-        if 'editor_ui_enabled' in kwargs:
-            window.editor_ui.enabled = kwargs['editor_ui_enabled']
-
         print('package_folder:', application.package_folder)
         print('asset_folder:', application.asset_folder)
 
         entity._Ursina_instance = self
+        self._update_task = self.taskMgr.add(self._update, "update")
+
+        # since opening a window is non-blocking, we need a way to call functions exactly when the window is ready, for example to make the splash screen animation not finish before you get to see it, or the camera to move before you see anything.
+        def _wait_for_window_open(task):
+            if self.win and self.win.isValid():
+                if hasattr(__main__, 'on_window_ready') and __main__.on_window_ready:
+                    __main__.on_window_ready()
+
+                for e in scene.entities:
+                    if hasattr(e, 'on_window_ready') and callable(e.on_window_ready):
+                        e.on_window_ready()
+                return Task.done
+            return Task.cont
+        self.taskMgr.add(_wait_for_window_open, 'wait_for_window')
 
 
     def _update(self, task):
@@ -169,8 +188,14 @@ class Ursina(ShowBase):
         for seq in application.sequences:
             seq.update()
 
+        if scene._entities_marked_for_removal:
+            scene.entities = [e for e in scene.entities if e not in scene._entities_marked_for_removal]
+            scene._entities_marked_for_removal.clear()
+
         for e in scene.entities:
             if not e.enabled or e.ignore:
+                continue
+            if e in scene._entities_marked_for_removal:
                 continue
             if application.paused and e.ignore_paused is False:
                 continue
@@ -184,6 +209,10 @@ class Ursina(ShowBase):
                 for script in e.scripts:
                     if script.enabled and hasattr(script, 'update') and callable(script.update):
                         script.update()
+
+            if e.shader and hasattr(e.shader, "continuous_input"):
+                for key, value in e.shader.continuous_input.items():
+                    e.set_shader_input(key, value())
 
         return Task.cont
 
@@ -244,6 +273,9 @@ class Ursina(ShowBase):
                 for key in bound_keys:
                     __main__.input(key)
 
+        break_outer = False
+
+
         for e in scene.entities:
             if e.enabled is False or e.ignore or e.ignore_input:
                 continue
@@ -252,29 +284,33 @@ class Ursina(ShowBase):
             if e.has_disabled_ancestor():
                 continue
 
+            if break_outer:
+                break
 
             if hasattr(e, 'input') and callable(e.input):
-                break_outer = False
                 for key in bound_keys:
                     if break_outer:
                         break
                     if e.input(key):    # if the input function returns True, eat the input
                         break_outer = True
-
+                        break
 
             if hasattr(e, 'scripts'):
-                break_outer = False
                 if break_outer:
                     break
 
                 for script in e.scripts:
+                    if break_outer:
+                        break
+
                     if script.enabled and hasattr(script, 'input') and callable(script.input):
                         for key in bound_keys:
                             if script.input(key): # if the input function returns True, eat the input
                                 break_outer = True
                                 break
 
-        mouse.input(key)
+        for key in bound_keys:
+            mouse.input(key)
 
 
     def text_input(self, key):  # internal method for handling text input
@@ -309,8 +345,8 @@ class Ursina(ShowBase):
 
     def run(self, info=True):
         if application.show_ursina_splash:
-            from ursina.prefabs.splash_screen import SplashScreen
-            application.ursina_splash = SplashScreen()
+            from ursina.prefabs.splash_screen import UrsinaSplashScreen
+            application.ursina_splash = UrsinaSplashScreen()
 
         application.load_settings()
         if info:
@@ -323,7 +359,11 @@ class Ursina(ShowBase):
 
 if __name__ == '__main__':
     from ursina import *
-    app = Ursina(use_ingame_console=True)
+    app = Ursina(
+        # development_mode=False,
+        # use_ingame_console=True,
+        # show_ursina_splash=True,
+    )
     def input(key):
         print(key)
     app.run()

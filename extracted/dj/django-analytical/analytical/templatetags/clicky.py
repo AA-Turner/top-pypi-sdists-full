@@ -16,7 +16,7 @@ from analytical.utils import (
 
 SITE_ID_RE = re.compile(r'^\d+$')
 TRACKING_CODE = """
-    <script type="text/javascript">
+    <script>
     var clicky = { log: function(){ return; }, goal: function(){ return; }};
     var clicky_site_ids = clicky_site_ids || [];
     clicky_site_ids.push(%(site_id)s);
@@ -53,8 +53,8 @@ def clicky(parser, token):
 class ClickyNode(Node):
     def __init__(self):
         self.site_id = get_required_setting(
-            'CLICKY_SITE_ID', SITE_ID_RE,
-            "must be a (string containing) a number")
+            'CLICKY_SITE_ID', SITE_ID_RE, 'must be a (string containing) a number'
+        )
 
     def render(self, context):
         custom = {}

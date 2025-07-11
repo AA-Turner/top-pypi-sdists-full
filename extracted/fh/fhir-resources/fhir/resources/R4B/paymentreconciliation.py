@@ -27,21 +27,22 @@ class PaymentReconciliation(domainresource.DomainResource):
     __resource_type__ = "PaymentReconciliation"
 
     created: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="created",
         title="Creation date",
         description="The date when the resource was created.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     created__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_created", title="Extension field for ``created``."
+        default=None, alias="_created", title="Extension field for ``created``."
     )
 
     detail: typing.List[fhirtypes.PaymentReconciliationDetailType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="detail",
         title="Settlement particulars",
         description=(
@@ -54,7 +55,7 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     disposition: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="disposition",
         title="Disposition message",
         description=(
@@ -66,11 +67,11 @@ class PaymentReconciliation(domainresource.DomainResource):
         },
     )
     disposition__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_disposition", title="Extension field for ``disposition``."
+        default=None, alias="_disposition", title="Extension field for ``disposition``."
     )
 
     formCode: fhirtypes.CodeableConceptType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="formCode",
         title="Printed form identifier",
         description="A code for the form to be used for printing the content.",
@@ -80,7 +81,7 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     identifier: typing.List[fhirtypes.IdentifierType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business Identifier for a payment reconciliation",
         description="A unique identifier assigned to this payment reconciliation.",
@@ -90,7 +91,7 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     outcome: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="outcome",
         title="queued | complete | error | partial",
         description="The outcome of a request for a reconciliation.",
@@ -102,35 +103,37 @@ class PaymentReconciliation(domainresource.DomainResource):
         },
     )
     outcome__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_outcome", title="Extension field for ``outcome``."
+        default=None, alias="_outcome", title="Extension field for ``outcome``."
     )
 
     paymentAmount: fhirtypes.MoneyType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="paymentAmount",
         title="Total amount of Payment",
         description="Total payment amount as indicated on the financial instrument.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     paymentDate: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="paymentDate",
         title="When payment issued",
         description="The date of payment as indicated on the financial instrument.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
         },
     )
     paymentDate__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_paymentDate", title="Extension field for ``paymentDate``."
+        default=None, alias="_paymentDate", title="Extension field for ``paymentDate``."
     )
 
     paymentIdentifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="paymentIdentifier",
         title="Business identifier for the payment",
         description="Issuer's unique identifier for the payment instrument.",
@@ -140,19 +143,20 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     paymentIssuer: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="paymentIssuer",
         title="Party generating payment",
         description="The party who generated the payment.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Organization"],
         },
     )
 
     period: fhirtypes.PeriodType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="period",
         title="Period covered",
         description=(
@@ -161,11 +165,12 @@ class PaymentReconciliation(domainresource.DomainResource):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     processNote: typing.List[fhirtypes.PaymentReconciliationProcessNoteType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="processNote",
         title="Note concerning processing",
         description=(
@@ -178,7 +183,7 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     request: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="request",
         title="Reference to requesting resource",
         description="Original request resource reference.",
@@ -190,7 +195,7 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     requestor: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="requestor",
         title="Responsible practitioner",
         description=(
@@ -209,12 +214,13 @@ class PaymentReconciliation(domainresource.DomainResource):
     )
 
     status: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="status",
         title="active | cancelled | draft | entered-in-error",
         description="The status of the resource instance.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -222,14 +228,14 @@ class PaymentReconciliation(domainresource.DomainResource):
         },
     )
     status__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_status", title="Extension field for ``status``."
+        default=None, alias="_status", title="Extension field for ``status``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PaymentReconciliation`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PaymentReconciliation`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -255,6 +261,23 @@ class PaymentReconciliation(domainresource.DomainResource):
             "detail",
             "formCode",
             "processNote",
+        ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PaymentReconciliation`` according to specification,
+        with preserving the original sequence order.
+        """
+        return [
+            "id",
+            "meta",
+            "implicitRules",
+            "status",
+            "period",
+            "created",
+            "paymentIssuer",
+            "paymentDate",
+            "paymentAmount",
         ]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -285,7 +308,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     __resource_type__ = "PaymentReconciliationDetail"
 
     amount: fhirtypes.MoneyType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="amount",
         title="Amount allocated to this payable",
         description="The monetary amount allocated from the total payment to the payable.",
@@ -295,7 +318,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     date: fhirtypes.DateType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="date",
         title="Date of commitment to pay",
         description="The date from the response resource containing a commitment to pay.",
@@ -304,11 +327,11 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
         },
     )
     date__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_date", title="Extension field for ``date``."
+        default=None, alias="_date", title="Extension field for ``date``."
     )
 
     identifier: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="identifier",
         title="Business identifier of the payment detail",
         description=(
@@ -321,7 +344,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     payee: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="payee",
         title="Recipient of the payment",
         description="The party which is receiving the payment.",
@@ -337,7 +360,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     predecessor: fhirtypes.IdentifierType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="predecessor",
         title="Business identifier of the prior payment detail",
         description=(
@@ -350,7 +373,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     request: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="request",
         title="Request giving rise to the payment",
         description=(
@@ -365,7 +388,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     response: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="response",
         title="Response committing to a payment",
         description=(
@@ -380,7 +403,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     responsible: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="responsible",
         title="Contact for the response",
         description=(
@@ -395,7 +418,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     submitter: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="submitter",
         title="Submitter of the request",
         description="The party which submitted the claim or financial transaction.",
@@ -411,7 +434,7 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
     )
 
     type: fhirtypes.CodeableConceptType = Field(  # type: ignore
-        ...,
+        default=...,
         alias="type",
         title="Category of payment",
         description="Code to indicate the nature of the payment.",
@@ -422,9 +445,9 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PaymentReconciliationDetail`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PaymentReconciliationDetail`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -442,6 +465,13 @@ class PaymentReconciliationDetail(backboneelement.BackboneElement):
             "amount",
         ]
 
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PaymentReconciliationDetail`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]
+
 
 class PaymentReconciliationProcessNote(backboneelement.BackboneElement):
     """Disclaimer: Any field name ends with ``__ext`` doesn't part of
@@ -455,7 +485,7 @@ class PaymentReconciliationProcessNote(backboneelement.BackboneElement):
     __resource_type__ = "PaymentReconciliationProcessNote"
 
     text: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="text",
         title="Note explanatory text",
         description="The explanation or description associated with the processing.",
@@ -464,11 +494,11 @@ class PaymentReconciliationProcessNote(backboneelement.BackboneElement):
         },
     )
     text__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_text", title="Extension field for ``text``."
+        default=None, alias="_text", title="Extension field for ``text``."
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title="display | print | printoper",
         description="The business purpose of the note text.",
@@ -480,13 +510,20 @@ class PaymentReconciliationProcessNote(backboneelement.BackboneElement):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``PaymentReconciliationProcessNote`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``PaymentReconciliationProcessNote`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "modifierExtension", "type", "text"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``PaymentReconciliationProcessNote`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["modifierExtension"]

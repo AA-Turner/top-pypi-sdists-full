@@ -1,5 +1,6 @@
 from ursina import *
 
+
 class TrailRenderer(Entity):
     def __init__(self, size=[1,.01], segments=8, min_spacing=.05, fade_speed=0, color_gradient=[color.white, color.clear], **kwargs):
         super().__init__(**kwargs)
@@ -7,12 +8,13 @@ class TrailRenderer(Entity):
             color_gradient = color_gradient[::-1]
 
         self.renderer = Entity(
-            model = Pipe(
-                base_shape = Quad(segments=0, scale=size),
+            model=Pipe(
+                base_shape=Quad(segments=0, scale=size),
                 path=[Vec3(0,0,i) for i in range(2)],
                 color_gradient=color_gradient,
                 static=False,
                 cap_ends=False,
+                look_at=True,
             ),
         )
         self._t = 0
@@ -59,7 +61,7 @@ if __name__ == '__main__':
 
     trail_renderers = []
     for i in range(1):
-        tr = TrailRenderer(size=[1,1], segments=8, min_spacing=.05, fade_speed=0, parent=player, color_gradient=[color.magenta, color.cyan.tint(-.5), color.clear])
+        tr = TrailRenderer(size=[1,1], segments=8, min_spacing=.2, fade_speed=0, parent=player, color_gradient=[color.magenta, color.cyan.tint(-.5), color.clear])
         trail_renderers.append(tr)
 
     def update():

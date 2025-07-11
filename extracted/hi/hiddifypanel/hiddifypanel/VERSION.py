@@ -1,6 +1,6 @@
-import importlib.metadata
+# import importlib.metadata
 from datetime import datetime
 
-__version__ = importlib.metadata.version(__package__ or __name__)
-__release_time__= datetime.strptime('2024-12-19T01:11:06','%Y-%m-%dT%H:%M:%S')
+__version__ = '11.0.2'
+__release_time__= datetime.strptime('2025-07-11T02:15:39','%Y-%m-%dT%H:%M:%S')
 is_released_version=True

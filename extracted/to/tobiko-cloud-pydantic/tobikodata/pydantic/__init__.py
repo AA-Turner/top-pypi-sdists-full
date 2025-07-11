@@ -203,6 +203,14 @@ def _contains_annotation(cls: t.Any, field_info: FieldInfo) -> bool:
     return False
 
 
+def walk_annotations(annotation: t.Optional[type[t.Any]]) -> t.Iterator[t.Optional[type[t.Any]]]:
+    if args := t.get_args(annotation):
+        for arg in args:
+            yield from walk_annotations(arg)
+    else:
+        yield annotation
+
+
 SECRET_FIELD_PLACEHOLDER = "******"
 
 
@@ -223,3 +231,14 @@ SecretBytes = TypeAliasType(
     "SecretBytes",
     t.Annotated[bytes, secret_serializer],
 )
+
+
+def contains_secret(annotations: t.Optional[type[t.Any]]) -> bool:
+    """Check if an annotation contains secret types.
+
+    For example, t.Optional[SecretStr] is not itself a SecretStr, but because it contains SecretStr,
+    we need to obfuscate the field it annotates.
+    """
+    return any(
+        annotation in (SecretStr, SecretBytes) for annotation in walk_annotations(annotations)
+    )

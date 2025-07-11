@@ -27,7 +27,7 @@ class RelatedArtifact(element.Element):
     __resource_type__ = "RelatedArtifact"
 
     citation: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="citation",
         title="Bibliographic citation for the artifact",
         description=(
@@ -36,14 +36,15 @@ class RelatedArtifact(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     citation__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_citation", title="Extension field for ``citation``."
+        default=None, alias="_citation", title="Extension field for ``citation``."
     )
 
     display: fhirtypes.StringType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="display",
         title="Brief description of the related artifact",
         description=(
@@ -52,14 +53,15 @@ class RelatedArtifact(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     display__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_display", title="Extension field for ``display``."
+        default=None, alias="_display", title="Extension field for ``display``."
     )
 
     document: fhirtypes.AttachmentType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="document",
         title="What document is being referenced",
         description=(
@@ -68,11 +70,12 @@ class RelatedArtifact(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
 
     resource: fhirtypes.ReferenceType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="resource",
         title="What resource is being referenced",
         description=(
@@ -81,13 +84,14 @@ class RelatedArtifact(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             # note: Listed Resource Type(s) should be allowed as Reference.
             "enum_reference_types": ["Resource"],
         },
     )
 
     type: fhirtypes.CodeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="type",
         title=(
             "documentation | justification | citation | predecessor | successor | "
@@ -96,6 +100,7 @@ class RelatedArtifact(element.Element):
         description="The type of relationship to the related artifact.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
             "element_required": True,
             # note: Enum values can be used in validation,
             # but use in your own responsibilities, read official FHIR documentation.
@@ -112,11 +117,11 @@ class RelatedArtifact(element.Element):
         },
     )
     type__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_type", title="Extension field for ``type``."
+        default=None, alias="_type", title="Extension field for ``type``."
     )
 
     url: fhirtypes.UriType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="url",
         title="Where the artifact can be accessed",
         description=(
@@ -125,17 +130,18 @@ class RelatedArtifact(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     url__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_url", title="Extension field for ``url``."
+        default=None, alias="_url", title="Extension field for ``url``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``RelatedArtifact`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``RelatedArtifact`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -147,6 +153,13 @@ class RelatedArtifact(element.Element):
             "document",
             "resource",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``RelatedArtifact`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["type", "display", "citation", "url", "document", "resource"]
 
     def get_required_fields(self) -> typing.List[typing.Tuple[str, str]]:
         """https://www.hl7.org/fhir/extensibility.html#Special-Case

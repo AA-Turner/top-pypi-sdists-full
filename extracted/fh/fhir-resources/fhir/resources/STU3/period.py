@@ -24,7 +24,7 @@ class Period(element.Element):
     __resource_type__ = "Period"
 
     end: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="end",
         title="End time with inclusive boundary, if not ongoing",
         description=(
@@ -35,29 +35,38 @@ class Period(element.Element):
         ),
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     end__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_end", title="Extension field for ``end``."
+        default=None, alias="_end", title="Extension field for ``end``."
     )
 
     start: fhirtypes.DateTimeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="start",
         title="Starting time with inclusive boundary",
         description="The start of the period. The boundary is inclusive.",
         json_schema_extra={
             "element_property": True,
+            "summary_element_property": True,
         },
     )
     start__ext: fhirtypes.FHIRPrimitiveExtensionType | None = Field(  # type: ignore
-        None, alias="_start", title="Extension field for ``start``."
+        default=None, alias="_start", title="Extension field for ``start``."
     )
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``Period`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``Period`` according to specification,
+        with preserving the original sequence order.
         """
         return ["id", "extension", "start", "end"]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``Period`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["start", "end"]

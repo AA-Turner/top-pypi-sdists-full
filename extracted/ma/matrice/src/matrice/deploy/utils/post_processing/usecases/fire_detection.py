@@ -39,7 +39,7 @@ class FireSmokeConfig(BaseConfig):
 
     # Only fire and smoke categories included here (exclude normal)
     fire_smoke_categories: List[str] = field(
-        default_factory=lambda: ["fire", "smoke"]
+        default_factory=lambda: ["Fire", "Smoke"]
     )
 
     alert_config: Optional[AlertConfig] = None
@@ -51,7 +51,7 @@ class FireSmokeConfig(BaseConfig):
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
             0: "Fire",
-            2: "smoke",
+            1: "Smoke",
         }
     )
 
@@ -98,7 +98,7 @@ class FireSmokeUseCase(BaseProcessor):
                 "fire_smoke_categories": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "default": ["Fire", "smoke"],
+                    "default": ["Fire", "Smoke"],
                     "description": "Category names that represent fire and smoke",
                 },
                 "index_to_category": {
@@ -127,7 +127,7 @@ class FireSmokeUseCase(BaseProcessor):
             "category": self.category,
             "usecase": self.name,
             "confidence_threshold": 0.5,
-            "fire_smoke_categories": ["Fire", "smoke"],
+            "fire_smoke_categories": ["Fire", "Smoke"],
         }
         defaults.update(overrides)
         return FireSmokeConfig(**defaults)
@@ -187,13 +187,15 @@ class FireSmokeUseCase(BaseProcessor):
                     self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
 
                 smooth_categories = {"fire", "smoke"}
-                fire_smoke_detections = [d for d in processed_data if d.get("category") in smooth_categories]
+                fire_smoke_detections = [d for d in processed_data if d.get("category", "").lower() in smooth_categories]
+
                 smoothed_detections = bbox_smoothing(
                     fire_smoke_detections,
                     self.smoothing_tracker.config,
                     self.smoothing_tracker
                 )
-                non_smoothed_detections = [d for d in processed_data if d.get("category") not in smooth_categories]
+                non_smoothed_detections = [d for d in processed_data if d.get("category", "").lower() not in smooth_categories]
+
                 processed_data = non_smoothed_detections + smoothed_detections
                 self.logger.debug("Applied bbox smoothing for fire/smoke categories")
 
@@ -691,8 +693,6 @@ class FireSmokeUseCase(BaseProcessor):
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
-        frame_tracking_stats.append(tracking_stat)
-        return tracking_stats
 
     def _generate_human_text_for_tracking(
             self,
@@ -754,11 +754,11 @@ class FireSmokeUseCase(BaseProcessor):
 
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
 
-        if is_video_chunk:
-            video_timestamp = stream_info.get("video_timestamp", 0.0)
-            return self._format_timestamp_for_video(video_timestamp)
-        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            return stream_info.get("video_timestamp", "")
+        # if is_video_chunk:
+        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
+        #     return self._format_timestamp_for_video(video_timestamp)
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            return stream_info.get("video_timestamp", "")[:8]
         else:
             stream_time_str = stream_info.get("stream_time", "")
             if stream_time_str:

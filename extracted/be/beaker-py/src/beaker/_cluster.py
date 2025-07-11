@@ -46,7 +46,6 @@ class ClusterClient(ServiceClient):
         sort_field: Literal[
             "created", "name", "running_jobs", "total_nodes", "total_gpus", "free_gpus"
         ] = "name",
-        include_deleted: bool = False,
         include_cluster_occupancy: bool = False,
         limit: int | None = None,
     ) -> Iterable[pb2.Cluster]:
@@ -73,7 +72,6 @@ class ClusterClient(ServiceClient):
                         free_gpus={} if sort_field == "free_gpus" else None,
                     ),
                     organization_id=self.resolve_org_id(org),
-                    include_deleted=include_deleted,
                     include_cluster_occupancy=include_cluster_occupancy,
                     page_size=self.MAX_PAGE_SIZE
                     if limit is None

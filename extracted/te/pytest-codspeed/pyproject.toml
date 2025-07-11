@@ -1,6 +1,6 @@
 [project.urls]
 Homepage = "https://codspeed.io/"
-Documentation = "https://docs.codspeed.io/"
+Documentation = "https://codspeed.io/docs/reference/pytest-codspeed"
 Source = "https://github.com/CodSpeedHQ/pytest-codspeed"
 
 [project]
@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-lint = ["mypy ~= 1.11.2", "ruff ~= 0.6.5"]
+lint = ["mypy ~= 1.11.2", "ruff ~= 0.11.12"]
 compat = [
     "pytest-benchmark ~= 5.0.0",
     "pytest-xdist ~= 3.6.1",
@@ -66,7 +66,7 @@ version = { attr = "pytest_codspeed.__version__" }
 
 
 [tool.bumpver]
-current_version = "3.2.0"
+current_version = "4.0.0"
 version_pattern = "MAJOR.MINOR.PATCH[-TAG[NUM]]"
 commit_message = "Release v{new_version} 🚀"
 tag_message = "Release v{new_version} 🚀"

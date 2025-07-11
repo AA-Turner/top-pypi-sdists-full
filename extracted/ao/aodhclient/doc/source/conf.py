@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -26,7 +25,7 @@ def gen_ref(ver, title, names):
     refdir = os.path.join(BASE_DIR, "ref")
     pkg = "aodhclient"
     if ver:
-        pkg = "%s.%s" % (pkg, ver)
+        pkg = "{}.{}".format(pkg, ver)
         refdir = os.path.join(refdir, ver)
     if not os.path.exists(refdir):
         os.makedirs(refdir)
@@ -55,6 +54,7 @@ def gen_ref(ver, title, names):
                              "signs": "=" * len(name),
                              "pkg": pkg, "name": name})
 
+
 gen_ref("v2", "Version 2 API", ["client"])
 
 # -- General configuration ----------------------------------------------------
@@ -64,7 +64,7 @@ gen_ref("v2", "Version 2 API", ["client"])
 extensions = [
     'sphinx.ext.autodoc',
     'openstackdocstheme',
-    #'sphinx.ext.intersphinx',
+    # 'sphinx.ext.intersphinx',
 ]
 
 # autodoc generation is a bit aggressive and a nuisance when doing heavy
@@ -81,7 +81,7 @@ master_doc = 'index'
 openstackdocs_repo_name = 'openstack/python-aodhclient'
 openstackdocs_bug_project = 'python-aodhclient'
 openstackdocs_bug_tag = ''
-copyright = u'2015, OpenStack Foundation'
+copyright = '2015, OpenStack Foundation'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
@@ -103,7 +103,7 @@ pygments_style = 'native'
 html_theme = 'openstackdocs'
 
 # Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = ['_theme']
+# html_theme_path = ['_theme']
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'aodhclientdoc'
@@ -114,9 +114,9 @@ htmlhelp_basename = 'aodhclientdoc'
 latex_documents = [
     ('index',
      'aodhclient.tex',
-     u'aodhclient Documentation',
-     u'OpenStack Foundation', 'manual'),
+     'aodhclient Documentation',
+     'OpenStack Foundation', 'manual'),
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
-#intersphinx_mapping = {'http://docs.python.org/': None}
+# intersphinx_mapping = {'http://docs.python.org/': None}

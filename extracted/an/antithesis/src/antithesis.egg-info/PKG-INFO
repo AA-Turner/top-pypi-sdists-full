@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: antithesis
-Version: 0.1.17
+Version: 0.1.18
 Summary: Antithesis SDK for Python
 License: 
         MIT License
@@ -43,6 +43,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cffi>=1.16.0
+Dynamic: license-file
 
 # Antithesis Python
 

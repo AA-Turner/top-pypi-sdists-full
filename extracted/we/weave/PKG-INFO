@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.51.55
+Version: 0.51.56
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -230,6 +230,7 @@ Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.9
 Requires-Dist: click
 Requires-Dist: diskcache==5.6.3
+Requires-Dist: eval-type-backport
 Requires-Dist: gql[aiohttp,requests]
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: nest-asyncio==1.6.0
@@ -238,6 +239,7 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: rich
 Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
 Requires-Dist: tenacity!=8.4.0,>=8.3.0
+Requires-Dist: wandb>=0.17.1
 Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.18.0; extra == 'anthropic'
 Provides-Extra: autogen
@@ -273,9 +275,7 @@ Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'docs'
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'docs'
 Requires-Dist: playwright; extra == 'docs'
 Provides-Extra: dspy
-Requires-Dist: dspy>=2.6.3; extra == 'dspy'
-Requires-Dist: litellm<=1.61.6; extra == 'dspy'
-Requires-Dist: numpy>1.21.0; extra == 'dspy'
+Requires-Dist: dspy>=2.6.27; extra == 'dspy'
 Provides-Extra: google-ai-studio
 Requires-Dist: google-generativeai>=0.8.3; extra == 'google-ai-studio'
 Provides-Extra: google-genai
@@ -352,7 +352,6 @@ Requires-Dist: clickhouse-connect==0.7.0; extra == 'test'
 Requires-Dist: confluent-kafka; extra == 'test'
 Requires-Dist: ddtrace>=2.7.0; extra == 'test'
 Requires-Dist: emoji>=2.12.1; extra == 'test'
-Requires-Dist: eval-type-backport; extra == 'test'
 Requires-Dist: fastapi>=0.110.0; extra == 'test'
 Requires-Dist: filelock; extra == 'test'
 Requires-Dist: flask; extra == 'test'

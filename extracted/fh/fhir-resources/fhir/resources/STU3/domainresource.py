@@ -26,7 +26,7 @@ class DomainResource(resource.Resource):
     __resource_type__ = "DomainResource"
 
     contained: typing.List[fhirtypes.ResourceType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="contained",
         title="Contained, inline Resources",
         description=(
@@ -40,7 +40,7 @@ class DomainResource(resource.Resource):
     )
 
     extension: typing.List[fhirtypes.ExtensionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="extension",
         title="Additional Content defined by implementations",
         description=(
@@ -58,7 +58,7 @@ class DomainResource(resource.Resource):
     )
 
     modifierExtension: typing.List[fhirtypes.ExtensionType] | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="modifierExtension",
         title="Extensions that cannot be ignored",
         description=(
@@ -79,7 +79,7 @@ class DomainResource(resource.Resource):
     )
 
     text: fhirtypes.NarrativeType | None = Field(  # type: ignore
-        None,
+        default=None,
         alias="text",
         title="Text summary of the resource, for human interpretation",
         description=(
@@ -98,9 +98,9 @@ class DomainResource(resource.Resource):
 
     @classmethod
     def elements_sequence(cls):
-        """returning all elements names from
-        ``DomainResource`` according specification,
-        with preserving original sequence order.
+        """returning all element names from
+        ``DomainResource`` according to specification,
+        with preserving the original sequence order.
         """
         return [
             "id",
@@ -112,3 +112,10 @@ class DomainResource(resource.Resource):
             "extension",
             "modifierExtension",
         ]
+
+    @classmethod
+    def summary_elements_sequence(cls):
+        """returning all element names (those have summary mode are enabled) from ``DomainResource`` according to specification,
+        with preserving the original sequence order.
+        """
+        return ["id", "meta", "implicitRules"]

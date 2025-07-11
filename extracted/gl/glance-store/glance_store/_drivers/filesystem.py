@@ -70,6 +70,14 @@ Related options:
 
 """),
     cfg.MultiStrOpt('filesystem_store_datadirs',
+                    deprecated_for_removal=True,
+                    deprecated_since='Flamingo',
+                    deprecated_reason="""
+Users willing to use multiple data directories should configure multiple
+filesystem stores instead of using filesystem_store_datadirs.
+
+This option is scheduled for removal in the H development cycle.
+""",
                     help="""
 List of directories and their priorities to which the filesystem
 backend store writes images.
@@ -285,6 +293,14 @@ class Store(glance_store.driver.Store):
     OPTIONS = _FILESYSTEM_CONFIGS
     FILESYSTEM_STORE_METADATA = None
 
+    def __init__(self, *args, **kargs):
+        super(Store, self).__init__(*args, **kargs)
+        if self.backend_group:
+            self.store_conf = glance_store.driver.BackendGroupConfiguration(
+                self.OPTIONS, self.backend_group, conf=self.conf)
+        else:
+            self.store_conf = self.conf.glance_store
+
     def get_schemes(self):
         return ('file', 'filesystem')
 
@@ -311,11 +327,7 @@ class Store(glance_store.driver.Store):
         :datadir is a directory path in which glance writes image files.
         """
 
-        if self.backend_group:
-            fstore_perm = getattr(
-                self.conf, self.backend_group).filesystem_store_file_perm
-        else:
-            fstore_perm = self.conf.glance_store.filesystem_store_file_perm
+        fstore_perm = self.store_conf.filesystem_store_file_perm
 
         if fstore_perm <= 0:
             return
@@ -421,19 +433,14 @@ class Store(glance_store.driver.Store):
         this method. If the store was not able to successfully configure
         itself, it should raise `exceptions.BadStoreConfiguration`
         """
-        if self.backend_group:
-            store_conf = getattr(self.conf, self.backend_group)
-        else:
-            store_conf = self.conf.glance_store
+        fdir = self.store_conf.filesystem_store_datadir
+        fdirs = self.store_conf.filesystem_store_datadirs
+        fstore_perm = self.store_conf.filesystem_store_file_perm
+        meta_file = self.store_conf.filesystem_store_metadata_file
 
-        fdir = store_conf.filesystem_store_datadir
-        fdirs = store_conf.filesystem_store_datadirs
-        fstore_perm = store_conf.filesystem_store_file_perm
-        meta_file = store_conf.filesystem_store_metadata_file
-
-        self.thin_provisioning = store_conf.\
+        self.thin_provisioning = self.store_conf.\
             filesystem_thin_provisioning
-        self.chunk_size = store_conf.filesystem_store_chunk_size
+        self.chunk_size = self.store_conf.filesystem_store_chunk_size
         self.READ_CHUNKSIZE = self.chunk_size
         self.WRITE_CHUNKSIZE = self.READ_CHUNKSIZE
 
@@ -745,6 +752,14 @@ class Store(glance_store.driver.Store):
             with open(filepath, 'wb') as f:
                 for buf in utils.chunkreadable(image_file,
                                                self.WRITE_CHUNKSIZE):
+                    actual_to_write = bytes_written + len(buf)
+                    if image_size != 0 and actual_to_write > image_size:
+                        raise glance_store.Invalid(
+                            _("Size exceeds: expected "
+                              "%(expected)d "
+                              "bytes, got %(actual)d bytes") %
+                            {'expected': image_size,
+                             'actual': actual_to_write})
                     bytes_written += len(buf)
                     os_hash_value.update(buf)
                     checksum.update(buf)
@@ -766,6 +781,15 @@ class Store(glance_store.driver.Store):
             with excutils.save_and_reraise_exception():
                 self._delete_partial(filepath, image_id)
 
+        # Final size check after reading all chunks
+        if image_size != 0 and bytes_written != image_size:
+            # Cleanup and raise exception after write size mismatch
+            self._delete_partial(filepath, image_id)
+            message = (_("Size mismatch: expected %(expected)d bytes, "
+                         "got %(actual)d bytes") %
+                       {'expected': image_size, 'actual': bytes_written})
+            raise glance_store.Invalid(message=message)
+
         hash_hex = os_hash_value.hexdigest()
         checksum_hex = checksum.hexdigest()
         metadata = self._get_metadata(filepath)
@@ -777,11 +801,7 @@ class Store(glance_store.driver.Store):
                    'checksum_hex': checksum_hex,
                    'hash_hex': hash_hex})
 
-        if self.backend_group:
-            fstore_perm = getattr(
-                self.conf, self.backend_group).filesystem_store_file_perm
-        else:
-            fstore_perm = self.conf.glance_store.filesystem_store_file_perm
+        fstore_perm = self.store_conf.filesystem_store_file_perm
 
         if fstore_perm > 0:
             perm = int(str(fstore_perm), 8)
